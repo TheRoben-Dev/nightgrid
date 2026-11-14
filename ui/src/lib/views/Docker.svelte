@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import type { ContainerView, DockerAction } from "../api";
   import ContainerPanel from "../components/docker/ContainerPanel.svelte";
+  import StacksPanel from "../components/docker/StacksPanel.svelte";
   import Modal from "../components/Modal.svelte";
   import AuthPrompt from "../components/terminal/AuthPrompt.svelte";
   import HostKeyPrompt from "../components/terminal/HostKeyPrompt.svelte";
@@ -93,7 +94,7 @@
   ];
 </script>
 
-<div class="docker" class:with-panel={!!docker.detail}>
+<div class="docker" class:with-panel={!!docker.detail && docker.tab === "containers"}>
   <div class="toolbar">
     <label class="hostpick">
       <span class="label">HOST</span>
@@ -106,6 +107,14 @@
         {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
       </select>
     </label>
+    <div class="tabs" role="tablist" aria-label="Docker view">
+      <button type="button" role="tab" class:on={docker.tab === "containers"} aria-selected={docker.tab === "containers"} onclick={() => (docker.tab = "containers")}
+        >CONTAINERS</button
+      >
+      <button type="button" role="tab" class:on={docker.tab === "stacks"} aria-selected={docker.tab === "stacks"} onclick={() => (docker.tab = "stacks")}
+        >STACKS</button
+      >
+    </div>
     {#if docker.info}
       <span class="engine" title={docker.info.route}>ENGINE {docker.info.version} · API {docker.info.apiVersion}</span>
     {/if}
@@ -113,14 +122,20 @@
       <span class="counts"><span class="mint">{docker.running}</span> / {docker.containers.length} RUNNING</span>
     {/if}
     <span class="spacer"></span>
-    <input class="input filter" type="search" placeholder="Filter name, image, project" bind:value={docker.filter} aria-label="Filter containers" />
-    <label class="chk"><input type="checkbox" bind:checked={docker.showStopped} /> stopped</label>
+    <input
+      class="input filter"
+      type="search"
+      placeholder={docker.tab === "stacks" ? "Filter stacks" : "Filter name, image, project"}
+      bind:value={docker.filter}
+      aria-label="Filter"
+    />
+    {#if docker.tab === "containers"}<label class="chk"><input type="checkbox" bind:checked={docker.showStopped} /> stopped</label>{/if}
     <button type="button" class="btn ghost tiny" onclick={() => docker.refresh()} disabled={docker.loading}>
       {docker.loading ? "…" : "Refresh"}
     </button>
   </div>
 
-  {#if sel.length}
+  {#if sel.length && docker.tab === "containers"}
     <div class="selbar" role="toolbar" aria-label="Selected containers">
       <span class="count">{sel.length} SELECTED</span>
       {#each bulk as a (a.kind)}
@@ -190,6 +205,8 @@
         </div>
       {:else if !docker.loaded}
         <p class="muted pad">Connecting to Docker on {hostName}…</p>
+      {:else if docker.tab === "stacks"}
+        <StacksPanel />
       {:else if !docker.groups.length}
         <p class="muted pad">{docker.containers.length ? "No containers match." : "No containers on this host."}</p>
       {:else}
@@ -280,7 +297,7 @@
       {/if}
     </div>
 
-    {#if docker.detail && docker.hostId !== null}
+    {#if docker.detail && docker.hostId !== null && docker.tab === "containers"}
       <div class="side">
         <ContainerPanel hostId={docker.hostId} container={docker.detail} onclose={() => (docker.detailId = null)} />
       </div>
@@ -358,6 +375,27 @@
   .selbar .count {
     color: var(--magenta);
     letter-spacing: 0.12em;
+  }
+  .tabs {
+    display: flex;
+    border: 1px solid var(--line);
+  }
+  .tabs button {
+    border: 0;
+    background: transparent;
+    color: var(--text-1);
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    padding: 3px 10px;
+    cursor: pointer;
+  }
+  .tabs button + button {
+    border-left: 1px solid var(--line);
+  }
+  .tabs button.on {
+    color: var(--magenta);
+    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .hostpick {
     display: flex;

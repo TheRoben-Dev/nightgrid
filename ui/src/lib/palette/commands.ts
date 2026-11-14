@@ -82,6 +82,19 @@ export function buildCommands(): PaletteCommand[] {
     keywords: ["containers", "compose", h.hostname],
     run: () => {
       docker.select(h.id);
+      docker.tab = "containers";
+      ui.go("docker");
+    },
+  }));
+
+  const stackHosts: PaletteCommand[] = hosts.hosts.map((h) => ({
+    id: `stacks.${h.id}`,
+    title: `Stacks: ${h.name}`,
+    group: "DOCKER",
+    keywords: ["compose", "docker compose", "up", "pull", "update", h.hostname],
+    run: () => {
+      docker.select(h.id);
+      docker.tab = "stacks";
       ui.go("docker");
     },
   }));
@@ -137,5 +150,6 @@ export function buildCommands(): PaletteCommand[] {
     })),
   ];
 
-  return [...connect, ...browse, ...dockerHosts, ...containers, ...hostCmds, ...nav, ...view, ...themes];
+  return [...connect, ...browse, ...dockerHosts,
+    ...stackHosts, ...containers, ...hostCmds, ...nav, ...view, ...themes];
 }

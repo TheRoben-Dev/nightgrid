@@ -97,3 +97,13 @@ Roben wanted normal editor keybinds instead of nano when editing on a server. Wi
 
 ### D-031 · Editor keybinds stay CodeMirror's standard keymap
 The built-in editor already uses the platform-standard bindings: CodeMirror's default, history, search and fold keymaps (`Mod+Z`, `Mod+Shift+Z`/`Mod+Y`, `Mod+F`, `Mod+A`, Shift+arrows, Home/End), plus `Mod+S`. No vim/emacs modes and no nano-style chords.
+
+### D-032 · Compose runs the CLI on the host, not the API
+Compose is a client-side tool, so stacks run `docker compose` (or `docker-compose`) in the stack folder over an SSH exec channel, with `exec 2>&1` so progress and errors arrive in order. For rootless sockets we set `DOCKER_HOST` the same way as for dial-stdio. The project name, folder and compose files come from the container labels (or the folder scan), are checked (compose's project-name rule, absolute paths without control characters) and are shell-quoted. Cancel sends SIGINT on the channel, like Ctrl-C. "Update" compares each service's image id before the pull and after `up -d`, and lists only the services that changed.
+
+### D-033 · Stack folders are per host, in SQLite
+Running containers only reveal stacks that are up. To manage stacks that are down, the user adds folders per host (`stack_dirs` table, migration 0004). A short `sh` scan looks for compose files in each folder and one level below. Paths may start with `~`, which expands on the host. No secrets are involved; `.env` files stay on the host and are only read when the user opens one in the editor.
+
+### D-034 · Which stack actions confirm
+Down, Restart and Update interrupt running services, so they confirm with the stack name and host (rule 5). Up and Pull don't stop anything that is running and run straight away. Stack actions are single-host, so no typed name is needed.
+

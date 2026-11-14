@@ -66,6 +66,9 @@
       <button type="button" class="btn primary tiny" disabled={doc.saving} onclick={() => onreturn?.(true)}>Save &amp; return</button>
     </div>
   {/if}
+  {#if doc.isNew && !doc.returnTo}
+    <div class="banner from-term" role="status"><span><strong>{doc.name}</strong> doesn't exist yet; saving creates it.</span></div>
+  {/if}
   {#if doc.conflict}
     <div class="banner warn" role="alert">
       <span><strong>{doc.path}</strong> changed on {doc.where} since you opened it.</span>

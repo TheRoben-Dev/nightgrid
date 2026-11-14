@@ -13,6 +13,10 @@ import type {
   LogEvent_Serialize as LogEvent,
   LogLine_Serialize as LogLine,
   LogQuery_Deserialize as LogQuery,
+  ComposeEvent_Serialize as ComposeEvent,
+  ComposeOp,
+  Stack,
+  StackDir,
 } from "./bindings";
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -47,6 +51,7 @@ function seed(): Fake[] {
       project,
       service,
       composeDir: project ? `/srv/${project}` : null,
+      composeFiles: project ? [`/srv/${project}/compose.yaml`] : [],
     },
     env,
   });
@@ -95,6 +100,35 @@ function fakeLine(name: string, i: number): LogLine {
     text: err ? `error: upstream timeout (attempt ${i % 3})` : msgs[i % msgs.length],
   };
 }
+
+let stackDirs: StackDir[] = [];
+let nextDir = 1;
+const composeRuns = new Map<number, ReturnType<typeof setInterval>>();
+let nextRun = 1;
+
+function stacksOf(hostId: number): Stack[] {
+  const by = new Map<string, Stack>();
+  for (const { view: v } of list(hostId)) {
+    if (!v.project) continue;
+    const s = by.get(v.project) ?? {
+      name: v.project,
+      dir: v.composeDir ?? `/srv/${v.project}`,
+      files: v.composeFiles,
+      running: 0,
+      total: 0,
+      inFolder: false,
+    };
+    s.total++;
+    if (v.state === "running") s.running++;
+    by.set(v.project, s);
+  }
+  if (stackDirs.some((d) => d.hostId === hostId)) {
+    by.set("vault", { name: "vault", dir: "/opt/stacks/vault", files: ["/opt/stacks/vault/compose.yaml"], running: 0, total: 0, inFolder: true });
+    for (const s of by.values()) if (s.dir.startsWith("/srv/")) s.inFolder = true;
+  }
+  return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
 
 export const mockDocker = {
   info: (hostId: number): Promise<EngineInfo> =>
@@ -228,6 +262,52 @@ export const mockDocker = {
   logsStop: (sid: number): Promise<null> => {
     clearInterval(logStreams.get(sid));
     logStreams.delete(sid);
+    return delay(null, 0);
+  },
+  stacks: (hostId: number): Promise<Stack[]> => delay(stacksOf(hostId), 200),
+  stackDirs: (hostId: number): Promise<StackDir[]> => delay(stackDirs.filter((d) => d.hostId === hostId)),
+  stackDirAdd: (hostId: number, path: string): Promise<StackDir> => {
+    const d = { id: nextDir++, hostId, path };
+    stackDirs = [...stackDirs, d];
+    return delay(d);
+  },
+  stackDirDelete: (id: number): Promise<null> => {
+    stackDirs = stackDirs.filter((d) => d.id !== id);
+    return delay(null);
+  },
+  composeRun: (hostId: number, stack: Stack, op: ComposeOp, on: (e: ComposeEvent) => void): Promise<number> => {
+    const run = nextRun++;
+    const svcs = list(hostId).filter((c) => c.view.project === stack.name);
+    const script: string[] =
+      op === "down"
+        ? [...svcs.map((c) => ` Container ${c.view.name}  Stopping`), ...svcs.map((c) => ` Container ${c.view.name}  Removed`), ` Network ${stack.name}_default  Removed`]
+        : op === "pull" || op === "update"
+          ? [...svcs.map((c) => ` ${c.view.service} Pulling`), ...svcs.map((c) => ` ${c.view.service} Pulled`)]
+          : svcs.map((c) => ` Container ${c.view.name}  Started`);
+    if (op === "update") script.push("", "── pull done, recreating changed services (up -d) ──", ...svcs.map((c) => ` Container ${c.view.name}  Started`));
+    let i = 0;
+    composeRuns.set(
+      run,
+      setInterval(() => {
+        if (i < script.length) {
+          on({ kind: "lines", lines: [script[i++]] });
+          return;
+        }
+        clearInterval(composeRuns.get(run));
+        composeRuns.delete(run);
+        for (const c of svcs) {
+          if (op === "down") c.view.state = "exited";
+          else if (op !== "pull") c.view.state = "running";
+        }
+        const changes = op === "update" && svcs[0] ? [{ service: svcs[0].view.service ?? "", image: svcs[0].view.image, before: "1a2b3c4d5e6f", after: "6f5e4d3c2b1a" }] : null;
+        on({ kind: "done", code: 0, changes, error: null });
+      }, 250),
+    );
+    return delay(run, 30);
+  },
+  composeCancel: (run: number): Promise<null> => {
+    clearInterval(composeRuns.get(run));
+    composeRuns.delete(run);
     return delay(null, 0);
   },
 };
