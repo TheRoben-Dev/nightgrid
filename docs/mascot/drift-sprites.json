@@ -1,0 +1,335 @@
+{
+ "name": "DRIFT",
+ "grid": [
+  24,
+  18
+ ],
+ "icon_grid": [
+  16,
+  16
+ ],
+ "palette": {
+  "M": {
+   "css": "var(--mint, #BDF5EC)",
+   "fallback": "#BDF5EC"
+  },
+  "m": {
+   "css": "color-mix(in srgb, var(--mint) 35%, var(--bg-2))",
+   "fallback": "#4F6A68"
+  },
+  "D": {
+   "css": "var(--bg-2, #141821)",
+   "fallback": "#141821"
+  },
+  "B": {
+   "css": "var(--bg-0, #07080B)",
+   "fallback": "#07080B"
+  },
+  "L": {
+   "css": "var(--line, #1F2633)",
+   "fallback": "#1F2633"
+  },
+  "C": {
+   "css": "var(--cyan, #00E5FF)",
+   "fallback": "#00E5FF"
+  },
+  "c": {
+   "css": "color-mix(in srgb, var(--cyan) 35%, var(--bg-0))",
+   "fallback": "#0A5560"
+  },
+  "W": {
+   "css": "var(--text-0, #E6EDF3)",
+   "fallback": "#E6EDF3"
+  },
+  "K": {
+   "css": "var(--magenta, #FF2A6D)",
+   "fallback": "#FF2A6D"
+  },
+  "k": {
+   "css": "color-mix(in srgb, var(--magenta) 45%, var(--bg-0))",
+   "fallback": "#7A1736"
+  },
+  "Y": {
+   "css": "var(--accent, #F3E600)",
+   "fallback": "#F3E600"
+  },
+  "G": {
+   "css": "var(--ok, #2BFF88)",
+   "fallback": "#2BFF88"
+  },
+  "R": {
+   "css": "var(--danger, #FF003C)",
+   "fallback": "#FF003C"
+  },
+  "O": {
+   "css": "var(--warn, #FF9F1C)",
+   "fallback": "#FF9F1C"
+  }
+ },
+ "glow_keys": [
+  "C",
+  "G",
+  "K",
+  "O",
+  "R",
+  "Y"
+ ],
+ "frames": {
+  "idle": [
+   ".....Y..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDKKKKDMMMMDmmmmDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBWCCBBBBBBWCCBBDMM.",
+   ".MMDBBCCCBBBBBBCCCBBDMM.",
+   ".MMDBBCCCBBBBBBCCCBBDMM.",
+   "..MDBBBBBBBBBBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDYDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "..........KKKK..........",
+   "...........kk...........",
+   "........................"
+  ],
+  "blink": [
+   ".....Y..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDKKKKDMMMMDmmmmDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBCCCBBBBBBCCCBBDMM.",
+   "..MDBBBBBBBBBBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDYDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "..........KKKK..........",
+   "...........kk...........",
+   "........................"
+  ],
+  "think": [
+   ".....Y..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDKKKKDKKKKDmmmmDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBBCCCCCCCCCCBBBDMM.",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   "..MDBBBBBBBBBBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDYDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "...........KK...........",
+   "........................",
+   "........................"
+  ],
+  "talk": [
+   ".....Y..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDKKKKDMMMMDmmmmDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBWCCBBBBBBWCCBBDMM.",
+   ".MMDBBCCCBBBBBBCCCBBDMM.",
+   ".MMDBBBBBCBCCBCBBBBBDMM.",
+   "..MDBBBBBBCCCCBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDYDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "..........KKKK..........",
+   "...........kk...........",
+   "........................"
+  ],
+  "point": [
+   ".....Y..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDKKKKDMMMMDmmmmDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBBBWCCBBBBBBWCCDMM.",
+   ".MMDBBBBCCCBBBBBBCCCDMM.",
+   ".MMDBBBBCCCBBBBBBCCCDMM.",
+   "..MDBBBBBBBBBBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDYDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "..........KKKK..........",
+   "...........kk...........",
+   "........................"
+  ],
+  "listen": [
+   ".....Y..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDKKKKDMMMMDmmmmDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBWCCBBBBBBWCCBBDMM.",
+   ".MMDBBCCCBBBBBBCCCBBDMM.",
+   ".MMDBBCCCBBBBBBCCCBBDMM.",
+   "..MDBBBBBBBCCBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDYDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "..........KKKK..........",
+   "...........kk...........",
+   "........................"
+  ],
+  "success": [
+   ".....G..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDMMMMDMMMMDMMMMDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBBCBBBBBBBBCBBBDMM.",
+   ".MMDBBCBCBBBBBBCBCBBDMM.",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   "..MDBBBBBBBBBBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDGDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "..........KKKK..........",
+   "...........kk...........",
+   "........................"
+  ],
+  "error": [
+   ".....R..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDRRRRDRRRRDRRRRDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBRBRBBBBBBRBRBBDMM.",
+   ".MMDBBBRBBBBBBBBRBBBDMM.",
+   ".MMDBBRBRBBBBBBRBRBBDMM.",
+   "..MDBBBBBBBBBBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDRDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "...........kk...........",
+   "........................",
+   "........................"
+  ],
+  "confused": [
+   ".....Y..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDKKKKDmmmmDYYYYDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBWCCBBBBBBBBBBBDMM.",
+   ".MMDBBCCCBBBBBBCCCBBDMM.",
+   ".MMDBBCCCBBBBBBBBBBBDMM.",
+   "..MDBBBBBBBBBBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDYDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "..........KKKK..........",
+   "...........kk...........",
+   "........................"
+  ],
+  "sleep": [
+   ".....m..................",
+   ".....M............M.....",
+   ".....M............M.....",
+   "..MMMMMMMMMMMMMMMMMM....",
+   "..MDDDDDDDDDDDDDDDDDM...",
+   "..MDDmmmmDmmmmDmmmmDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   "..MDDDDDDDDDDDDDDDDDDM..",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   ".MMDBBcccBBBBBBcccBBDMM.",
+   ".MMDBBBBBBBBBBBBBBBBDMM.",
+   "..MDBBBBBBBBBBBBBBBBDM..",
+   "...MDDDDDDDDDDLLLDLDDM..",
+   "....MMMMMMMMMMMMMMMMMM..",
+   "........................",
+   "........................",
+   "........................"
+  ]
+ },
+ "icon": {
+  "idle": [
+   "....Y...........",
+   "....M...........",
+   ".MMMMMMMMMMMMM..",
+   ".MDKKKDMMMDmmDM.",
+   ".MDDDDDDDDDDDDM.",
+   ".MDBBBBBBBBBBDM.",
+   ".MDBWCCBBWCCBDM.",
+   ".MDBCCCBBCCCBDM.",
+   ".MDBCCCBBCCCBDM.",
+   ".MDBBBBBBBBBBDM.",
+   ".MDDDDDDDDDDDDM.",
+   ".MDDDDDDDDDDYDM.",
+   "..MMMMMMMMMMMMM.",
+   "......KKKK......",
+   ".......kk.......",
+   "................"
+  ],
+  "think": [
+   "....Y...........",
+   "....M...........",
+   ".MMMMMMMMMMMMM..",
+   ".MDKKKDMMMDmmDM.",
+   ".MDDDDDDDDDDDDM.",
+   ".MDBBBBBBBBBBDM.",
+   ".MDBBBBBBBBBBDM.",
+   ".MDBCCCCCCCCBDM.",
+   ".MDBBBBBBBBBBDM.",
+   ".MDBBBBBBBBBBDM.",
+   ".MDDDDDDDDDDDDM.",
+   ".MDDDDDDDDDDYDM.",
+   "..MMMMMMMMMMMMM.",
+   "......KKKK......",
+   ".......kk.......",
+   "................"
+  ],
+  "error": [
+   "....Y...........",
+   "....M...........",
+   ".MMMMMMMMMMMMM..",
+   ".MDKKKDMMMDmmDM.",
+   ".MDDDDDDDDDDDDM.",
+   ".MDBBBBBBBBBBDM.",
+   ".MDBWCCBBWCCBDM.",
+   ".MDBCCCBBCCCBDM.",
+   ".MDBCCCBBCCCBDM.",
+   ".MDBBBBBBBBBBDM.",
+   ".MDDDDDDDDDDDDM.",
+   ".MDDDDDDDDDDRDM.",
+   "..MMMMMMMMMMMMM.",
+   "......KKKK......",
+   ".......kk.......",
+   "................"
+  ]
+ }
+}
