@@ -2,7 +2,7 @@
 
 Agentless homelab command center: SSH terminals, SFTP, Docker, monitoring, services and tunnels in one native-feeling desktop app. Built with Tauri 2, Rust and Svelte 5.
 
-> Status: **M0 — skeleton**. The app shell, theme system, settings storage and CI are in place; features land milestone by milestone (see [`PROJECT_PROMPT.md`](PROJECT_PROMPT.md) §9).
+> Status: **M4 — monitoring**. Hosts + terminals, SFTP + editor, Docker + compose stacks and live host monitoring are in; the rest lands milestone by milestone (see [`PROJECT_PROMPT.md`](PROJECT_PROMPT.md) §9).
 
 ## Repository layout
 
@@ -51,7 +51,7 @@ pnpm tauri build                       # all bundle targets for the current OS
 pnpm tauri build --bundles app,dmg     # macOS
 ```
 
-CI builds an NSIS installer + portable zip (Windows), a `.dmg` (macOS arm64) and `.deb`/`.rpm`/AppImage (Linux) on every PR; grab them from the run's artifacts. Flatpak and the AUR package come in M9.
+Prereleases with all installers are on the [Releases](https://github.com/TheRoben-Dev/nightgrid/releases) page. CI also builds an NSIS installer + portable zip (Windows), a `.dmg` (macOS arm64) and `.deb`/`.rpm`/AppImage (Linux) on every PR; grab them from the run's artifacts. Flatpak and the AUR package come in M9.
 
 ### macOS: opening an unsigned build
 
@@ -86,6 +86,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 5. `Cmd+K` → `Docker: <host>`, `Logs: <name>` or `Shell: <name>`.
 6. **STACKS** tab: your compose projects are listed. Open **STACK FOLDERS** and add the folder that holds your stacks (e.g. `/opt/stacks`) to see stopped ones too.
 7. On a stack, click `compose.yaml` or `.env` to edit it in the editor. **Pull** and **Up** run straight away; **Update**, **Restart** and **Down** ask first. Watch the output console; **Update** ends with a list of services that got a new image. **Cancel** stops a running command.
+
+### macOS: testing M4 (monitoring)
+
+1. Open the Overview (`Cmd+1`). Within a few seconds each Linux host's tile shows CPU with a sparkline, MEM and DSK meters, network rates and uptime (temperature too on bare metal / a Pi).
+2. A host that needs a password or a new host key says **LOGIN NEEDED** and doesn't prompt. Open a terminal on it once (`Cmd+2`), then its tile goes live.
+3. Click Lumen's tile: the monitor shows per-core bars, mounts, disks, interfaces and temperatures. Run `yes > /dev/null &` in a Lumen terminal and watch CPU climb; `kill %1` after.
+4. **HISTORY**: after a couple of minutes the 1H chart has points; hover for values. Switch CPU / MEMORY / NETWORK / DISK I/O / TEMP and the ranges. History only records while the app runs.
+5. Offline: turn Wi-Fi off. The tile goes **OFFLINE · RETRY nS** with a growing interval; `↻` on the tile retries now.
+6. Settings (`Cmd+,`) → **Monitoring**: change the sample interval or turn metrics off; tiles follow straight away. `Cmd+K` → `Monitor: Lumen` opens the panel too.
 
 ### macOS: testing ASCII host icons
 

@@ -3,9 +3,9 @@
   import Barcode from "../components/Barcode.svelte";
   import Panel from "../components/Panel.svelte";
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
-  import HostIcon from "../components/HostIcon.svelte";
+  import HostTile from "../components/metrics/HostTile.svelte";
   import { hosts } from "../stores/hosts.svelte";
-  import { terms } from "../stores/terms.svelte";
+  import { metrics } from "../stores/metrics.svelte";
   import { ui } from "../stores/ui.svelte";
 
   interface Props {
@@ -13,13 +13,19 @@
   }
   let { info }: Props = $props();
 
+  // Overview tiles poll at the fast interval while this view is shown.
+  $effect(() => {
+    metrics.setVisible("overview", hosts.hosts.map((h) => h.id));
+    return () => metrics.setVisible("overview", []);
+  });
+
   const ROADMAP = [
     ["M0", "Skeleton", "done"],
     ["M1", "Hosts + terminal", "done"],
     ["M2", "SFTP + editor", "done"],
     ["M3", "Docker", "done"],
-    ["M4", "Monitoring + overview", "next"],
-    ["M5", "Services, Homepage import, tunnels", "todo"],
+    ["M4", "Monitoring + overview", "done"],
+    ["M5", "Services, Homepage import, tunnels", "next"],
     ["M6", "systemd, journal, updates, SMART", "todo"],
     ["M7", "Integrations, alerts, tray", "todo"],
     ["M8", "Automation", "todo"],
@@ -33,27 +39,9 @@
       {#if hosts.hosts.length}
         <div class="hostgrid">
           {#each hosts.hosts as h (h.id)}
-            {@const p = hosts.pings[h.id]}
-            {@const st = !p ? "unknown" : p.connected ? "connected" : p.state}
-            <button type="button" class="htile {st}" onclick={() => terms.openHost(h.id)} title="Open a shell on {h.name}">
-              <span class="stripe" style:background={h.color ?? "var(--line)"} aria-hidden="true"></span>
-              <HostIcon art={h.icon} color={h.color} />
-              <span class="hname">{h.name}{#if h.favorite}<span class="star" aria-hidden="true"> ★</span>{/if}</span>
-              <span class="hhost">{h.username ? `${h.username}@` : ""}{h.hostname}</span>
-              <span class="hstate">
-                <i aria-hidden="true"></i>
-                {st === "connected"
-                  ? "LINKED"
-                  : st === "online"
-                    ? `ONLINE${p?.latencyMs != null ? ` · ${p.latencyMs}MS` : ""}`
-                    : st === "offline"
-                      ? "OFFLINE"
-                      : "VIA JUMP / UNKNOWN"}
-              </span>
-            </button>
+            <HostTile host={h} ping={hosts.pings[h.id]} />
           {/each}
         </div>
-        <p class="muted hint">Live CPU / RAM / disk tiles arrive in M4.</p>
       {:else}
       <div class="empty">
         <div class="tiles" aria-hidden="true">
@@ -114,81 +102,8 @@
 <style>
   .hostgrid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 8px;
-  }
-  .htile {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 10px 12px 10px 16px;
-    border: 1px solid var(--line);
-    background: var(--bg-0);
-    text-align: left;
-    cursor: pointer;
-    min-width: 0;
-  }
-  .htile:hover {
-    border-color: var(--magenta);
-    box-shadow: var(--glow-active);
-  }
-  .htile .stripe {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-  }
-  .hname {
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: var(--fs-lg);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-0);
-  }
-  .star {
-    color: var(--accent);
-    font-size: var(--fs-xs);
-  }
-  .hhost {
-    font-size: var(--fs-xs);
-    color: var(--text-1);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .hstate {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    color: var(--text-1);
-  }
-  .hstate i {
-    width: 6px;
-    height: 6px;
-    border: 1px solid currentColor;
-  }
-  .online .hstate {
-    color: var(--mint);
-  }
-  .online .hstate i,
-  .connected .hstate i {
-    background: currentColor;
-  }
-  .connected .hstate {
-    color: var(--magenta);
-  }
-  .offline .hstate {
-    color: var(--danger);
-  }
-  .hint {
-    margin: 10px 0 0;
-    font-size: var(--fs-xs);
   }
   .grid {
     display: grid;

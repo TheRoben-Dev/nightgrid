@@ -43,6 +43,14 @@ pub struct AppSettings {
     /// SSH terminals: `nano FILE` and `$EDITOR` open the file in the app's
     /// editor (session-only shell hook, see `edit_hook`).
     pub term_edit_in_app: bool,
+    /// Collect host metrics (CPU, memory, disks, network, temps) over SSH.
+    pub metrics_enabled: bool,
+    /// Seconds between samples for hosts on screen.
+    pub metrics_interval_secs: u16,
+    /// Seconds between samples for hosts not on screen.
+    pub metrics_background_secs: u16,
+    /// Days of 1-minute history to keep (15-minute rollups are kept 90 days).
+    pub metrics_retention_days: u16,
 }
 
 impl Default for AppSettings {
@@ -59,6 +67,10 @@ impl Default for AppSettings {
             term_right_click_paste: true,
             term_cursor_blink: true,
             term_edit_in_app: false,
+            metrics_enabled: true,
+            metrics_interval_secs: 2,
+            metrics_background_secs: 60,
+            metrics_retention_days: 7,
         }
     }
 }
@@ -80,6 +92,16 @@ impl AppSettings {
                 reason: format!("must be between {TERM_FONT_MIN} and {TERM_FONT_MAX}"),
             });
         }
+        let range = |field: &'static str, v: u16, lo: u16, hi: u16| {
+            if (lo..=hi).contains(&v) {
+                Ok(())
+            } else {
+                Err(Error::Invalid { field, reason: format!("must be between {lo} and {hi}") })
+            }
+        };
+        range("metricsIntervalSecs", self.metrics_interval_secs, 1, 60)?;
+        range("metricsBackgroundSecs", self.metrics_background_secs, 10, 600)?;
+        range("metricsRetentionDays", self.metrics_retention_days, 1, 90)?;
         if self.term_scrollback > TERM_SCROLLBACK_MAX {
             return Err(Error::Invalid { field: "termScrollback", reason: format!("at most {TERM_SCROLLBACK_MAX}") });
         }

@@ -108,6 +108,22 @@ export const commands = {
 	stackDirsAdd: (hostId: number, path: string, options?: InvokeOptions) => __TAURI_INVOKE<StackDir>("stack_dirs_add", { hostId, path }, options),
 	stackDirsDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("stack_dirs_delete", { id }, options),
 	/**
+	 *  Subscribes the UI to samples and states, starts the pollers and the
+	 *  hourly history pruning. Calling it again replaces the channel.
+	 */
+	metricsSubscribe: (onEvent: Channel<MetricsEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("metrics_subscribe", { onEvent }, options),
+	/**
+	 *  Re-reads the host list and settings (after hosts were added/removed or
+	 *  metrics were turned on/off) and wakes every poller.
+	 */
+	metricsSync: (options?: InvokeOptions) => __TAURI_INVOKE<null>("metrics_sync", undefined, options),
+	/**  Hosts currently on screen (sampled fast). An empty list = window hidden. */
+	metricsSetVisible: (hostIds: number[], options?: InvokeOptions) => __TAURI_INVOKE<null>("metrics_set_visible", { hostIds }, options),
+	/**  Retry a host now (skips the offline backoff). */
+	metricsRetry: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("metrics_retry", { hostId }, options),
+	/**  Stored history between `from` and `to` (unix seconds). */
+	metricsHistory: (hostId: number, from: number | null, to: number | null, options?: InvokeOptions) => __TAURI_INVOKE<Point_Serialize[]>("metrics_history", { hostId, from, to }, options),
+	/**
 	 *  Opens a terminal tab with an interactive shell inside a container
 	 *  (`docker exec -it`, bash if present, else sh). Reconnects re-run it.
 	 */
@@ -194,6 +210,14 @@ export type AppSettings_Deserialize = {
 	 *  editor (session-only shell hook, see `edit_hook`).
 	 */
 	termEditInApp?: boolean,
+	/**  Collect host metrics (CPU, memory, disks, network, temps) over SSH. */
+	metricsEnabled?: boolean,
+	/**  Seconds between samples for hosts on screen. */
+	metricsIntervalSecs?: number,
+	/**  Seconds between samples for hosts not on screen. */
+	metricsBackgroundSecs?: number,
+	/**  Days of 1-minute history to keep (15-minute rollups are kept 90 days). */
+	metricsRetentionDays?: number,
 };
 
 /**
@@ -225,6 +249,14 @@ export type AppSettings_Serialize = {
 	 *  editor (session-only shell hook, see `edit_hook`).
 	 */
 	termEditInApp: boolean,
+	/**  Collect host metrics (CPU, memory, disks, network, temps) over SSH. */
+	metricsEnabled: boolean,
+	/**  Seconds between samples for hosts on screen. */
+	metricsIntervalSecs: number,
+	/**  Seconds between samples for hosts not on screen. */
+	metricsBackgroundSecs: number,
+	/**  Days of 1-minute history to keep (15-minute rollups are kept 90 days). */
+	metricsRetentionDays: number,
 };
 
 export type AuthMethod = 
@@ -815,6 +847,22 @@ export type LogQuery_Serialize = {
 
 export type LogStream = "out" | "err";
 
+export type MetricsEvent = MetricsEvent_Serialize | MetricsEvent_Deserialize;
+
+export type MetricsEvent_Deserialize = { kind: "sample"; hostId: number; sample: Sample_Deserialize } | { kind: "state"; hostId: number; state: PollState; message?: string | null; retrySecs?: number | null };
+
+export type MetricsEvent_Serialize = { kind: "sample"; hostId: number; sample: Sample_Serialize } | { kind: "state"; hostId: number; state: PollState; message: string | null; retrySecs: number | null };
+
+/**  Usage of one mounted filesystem. */
+export type MountUsage = {
+	device: string,
+	mount: string,
+	fstype: string,
+	total: number,
+	used: number,
+	avail: number,
+};
+
 export type MountView = MountView_Serialize | MountView_Deserialize;
 
 export type MountView_Deserialize = {
@@ -860,6 +908,67 @@ export type NewJob_Serialize = {
 	policy: ConflictPolicy,
 };
 
+/**  One stored point (averages over its bucket). */
+export type Point = Point_Serialize | Point_Deserialize;
+
+/**  One stored point (averages over its bucket). */
+export type Point_Deserialize = {
+	/**  Bucket start, unix seconds. */
+	ts: number,
+	/**  CPU busy %. */
+	cpu?: number | null,
+	/**  Memory used %. */
+	mem?: number | null,
+	swap?: number | null,
+	load1?: number | null,
+	/**  Fullest mount, used %. */
+	disk?: number | null,
+	/**  Bytes/s. */
+	netRx?: number | null,
+	netTx?: number | null,
+	diskRead?: number | null,
+	diskWrite?: number | null,
+	temp?: number | null,
+};
+
+/**  One stored point (averages over its bucket). */
+export type Point_Serialize = {
+	/**  Bucket start, unix seconds. */
+	ts: number,
+	/**  CPU busy %. */
+	cpu: number | null,
+	/**  Memory used %. */
+	mem: number | null,
+	swap: number | null,
+	load1: number | null,
+	/**  Fullest mount, used %. */
+	disk: number | null,
+	/**  Bytes/s. */
+	netRx: number | null,
+	netTx: number | null,
+	diskRead: number | null,
+	diskWrite: number | null,
+	temp: number | null,
+};
+
+/**  Why a host has no fresh sample. */
+export type PollState = 
+/**  Samples are arriving. */
+"ok" | 
+/**  Connecting / first sample on its way. */
+"connecting" | 
+/**  Can't reach it; retrying with backoff. */
+"offline" | 
+/**
+ *  Needs a password, passphrase or host-key decision: open a terminal
+ *  (or Files/Docker) on it once and metrics start.
+ */
+"needsLogin" | 
+/**  Connected, but the collect script failed (not Linux, no /proc, ...). */
+"error" | 
+/**  Metrics are turned off in settings. */
+"off";
+
 export type PortView = PortView_Serialize | PortView_Deserialize;
 
 export type PortView_Deserialize = {
@@ -877,6 +986,82 @@ export type PortView_Serialize = {
 };
 
 export type PromptKind = "password" | "passphrase";
+
+/**  Throughput of one network interface or block device, in bytes/s. */
+export type Rate = {
+	name: string,
+	/**  Received (network) or read (disk). */
+	rx: number,
+	/**  Transmitted (network) or written (disk). */
+	tx: number,
+};
+
+/**  One processed sample: what the UI shows. */
+export type Sample = Sample_Serialize | Sample_Deserialize;
+
+/**  One processed sample: what the UI shows. */
+export type Sample_Deserialize = {
+	/**  Unix time, milliseconds. */
+	ts: number,
+	hostname: string,
+	kernel: string,
+	uptimeSecs: number,
+	/**  Busy % over all cores since the previous sample (`None` on the first). */
+	cpu?: number | null,
+	/**  Busy % per core (empty on the first sample). */
+	cores: number[],
+	load: [number, number, number],
+	memTotal: number,
+	/**  Total minus available (what `free` calls used + shared, minus reclaimable cache). */
+	memUsed: number,
+	swapTotal: number,
+	swapUsed: number,
+	mounts: MountUsage[],
+	/**  Per interface (loopback left out). */
+	net: Rate[],
+	/**  Sum over physical-looking interfaces (no veth/docker/bridges). */
+	netRx: number,
+	netTx: number,
+	/**  Per whole disk. */
+	disks: Rate[],
+	diskRead: number,
+	diskWrite: number,
+	temps: Temp[],
+	/**  Best guess at the CPU temperature, for tiles. */
+	cpuTemp?: number | null,
+};
+
+/**  One processed sample: what the UI shows. */
+export type Sample_Serialize = {
+	/**  Unix time, milliseconds. */
+	ts: number,
+	hostname: string,
+	kernel: string,
+	uptimeSecs: number,
+	/**  Busy % over all cores since the previous sample (`None` on the first). */
+	cpu: number | null,
+	/**  Busy % per core (empty on the first sample). */
+	cores: number[],
+	load: [number, number, number],
+	memTotal: number,
+	/**  Total minus available (what `free` calls used + shared, minus reclaimable cache). */
+	memUsed: number,
+	swapTotal: number,
+	swapUsed: number,
+	mounts: MountUsage[],
+	/**  Per interface (loopback left out). */
+	net: Rate[],
+	/**  Sum over physical-looking interfaces (no veth/docker/bridges). */
+	netRx: number,
+	netTx: number,
+	/**  Per whole disk. */
+	disks: Rate[],
+	diskRead: number,
+	diskWrite: number,
+	temps: Temp[],
+	/**  Best guess at the CPU temperature, for tiles. */
+	cpuTemp: number | null,
+};
 
 export type SaveResult = SaveResult_Serialize | SaveResult_Deserialize;
 
@@ -977,6 +1162,15 @@ export type Stamp_Deserialize = {
 export type Stamp_Serialize = {
 	size: number,
 	mtime: number | null,
+};
+
+/**  One temperature sensor. */
+export type Temp = {
+	/**  hwmon chip (`coretemp`, `k10temp`, `nvme`, `cpu_thermal`) or thermal zone type. */
+	chip: string,
+	/**  Sensor label (`Package id 0`, `Tctl`, `Composite`), or "" when none. */
+	label: string,
+	celsius: number,
 };
 
 /**  What the terminal channel carries to the UI. */

@@ -6,6 +6,7 @@ mod docker_cmd;
 mod files_cmd;
 mod hosts_cmd;
 mod logging;
+mod metrics_cmd;
 mod platform;
 mod state;
 mod term_cmd;
@@ -74,6 +75,11 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         docker_cmd::stack_dirs_list,
         docker_cmd::stack_dirs_add,
         docker_cmd::stack_dirs_delete,
+        metrics_cmd::metrics_subscribe,
+        metrics_cmd::metrics_sync,
+        metrics_cmd::metrics_set_visible,
+        metrics_cmd::metrics_retry,
+        metrics_cmd::metrics_history,
         term_cmd::term_open_docker_exec,
     ])
 }

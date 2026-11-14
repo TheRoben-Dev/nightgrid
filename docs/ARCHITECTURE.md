@@ -72,6 +72,13 @@ _Last updated: M2 (SFTP + editor)._
 - **Compose stacks** (`core/src/docker/compose.rs`): `stacks()` merges label-derived projects with compose files found by scanning the host's stack folders (`stack_dirs` table). `compose()` runs `docker compose` on an exec channel, streams cleaned lines (ANSI and `\r` redraws removed), cancels with SIGINT, and for "update" diffs service image ids before and after. App side: `docker_stacks`, `docker_compose_run` (output over a Tauri `Channel`, cancel switch in `AppState.compose_runs`), `docker_compose_cancel`, `stack_dirs_*`. UI: `stores/stacks.svelte.ts` and `components/docker/StacksPanel.svelte`.
 - **UI**: `stores/docker.svelte.ts` polls the list and stats every 5 s while the view is mounted. `views/Docker.svelte` groups by project. `components/docker/ContainerPanel.svelte` (details/env/labels/raw) and `ContainerLogs.svelte` (virtualised, merges batches per animation frame).
 
+## Monitoring (M4)
+
+- **Collection** (`core/src/metrics/mod.rs`): the `COLLECT` script (D-036) → `parse()` → `Raw` snapshot → `Collector::sample()` → `Sample` (CPU total and per core, load, memory/swap, mounts with usage, per-interface and per-disk rates, temperatures with a best-guess CPU temperature). The first sample of a run has no CPU % or rates.
+- **History** (`core/src/metrics/history.rs`): `MinuteAverager` turns samples into `Point`s, `Store::insert_metric_point` writes the minute row and folds it into the 15-minute rollup, `metric_history` picks the resolution by range, `prune_metrics` applies retention (D-037).
+- **Pollers** (`app/src/metrics_cmd.rs`): `MetricsHub` in `AppState` holds one Tokio task per host, the visible-host set and the event `Channel`. Each poller connects through the shared `SshPool` without prompting (D-038), runs the script with a 15 s timeout, and sends `MetricsEvent::Sample` / `MetricsEvent::State`. Commands: `metrics_subscribe`, `metrics_sync` (after host or setting changes), `metrics_set_visible`, `metrics_retry`, `metrics_history`.
+- **UI**: `stores/metrics.svelte.ts` keeps the latest sample and ~5 minutes of sparkline values per host and merges "visible" requests from the Overview and the monitor panel. `components/metrics/`: `HostTile` (Overview), `HostMonitor` (modal with cores, mounts, interfaces, disks, temperatures and the history chart), `Sparkline`, `Meter`, `HistoryChart` (SVG, gaps for missing minutes, hover readout). In the browser dev mode `mockMetrics.ts` fakes samples and history.
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.
@@ -86,7 +93,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Keyboard:** all shortcuts are defined in `DEFAULT_KEYMAP` (`ui/src/lib/keys.ts`) using `Mod` = Cmd on macOS / Ctrl elsewhere, so a rebinding UI can override them later.
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
-## Security posture (M3)
+## Security posture (M4)
 
 - CSP: `default-src 'self'`, no inline script/style, no remote origins; `connect-src` limited to Tauri IPC. Runtime `<style>` elements (xterm) are mirrored into constructable stylesheets instead of relaxing the CSP (D-013).
 - Capabilities: `core:default`, clipboard read/write text (terminal copy/paste) and `opener:allow-open-url` limited to `http(s)://` (links in terminal output) on the `main` window only. App commands are registered explicitly via tauri-specta.
@@ -95,6 +102,7 @@ _Last updated: M2 (SFTP + editor)._
 - Host keys: unknown → fingerprint prompt; changed → connection blocked until the user types the host name; `~/.ssh` is never written (D-017).
 - Files: delete confirms with the exact target list (and the host name typed for multi-item deletes on a host); overwrites in the transfer queue name the target; overwriting a file changed on the server needs a confirmation. File contents are never logged; logs record paths of deletes and saves only.
 - Docker: stop/restart/kill/remove confirm with the exact containers (removing several also needs the host name typed); destructive actions are logged with their targets. Env values are masked in the UI and raw JSON and never logged (bollard debug output filtered). Container references are validated before they reach a URL or shell. Compose down/restart/update confirm with the stack and host named, and are logged; stack names and paths are validated and shell-quoted. No sudo: socket permission problems surface as a docker-group hint.
+- Metrics: read-only commands only, no sudo, nothing written on the host. Background pollers never prompt for passwords or host keys; they wait for a connection the user made (D-038). History holds numbers only.
 
 ## Platform notes
 

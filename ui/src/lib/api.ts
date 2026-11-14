@@ -51,10 +51,18 @@ import {
   type ImageChange_Serialize as ImageChange,
   type Stack,
   type StackDir,
+  type MetricsEvent_Serialize as MetricsEvent,
+  type MountUsage,
+  type Point_Serialize as MetricPoint,
+  type PollState,
+  type Rate,
+  type Sample_Serialize as Sample,
+  type Temp,
 } from "./bindings";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
 import { mockFiles } from "./mockFiles";
+import { mockMetrics } from "./mockMetrics";
 
 export type {
   AppInfo,
@@ -102,6 +110,13 @@ export type {
   ImageChange,
   Stack,
   StackDir,
+  MetricsEvent,
+  MountUsage,
+  MetricPoint,
+  PollState,
+  Rate,
+  Sample,
+  Temp,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -116,6 +131,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   termRightClickPaste: true,
   termCursorBlink: true,
   termEditInApp: false,
+  metricsEnabled: true,
+  metricsIntervalSecs: 2,
+  metricsBackgroundSecs: 60,
+  metricsRetentionDays: 7,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -123,7 +142,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.3.0-web",
+      version: "0.4.0-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -272,6 +291,17 @@ export const api = {
   stackDirsAdd: (hostId: number, path: string): Promise<StackDir> =>
     T() ? commands.stackDirsAdd(hostId, path) : mockDocker.stackDirAdd(hostId, path),
   stackDirsDelete: (id: number): Promise<null> => (T() ? commands.stackDirsDelete(id) : mockDocker.stackDirDelete(id)),
+  metricsSubscribe: (on: (e: MetricsEvent) => void): Promise<null> => {
+    if (!T()) return mockMetrics.subscribe(on);
+    const ch = new Channel<MetricsEvent>();
+    ch.onmessage = on;
+    return commands.metricsSubscribe(ch as unknown as Parameters<typeof commands.metricsSubscribe>[0]);
+  },
+  metricsSync: (): Promise<null> => (T() ? commands.metricsSync() : mockMetrics.sync()),
+  metricsSetVisible: (ids: number[]): Promise<null> => (T() ? commands.metricsSetVisible(ids) : mockMetrics.setVisible(ids)),
+  metricsRetry: (hostId: number): Promise<null> => (T() ? commands.metricsRetry(hostId) : Promise.resolve(null)),
+  metricsHistory: (hostId: number, from: number, to: number): Promise<MetricPoint[]> =>
+    T() ? commands.metricsHistory(hostId, from, to) : mockMetrics.history(hostId, from, to),
   termOpenDockerExec: (hostId: number, container: string, cols: number, rows: number, on: TermListener): Promise<TermOpen> =>
     T()
       ? commands.termOpenDockerExec(hostId, container, cols, rows, channel(on))
