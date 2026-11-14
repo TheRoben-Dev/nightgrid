@@ -1,10 +1,12 @@
 <script lang="ts">
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
   import { SECTIONS } from "../sections";
+  import { layout } from "../stores/layout.svelte";
   import { settings } from "../stores/settings.svelte";
   import { ui } from "../stores/ui.svelte";
   import Barcode from "./Barcode.svelte";
   import HostList from "./HostList.svelte";
+  import Resizer from "./Resizer.svelte";
 
   interface Props {
     version: string;
@@ -13,11 +15,21 @@
   const collapsed = $derived(settings.value.railCollapsed);
 </script>
 
-<nav class="rail" class:collapsed aria-label="Main">
+<nav
+  class="rail"
+  class:collapsed
+  class:resizing={layout.dragging}
+  style:width={collapsed ? undefined : `${layout.get("rail")}px`}
+  aria-label="Main"
+>
   <div class="brand">
     <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M4 1H31V27L27 31H1V5Z" fill="none" stroke="currentColor" stroke-width="2" />
-      <path d="M9 23V9h2.5l8 9V9H22v14h-2.5l-8-9v9Z" fill="currentColor" />
+      <path d="M1.5 3.5H27.5L30.5 6.5V28.5H4.5L1.5 25.5Z" fill="none" stroke="var(--mint)" stroke-width="1.6" />
+      <path d="M2 9H30" stroke="var(--mint)" stroke-width="1" opacity=".5" />
+      <rect x="4.5" y="5.4" width="5.5" height="2" fill="var(--magenta)" />
+      <rect x="11" y="5.4" width="5.5" height="2" fill="var(--mint)" />
+      <path d="M7 14.5L11.5 18.5L7 22.5" fill="none" stroke="var(--cyan)" stroke-width="2.6" stroke-linecap="square" />
+      <rect x="14.5" y="20.5" width="9" height="2.6" fill="var(--magenta)" />
     </svg>
     {#if !collapsed}
       <div class="wordmark">
@@ -67,6 +79,7 @@
       {collapsed ? "»" : "«"}
     </button>
   </div>
+  {#if !collapsed}<Resizer key="rail" axis="x" overlay label="Resize sidebar" />{/if}
 </nav>
 
 <style>
@@ -79,6 +92,10 @@
     background: color-mix(in srgb, var(--bg-1) 94%, transparent);
     transition: width var(--dur) var(--ease);
     min-height: 0;
+    position: relative;
+  }
+  .rail.resizing {
+    transition: none;
   }
   .rail.collapsed {
     width: var(--rail-w-collapsed);
@@ -97,7 +114,7 @@
     width: 26px;
     height: 26px;
     flex: none;
-    filter: drop-shadow(var(--glow-accent));
+    filter: drop-shadow(var(--glow));
   }
   .wordmark {
     display: flex;

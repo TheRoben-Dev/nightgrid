@@ -89,7 +89,7 @@
       <span class="label"><span class="cyan">//</span> COMMAND.PALETTE</span>
       <span class="label muted">[{results.length}]</span>
     </div>
-    <div class="field">
+    <div class="qfield">
       <span class="prompt" aria-hidden="true">&gt;</span>
       <input
         bind:this={input}
@@ -173,8 +173,9 @@
   .cyan {
     color: var(--cyan);
   }
-  .field {
+  .qfield {
     display: flex;
+    flex-direction: row;
     align-items: center;
     gap: 10px;
     margin: 0 12px 8px;
@@ -182,7 +183,7 @@
     border: 1px solid var(--line);
     background: var(--bg-0);
   }
-  .field:focus-within {
+  .qfield:focus-within {
     border-color: var(--accent);
     box-shadow: var(--glow-accent);
   }
@@ -191,7 +192,12 @@
   }
   input {
     flex: 1;
+    min-width: 0;
     height: 38px;
+    padding: 0;
+    text-align: left;
+    -webkit-appearance: none;
+    appearance: none;
     border: 0;
     outline: 0;
     background: transparent;

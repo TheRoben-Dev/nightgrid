@@ -2,6 +2,7 @@
   import { api, type ConflictPolicy, type JobView } from "../../api";
   import { formatSize, formatSpeed, formatTime } from "../../files/util";
   import { files, sideLabel } from "../../stores/files.svelte";
+  import { layout } from "../../stores/layout.svelte";
 
   let applyAll = $state(false);
 
@@ -33,7 +34,12 @@
   };
 </script>
 
-<section class="queue" class:open={files.queueOpen} aria-label="Transfer queue">
+<section
+  class="queue"
+  class:open={files.queueOpen}
+  style:flex-basis={files.queueOpen ? `${layout.get("filesQueue")}%` : undefined}
+  aria-label="Transfer queue"
+>
   <header>
     <button type="button" class="toggle" aria-expanded={files.queueOpen} onclick={() => (files.queueOpen = !files.queueOpen)}>
       <span class="label"><span class="cyan">//</span> TRANSFERS</span>
@@ -115,7 +121,8 @@
     min-height: 0;
   }
   .queue.open {
-    max-height: 40%;
+    flex-grow: 0;
+    flex-shrink: 0;
   }
   header {
     display: flex;

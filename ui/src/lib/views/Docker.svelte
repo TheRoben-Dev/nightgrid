@@ -4,11 +4,13 @@
   import ContainerPanel from "../components/docker/ContainerPanel.svelte";
   import StacksPanel from "../components/docker/StacksPanel.svelte";
   import Modal from "../components/Modal.svelte";
+  import Resizer from "../components/Resizer.svelte";
   import AuthPrompt from "../components/terminal/AuthPrompt.svelte";
   import HostKeyPrompt from "../components/terminal/HostKeyPrompt.svelte";
   import { formatSize } from "../files/util";
   import { actionLabel, docker, isUp, type ContainerGroup } from "../stores/docker.svelte";
   import { hosts } from "../stores/hosts.svelte";
+  import { layout } from "../stores/layout.svelte";
   import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
 
@@ -298,7 +300,8 @@
     </div>
 
     {#if docker.detail && docker.hostId !== null && docker.tab === "containers"}
-      <div class="side">
+      <Resizer key="dockerSide" axis="x" invert label="Resize container panel" />
+      <div class="side" style:flex-basis="{layout.get('dockerSide')}%">
         <ContainerPanel hostId={docker.hostId} container={docker.detail} onclose={() => (docker.detailId = null)} />
       </div>
     {/if}
@@ -450,7 +453,6 @@
     flex: 1;
     min-height: 0;
     display: flex;
-    gap: 8px;
   }
   .list {
     position: relative;
@@ -461,8 +463,8 @@
     background: var(--bg-0);
   }
   .side {
-    flex: 0 0 min(52%, 760px);
-    min-width: 380px;
+    flex: 0 0 52%;
+    min-width: 320px;
     min-height: 0;
   }
   .row {

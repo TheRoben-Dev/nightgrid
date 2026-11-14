@@ -124,3 +124,9 @@ Every saved host gets a poller while metrics are on. Hosts shown on the Overview
 ### D-039 · Float fields are exported to TypeScript as `number`
 specta exports `f32`/`f64` as `number | null` (because of NaN/Infinity). Metric structs never contain NaN (parsers drop non-finite values), so their float fields are annotated `specta(type = u32)` to get a plain `number` in `bindings.ts`. The annotation only changes the generated type; serde still writes the float.
 
+### D-040 · App icon is a terminal window in the theme colours
+Roben picked a terminal window with a title-bar stepper, drawn with the NIGHTGRID tokens in the roles the UI gives them: mint hairline frame, magenta for the active step and cursor, mint for the finished step, cyan for the prompt. The tile follows the macOS grid (an 824 px rounded square on a 1024 px canvas), so it sits right in the Dock next to other apps; Windows and Linux use the same art. `app/icons/source.svg` is the source of truth; regenerate the platform files with `pnpm tauri icon app/icons/source.png` (render the SVG to a 1024 px PNG first) and keep only the files `tauri.conf.json` lists.
+
+### D-041 · Panel sizes live in localStorage, not settings
+Roben wanted adjustable workspace borders. One `Resizer` component drives every splitter (pointer drag, arrow keys, Home/End, Enter/double-click to reset) against a small layout store with a min, max and default per size. Sizes are per-machine layout preferences, so they're kept in the webview's localStorage (`nightgrid.layout.v1`) rather than in SQLite settings. A laptop and a desktop can then keep different layouts, and nothing sensitive is involved. Split sizes are percentages of the parent, so they survive window resizes; the sidebar width is in pixels.
+
