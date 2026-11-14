@@ -60,3 +60,19 @@ ICMP needs privileges on most OSes. A TCP connect to port 22 (or the host's port
 
 ### D-019 · SSH integration tests use an in-process server plus a real `sshd`
 Docker isn't available on macOS/Windows runners, so the default suite runs an in-process russh server on every OS, and `core/tests/ssh_openssh.rs` starts a real OpenSSH `sshd` as the current user on Linux and macOS CI (`NIGHTGRID_TEST_OPENSSH=1`) to catch interop issues.
+
+### D-020 · SFTP via russh-sftp on the pooled connection
+`russh-sftp` speaks SFTP over any channel stream, so each host gets one `sftp` subsystem channel on its existing pooled connection (cached per connection; a reconnect opens a new one). Transfers between two hosts stream through the app rather than needing host-to-host SSH trust.
+
+### D-021 · Atomic save uses `mv -f` over SSH for the final rename
+SFTP v3 `RENAME` refuses to replace an existing file on OpenSSH, and russh-sftp has no `posix-rename@openssh.com`. The editor writes `.<name>.nightgrid-<id>.tmp` with the original's mode (and owner, via `setstat`), then runs `mv -f -- '<tmp>' '<file>'` on the same connection (one `rename(2)`, paths shell-quoted). Plain SFTP rename is tried first for servers that allow it. If the temp file can't be created (folder not writable) or the owner can't be kept, it falls back to rewriting the file in place, which keeps owner and mode but isn't atomic; the UI reports which happened.
+
+### D-022 · Save conflicts are detected by size + mtime
+The editor remembers the file's size and mtime when it opens (or last saved) the file and refuses to save over a file whose stamp changed. mtime has one-second resolution over SFTP v3, so two edits within the same second with the same size can slip through; that's an accepted trade-off against hashing every file before save.
+
+### D-023 · Transfer conflicts are decided per top-level item
+A job is one selected file or folder. If the destination exists, the job waits for "overwrite / skip / keep both" (or follows "apply to all"). Overwriting a folder merges into it and replaces files inside. Resume and retry skip the check and continue each file from the size already at the destination, so a retried job never asks twice.
+
+### D-024 · CodeMirror is code-split
+The editor and its language packs load on first use, keeping the main bundle under the 900 kB warning limit. CodeMirror injects its styles through constructable stylesheets, which our CSP allows, and none of its packages assign over `Object.prototype` members (checked against `freezePrototype` in a Chromium run).
+

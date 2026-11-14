@@ -20,8 +20,14 @@
   import Placeholder from "./lib/views/Placeholder.svelte";
   import Settings from "./lib/views/Settings.svelte";
   import Terminal from "./lib/views/Terminal.svelte";
+  import Files from "./lib/views/Files.svelte";
 
   let info = $state<AppInfo | null>(null);
+  /** Files stays mounted after the first visit so open editors survive section switches. */
+  let filesMounted = $state(false);
+  $effect(() => {
+    if (ui.section === "files") filesMounted = true;
+  });
   let booted = $state(false);
 
   onMount(() => {
@@ -99,7 +105,7 @@
   <LeftRail version={info?.version ?? "0.1.0"} />
   <div class="main">
     <TopBar />
-    <main class="content" class:fill={section.id === "terminal"} aria-label={section.label}>
+    <main class="content" class:fill={section.id === "terminal" || section.id === "files"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>
@@ -111,7 +117,12 @@
       <div class="view-fill" class:hidden={section.id !== "terminal"}>
         <Terminal />
       </div>
-      {#if section.id === "terminal"}
+      {#if filesMounted}
+        <div class="view-fill" class:hidden={section.id !== "files"}>
+          <Files />
+        </div>
+      {/if}
+      {#if section.id === "terminal" || section.id === "files"}
         <!-- rendered above -->
       {:else if section.id === "overview"}
         <Overview {info} />

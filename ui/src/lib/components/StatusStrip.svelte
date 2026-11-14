@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { AppInfo } from "../api";
+  import { files } from "../stores/files.svelte";
   import { terms } from "../stores/terms.svelte";
   import Barcode from "./Barcode.svelte";
 
@@ -22,7 +23,9 @@
 
 <footer class="strip" aria-label="Status">
   <span class="cell" title="Open terminal panes"><span class="k">SESSIONS</span> {terms.stats.panes}</span>
-  <span class="cell"><span class="k">XFER</span> 0</span>
+  <span class="cell" class:warn={files.conflicts > 0} title="Active file transfers"
+    ><span class="k">XFER</span> {files.activeTransfers}{files.conflicts ? ` · ${files.conflicts}!` : ""}</span
+  >
   <span class="cell"><span class="k">ALERTS</span> 0</span>
   <span class="cell" class:ok={keychainOk} class:warn={!keychainOk} title={info?.keychain.detail ?? "OS keychain reachable"}>
     <span aria-hidden="true">{keychainOk ? "●" : "▲"}</span>

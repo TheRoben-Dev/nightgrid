@@ -22,8 +22,23 @@ import {
   type TermMessage_Serialize as TermMessage,
   type TermOpen,
   type TermState,
+  type Bookmark_Serialize as Bookmark,
+  type ConflictPolicy,
+  type Entry_Serialize as Entry,
+  type EntryKind,
+  type FilesError_Serialize as FilesError,
+  type FsError_Serialize as FsError,
+  type JobState,
+  type JobView_Serialize as JobView,
+  type Listing_Serialize as Listing,
+  type NewJob_Deserialize as NewJob,
+  type SaveResult_Serialize as SaveResult,
+  type Side,
+  type Stamp_Deserialize as Stamp,
+  type TextFile_Serialize as TextFile,
 } from "./bindings";
 import { mockBackend } from "./mock";
+import { mockFiles } from "./mockFiles";
 
 export type {
   AppInfo,
@@ -42,6 +57,20 @@ export type {
   TermMessage,
   TermOpen,
   TermState,
+  Bookmark,
+  ConflictPolicy,
+  Entry,
+  EntryKind,
+  FilesError,
+  FsError,
+  JobState,
+  JobView,
+  Listing,
+  NewJob,
+  SaveResult,
+  Side,
+  Stamp,
+  TextFile,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -111,6 +140,13 @@ function channel(listener: TermListener) {
 
 const T = inTauri;
 
+function jobsChannel(listener: (jobs: JobView[]) => void) {
+  const ch = new Channel<JobView[]>();
+  ch.onmessage = listener;
+  return ch as unknown as Parameters<typeof commands.transfersSubscribe>[0];
+}
+
+
 export const api = {
   appInfo: (): Promise<AppInfo> => (T() ? commands.appInfo() : mock.appInfo()),
   settingsGet: (): Promise<AppSettings> => (T() ? commands.settingsGet() : mock.settingsGet()),
@@ -145,7 +181,43 @@ export const api = {
     T() ? commands.sshTrustHostKey(host, port, openssh, replace) : mockBackend.trust(host),
   sshProvideSecret: (target: string, kind: PromptKind, secret: string, remember: boolean): Promise<null> =>
     T() ? commands.sshProvideSecret(target, kind, secret, remember) : mockBackend.provideSecret(target),
+
+  fsHome: (side: Side): Promise<string> => (T() ? commands.fsHome(side) : mockFiles.home(side)),
+  fsList: (side: Side, path: string): Promise<Listing> => (T() ? commands.fsList(side, path) : mockFiles.list(side, path)),
+  fsMkdir: (side: Side, dir: string, name: string): Promise<string> =>
+    T() ? commands.fsMkdir(side, dir, name) : mockFiles.mkdir(side, dir, name),
+  fsRename: (side: Side, path: string, newName: string): Promise<string> =>
+    T() ? commands.fsRename(side, path, newName) : mockFiles.rename(side, path, newName),
+  fsDelete: (side: Side, paths: string[]): Promise<null> =>
+    T() ? commands.fsDelete(side, paths) : mockFiles.remove(side, paths),
+  fsReadText: (side: Side, path: string): Promise<TextFile> =>
+    T() ? commands.fsReadText(side, path) : mockFiles.readText(side, path),
+  fsSaveText: (side: Side, path: string, content: string, expect: Stamp | null): Promise<SaveResult> =>
+    T() ? commands.fsSaveText(side, path, content, expect) : mockFiles.saveText(side, path, content, expect),
+  bookmarksList: (hostId: number | null): Promise<Bookmark[]> =>
+    T() ? commands.bookmarksList(hostId) : mockFiles.bookmarks(hostId),
+  bookmarkAdd: (hostId: number | null, path: string, label: string | null): Promise<Bookmark> =>
+    T() ? commands.bookmarkAdd(hostId, path, label) : mockFiles.bookmarkAdd(hostId, path, label),
+  bookmarkDelete: (id: number): Promise<null> => (T() ? commands.bookmarkDelete(id) : mockFiles.bookmarkDelete(id)),
+  transfersSubscribe: (on: (jobs: JobView[]) => void): Promise<null> =>
+    T() ? commands.transfersSubscribe(jobsChannel(on)) : mockFiles.subscribe(on),
+  transfersAdd: (jobs: NewJob[]): Promise<number[]> => (T() ? commands.transfersAdd(jobs) : mockFiles.add(jobs)),
+  transferPause: (id: number): Promise<null> => (T() ? commands.transferPause(id) : mockFiles.control(id, "pause")),
+  transferResume: (id: number): Promise<null> => (T() ? commands.transferResume(id) : mockFiles.control(id, "resume")),
+  transferCancel: (id: number): Promise<null> => (T() ? commands.transferCancel(id) : mockFiles.control(id, "cancel")),
+  transferResolve: (id: number, policy: ConflictPolicy, all: boolean): Promise<null> =>
+    T() ? commands.transferResolve(id, policy, all) : mockFiles.resolve(id, policy, all),
+  transfersClear: (): Promise<null> => (T() ? commands.transfersClear() : mockFiles.clear()),
 };
+
+/** The structured parts of a rejected file command, when present. */
+export function filesError(e: unknown): { connect: ConnectError | null; fs: FsError | null } {
+  if (e && typeof e === "object") {
+    const o = e as { connect?: ConnectError | null; fs?: FsError | null };
+    return { connect: o.connect ?? null, fs: o.fs ?? null };
+  }
+  return { connect: null, fs: null };
+}
 
 /** Error text from a rejected command (`CommandError` or anything else). */
 export function errorText(e: unknown): string {

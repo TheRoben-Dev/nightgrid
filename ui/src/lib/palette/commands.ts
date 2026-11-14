@@ -1,4 +1,5 @@
 import { SECTIONS } from "../sections";
+import { files } from "../stores/files.svelte";
 import { hosts } from "../stores/hosts.svelte";
 import { settings } from "../stores/settings.svelte";
 import { terms } from "../stores/terms.svelte";
@@ -62,6 +63,17 @@ export function buildCommands(): PaletteCommand[] {
     run: () => terms.openHost(h.id),
   }));
 
+  const browse: PaletteCommand[] = hosts.hosts.map((h) => ({
+    id: `sftp.${h.id}`,
+    title: `Files: ${h.name}`,
+    group: "FILES",
+    keywords: ["sftp", "browse", h.hostname],
+    run: () => {
+      ui.go("files");
+      void files.browseHost(h.id);
+    },
+  }));
+
   const hostCmds: PaletteCommand[] = [
     {
       id: "term.newLocal",
@@ -88,5 +100,5 @@ export function buildCommands(): PaletteCommand[] {
     })),
   ];
 
-  return [...connect, ...hostCmds, ...nav, ...view, ...themes];
+  return [...connect, ...browse, ...hostCmds, ...nav, ...view, ...themes];
 }
