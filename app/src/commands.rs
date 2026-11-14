@@ -19,7 +19,13 @@ impl From<nightgrid_core::Error> for CommandError {
     }
 }
 
-type CmdResult<T> = Result<T, CommandError>;
+impl CommandError {
+    pub fn msg(m: impl Into<String>) -> Self {
+        Self { message: m.into() }
+    }
+}
+
+pub type CmdResult<T> = Result<T, CommandError>;
 
 #[derive(Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -40,15 +46,22 @@ pub struct AppInfo {
     pub keychain: KeychainStatus,
     /// Linux only: whether the WebKitGTK DMA-BUF renderer was disabled.
     pub dmabuf_disabled: bool,
+    /// Whether an SSH agent socket/pipe is configured for this process.
+    pub agent_hint: Option<String>,
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn app_info(state: State<'_, AppState>) -> CmdResult<AppInfo> {
-    let schema_version = state.store.lock().expect("store poisoned").schema_version()? as i32;
+    let schema_version = state.store().schema_version()? as i32;
     let keychain = match KeyringStore::available() {
         Ok(()) => KeychainStatus { available: true, detail: None },
         Err(e) => KeychainStatus { available: false, detail: Some(e) },
+    };
+    let agent_hint = if cfg!(windows) {
+        Some(std::env::var("SSH_AUTH_SOCK").unwrap_or_else(|_| r"\\.\pipe\openssh-ssh-agent (or Pageant)".into()))
+    } else {
+        std::env::var("SSH_AUTH_SOCK").ok()
     };
     Ok(AppInfo {
         version: env!("CARGO_PKG_VERSION").into(),
@@ -59,19 +72,20 @@ pub fn app_info(state: State<'_, AppState>) -> CmdResult<AppInfo> {
         schema_version,
         keychain,
         dmabuf_disabled: std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_some(),
+        agent_hint,
     })
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn settings_get(state: State<'_, AppState>) -> CmdResult<AppSettings> {
-    Ok(AppSettings::load(&state.store.lock().expect("store poisoned"))?)
+    Ok(AppSettings::load(&state.store())?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn settings_set(state: State<'_, AppState>, settings: AppSettings) -> CmdResult<AppSettings> {
-    settings.save(&state.store.lock().expect("store poisoned"))?;
+    settings.save(&state.store())?;
     tracing::debug!(theme = %settings.theme, "settings saved");
     Ok(settings)
 }

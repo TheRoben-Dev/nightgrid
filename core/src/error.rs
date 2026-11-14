@@ -18,6 +18,9 @@ pub enum Error {
     #[error("invalid value for {field}: {reason}")]
     Invalid { field: &'static str, reason: String },
 
+    #[error("{0} not found")]
+    NotFound(&'static str),
+
     #[error("i/o error: {0}")]
     Io(#[from] std::io::Error),
 }

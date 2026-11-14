@@ -5,8 +5,11 @@
 //! thin layer of commands and events over this crate.
 
 pub mod error;
+pub mod hosts;
 pub mod secrets;
 pub mod settings;
+pub mod ssh;
 pub mod store;
+pub mod term;
 
 pub use error::{Error, Result};
