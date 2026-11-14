@@ -77,6 +77,9 @@ pub enum TermOpen {
 
 /// Returns the host's pooled connection, connecting if needed. Re-resolves
 /// the host each time so edits and newly entered secrets take effect.
+// Same error type as `client::connect` and the terminal `Connector`; boxing it
+// here alone would just move the conversion.
+#[allow(clippy::result_large_err)]
 pub(crate) async fn connect_host(app: &AppHandle, host_id: HostId) -> Result<Arc<client::Connection>, ConnectError> {
     let state = app.state::<AppState>();
     let (hop, jumps) = {

@@ -4,6 +4,8 @@ description = "NIGHTGRID — homelab command center"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 default-run = "nightgrid"
 
 [lib]
