@@ -4,7 +4,9 @@
   import { docker } from "../../stores/docker.svelte";
   import { files } from "../../stores/files.svelte";
   import { composeFile, envFile, opConsequence, opLabel, stacks } from "../../stores/stacks.svelte";
+  import { layout } from "../../stores/layout.svelte";
   import Modal from "../Modal.svelte";
+  import Resizer from "../Resizer.svelte";
 
   onMount(() => {
     void stacks.load();
@@ -118,7 +120,8 @@
   </div>
 
   {#if run}
-    <section class="console" aria-label="Compose output">
+    <Resizer key="stacksConsole" axis="y" invert label="Resize compose output" />
+    <section class="console" aria-label="Compose output" style:flex-basis="{layout.get('stacksConsole')}%">
       <header>
         <span class="label">// {opLabel[run.op].toUpperCase()} {run.stack.name}</span>
         <span class="muted">on {hostName}</span>

@@ -1,10 +1,12 @@
 <script lang="ts">
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
   import { SECTIONS } from "../sections";
+  import { layout } from "../stores/layout.svelte";
   import { settings } from "../stores/settings.svelte";
   import { ui } from "../stores/ui.svelte";
   import Barcode from "./Barcode.svelte";
   import HostList from "./HostList.svelte";
+  import Resizer from "./Resizer.svelte";
 
   interface Props {
     version: string;
@@ -13,7 +15,13 @@
   const collapsed = $derived(settings.value.railCollapsed);
 </script>
 
-<nav class="rail" class:collapsed aria-label="Main">
+<nav
+  class="rail"
+  class:collapsed
+  class:resizing={layout.dragging}
+  style:width={collapsed ? undefined : `${layout.get("rail")}px`}
+  aria-label="Main"
+>
   <div class="brand">
     <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
       <path d="M1.5 3.5H27.5L30.5 6.5V28.5H4.5L1.5 25.5Z" fill="none" stroke="var(--mint)" stroke-width="1.6" />
@@ -71,6 +79,7 @@
       {collapsed ? "»" : "«"}
     </button>
   </div>
+  {#if !collapsed}<Resizer key="rail" axis="x" overlay label="Resize sidebar" />{/if}
 </nav>
 
 <style>
@@ -83,6 +92,10 @@
     background: color-mix(in srgb, var(--bg-1) 94%, transparent);
     transition: width var(--dur) var(--ease);
     min-height: 0;
+    position: relative;
+  }
+  .rail.resizing {
+    transition: none;
   }
   .rail.collapsed {
     width: var(--rail-w-collapsed);

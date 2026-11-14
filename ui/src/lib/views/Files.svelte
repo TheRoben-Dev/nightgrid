@@ -1,10 +1,12 @@
 <script lang="ts">
   import { api, errorText, type Entry } from "../api";
   import Modal from "../components/Modal.svelte";
+  import Resizer from "../components/Resizer.svelte";
   import EditorTab from "../components/files/EditorTab.svelte";
   import FilePane from "../components/files/FilePane.svelte";
   import TransferQueue from "../components/files/TransferQueue.svelte";
   import { files, type Pane } from "../stores/files.svelte";
+  import { layout } from "../stores/layout.svelte";
 
   $effect(() => {
     files.start();
@@ -147,8 +149,9 @@
 
   <div class="stage">
     <div class="browser" class:hidden={files.tab !== "browser"}>
-      <div class="panes">
+      <div class="panes" style:grid-template-columns="minmax(0, {layout.get('filesSplit')}fr) auto minmax(0, {100 - layout.get('filesSplit')}fr)">
         {#each files.panes as p, i (p.id)}
+          {#if i === 1}<Resizer key="filesSplit" axis="x" label="Resize file panes" />{/if}
           <FilePane
             pane={p}
             active={files.active === i}
@@ -161,6 +164,7 @@
           />
         {/each}
       </div>
+      {#if files.queueOpen}<Resizer key="filesQueue" axis="y" invert label="Resize transfer queue" />{/if}
       <TransferQueue />
     </div>
     {#each files.docs as d (d.id)}
@@ -362,12 +366,13 @@
   .hidden {
     display: none;
   }
+  .browser > :global(.resizer.y) {
+    margin: -8px 0;
+  }
   .panes {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
   }
   .targets {
     margin: 8px 0 12px;

@@ -2,6 +2,7 @@ import { SECTIONS } from "../sections";
 import { docker } from "../stores/docker.svelte";
 import { files } from "../stores/files.svelte";
 import { hosts } from "../stores/hosts.svelte";
+import { layout } from "../stores/layout.svelte";
 import { metrics } from "../stores/metrics.svelte";
 import { settings } from "../stores/settings.svelte";
 import { terms } from "../stores/terms.svelte";
@@ -32,6 +33,13 @@ export function buildCommands(): PaletteCommand[] {
   }));
 
   const view: PaletteCommand[] = [
+    {
+      id: "layout.reset",
+      title: "Reset layout (panel sizes)",
+      group: "VIEW",
+      keywords: ["resize", "sidebar width", "panes", "borders", "splitter"],
+      run: () => layout.reset(),
+    },
     {
       id: "effects.toggle",
       title: settings.value.reduceEffects ? "Enable effects (glow, scanlines, glitch)" : "Reduce effects (glow, scanlines, glitch)",
