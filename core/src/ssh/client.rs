@@ -1,6 +1,7 @@
 //! SSH client connections over russh: host key verification, authentication
 //! (agent, key file, password / keyboard-interactive) and ProxyJump chains.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -109,12 +110,18 @@ impl ConnectError {
     }
 }
 
-/// russh client handler: verifies the server key against known_hosts.
+/// Remote (`-R`) forwards on one connection: bound server port → where the
+/// server's `forwarded-tcpip` channels for it go.
+pub type RemoteForwards = Arc<Mutex<HashMap<u32, tokio::sync::mpsc::UnboundedSender<russh::Channel<client::Msg>>>>>;
+
+/// russh client handler: verifies the server key against known_hosts and
+/// routes remote-forward channels to their tunnel.
 pub struct Verifier {
     host: String,
     port: u16,
     known_hosts: KnownHosts,
     issue: Arc<Mutex<Option<ConnectError>>>,
+    forwards: RemoteForwards,
 }
 
 impl client::Handler for Verifier {
@@ -148,6 +155,28 @@ impl client::Handler for Verifier {
         *self.issue.lock().expect("poisoned") = Some(issue);
         Ok(false)
     }
+
+    async fn server_channel_open_forwarded_tcpip(
+        &mut self,
+        channel: russh::Channel<client::Msg>,
+        _connected_address: &str,
+        connected_port: u32,
+        _originator_address: &str,
+        _originator_port: u32,
+        reply: client::ChannelOpenHandle,
+        _session: &mut client::Session,
+    ) -> Result<(), Self::Error> {
+        let target = self.forwards.lock().expect("poisoned").get(&connected_port).cloned();
+        match target {
+            Some(tx) => {
+                reply.accept().await;
+                let _ = tx.send(channel);
+            }
+            // Nothing asked for this port (or the tunnel just stopped).
+            None => reply.reject(russh::ChannelOpenFailure::AdministrativelyProhibited).await,
+        }
+        Ok(())
+    }
 }
 
 pub type SshHandle = Handle<Verifier>;
@@ -156,6 +185,8 @@ pub type SshHandle = Handle<Verifier>;
 pub struct Connection {
     pub handle: SshHandle,
     pub label: String,
+    /// Active remote forwards (see [`RemoteForwards`]).
+    pub forwards: RemoteForwards,
     _jumps: Vec<Arc<SshHandle>>,
 }
 
@@ -239,13 +270,23 @@ fn client_config(opts: &ConnectOptions) -> Arc<client::Config> {
     })
 }
 
-async fn handshake<S>(stream: S, t: &Target, opts: &ConnectOptions) -> Result<SshHandle, ConnectError>
+async fn handshake<S>(
+    stream: S,
+    t: &Target,
+    opts: &ConnectOptions,
+    forwards: RemoteForwards,
+) -> Result<SshHandle, ConnectError>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let issue = Arc::new(Mutex::new(None));
-    let verifier =
-        Verifier { host: t.host.clone(), port: t.port, known_hosts: opts.known_hosts.clone(), issue: issue.clone() };
+    let verifier = Verifier {
+        host: t.host.clone(),
+        port: t.port,
+        known_hosts: opts.known_hosts.clone(),
+        issue: issue.clone(),
+        forwards,
+    };
     let res = tokio::time::timeout(opts.connect_timeout, client::connect_stream(client_config(opts), stream, verifier))
         .await
         .map_err(|_| ConnectError::Network { host: t.host.clone(), message: "SSH handshake timed out".into() })?;
@@ -491,16 +532,19 @@ async fn tcp_connect(t: &Target, opts: &ConnectOptions) -> Result<tokio::net::Tc
 /// Connects to `target`, hopping through `jumps` in order (ProxyJump).
 pub async fn connect(target: &Target, jumps: &[Target], opts: &ConnectOptions) -> Result<Connection, ConnectError> {
     let mut chain: Vec<Arc<SshHandle>> = Vec::new();
+    // Only the final hop's forwards are used; jump hosts get their own, unused map.
+    let forwards = RemoteForwards::default();
     let hops: Vec<&Target> = jumps.iter().chain(std::iter::once(target)).collect();
+    let fwd_for = |i: usize| if i + 1 == hops.len() { forwards.clone() } else { RemoteForwards::default() };
     for (i, hop) in hops.iter().enumerate() {
         let mut handle = if i == 0 {
-            handshake(tcp_connect(hop, opts).await?, hop, opts).await?
+            handshake(tcp_connect(hop, opts).await?, hop, opts, fwd_for(i)).await?
         } else {
             let via = chain.last().expect("previous hop");
             let ch = via.channel_open_direct_tcpip(hop.host.clone(), hop.port.into(), "127.0.0.1", 0).await.map_err(
                 |e| ConnectError::Network { host: hop.host.clone(), message: format!("via jump host: {e}") },
             )?;
-            handshake(ch.into_stream(), hop, opts).await?
+            handshake(ch.into_stream(), hop, opts, fwd_for(i)).await?
         };
         authenticate(&mut handle, hop, opts).await?;
         tracing::info!(hop = %hop.label(), "authenticated");
@@ -508,7 +552,7 @@ pub async fn connect(target: &Target, jumps: &[Target], opts: &ConnectOptions) -
     }
     let last = chain.pop().expect("at least one hop");
     let handle = Arc::try_unwrap(last).unwrap_or_else(|_| unreachable!("no other references"));
-    Ok(Connection { handle, label: target.label(), _jumps: chain })
+    Ok(Connection { handle, label: target.label(), forwards, _jumps: chain })
 }
 
 /// Lightweight reachability check: TCP connect to host:port, returns latency.

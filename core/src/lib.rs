@@ -18,5 +18,6 @@ pub mod ssh;
 pub mod stack_dirs;
 pub mod store;
 pub mod term;
+pub mod tunnels;
 
 pub use error::{Error, Result};
