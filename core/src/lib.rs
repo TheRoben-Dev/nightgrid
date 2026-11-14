@@ -12,6 +12,7 @@ pub mod files;
 pub mod hosts;
 pub mod metrics;
 pub mod secrets;
+pub mod services;
 pub mod settings;
 pub mod ssh;
 pub mod stack_dirs;

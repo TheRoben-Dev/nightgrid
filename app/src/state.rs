@@ -39,6 +39,8 @@ pub struct AppState {
     pub log_streams: Mutex<HashMap<u32, tauri::async_runtime::JoinHandle<()>>>,
     /// Host metric pollers and their UI channel.
     pub metrics: Arc<crate::metrics_cmd::MetricsHub>,
+    /// Service health checker and its UI channel.
+    pub services: Arc<crate::services_cmd::ServicesHub>,
     /// Running compose commands: cancel switch by run id.
     pub compose_runs: Mutex<HashMap<u32, tokio::sync::watch::Sender<bool>>>,
     next_term: AtomicU32,
@@ -66,6 +68,7 @@ impl AppState {
             log_streams: Mutex::default(),
             compose_runs: Mutex::default(),
             metrics: Arc::default(),
+            services: Arc::default(),
             next_term: AtomicU32::new(1),
         })
     }
