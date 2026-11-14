@@ -6,6 +6,7 @@
 
 pub mod bookmarks;
 pub mod docker;
+pub mod edit_hook;
 pub mod error;
 pub mod files;
 pub mod hosts;

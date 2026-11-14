@@ -12,6 +12,7 @@ import { Terminal } from "@xterm/xterm";
 import { api, errorText, type ConnectError, type PromptKind, type TermMessage, type TermState } from "../api";
 import { openExternal, readClipboard, writeClipboard } from "../clipboard";
 import { actionFor } from "../keys";
+import { files } from "../stores/files.svelte";
 import { settings } from "../stores/settings.svelte";
 import { resyncStyles } from "./cspStyles";
 import { xtermTheme } from "./theme";
@@ -22,6 +23,27 @@ export type Origin =
   | { kind: "local" }
   /** `container` set: a shell inside that container (`docker exec -it`). */
   | { kind: "ssh"; hostId: number; name: string; container?: { id: string; name: string } };
+
+/** OSC number the remote edit helper uses (see core `edit_hook`). */
+export const EDIT_OSC = 7766;
+
+function newToken(): string {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+/** `token;base64(path)` → absolute path, or null if it isn't ours. */
+export function parseEditRequest(data: string, token: string): string | null {
+  const i = data.indexOf(";");
+  if (i < 0 || data.slice(0, i) !== token) return null;
+  try {
+    const path = new TextDecoder("utf-8", { fatal: true }).decode(b64ToBytes(data.slice(i + 1).trim()));
+    return path.startsWith("/") ? path : null;
+  } catch {
+    return null;
+  }
+}
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -51,6 +73,10 @@ export class TermSession {
   private opened = false;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
+  /** Per-start secret for the "edit in Nightgrid" hook (null when off). */
+  private editToken: string | null = null;
+  /** Brings this pane to the front (set by the terminal store). */
+  reveal: (() => void) | null = null;
 
   constructor(paneId: number, origin: Origin) {
     this.paneId = paneId;
@@ -82,6 +108,7 @@ export class TermSession {
       if (settings.value.termCopyOnSelect && this.term.hasSelection()) void writeClipboard(this.term.getSelection());
     });
     this.term.attachCustomKeyEventHandler((e) => this.onKey(e));
+    this.term.parser.registerOscHandler(EDIT_OSC, (data) => this.onEditRequest(data));
     this.el.addEventListener("contextmenu", (e) => {
       if (!settings.value.termRightClickPaste) return;
       e.preventDefault();
@@ -138,6 +165,24 @@ export class TermSession {
     this.term.options.cursorBlink = s.termCursorBlink;
     this.term.options.theme = xtermTheme();
     this.refit();
+  }
+
+  /**
+   * `nano FILE` / `$EDITOR` on the host printed `OSC 7766 ; token ; b64(path)`.
+   * Opens the file in an editor tab; closing the tab answers with the token so
+   * the remote helper returns. Anything without our token is ignored.
+   */
+  private onEditRequest(data: string): boolean {
+    const token = this.editToken;
+    if (!token || this.origin.kind !== "ssh") return true;
+    const path = parseEditRequest(data, token);
+    if (!path) return true;
+    const { hostId, name } = this.origin;
+    files.openFromTerminal(hostId, path, name, () => {
+      if (this.backendId !== null && this.editToken === token) void api.termWrite(this.backendId, token + "\r");
+      this.reveal?.();
+    });
+    return true;
   }
 
   private onKey(e: KeyboardEvent): boolean {
@@ -209,9 +254,10 @@ export class TermSession {
         this.backendId = await api.termOpenLocal(cols, rows, this.listener(gen));
       } else {
         const o = this.origin;
+        this.editToken = !o.container && settings.value.termEditInApp ? newToken() : null;
         const res = o.container
           ? await api.termOpenDockerExec(o.hostId, o.container.id, cols, rows, this.listener(gen))
-          : await api.termOpenSsh(o.hostId, cols, rows, this.listener(gen));
+          : await api.termOpenSsh(o.hostId, cols, rows, this.editToken, this.listener(gen));
         if (gen !== this.generation) return;
         if (res.kind === "opened") {
           this.backendId = res.id;

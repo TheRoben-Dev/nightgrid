@@ -132,6 +132,12 @@
         checked={settings.value.termCursorBlink}
         onchange={(v) => settings.update({ termCursorBlink: v })}
       />
+      <Toggle
+        label="Edit server files in Nightgrid"
+        hint="In SSH terminals, nano FILE and $EDITOR (git commit, crontab -e, sudoedit) open the file in the editor tab with normal shortcuts instead of nano. Nothing is installed on the server; applies to new terminals."
+        checked={settings.value.termEditInApp}
+        onchange={(v) => settings.update({ termEditInApp: v })}
+      />
     </div>
   </Panel>
 

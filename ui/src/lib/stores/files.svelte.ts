@@ -18,6 +18,7 @@ import {
 import type { EditorHandle } from "../files/editor";
 import { isHidden, langFor, type LangKey } from "../files/util";
 import { hosts } from "./hosts.svelte";
+import { ui } from "./ui.svelte";
 
 export const sameSide = (a: Side, b: Side) => a.kind === b.kind && (a.kind === "local" || a.id === (b as { id: number }).id);
 
@@ -159,6 +160,10 @@ export class EditorDoc {
   /** Set when the file changed on disk since it was opened. */
   conflict = $state(false);
   lastSave = $state<{ atomic: boolean; at: number } | null>(null);
+  /** The file doesn't exist yet; saving creates it. */
+  isNew = $state(false);
+  /** Set when a terminal asked for this file (nano / $EDITOR); called once on close. */
+  returnTo: { label: string; done: () => void } | null = null;
   editor: EditorHandle | null = null;
   readonly lang: LangKey;
 
@@ -184,9 +189,16 @@ export class EditorDoc {
       this.stamp = { size: f.stat.size, mtime: f.stat.mtime };
       this.dirty = false;
       this.conflict = false;
+      this.isNew = false;
       this.editor?.reset(f.content);
     } catch (e) {
-      this.error = errorText(e);
+      // A terminal editor would create a missing file on save; so do we.
+      if (this.returnTo && filesError(e).fs?.kind === "notFound") {
+        this.content = "";
+        this.stamp = null;
+        this.isNew = true;
+        this.editor?.reset("");
+      } else this.error = errorText(e);
     } finally {
       this.loading = false;
     }
@@ -204,6 +216,7 @@ export class EditorDoc {
       this.content = text;
       this.dirty = this.editor.text() !== text;
       this.conflict = false;
+      this.isNew = false;
       this.lastSave = { atomic: r.atomic, at: Date.now() };
     } catch (e) {
       const { fs } = filesError(e);
@@ -293,9 +306,35 @@ class FilesStore {
     void doc.load();
   }
 
+  /**
+   * Opens a host file asked for by a terminal (`nano FILE`, `$EDITOR`).
+   * `done` runs when the tab closes, which lets the terminal continue.
+   */
+  openFromTerminal(hostId: number, path: string, label: string, done: () => void) {
+    const side: Side = { kind: "host", id: hostId };
+    this.start();
+    const existing = this.docs.find((d) => sameSide(d.side, side) && d.path === path);
+    if (existing) {
+      // Already open: the earlier request is answered, this one takes over.
+      existing.returnTo?.done();
+      existing.returnTo = { label, done };
+      this.tab = existing.id;
+    } else {
+      const doc = new EditorDoc(side, path, path.split("/").pop() || path);
+      doc.returnTo = { label, done };
+      this.docs = [...this.docs, doc];
+      this.tab = doc.id;
+      void doc.load();
+    }
+    ui.go("files");
+  }
+
   closeDoc(id: number) {
     const i = this.docs.findIndex((d) => d.id === id);
     if (i < 0) return;
+    const ret = this.docs[i].returnTo;
+    this.docs[i].returnTo = null;
+    ret?.done();
     this.docs[i].editor?.view.destroy();
     this.docs = this.docs.filter((d) => d.id !== id);
     if (this.tab === id) this.tab = this.docs[Math.min(i, this.docs.length - 1)]?.id ?? "browser";

@@ -85,6 +85,12 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 4. `›_` opens a shell inside the container in a terminal tab. `↻`/`■`/`▶` restart/stop/start; the confirmation names the container. Select several (or a project checkbox) for bulk actions.
 5. `Cmd+K` → `Docker: <host>`, `Logs: <name>` or `Shell: <name>`.
 
+### macOS: testing "edit server files in Nightgrid"
+
+1. Settings (`Cmd+,`) → Terminal → turn on **Edit server files in Nightgrid**, then open a new terminal on Lumen.
+2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
+3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
+
 ### Linux: blank or glitchy window (WebKitGTK)
 
 On the NVIDIA proprietary driver, NIGHTGRID disables WebKitGTK's DMA-BUF renderer automatically. To force it either way:
