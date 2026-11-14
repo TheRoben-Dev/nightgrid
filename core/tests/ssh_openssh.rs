@@ -18,6 +18,11 @@ fn enabled() -> bool {
     std::env::var("NIGHTGRID_TEST_OPENSSH").is_ok_and(|v| v == "1")
 }
 
+/// Tests here start sshd on ports picked by `free_port` and some restart
+/// sshd on the same port, so running them in parallel can hand one test's
+/// port to another. Each test holds this for its whole run.
+static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 fn sshd_binary() -> PathBuf {
     ["/usr/sbin/sshd", "/usr/local/sbin/sshd", "/opt/homebrew/sbin/sshd"]
         .iter()
@@ -127,6 +132,7 @@ async fn openssh_key_auth_exec_and_jump() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let sshd = start_sshd("host_ed25519", None, None);
     let o = opts(sshd.dir.path());
     let t = key_target(&sshd);
@@ -148,6 +154,7 @@ async fn openssh_interactive_shell() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let sshd = start_sshd("host_ed25519", None, None);
     let o = opts(sshd.dir.path());
     let t = key_target(&sshd);
@@ -189,6 +196,7 @@ async fn openssh_changed_host_key_is_blocked() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let sshd = start_sshd("host_a", None, None);
     let o = opts(sshd.dir.path());
     let t = key_target(&sshd);
@@ -217,6 +225,7 @@ async fn openssh_sftp_browse_edit_and_transfer() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let sshd = start_sshd("host_ed25519", None, None);
     let o = opts(sshd.dir.path());
     let conn = Arc::new(connect_trusting(&key_target(&sshd), &[], &o).await);
@@ -326,6 +335,7 @@ async fn openssh_docker_over_ssh() {
     if !enabled() || std::env::var("NIGHTGRID_TEST_DOCKER").map_or(true, |v| v != "1") {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let s = start_sshd("ssh_host_ed25519_key", None, None);
     let conn = Arc::new(connect_trusting(&key_target(&s), &[], &opts(s.dir.path())).await);
     let name = format!("ng-test-{}", std::process::id());
@@ -390,7 +400,12 @@ async fn openssh_docker_over_ssh() {
     d.act(&name, Action::Unpause).await.unwrap();
     d.act(&name, Action::Kill).await.unwrap();
     let state = |l: Vec<nightgrid_core::docker::ContainerView>| l.into_iter().find(|c| c.name == name).map(|c| c.state);
-    assert_eq!(state(d.containers().await.unwrap()).as_deref(), Some("exited"));
+    // `kill` returns once the signal is sent; the daemon flips the state a moment later.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while state(d.containers().await.unwrap()).as_deref() != Some("exited") {
+        assert!(Instant::now() < deadline, "container did not exit after kill");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
     d.act(&name, Action::Start).await.unwrap();
     d.act(&name, Action::Start).await.expect("start when running is a no-op");
     d.act(&name, Action::Remove { force: false }).await.expect_err("running container needs force");
@@ -411,6 +426,7 @@ async fn openssh_edit_hook() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let token = "00112233445566778899aabbccddeeff";
     let sshd = start_sshd("host_ed25519", None, None);
     let o = opts(sshd.dir.path());
