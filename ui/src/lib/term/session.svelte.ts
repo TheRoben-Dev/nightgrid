@@ -18,7 +18,10 @@ import { xtermTheme } from "./theme";
 
 export type PaneState = TermState | "idle" | "prompt" | "failed" | "exited";
 
-export type Origin = { kind: "local" } | { kind: "ssh"; hostId: number; name: string };
+export type Origin =
+  | { kind: "local" }
+  /** `container` set: a shell inside that container (`docker exec -it`). */
+  | { kind: "ssh"; hostId: number; name: string; container?: { id: string; name: string } };
 
 function b64ToBytes(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -87,7 +90,8 @@ export class TermSession {
   }
 
   get title(): string {
-    return this.origin.kind === "local" ? "local" : this.origin.name;
+    if (this.origin.kind === "local") return "local";
+    return this.origin.container ? `${this.origin.name} ▸ ${this.origin.container.name}` : this.origin.name;
   }
 
   /** Puts the terminal into `host` (first call opens xterm). */
@@ -204,7 +208,10 @@ export class TermSession {
       if (this.origin.kind === "local") {
         this.backendId = await api.termOpenLocal(cols, rows, this.listener(gen));
       } else {
-        const res = await api.termOpenSsh(this.origin.hostId, cols, rows, this.listener(gen));
+        const o = this.origin;
+        const res = o.container
+          ? await api.termOpenDockerExec(o.hostId, o.container.id, cols, rows, this.listener(gen))
+          : await api.termOpenSsh(o.hostId, cols, rows, this.listener(gen));
         if (gen !== this.generation) return;
         if (res.kind === "opened") {
           this.backendId = res.id;

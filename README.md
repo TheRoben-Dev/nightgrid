@@ -77,6 +77,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 4. Edit: double-click `compose.yaml` or a `.env` on Lumen, change it, `Cmd+S`. The footer says whether the save was atomic. To see conflict protection, change the file from a terminal (`echo >> file`) and save again in the editor.
 5. Delete asks with the exact paths; deleting several items on a host needs the host name typed.
 
+### macOS: testing M3 (Docker)
+
+1. Press `Cmd+4` (Docker) and pick Lumen in the HOST dropdown. The header shows the engine version. Containers are grouped by compose project with CPU/memory filled in after a few seconds.
+2. If you see **NO ACCESS TO DOCKER**, run the command it shows on the server (`sudo usermod -aG docker <you>`), close that host's terminals, and press Retry.
+3. Click a container: live logs open on the right. Try search, "only matches", tail and timestamps. Check DETAILS, ENV (values hidden until clicked) and INSPECT JSON.
+4. `›_` opens a shell inside the container in a terminal tab. `↻`/`■`/`▶` restart/stop/start; the confirmation names the container. Select several (or a project checkbox) for bulk actions.
+5. `Cmd+K` → `Docker: <host>`, `Logs: <name>` or `Shell: <name>`.
+
 ### Linux: blank or glitchy window (WebKitGTK)
 
 On the NVIDIA proprietary driver, NIGHTGRID disables WebKitGTK's DMA-BUF renderer automatically. To force it either way:

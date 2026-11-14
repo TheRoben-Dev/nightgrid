@@ -21,6 +21,7 @@
   import Settings from "./lib/views/Settings.svelte";
   import Terminal from "./lib/views/Terminal.svelte";
   import Files from "./lib/views/Files.svelte";
+  import Docker from "./lib/views/Docker.svelte";
 
   let info = $state<AppInfo | null>(null);
   /** Files stays mounted after the first visit so open editors survive section switches. */
@@ -105,7 +106,7 @@
   <LeftRail version={info?.version ?? "0.1.0"} />
   <div class="main">
     <TopBar />
-    <main class="content" class:fill={section.id === "terminal" || section.id === "files"} aria-label={section.label}>
+    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>
@@ -124,6 +125,8 @@
       {/if}
       {#if section.id === "terminal" || section.id === "files"}
         <!-- rendered above -->
+      {:else if section.id === "docker"}
+        <div class="view-fill"><Docker /></div>
       {:else if section.id === "overview"}
         <Overview {info} />
       {:else if section.id === "settings"}

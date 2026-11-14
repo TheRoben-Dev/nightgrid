@@ -36,8 +36,19 @@ import {
   type Side,
   type Stamp_Deserialize as Stamp,
   type TextFile_Serialize as TextFile,
+  type Action as DockerAction,
+  type ActionResult_Serialize as ActionResult,
+  type ContainerDetail_Serialize as ContainerDetail,
+  type ContainerStats,
+  type ContainerView_Serialize as ContainerView,
+  type DockerError,
+  type EngineInfo,
+  type LogEvent_Serialize as LogEvent,
+  type LogLine_Serialize as LogLine,
+  type LogQuery_Deserialize as LogQuery,
 } from "./bindings";
 import { mockBackend } from "./mock";
+import { mockDocker } from "./mockDocker";
 import { mockFiles } from "./mockFiles";
 
 export type {
@@ -71,6 +82,16 @@ export type {
   Side,
   Stamp,
   TextFile,
+  DockerAction,
+  ActionResult,
+  ContainerDetail,
+  ContainerStats,
+  ContainerView,
+  DockerError,
+  EngineInfo,
+  LogEvent,
+  LogLine,
+  LogQuery,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -208,7 +229,38 @@ export const api = {
   transferResolve: (id: number, policy: ConflictPolicy, all: boolean): Promise<null> =>
     T() ? commands.transferResolve(id, policy, all) : mockFiles.resolve(id, policy, all),
   transfersClear: (): Promise<null> => (T() ? commands.transfersClear() : mockFiles.clear()),
+
+  dockerInfo: (hostId: number): Promise<EngineInfo> => (T() ? commands.dockerInfo(hostId) : mockDocker.info(hostId)),
+  dockerContainers: (hostId: number): Promise<ContainerView[]> =>
+    T() ? commands.dockerContainers(hostId) : mockDocker.containers(hostId),
+  dockerStats: (hostId: number, ids: string[]): Promise<ContainerStats[]> =>
+    T() ? commands.dockerStats(hostId, ids) : mockDocker.stats(hostId, ids),
+  dockerAction: (hostId: number, ids: string[], action: DockerAction): Promise<ActionResult[]> =>
+    T() ? commands.dockerAction(hostId, ids, action) : mockDocker.action(hostId, ids, action),
+  dockerInspect: (hostId: number, id: string): Promise<ContainerDetail> =>
+    T() ? commands.dockerInspect(hostId, id) : mockDocker.inspect(hostId, id),
+  dockerLogsStart: (hostId: number, id: string, query: LogQuery, on: (e: LogEvent) => void): Promise<number> => {
+    if (!T()) return mockDocker.logsStart(hostId, id, query, on);
+    const ch = new Channel<LogEvent>();
+    ch.onmessage = on;
+    return commands.dockerLogsStart(hostId, id, query, ch as unknown as Parameters<typeof commands.dockerLogsStart>[3]);
+  },
+  dockerLogsStop: (stream: number): Promise<null> => (T() ? commands.dockerLogsStop(stream) : mockDocker.logsStop(stream)),
+  dockerForget: (hostId: number): Promise<null> => (T() ? commands.dockerForget(hostId) : Promise.resolve(null)),
+  termOpenDockerExec: (hostId: number, container: string, cols: number, rows: number, on: TermListener): Promise<TermOpen> =>
+    T()
+      ? commands.termOpenDockerExec(hostId, container, cols, rows, channel(on))
+      : mockBackend.termOpenSsh(hostId, on),
 };
+
+/** The structured parts of a rejected Docker command, when present. */
+export function dockerError(e: unknown): { connect: ConnectError | null; docker: DockerError | null } {
+  if (e && typeof e === "object") {
+    const o = e as { connect?: ConnectError | null; docker?: DockerError | null };
+    return { connect: o.connect ?? null, docker: o.docker ?? null };
+  }
+  return { connect: null, docker: null };
+}
 
 /** The structured parts of a rejected file command, when present. */
 export function filesError(e: unknown): { connect: ConnectError | null; fs: FsError | null } {

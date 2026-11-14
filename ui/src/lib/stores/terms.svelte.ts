@@ -72,6 +72,11 @@ class TermsStore {
     this.openTab(this.originFor(hostId));
   }
 
+  /** Opens a tab with a shell inside a container on `hostId`. */
+  openContainer(hostId: number, container: { id: string; name: string }) {
+    this.openTab({ ...this.originFor(hostId), container } as Origin);
+  }
+
   /** Splits the focused pane, opening the same kind of session next to it. */
   split(dir: Dir) {
     const tab = this.current;

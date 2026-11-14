@@ -180,20 +180,34 @@ fn backoff(attempt: u32) -> Duration {
     Duration::from_secs(1u64 << attempt.min(5).saturating_sub(1)).min(MAX_BACKOFF)
 }
 
-/// Connects (errors are returned so the UI can prompt), then runs the shell in
-/// a background task that reconnects with backoff when the connection drops.
+async fn open_channel(
+    conn: &Connection,
+    command: Option<&str>,
+    cols: u16,
+    rows: u16,
+) -> std::result::Result<russh::Channel<russh::client::Msg>, ConnectError> {
+    match command {
+        Some(cmd) => conn.open_pty_exec(cmd, cols, rows).await,
+        None => conn.open_shell(cols, rows).await,
+    }
+}
+
+/// Connects (errors are returned so the UI can prompt), then runs the shell
+/// (or `command` in a PTY, e.g. `docker exec -it`) in a background task that
+/// reconnects with backoff when the connection drops.
 pub async fn spawn_ssh(
     connector: Connector,
+    command: Option<String>,
     cols: u16,
     rows: u16,
     sink: Sink,
 ) -> std::result::Result<TermHandle, ConnectError> {
     sink(TermEvent::Status { state: TermState::Connecting, attempt: 0, message: None });
     let conn = connector(false).await?;
-    let channel = conn.open_shell(cols, rows).await?;
+    let channel = open_channel(&conn, command.as_deref(), cols, rows).await?;
     sink(TermEvent::Status { state: TermState::Connected, attempt: 0, message: Some(conn.label.clone()) });
     let (tx, rx) = mpsc::unbounded_channel();
-    tokio::spawn(run_ssh(connector, conn, channel, cols, rows, rx, sink));
+    tokio::spawn(run_ssh(connector, command, conn, channel, cols, rows, rx, sink));
     Ok(TermHandle { tx })
 }
 
@@ -246,8 +260,10 @@ async fn pump(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_ssh(
     connector: Connector,
+    command: Option<String>,
     mut conn: Arc<Connection>,
     mut channel: russh::Channel<russh::client::Msg>,
     cols: u16,
@@ -303,7 +319,7 @@ async fn run_ssh(
             }
             let result = async {
                 let c = connector(true).await?;
-                let ch = c.open_shell(size.0, size.1).await?;
+                let ch = open_channel(&c, command.as_deref(), size.0, size.1).await?;
                 Ok::<_, ConnectError>((c, ch))
             }
             .await;

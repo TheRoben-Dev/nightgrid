@@ -5,6 +5,7 @@
 //! thin layer of commands and events over this crate.
 
 pub mod bookmarks;
+pub mod docker;
 pub mod error;
 pub mod files;
 pub mod hosts;
