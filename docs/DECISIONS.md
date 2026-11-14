@@ -130,3 +130,6 @@ Roben picked a terminal window with a title-bar stepper, drawn with the NIGHTGRI
 ### D-041 · Panel sizes live in localStorage, not settings
 Roben wanted adjustable workspace borders. One `Resizer` component drives every splitter (pointer drag, arrow keys, Home/End, Enter/double-click to reset) against a small layout store with a min, max and default per size. Sizes are per-machine layout preferences, so they're kept in the webview's localStorage (`nightgrid.layout.v1`) rather than in SQLite settings. A laptop and a desktop can then keep different layouts, and nothing sensitive is involved. Split sizes are percentages of the parent, so they survive window resizes; the sidebar width is in pixels.
 
+
+### D-042 · DRIFT is the LLM helper's mascot
+Roben chose DRIFT, a 24×18 pixel HUD drone, from four original concepts and a round of variants. It is drawn only with theme tokens: a dark hull, a mint hairline outline, chamfered corners like the app icon, a forehead stepper, cyan eyes and a magenta thruster. That way it recolours with the theme and fits the UI instead of sitting on top of it. Pixel art was chosen because it stays crisp at integer scales and its states are cheap frame swaps that still work with reduce effects. The reference sheet, frame data and spec are in `docs/mascot/`, and `drift-sprites.json` is the source of truth for the implementation.
