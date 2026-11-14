@@ -3,12 +3,14 @@
 
 use std::sync::Arc;
 
+use nightgrid_core::docker::compose::{ComposeOp, ImageChange, Stack};
 use nightgrid_core::docker::{
     valid_container_ref, Action, ContainerDetail, ContainerStats, ContainerView, DockerError, DockerHost, EngineInfo,
     LogLine, LogQuery,
 };
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::ssh::client::ConnectError;
+use nightgrid_core::stack_dirs::{valid_stack_dir, StackDir, StackDirId};
 use serde::Serialize;
 use specta::Type;
 use tauri::ipc::Channel;
@@ -194,4 +196,102 @@ pub(crate) fn exec_command(d: &DockerHost, container: &str) -> CmdResult<String>
         return Err(CommandError::msg("invalid container reference"));
     }
     Ok(nightgrid_core::docker::exec_shell_command(container, &d.route))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn stack_dirs_list(state: State<'_, AppState>, host_id: HostId) -> CmdResult<Vec<StackDir>> {
+    Ok(state.store().list_stack_dirs(host_id)?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn stack_dirs_add(state: State<'_, AppState>, host_id: HostId, path: String) -> CmdResult<StackDir> {
+    let path = path.trim();
+    if !valid_stack_dir(path) {
+        return Err(CommandError::msg("use an absolute folder (/opt/stacks) or one under ~ (~/stacks)"));
+    }
+    Ok(state.store().add_stack_dir(host_id, path)?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn stack_dirs_delete(state: State<'_, AppState>, id: StackDirId) -> CmdResult<()> {
+    Ok(state.store().delete_stack_dir(id)?)
+}
+
+/// Compose stacks on the host: from container labels plus the host's stack
+/// folders.
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_stacks(app: AppHandle, host_id: HostId) -> DockerResult<Vec<Stack>> {
+    let dirs: Vec<String> = {
+        let state = app.state::<AppState>();
+        let list = state.store().list_stack_dirs(host_id).map_err(|e| DockerCmdError::msg(e.to_string()))?;
+        list.into_iter().map(|d| d.path).collect()
+    };
+    Ok(docker_for(&app, host_id).await?.stacks(&dirs).await?)
+}
+
+/// What a compose run's channel carries.
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum ComposeEvent {
+    Lines {
+        lines: Vec<String>,
+    },
+    /// The command finished. `code` 0 = success; `changes` only for update.
+    Done {
+        code: Option<i32>,
+        changes: Option<Vec<ImageChange>>,
+        error: Option<String>,
+    },
+}
+
+pub type ComposeRunId = u32;
+
+/// Starts a compose command for `stack`. Down / restart / update were
+/// confirmed in the UI with the stack and host named (security rule 5).
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_compose_run(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    host_id: HostId,
+    stack: Stack,
+    op: ComposeOp,
+    on_event: Channel<ComposeEvent>,
+) -> DockerResult<ComposeRunId> {
+    nightgrid_core::docker::compose::check_stack(&stack)?;
+    let d = docker_for(&app, host_id).await?;
+    if op.is_destructive() {
+        tracing::info!(host = %host_id, stack = %stack.name, op = ?op, "compose action");
+    }
+    let run_id = state.next_term_id();
+    let (tx, rx) = tokio::sync::watch::channel(false);
+    state.compose_runs.lock().expect("poisoned").insert(run_id, tx);
+    let app2 = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let ch = on_event.clone();
+        let mut sink = move |lines: Vec<String>| {
+            let _ = ch.send(ComposeEvent::Lines { lines });
+        };
+        let done = match d.compose(&stack, op, rx, &mut sink).await {
+            Ok((code, changes)) => ComposeEvent::Done { code: Some(code), changes, error: None },
+            Err(e) => ComposeEvent::Done { code: None, changes: None, error: Some(e.to_string()) },
+        };
+        let _ = on_event.send(done);
+        app2.state::<AppState>().compose_runs.lock().expect("poisoned").remove(&run_id);
+    });
+    Ok(run_id)
+}
+
+/// Sends Ctrl-C to a running compose command.
+#[tauri::command]
+#[specta::specta]
+pub fn docker_compose_cancel(state: State<'_, AppState>, run: ComposeRunId) -> CmdResult<()> {
+    if let Some(tx) = state.compose_runs.lock().expect("poisoned").get(&run) {
+        let _ = tx.send(true);
+    }
+    Ok(())
 }

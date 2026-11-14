@@ -415,6 +415,57 @@ async fn openssh_docker_over_ssh() {
     assert!(matches!(err, nightgrid_core::docker::DockerError::NotFound { .. }), "{err:?}");
 }
 
+/// Compose stacks: found in a stack folder, then up / update / down with
+/// streamed output, against the runner's dockerd.
+#[tokio::test(flavor = "multi_thread")]
+async fn openssh_compose_stacks() {
+    use nightgrid_core::docker::compose::{project_from_dir, ComposeOp};
+    use nightgrid_core::docker::DockerHost;
+
+    if !enabled() || std::env::var("NIGHTGRID_TEST_DOCKER").map_or(true, |v| v != "1") {
+        return;
+    }
+    let _serial = SERIAL.lock().await;
+    let s = start_sshd("ssh_host_ed25519_key", None, None);
+    let conn = Arc::new(connect_trusting(&key_target(&s), &[], &opts(s.dir.path())).await);
+    let root = tempfile::tempdir().unwrap();
+    let dir = root.path().join(format!("ngstack{}", std::process::id()));
+    std::fs::create_dir(&dir).unwrap();
+    std::fs::write(
+        dir.join("compose.yaml"),
+        "services:\n  web:\n    image: alpine:3.20\n    network_mode: none\n    command: [\"sleep\", \"600\"]\n",
+    )
+    .unwrap();
+    let root_s = root.path().to_str().unwrap().to_owned();
+    let project = project_from_dir(dir.to_str().unwrap());
+
+    let d = DockerHost::connect(conn.clone()).await.expect("docker connect");
+    let find = |list: Vec<nightgrid_core::docker::compose::Stack>| list.into_iter().find(|st| st.name == project);
+    let stack = find(d.stacks(std::slice::from_ref(&root_s)).await.unwrap()).expect("stack found in folder");
+    assert!(stack.in_folder);
+    assert_eq!((stack.running, stack.total), (0, 0));
+    assert!(stack.files[0].ends_with("/compose.yaml"), "{:?}", stack.files);
+
+    let (_tx, rx) = tokio::sync::watch::channel(false);
+    let mut out = Vec::<String>::new();
+    let mut sink = |l: Vec<String>| out.extend(l);
+    let (code, _) = d.compose(&stack, ComposeOp::Up, rx.clone(), &mut sink).await.unwrap();
+    assert_eq!(code, 0, "up: {out:?}");
+    let up = find(d.stacks(std::slice::from_ref(&root_s)).await.unwrap()).unwrap();
+    assert_eq!((up.running, up.total), (1, 1));
+
+    // Same image: update pulls, recreates nothing and reports no changes.
+    let (code, changes) = d.compose(&up, ComposeOp::Update, rx.clone(), &mut sink).await.unwrap();
+    assert_eq!(code, 0, "update: {out:?}");
+    assert_eq!(changes, Some(vec![]));
+
+    let (code, _) = d.compose(&up, ComposeOp::Down, rx.clone(), &mut sink).await.unwrap();
+    assert_eq!(code, 0, "down: {out:?}");
+    let down = find(d.stacks(std::slice::from_ref(&root_s)).await.unwrap()).unwrap();
+    assert_eq!(down.total, 0);
+    assert!(out.iter().any(|l| l.contains("Removed")), "{out:?}");
+}
+
 /// "Edit in Nightgrid" hook: `nano FILE` and `$EDITOR` emit the edit request
 /// with the session token and wait until the app answers, and the temp folder
 /// is gone after the shell exits.

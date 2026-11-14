@@ -37,6 +37,8 @@ pub struct AppState {
     pub docker: DockerCache,
     /// Running log streams, by id (aborted on stop).
     pub log_streams: Mutex<HashMap<u32, tauri::async_runtime::JoinHandle<()>>>,
+    /// Running compose commands: cancel switch by run id.
+    pub compose_runs: Mutex<HashMap<u32, tokio::sync::watch::Sender<bool>>>,
     next_term: AtomicU32,
 }
 
@@ -60,6 +62,7 @@ impl AppState {
             transfers: OnceLock::new(),
             docker: DockerCache::new(),
             log_streams: Mutex::default(),
+            compose_runs: Mutex::default(),
             next_term: AtomicU32::new(1),
         })
     }

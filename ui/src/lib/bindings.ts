@@ -93,6 +93,21 @@ export const commands = {
 	 */
 	dockerForget: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_forget", { hostId }, options),
 	/**
+	 *  Compose stacks on the host: from container labels plus the host's stack
+	 *  folders.
+	 */
+	dockerStacks: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Stack[]>("docker_stacks", { hostId }, options),
+	/**
+	 *  Starts a compose command for `stack`. Down / restart / update were
+	 *  confirmed in the UI with the stack and host named (security rule 5).
+	 */
+	dockerComposeRun: (hostId: number, stack: Stack, op: ComposeOp, onEvent: Channel<ComposeEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("docker_compose_run", { hostId, stack, op, onEvent }, options),
+	/**  Sends Ctrl-C to a running compose command. */
+	dockerComposeCancel: (run: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_compose_cancel", { run }, options),
+	stackDirsList: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<StackDir[]>("stack_dirs_list", { hostId }, options),
+	stackDirsAdd: (hostId: number, path: string, options?: InvokeOptions) => __TAURI_INVOKE<StackDir>("stack_dirs_add", { hostId, path }, options),
+	stackDirsDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("stack_dirs_delete", { id }, options),
+	/**
 	 *  Opens a terminal tab with an interactive shell inside a container
 	 *  (`docker exec -it`, bash if present, else sh). Reconnects re-run it.
 	 */
@@ -243,6 +258,23 @@ export type CommandError = {
 	message: string,
 };
 
+/**  What a compose run's channel carries. */
+export type ComposeEvent = ComposeEvent_Serialize | ComposeEvent_Deserialize;
+
+/**  What a compose run's channel carries. */
+export type ComposeEvent_Deserialize = { kind: "lines"; lines: string[] } | 
+/**  The command finished. `code` 0 = success; `changes` only for update. */
+{ kind: "done"; code?: number | null; changes?: ImageChange_Deserialize[] | null; error?: string | null };
+
+/**  What a compose run's channel carries. */
+export type ComposeEvent_Serialize = { kind: "lines"; lines: string[] } | 
+/**  The command finished. `code` 0 = success; `changes` only for update. */
+{ kind: "done"; code: number | null; changes: ImageChange_Serialize[] | null; error: string | null };
+
+export type ComposeOp = "up" | "pull" | "restart" | "down" | 
+/**  `pull` then `up -d`, reporting which services got a new image. */
+"update";
+
 export type ConflictInfo = ConflictInfo_Serialize | ConflictInfo_Deserialize;
 
 export type ConflictInfo_Deserialize = {
@@ -343,6 +375,8 @@ export type ContainerView_Deserialize = {
 	project?: string | null,
 	service?: string | null,
 	composeDir?: string | null,
+	/**  Compose files the project was started with (absolute paths). */
+	composeFiles: string[],
 };
 
 export type ContainerView_Serialize = {
@@ -361,6 +395,8 @@ export type ContainerView_Serialize = {
 	project: string | null,
 	service: string | null,
 	composeDir: string | null,
+	/**  Compose files the project was started with (absolute paths). */
+	composeFiles: string[],
 };
 
 /**
@@ -621,6 +657,27 @@ export type Host_Serialize = {
 	tags: string[],
 };
 
+/**  A service whose image changed during "update stack". */
+export type ImageChange = ImageChange_Serialize | ImageChange_Deserialize;
+
+/**  A service whose image changed during "update stack". */
+export type ImageChange_Deserialize = {
+	service: string,
+	image: string,
+	/**  Short image ids (12 hex chars); `None` before = service was not running. */
+	before?: string | null,
+	after: string,
+};
+
+/**  A service whose image changed during "update stack". */
+export type ImageChange_Serialize = {
+	service: string,
+	image: string,
+	/**  Short image ids (12 hex chars); `None` before = service was not running. */
+	before: string | null,
+	after: string,
+};
+
 export type ImportResult = {
 	created: number,
 	updated: number,
@@ -877,6 +934,25 @@ export type SshConfigHost_Serialize = {
 	port: number | null,
 	identityFile: string | null,
 	proxyJump: string | null,
+};
+
+export type Stack = {
+	/**  Compose project name. */
+	name: string,
+	/**  Project (working) directory on the host. */
+	dir: string,
+	/**  Compose files (absolute paths). Empty = compose's default lookup in `dir`. */
+	files: string[],
+	running: number,
+	total: number,
+	/**  Found in a stack folder (vs. only from running containers' labels). */
+	inFolder: boolean,
+};
+
+export type StackDir = {
+	id: number,
+	hostId: number,
+	path: string,
 };
 
 /**

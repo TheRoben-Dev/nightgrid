@@ -164,6 +164,8 @@ export class EditorDoc {
   isNew = $state(false);
   /** Set when a terminal asked for this file (nano / $EDITOR); called once on close. */
   returnTo: { label: string; done: () => void } | null = null;
+  /** A missing file opens empty and is created on save (e.g. a stack's .env). */
+  allowNew = false;
   editor: EditorHandle | null = null;
   readonly lang: LangKey;
 
@@ -193,7 +195,7 @@ export class EditorDoc {
       this.editor?.reset(f.content);
     } catch (e) {
       // A terminal editor would create a missing file on save; so do we.
-      if (this.returnTo && filesError(e).fs?.kind === "notFound") {
+      if ((this.returnTo || this.allowNew) && filesError(e).fs?.kind === "notFound") {
         this.content = "";
         this.stamp = null;
         this.isNew = true;
@@ -322,6 +324,22 @@ class FilesStore {
     } else {
       const doc = new EditorDoc(side, path, path.split("/").pop() || path);
       doc.returnTo = { label, done };
+      this.docs = [...this.docs, doc];
+      this.tab = doc.id;
+      void doc.load();
+    }
+    ui.go("files");
+  }
+
+  /** Opens a file on a host in the editor (e.g. a stack's compose file). */
+  openHostFile(hostId: number, path: string, allowNew = false) {
+    const side: Side = { kind: "host", id: hostId };
+    this.start();
+    const existing = this.docs.find((d) => sameSide(d.side, side) && d.path === path);
+    if (existing) this.tab = existing.id;
+    else {
+      const doc = new EditorDoc(side, path, path.split("/").pop() || path);
+      doc.allowNew = allowNew;
       this.docs = [...this.docs, doc];
       this.tab = doc.id;
       void doc.load();

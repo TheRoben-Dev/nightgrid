@@ -3,6 +3,7 @@
 //!
 //! See [`transport`] for how API requests reach the daemon.
 
+pub mod compose;
 pub mod transport;
 
 use std::collections::HashMap;
@@ -388,6 +389,8 @@ pub struct ContainerView {
     pub project: Option<String>,
     pub service: Option<String>,
     pub compose_dir: Option<String>,
+    /// Compose files the project was started with (absolute paths).
+    pub compose_files: Vec<String>,
 }
 
 fn health_from_status(status: &str) -> Option<String> {
@@ -438,6 +441,10 @@ impl From<ContainerSummary> for ContainerView {
             project: labels.get(LABEL_PROJECT).cloned(),
             service: labels.get(LABEL_SERVICE).cloned(),
             compose_dir: labels.get(LABEL_WORKING_DIR).cloned(),
+            compose_files: labels
+                .get(LABEL_CONFIG_FILES)
+                .map(|f| f.split(',').map(str::trim).filter(|f| !f.is_empty()).map(str::to_owned).collect())
+                .unwrap_or_default(),
         }
     }
 }

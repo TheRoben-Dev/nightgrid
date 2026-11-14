@@ -68,6 +68,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         docker_cmd::docker_logs_start,
         docker_cmd::docker_logs_stop,
         docker_cmd::docker_forget,
+        docker_cmd::docker_stacks,
+        docker_cmd::docker_compose_run,
+        docker_cmd::docker_compose_cancel,
+        docker_cmd::stack_dirs_list,
+        docker_cmd::stack_dirs_add,
+        docker_cmd::stack_dirs_delete,
         term_cmd::term_open_docker_exec,
     ])
 }

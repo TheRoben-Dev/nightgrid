@@ -46,6 +46,11 @@ import {
   type LogEvent_Serialize as LogEvent,
   type LogLine_Serialize as LogLine,
   type LogQuery_Deserialize as LogQuery,
+  type ComposeEvent_Serialize as ComposeEvent,
+  type ComposeOp,
+  type ImageChange_Serialize as ImageChange,
+  type Stack,
+  type StackDir,
 } from "./bindings";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
@@ -92,6 +97,11 @@ export type {
   LogEvent,
   LogLine,
   LogQuery,
+  ComposeEvent,
+  ComposeOp,
+  ImageChange,
+  Stack,
+  StackDir,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -248,6 +258,20 @@ export const api = {
   },
   dockerLogsStop: (stream: number): Promise<null> => (T() ? commands.dockerLogsStop(stream) : mockDocker.logsStop(stream)),
   dockerForget: (hostId: number): Promise<null> => (T() ? commands.dockerForget(hostId) : Promise.resolve(null)),
+  dockerStacks: (hostId: number): Promise<Stack[]> => (T() ? commands.dockerStacks(hostId) : mockDocker.stacks(hostId)),
+  dockerComposeRun: (hostId: number, stack: Stack, op: ComposeOp, on: (e: ComposeEvent) => void): Promise<number> => {
+    if (!T()) return mockDocker.composeRun(hostId, stack, op, on);
+    const ch = new Channel<ComposeEvent>();
+    ch.onmessage = on;
+    return commands.dockerComposeRun(hostId, stack, op, ch as unknown as Parameters<typeof commands.dockerComposeRun>[3]);
+  },
+  dockerComposeCancel: (run: number): Promise<null> =>
+    T() ? commands.dockerComposeCancel(run) : mockDocker.composeCancel(run),
+  stackDirsList: (hostId: number): Promise<StackDir[]> =>
+    T() ? commands.stackDirsList(hostId) : mockDocker.stackDirs(hostId),
+  stackDirsAdd: (hostId: number, path: string): Promise<StackDir> =>
+    T() ? commands.stackDirsAdd(hostId, path) : mockDocker.stackDirAdd(hostId, path),
+  stackDirsDelete: (id: number): Promise<null> => (T() ? commands.stackDirsDelete(id) : mockDocker.stackDirDelete(id)),
   termOpenDockerExec: (hostId: number, container: string, cols: number, rows: number, on: TermListener): Promise<TermOpen> =>
     T()
       ? commands.termOpenDockerExec(hostId, container, cols, rows, channel(on))
