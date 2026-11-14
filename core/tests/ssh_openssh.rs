@@ -18,6 +18,11 @@ fn enabled() -> bool {
     std::env::var("NIGHTGRID_TEST_OPENSSH").is_ok_and(|v| v == "1")
 }
 
+/// Tests here start sshd on ports picked by `free_port` and some restart
+/// sshd on the same port, so running them in parallel can hand one test's
+/// port to another. Each test holds this for its whole run.
+static SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 fn sshd_binary() -> PathBuf {
     ["/usr/sbin/sshd", "/usr/local/sbin/sshd", "/opt/homebrew/sbin/sshd"]
         .iter()
@@ -127,6 +132,7 @@ async fn openssh_key_auth_exec_and_jump() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let sshd = start_sshd("host_ed25519", None, None);
     let o = opts(sshd.dir.path());
     let t = key_target(&sshd);
@@ -148,6 +154,7 @@ async fn openssh_interactive_shell() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let sshd = start_sshd("host_ed25519", None, None);
     let o = opts(sshd.dir.path());
     let t = key_target(&sshd);
@@ -189,6 +196,7 @@ async fn openssh_changed_host_key_is_blocked() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let sshd = start_sshd("host_a", None, None);
     let o = opts(sshd.dir.path());
     let t = key_target(&sshd);
@@ -217,6 +225,7 @@ async fn openssh_sftp_browse_edit_and_transfer() {
     if !enabled() {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let sshd = start_sshd("host_ed25519", None, None);
     let o = opts(sshd.dir.path());
     let conn = Arc::new(connect_trusting(&key_target(&sshd), &[], &o).await);
@@ -326,6 +335,7 @@ async fn openssh_docker_over_ssh() {
     if !enabled() || std::env::var("NIGHTGRID_TEST_DOCKER").map_or(true, |v| v != "1") {
         return;
     }
+    let _serial = SERIAL.lock().await;
     let s = start_sshd("ssh_host_ed25519_key", None, None);
     let conn = Arc::new(connect_trusting(&key_target(&s), &[], &opts(s.dir.path())).await);
     let name = format!("ng-test-{}", std::process::id());
@@ -390,7 +400,12 @@ async fn openssh_docker_over_ssh() {
     d.act(&name, Action::Unpause).await.unwrap();
     d.act(&name, Action::Kill).await.unwrap();
     let state = |l: Vec<nightgrid_core::docker::ContainerView>| l.into_iter().find(|c| c.name == name).map(|c| c.state);
-    assert_eq!(state(d.containers().await.unwrap()).as_deref(), Some("exited"));
+    // `kill` returns once the signal is sent; the daemon flips the state a moment later.
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while state(d.containers().await.unwrap()).as_deref() != Some("exited") {
+        assert!(Instant::now() < deadline, "container did not exit after kill");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
     d.act(&name, Action::Start).await.unwrap();
     d.act(&name, Action::Start).await.expect("start when running is a no-op");
     d.act(&name, Action::Remove { force: false }).await.expect_err("running container needs force");
@@ -398,4 +413,87 @@ async fn openssh_docker_over_ssh() {
     assert_eq!(state(d.containers().await.unwrap()), None);
     let err = d.inspect(&name).await.unwrap_err();
     assert!(matches!(err, nightgrid_core::docker::DockerError::NotFound { .. }), "{err:?}");
+}
+
+/// "Edit in Nightgrid" hook: `nano FILE` and `$EDITOR` emit the edit request
+/// with the session token and wait until the app answers, and the temp folder
+/// is gone after the shell exits.
+#[tokio::test(flavor = "multi_thread")]
+async fn openssh_edit_hook() {
+    use base64::Engine;
+    use nightgrid_core::edit_hook::{bootstrap_command, parse_request};
+
+    if !enabled() {
+        return;
+    }
+    let _serial = SERIAL.lock().await;
+    let token = "00112233445566778899aabbccddeeff";
+    let sshd = start_sshd("host_ed25519", None, None);
+    let o = opts(sshd.dir.path());
+    let t = key_target(&sshd);
+    connect_trusting(&t, &[], &o).await;
+    let data = Arc::new(Mutex::new((Vec::<u8>::new(), None::<Option<i32>>)));
+    let d2 = data.clone();
+    let sink: Sink = Arc::new(move |ev| {
+        let mut d = d2.lock().unwrap();
+        match ev {
+            TermEvent::Data(b) => d.0.extend(b),
+            TermEvent::Exit { code } => d.1 = Some(code),
+            TermEvent::Status { .. } => {}
+        }
+    });
+    let connector: Connector = Arc::new(move |_| {
+        let (t, o) = (t.clone(), o.clone());
+        Box::pin(async move { connect(&t, &[], &o).await.map(Arc::new) })
+    });
+    let h = spawn_ssh(connector, Some(bootstrap_command(token)), 120, 30, sink).await.unwrap();
+    let wait_for = |needle: String| {
+        let data = data.clone();
+        async move {
+            let deadline = Instant::now() + Duration::from_secs(15);
+            loop {
+                let out = String::from_utf8_lossy(&data.lock().unwrap().0).into_owned();
+                if out.contains(&needle) {
+                    return out;
+                }
+                assert!(Instant::now() < deadline, "no {needle:?} in: {out}");
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        }
+    };
+    h.write("cd /tmp && echo dir=$NIGHTGRID_EDIT && \"$EDITOR\" notes.txt && echo editor-returned-$?\n");
+    let out = wait_for(format!("\x1b]7766;{token};")).await;
+    let start = out.find("\x1b]7766;").unwrap() + 2 + 5;
+    let payload = &out[start..start + out[start..].find('\x07').unwrap()];
+    assert_eq!(parse_request(payload, token).as_deref(), Some("/tmp/notes.txt"));
+    let dir = out
+        .split("dir=/")
+        .nth(1)
+        .map(|s| format!("/{s}"))
+        .unwrap()
+        .split(['\r', '\n'])
+        .next()
+        .unwrap()
+        .trim_end_matches("/edit")
+        .to_owned();
+    assert!(std::path::Path::new(&dir).exists(), "{dir}");
+    // Still waiting: nothing after the prompt until the app answers.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(!String::from_utf8_lossy(&data.lock().unwrap().0).contains("editor-returned-0"));
+    h.write(format!("{token}\r"));
+    wait_for("editor-returned-0".into()).await;
+    // The nano function goes through the same helper; Enter alone stops waiting.
+    h.write("nano -w /etc/hostname; echo nano-done\n");
+    let b = base64::engine::general_purpose::STANDARD.encode("/etc/hostname");
+    wait_for(format!("{token};{b}")).await;
+    h.write("\r");
+    wait_for("nano-done".into()).await;
+    h.write("exit 4\n");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while data.lock().unwrap().1.is_none() {
+        assert!(Instant::now() < deadline, "shell did not exit");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    assert_eq!(data.lock().unwrap().1, Some(Some(4)));
+    assert!(!std::path::Path::new(&dir).exists(), "temp folder left behind: {dir}");
 }

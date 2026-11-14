@@ -46,6 +46,14 @@ class TermsStore {
   private newSession(origin: Origin): number {
     const pane = this.nextId++;
     const s = new TermSession(pane, origin);
+    s.reveal = () => {
+      const tab = this.tabs.find((t) => leaves(t.root).includes(pane));
+      if (!tab) return;
+      this.activeTab = tab.id;
+      this.update(tab.id, { active: pane });
+      ui.go("terminal");
+      queueMicrotask(() => s.focus());
+    };
     this.sessions.set(pane, s);
     void s.start();
     return pane;

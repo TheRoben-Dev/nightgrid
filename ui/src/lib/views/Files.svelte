@@ -87,6 +87,18 @@
     else files.closeDoc(id);
   }
 
+  /** "Save & return" / "Close without saving" on a tab opened from a terminal. */
+  async function saveAndReturn(id: number, save: boolean) {
+    const d = files.docs.find((x) => x.id === id);
+    if (!d) return;
+    if (save) {
+      if (d.dirty || d.isNew) await d.save();
+      // Keep the tab if the save failed or hit a conflict.
+      if (d.error || d.conflict || d.dirty) return;
+      files.closeDoc(id);
+    } else tryClose(id);
+  }
+
   const ap = $derived(files.activePane);
   const other = $derived(files.other(ap));
 </script>
@@ -153,7 +165,7 @@
     </div>
     {#each files.docs as d (d.id)}
       <div class="doc" class:hidden={files.tab !== d.id}>
-        <EditorTab doc={d} />
+        <EditorTab doc={d} onreturn={(save) => void saveAndReturn(d.id, save)} />
       </div>
     {/each}
   </div>

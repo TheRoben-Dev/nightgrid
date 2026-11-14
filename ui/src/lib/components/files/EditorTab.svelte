@@ -5,8 +5,10 @@
 
   interface Props {
     doc: EditorDoc;
+    /** Close the tab and go back to the terminal that opened it (optionally saving first). */
+    onreturn?: (save: boolean) => void;
   }
-  let { doc }: Props = $props();
+  let { doc, onreturn }: Props = $props();
 
   let host: HTMLDivElement | undefined = $state();
   let confirmOverwrite = $state(false);
@@ -53,6 +55,17 @@
       {doc.saving ? "Saving…" : "Save"}
     </button>
   </div>
+  {#if doc.returnTo}
+    <div class="banner from-term" role="status">
+      <span
+        >Opened from the terminal on <strong>{doc.returnTo.label}</strong>{doc.isNew ? " (new file, saving creates it)" : ""}. Closing this
+        tab lets the terminal continue.</span
+      >
+      <span class="spacer"></span>
+      <button type="button" class="btn ghost tiny" onclick={() => onreturn?.(false)}>Close without saving</button>
+      <button type="button" class="btn primary tiny" disabled={doc.saving} onclick={() => onreturn?.(true)}>Save &amp; return</button>
+    </div>
+  {/if}
   {#if doc.conflict}
     <div class="banner warn" role="alert">
       <span><strong>{doc.path}</strong> changed on {doc.where} since you opened it.</span>
@@ -148,6 +161,10 @@
   .banner.warn {
     background: color-mix(in srgb, var(--warn) 12%, transparent);
     border-color: var(--warn);
+  }
+  .banner.from-term {
+    background: color-mix(in srgb, var(--cyan) 10%, transparent);
+    border-color: color-mix(in srgb, var(--cyan) 50%, var(--line));
   }
   .banner.err {
     background: color-mix(in srgb, var(--danger) 12%, transparent);

@@ -40,6 +40,9 @@ pub struct AppSettings {
     /// Right-click pastes (otherwise it opens the normal context menu).
     pub term_right_click_paste: bool,
     pub term_cursor_blink: bool,
+    /// SSH terminals: `nano FILE` and `$EDITOR` open the file in the app's
+    /// editor (session-only shell hook, see `edit_hook`).
+    pub term_edit_in_app: bool,
 }
 
 impl Default for AppSettings {
@@ -55,6 +58,7 @@ impl Default for AppSettings {
             term_copy_on_select: true,
             term_right_click_paste: true,
             term_cursor_blink: true,
+            term_edit_in_app: false,
         }
     }
 }

@@ -6,6 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use base64::Engine;
+use nightgrid_core::edit_hook;
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::secrets::{Secret, SecretKind, SecretRef, SecretStore};
 use nightgrid_core::ssh::client::{self, ConnectError};
@@ -116,10 +117,18 @@ pub async fn term_open_ssh(
     host_id: HostId,
     cols: u16,
     rows: u16,
+    edit_token: Option<String>,
     on_event: Channel<TermMessage>,
 ) -> CmdResult<TermOpen> {
+    // With a token, `nano FILE` / `$EDITOR` open files in the app's editor
+    // (session-only hook, nothing installed on the host).
+    let command = match edit_token {
+        Some(t) if edit_hook::valid_token(&t) => Some(edit_hook::bootstrap_command(&t)),
+        Some(_) => return Err(CommandError::msg("invalid edit token")),
+        None => None,
+    };
     let connector = connector_for(app.clone(), host_id);
-    match term::spawn_ssh(connector, None, cols, rows, sink_for(on_event)).await {
+    match term::spawn_ssh(connector, command, cols, rows, sink_for(on_event)).await {
         Ok(handle) => {
             let id = state.next_term_id();
             state.terms.lock().expect("poisoned").insert(id, handle);

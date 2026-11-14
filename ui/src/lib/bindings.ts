@@ -32,7 +32,7 @@ export const commands = {
 	/**  TCP-connect check to each host's SSH port (no ICMP, no auth). */
 	hostsPing: (ids: number[], options?: InvokeOptions) => __TAURI_INVOKE<HostPing_Serialize[]>("hosts_ping", { ids }, options),
 	termOpenLocal: (cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("term_open_local", { cols, rows, onEvent }, options),
-	termOpenSsh: (hostId: number, cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_ssh", { hostId, cols, rows, onEvent }, options),
+	termOpenSsh: (hostId: number, cols: number, rows: number, editToken: string | null, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_ssh", { hostId, cols, rows, editToken, onEvent }, options),
 	termWrite: (id: number, data: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_write", { id, data }, options),
 	termResize: (id: number, cols: number, rows: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_resize", { id, cols, rows }, options),
 	termReconnect: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_reconnect", { id }, options),
@@ -174,6 +174,11 @@ export type AppSettings_Deserialize = {
 	/**  Right-click pastes (otherwise it opens the normal context menu). */
 	termRightClickPaste?: boolean,
 	termCursorBlink?: boolean,
+	/**
+	 *  SSH terminals: `nano FILE` and `$EDITOR` open the file in the app's
+	 *  editor (session-only shell hook, see `edit_hook`).
+	 */
+	termEditInApp?: boolean,
 };
 
 /**
@@ -200,6 +205,11 @@ export type AppSettings_Serialize = {
 	/**  Right-click pastes (otherwise it opens the normal context menu). */
 	termRightClickPaste: boolean,
 	termCursorBlink: boolean,
+	/**
+	 *  SSH terminals: `nano FILE` and `$EDITOR` open the file in the app's
+	 *  editor (session-only shell hook, see `edit_hook`).
+	 */
+	termEditInApp: boolean,
 };
 
 export type AuthMethod = 
