@@ -9,11 +9,13 @@
 </script>
 
 {#if art}
-  <pre class="ascii {size}" style:--c={color ?? "var(--cyan)"} aria-hidden="true">{art}</pre>
+  <span class="ascii {size}" style:--c={color ?? "var(--cyan)"} aria-hidden="true">{art}</span>
 {/if}
 
 <style>
   .ascii {
+    display: block;
+    width: max-content;
     margin: 0;
     font-family: var(--font-mono);
     line-height: 1.12;

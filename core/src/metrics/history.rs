@@ -1,0 +1,258 @@
+//! Metric history in SQLite: samples are averaged into 1-minute points,
+//! which also feed 15-minute rollups (running average, so no batch job).
+//! Pruning drops minute points after `retention_days` and rollups after
+//! [`ROLLUP_DAYS`].
+
+use rusqlite::params;
+use serde::{Deserialize, Serialize};
+
+use super::Sample;
+use crate::hosts::HostId;
+use crate::store::Store;
+use crate::Result;
+
+pub const MINUTE: i64 = 60;
+pub const ROLLUP: i64 = 900;
+/// How long 15-minute rollups are kept.
+pub const ROLLUP_DAYS: i64 = 90;
+/// Ranges up to this long are served from minute points.
+pub const MINUTE_RANGE_SECS: i64 = 2 * 86400;
+
+/// One stored point (averages over its bucket).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct Point {
+    /// Bucket start, unix seconds.
+    #[cfg_attr(feature = "specta", specta(type = u32))]
+    pub ts: f64,
+    /// CPU busy %.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub cpu: Option<f32>,
+    /// Memory used %.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub mem: Option<f32>,
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub swap: Option<f32>,
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub load1: Option<f32>,
+    /// Fullest mount, used %.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub disk: Option<f32>,
+    /// Bytes/s.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub net_rx: Option<f64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub net_tx: Option<f64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub disk_read: Option<f64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub disk_write: Option<f64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub temp: Option<f32>,
+}
+
+impl Point {
+    pub fn from_sample(s: &Sample) -> Self {
+        let pct = |used: u64, total: u64| (total > 0).then(|| (used as f64 / total as f64 * 100.0) as f32);
+        Self {
+            ts: (s.ts / 1000.0).floor(),
+            cpu: s.cpu,
+            mem: pct(s.mem_used, s.mem_total),
+            swap: pct(s.swap_used, s.swap_total),
+            load1: Some(s.load[0]),
+            disk: s.mounts.iter().filter_map(|m| pct(m.used, m.used + m.avail)).reduce(f32::max),
+            net_rx: Some(s.net_rx),
+            net_tx: Some(s.net_tx),
+            disk_read: Some(s.disk_read),
+            disk_write: Some(s.disk_write),
+            temp: s.cpu_temp,
+        }
+    }
+}
+
+/// Averages samples into minute buckets; `push` returns the finished point
+/// when a sample lands in a new minute.
+#[derive(Default)]
+pub struct MinuteAverager {
+    bucket: i64,
+    n: u32,
+    sum: [f64; 10],
+    seen: [u32; 10],
+}
+
+impl MinuteAverager {
+    pub fn push(&mut self, p: &Point) -> Option<Point> {
+        let bucket = (p.ts as i64).div_euclid(MINUTE) * MINUTE;
+        let done = (self.n > 0 && bucket != self.bucket).then(|| self.take());
+        if self.n == 0 {
+            self.bucket = bucket;
+        }
+        let vals = values(p);
+        for (i, v) in vals.iter().enumerate() {
+            if let Some(v) = v {
+                self.sum[i] += v;
+                self.seen[i] += 1;
+            }
+        }
+        self.n += 1;
+        done
+    }
+
+    /// The partial current minute, if any (e.g. when a host goes away).
+    pub fn flush(&mut self) -> Option<Point> {
+        (self.n > 0).then(|| self.take())
+    }
+
+    fn take(&mut self) -> Point {
+        let avg: Vec<Option<f64>> =
+            (0..10).map(|i| (self.seen[i] > 0).then(|| self.sum[i] / self.seen[i] as f64)).collect();
+        let p = point(self.bucket, &avg);
+        *self = Self::default();
+        p
+    }
+}
+
+fn values(p: &Point) -> [Option<f64>; 10] {
+    let f = |v: Option<f32>| v.map(f64::from);
+    [f(p.cpu), f(p.mem), f(p.swap), f(p.load1), f(p.disk), p.net_rx, p.net_tx, p.disk_read, p.disk_write, f(p.temp)]
+}
+
+fn point(ts: i64, v: &[Option<f64>]) -> Point {
+    let f = |x: Option<f64>| x.map(|x| x as f32);
+    Point {
+        ts: ts as f64,
+        cpu: f(v[0]),
+        mem: f(v[1]),
+        swap: f(v[2]),
+        load1: f(v[3]),
+        disk: f(v[4]),
+        net_rx: v[5],
+        net_tx: v[6],
+        disk_read: v[7],
+        disk_write: v[8],
+        temp: f(v[9]),
+    }
+}
+
+const COLS: &str = "cpu, mem, swap, load1, disk, net_rx, net_tx, disk_read, disk_write, temp";
+
+impl Store {
+    /// Stores a minute point and folds it into its 15-minute rollup.
+    pub fn insert_metric_point(&mut self, host_id: HostId, p: &Point) -> Result<()> {
+        let ts = (p.ts as i64).div_euclid(MINUTE) * MINUTE;
+        let v = values(p);
+        let tx = self.conn_mut().transaction()?;
+        let inserted = tx.execute(
+            &format!(
+                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                 ON CONFLICT (host_id, res, ts) DO NOTHING"
+            ),
+            params![host_id, MINUTE, ts, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9]],
+        )?;
+        if inserted == 0 {
+            // Already have this minute (e.g. a reconnect replayed it).
+            return Ok(());
+        }
+        // Running average per column; a NULL sample leaves the column as it was.
+        let upd: Vec<String> = COLS
+            .split(", ")
+            .map(|c| {
+                format!(
+                    "{c} = CASE WHEN excluded.{c} IS NULL THEN {c} WHEN {c} IS NULL THEN excluded.{c} \
+                     ELSE ({c} * n + excluded.{c}) / (n + 1) END"
+                )
+            })
+            .collect();
+        tx.execute(
+            &format!(
+                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                 ON CONFLICT (host_id, res, ts) DO UPDATE SET {}, n = n + 1",
+                upd.join(", ")
+            ),
+            params![host_id, ROLLUP, ts.div_euclid(ROLLUP) * ROLLUP, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9]],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Points in `[from, to]` (unix seconds): minute points for short
+    /// ranges, rollups for long ones.
+    pub fn metric_history(&self, host_id: HostId, from: i64, to: i64) -> Result<Vec<Point>> {
+        let res = if to - from <= MINUTE_RANGE_SECS { MINUTE } else { ROLLUP };
+        let mut stmt = self.conn().prepare(&format!(
+            "SELECT ts, {COLS} FROM metric_points WHERE host_id = ?1 AND res = ?2 AND ts >= ?3 AND ts <= ?4 ORDER BY ts"
+        ))?;
+        let rows = stmt.query_map(params![host_id, res, from.div_euclid(res) * res, to], |r| {
+            let v: Vec<Option<f64>> = (1..=10).map(|i| r.get(i)).collect::<rusqlite::Result<_>>()?;
+            Ok(point(r.get(0)?, &v))
+        })?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Drops minute points older than `retention_days` and rollups older
+    /// than [`ROLLUP_DAYS`] (or the retention, if longer). Returns rows removed.
+    pub fn prune_metrics(&mut self, now: i64, retention_days: u32) -> Result<usize> {
+        let days = i64::from(retention_days.clamp(1, 365));
+        let a = self
+            .conn()
+            .execute("DELETE FROM metric_points WHERE res = ?1 AND ts < ?2", params![MINUTE, now - days * 86400])?;
+        let b = self.conn().execute(
+            "DELETE FROM metric_points WHERE res = ?1 AND ts < ?2",
+            params![ROLLUP, now - days.max(ROLLUP_DAYS) * 86400],
+        )?;
+        Ok(a + b)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::hosts::HostInput;
+
+    fn p(ts: f64, cpu: f32) -> Point {
+        Point { ts, cpu: Some(cpu), net_rx: Some(f64::from(cpu) * 10.0), ..Default::default() }
+    }
+
+    #[test]
+    fn averages_per_minute() {
+        let mut a = MinuteAverager::default();
+        assert_eq!(a.push(&p(120.0, 10.0)), None);
+        assert_eq!(a.push(&p(150.0, 30.0)), None);
+        let done = a.push(&p(181.0, 50.0)).unwrap();
+        assert_eq!((done.ts, done.cpu, done.net_rx, done.temp), (120.0, Some(20.0), Some(200.0), None));
+        assert_eq!(a.flush().unwrap().cpu, Some(50.0));
+        assert_eq!(a.flush(), None);
+    }
+
+    #[test]
+    fn stores_rolls_up_queries_and_prunes() {
+        let mut s = Store::open_in_memory().unwrap();
+        let h = s
+            .create_host(&HostInput { name: "server01".into(), hostname: "server01.lan".into(), ..Default::default() })
+            .unwrap();
+        let day = 86400;
+        let base = 100 * day;
+        for i in 0..30 {
+            s.insert_metric_point(h.id, &p((base + i * 60) as f64, i as f32)).unwrap();
+        }
+        // Same minute again is ignored.
+        s.insert_metric_point(h.id, &p(base as f64, 99.0)).unwrap();
+        let recent = s.metric_history(h.id, base, base + 3600).unwrap();
+        assert_eq!(recent.len(), 30);
+        assert_eq!(recent[0].cpu, Some(0.0));
+        // Long range: two 15-minute rollups averaging 0..14 and 15..29.
+        let long = s.metric_history(h.id, base - 7 * day, base + 3600).unwrap();
+        assert_eq!(long.len(), 2);
+        assert_eq!(long[1].cpu, Some(22.0));
+        assert_eq!(long[0].cpu, Some(7.0));
+        // Prune: minute points older than 7 days go, rollups stay for 90.
+        assert_eq!(s.prune_metrics(base + 8 * day, 7).unwrap(), 30);
+        assert_eq!(s.metric_history(h.id, base - 7 * day, base + 3600).unwrap().len(), 2);
+        s.prune_metrics(base + 91 * day, 7).unwrap();
+        assert!(s.metric_history(h.id, base - 7 * day, base + 3600).unwrap().is_empty());
+        s.insert_metric_point(h.id, &p(base as f64, 1.0)).unwrap();
+        s.delete_host(h.id).unwrap();
+        assert!(s.metric_history(h.id, 0, i64::MAX).unwrap().is_empty());
+    }
+}

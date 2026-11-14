@@ -5,7 +5,12 @@
   import SegmentSlider from "../components/SegmentSlider.svelte";
   import Toggle from "../components/Toggle.svelte";
   import { DEFAULT_KEYMAP, formatChord, type ActionId } from "../keys";
-  import { settings, TERM_FONT_STEPS, TERM_SCROLLBACK_STEPS, UI_SCALE_STEPS } from "../stores/settings.svelte";
+  import {
+    METRICS_BACKGROUND_STEPS,
+    METRICS_INTERVAL_STEPS,
+    METRICS_RETENTION_STEPS,
+    settings,
+    TERM_FONT_STEPS, TERM_SCROLLBACK_STEPS, UI_SCALE_STEPS } from "../stores/settings.svelte";
   import { THEME_IDS, THEMES } from "../theme/themes";
 
   interface Props {
@@ -141,6 +146,39 @@
     </div>
   </Panel>
 
+  <Panel title="MONITORING">
+    <SegmentSlider
+      label="SAMPLE EVERY"
+      steps={METRICS_INTERVAL_STEPS}
+      value={settings.value.metricsIntervalSecs}
+      format={(v) => `${v}s`}
+      onchange={(v) => settings.update({ metricsIntervalSecs: v })}
+    />
+    <SegmentSlider
+      label="IN BACKGROUND"
+      steps={METRICS_BACKGROUND_STEPS}
+      value={settings.value.metricsBackgroundSecs}
+      format={(v) => (v >= 60 ? `${v / 60}m` : `${v}s`)}
+      onchange={(v) => settings.update({ metricsBackgroundSecs: v })}
+    />
+    <SegmentSlider
+      label="KEEP DETAIL"
+      steps={METRICS_RETENTION_STEPS}
+      value={settings.value.metricsRetentionDays}
+      format={(v) => `${v}d`}
+      onchange={(v) => settings.update({ metricsRetentionDays: v })}
+    />
+    <div class="toggles">
+      <Toggle
+        label="Collect host metrics"
+        hint="Reads /proc, df and sensors over SSH with one short command per sample. Nothing is installed on the server. Hosts that need a password or a new host key wait until you open a terminal on them."
+        checked={settings.value.metricsEnabled}
+        onchange={(v) => settings.update({ metricsEnabled: v })}
+      />
+    </div>
+    <p class="muted note">Minute detail is kept for the chosen days; 15-minute averages are kept for at least 90 days.</p>
+  </Panel>
+
   <Panel title="KEYBINDINGS" prefix=">" count={bindings.length}>
     <table>
       <tbody>
@@ -248,6 +286,10 @@
     margin-top: 12px;
     border-top: 1px solid var(--line);
     padding-top: 6px;
+  }
+  .note {
+    margin: 10px 0 0;
+    font-size: var(--fs-xs);
   }
   .error {
     color: var(--danger);

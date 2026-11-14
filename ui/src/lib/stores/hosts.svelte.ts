@@ -1,3 +1,4 @@
+import { metrics } from "./metrics.svelte";
 import { api, errorText, type Group, type Host, type HostPing } from "../api";
 import { fuzzyMatch } from "../palette/fuzzy";
 
@@ -61,6 +62,7 @@ class HostsStore {
       this.hosts = hosts;
       this.groups = groups;
       this.error = null;
+      metrics.sync();
     } catch (e) {
       this.error = errorText(e);
     } finally {

@@ -10,6 +10,7 @@ pub mod edit_hook;
 pub mod error;
 pub mod files;
 pub mod hosts;
+pub mod metrics;
 pub mod secrets;
 pub mod settings;
 pub mod ssh;

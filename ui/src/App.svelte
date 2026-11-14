@@ -4,6 +4,7 @@
   import "@xterm/xterm/css/xterm.css";
   import CommandPalette from "./lib/components/CommandPalette.svelte";
   import HostEditor from "./lib/components/HostEditor.svelte";
+  import HostMonitor from "./lib/components/metrics/HostMonitor.svelte";
   import SshImportDialog from "./lib/components/SshImportDialog.svelte";
   import LeftRail from "./lib/components/LeftRail.svelte";
   import StatusStrip from "./lib/components/StatusStrip.svelte";
@@ -14,6 +15,7 @@
   import { SECTIONS, sectionById } from "./lib/sections";
   import { settings } from "./lib/stores/settings.svelte";
   import { hosts } from "./lib/stores/hosts.svelte";
+  import { metrics } from "./lib/stores/metrics.svelte";
   import { terms } from "./lib/stores/terms.svelte";
   import { ui } from "./lib/stores/ui.svelte";
   import Overview from "./lib/views/Overview.svelte";
@@ -34,7 +36,10 @@
   onMount(() => {
     const stop = settings.watchReducedMotion();
     const stopHosts = hosts.start();
-    settings.load().then(() => (booted = true));
+    settings.load().then(() => {
+      booted = true;
+      metrics.start();
+    });
     api
       .appInfo()
       .then((i) => {
@@ -103,7 +108,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.3.0"} />
+  <LeftRail version={info?.version ?? "0.4.0"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker"} aria-label={section.label}>
@@ -142,6 +147,7 @@
 <CommandPalette open={ui.paletteOpen} {commands} onclose={() => (ui.paletteOpen = false)} />
 <HostEditor />
 <SshImportDialog />
+<HostMonitor />
 
 <style>
   .shell {

@@ -217,7 +217,7 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 4. **sudo**: prompt every time by default. An optional per-host "remember sudo password in keychain", off by default. Never put the password on a command line; feed it via stdin (`sudo -S`) on the channel.
 5. **Destructive actions** (rm, prune, kill, down, reboot, shutdown, upgrade, overwrite) need a confirmation that names the exact target(s). Multi-host destructive runs require typing the group/host name.
 6. Env vars and integration tokens are **masked by default** in the UI, with click to reveal.
-7. **No telemetry.** No network calls except to my hosts, configured integrations, the update server and registries (for the update checker).
+7. **No telemetry.** No network calls except to my hosts, configured integrations, the update server and registries (for the update checker). *(Exception, 2026-11-14: the LLM helper's model download, only when I click download, from a fixed URL with a pinned checksum; preferably mirrored on Nightgrid's own GitHub Releases.)*
 8. Tauri: lock down capabilities/permissions per window, strict CSP, no remote content in the webview, and the IPC allow-list kept minimal.
 
 ---
@@ -243,6 +243,8 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 
 **M4 — Monitoring + Overview.** `/proc` collectors with fixture tests, temps, an overview dashboard of HUD tiles, and metric history.
 
+**M4.5 — App auto-updates** (pulled forward from M9, since prereleases now exist). Tauri updater against GitHub Releases: signed update bundles + `latest.json` published by the release job, check on launch and from Settings, "update available" prompt with release notes, on by default with an off switch and a stable/prerelease channel.
+
 **M5 — Services + Homepage import + Tunnels.** Health checks, TLS expiry, `services.yaml` import, saved/auto-start tunnels, "open through tunnel".
 
 **M6 — systemd, journal, package updates, SMART.**
@@ -252,6 +254,28 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 **M8 — Automation**: multi-host run, snippets with variables, playbooks.
 
 **M9 — Polish & ship**: Ally/handheld layout preset, alternate themes, encrypted config export/import, auto-updater, Flatpak/AUR/AppImage/NSIS/DMG release pipeline, and docs (`README`, user guide, `ARCHITECTURE.md`).
+
+**M10 — Backlog (added 2026-11-14).** All generic: no assumptions about a particular server, stack or service; any specific app is an optional example.
+- **LLM helper (HIGH PRIORITY, first in the backlog)**: explain a log excerpt or error, write/fix a compose file, suggest a fix for a failing container or service, all from where you are (logs, editor, stack console). Opt-in and off by default. Default backend is a **small, low-cost local model** that runs on most machines with a dedicated GPU (roughly 3–8B parameters, quantized, fits in 6–8 GB VRAM; also fine on Apple Silicon unified memory) via Ollama or llama.cpp, on this machine or one of your hosts; the exact default model is chosen when the feature is built and recorded in `docs/DECISIONS.md`. **Zero setup beyond installing Nightgrid**: llama.cpp is embedded in the app (Metal on macOS, Vulkan/CUDA on Windows/Linux, CPU fallback) with GPU auto-detection; turning the helper on offers a one-click in-app model download (a multi-GB model is too big to put in the installers), with progress, resume and SHA-256 verification, then it just works. External Ollama/llama.cpp servers and a user-supplied API key (stored in the OS keychain) stay optional alternatives, never the default. Shows exactly what will be sent before sending, masks env values/secrets, never runs commands on its own (suggested commands go through the normal confirmations). **App-aware**: no fine-tuning; instead it retrieves from a bundled, local "Using Nightgrid" reference (feature articles plus a compact list of views, commands, shortcuts and settings, kept in sync with the code) and gets live context in the prompt (current view, host, container/stack, the error or log lines in front of you). A minimal version of that reference ships with the helper; the full knowledge base (M11) builds on it later. Also powers the log-anomaly summary below.
+- **Deploy wizard**: pick an image or paste a compose file → suggested volumes, ports, env and labels (from the image's metadata) → review → deploy to any host as a stack.
+- **Snapshot & rollback**: before risky actions (compose update/down, config edits, package upgrades), save a copy of the affected compose/.env/config files and offer one-click rollback.
+- **Backup status board**: restic / borg / rsync jobs per host, with last run, size and result, and a "stale" flag after a configurable age.
+- **Network / port map**: hosts, containers and published/listening ports in one view, with conflicts and exposed ports highlighted.
+- **Log anomaly alerts**: spot error bursts and new error patterns in container logs and the journal; optional AI "what broke" summary (opt-in, user-supplied provider, nothing sent without consent).
+- **Image changelogs before pulling**: show what changed between the running and the new image (release notes / tags / digest) before an update.
+- **VMs**: Proxmox and libvirt VM list with start/stop/reboot and console.
+- **Phone status page**: optional read-only status page served by the app on the LAN or Tailscale (off by default, token-protected, no actions).
+- **Firewall / exposure audit**: ufw/nftables/iptables rules plus listening sockets per host; flag services bound to 0.0.0.0/:: that the firewall doesn't restrict.
+- **Reverse proxy manager**: read Caddy / Traefik / Nginx Proxy Manager routes and certificates; domain → container/service map with cert expiry.
+- **Security hygiene score per host**: sshd password auth / root login, pending security updates, fail2ban/crowdsec present, old or weak authorized keys; each item explains the fix.
+- **Cron & systemd timer explorer**: all scheduled jobs per host in one list, with next/last run and result.
+- **Resource forecasting**: from metric history, project when a disk fills or memory runs out ("/ full in ~23 days").
+- **Command history search**: local, cross-host search of commands run in Nightgrid terminals (stored locally, opt-in, secrets-looking lines skipped).
+- **Notes & runbooks**: markdown notes per host and per container/stack, searchable, included in the encrypted export.
+- **GPU monitoring**: NVIDIA (nvidia-smi), AMD (sysfs/rocm-smi) and Intel GPU usage, memory, temperature and power in the monitor.
+- **Static dashboard export**: export the overview (hosts, status, metrics snapshot) as a self-contained HTML file, with no secrets.
+
+**M11 — In-app knowledge base** (last: built once everything else is in place). Fully local: articles are bundled with the app, with no internet links, images or fetches inside them. Searchable (full text), reachable from the command palette (`Help: …`), a Help section and contextual "?" links in each view, rendered in the app theme as sanitized markdown (no raw HTML). Two shelves: **Using Nightgrid** (one article per feature) and a limited **Homelab basics** library (SSH keys & agents, hardening sshd, Docker & compose basics, the docker group, reverse proxies, Tailscale/WireGuard, backups, reading logs).
 
 ---
 

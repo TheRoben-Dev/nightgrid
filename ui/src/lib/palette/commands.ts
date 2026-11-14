@@ -2,6 +2,7 @@ import { SECTIONS } from "../sections";
 import { docker } from "../stores/docker.svelte";
 import { files } from "../stores/files.svelte";
 import { hosts } from "../stores/hosts.svelte";
+import { metrics } from "../stores/metrics.svelte";
 import { settings } from "../stores/settings.svelte";
 import { terms } from "../stores/terms.svelte";
 import { ui } from "../stores/ui.svelte";
@@ -99,6 +100,16 @@ export function buildCommands(): PaletteCommand[] {
     },
   }));
 
+  const monitorHosts: PaletteCommand[] = hosts.hosts.map((h) => ({
+    id: `monitor.${h.id}`,
+    title: `Monitor: ${h.name}`,
+    group: "MONITOR",
+    keywords: ["metrics", "cpu", "memory", "disk", "temperature", "history", h.hostname],
+    run: () => {
+      metrics.detailId = h.id;
+    },
+  }));
+
   // Containers already loaded for the current Docker host.
   const containers: PaletteCommand[] = docker.containers.flatMap((c) => [
     {
@@ -151,5 +162,5 @@ export function buildCommands(): PaletteCommand[] {
   ];
 
   return [...connect, ...browse, ...dockerHosts,
-    ...stackHosts, ...containers, ...hostCmds, ...nav, ...view, ...themes];
+    ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...nav, ...view, ...themes];
 }

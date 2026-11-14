@@ -548,3 +548,33 @@ async fn openssh_edit_hook() {
     assert_eq!(data.lock().unwrap().1, Some(Some(4)));
     assert!(!std::path::Path::new(&dir).exists(), "temp folder left behind: {dir}");
 }
+
+/// Metrics: the collection script runs over a real exec channel and two
+/// samples produce rates, memory and at least one mount.
+#[tokio::test(flavor = "multi_thread")]
+async fn openssh_metrics_sample() {
+    use nightgrid_core::metrics::{parse, Collector, COLLECT};
+
+    // The script reads /proc; macOS hosts are not a metrics target.
+    if !enabled() || !cfg!(target_os = "linux") {
+        return;
+    }
+    let _serial = SERIAL.lock().await;
+    let s = start_sshd("ssh_host_ed25519_key", None, None);
+    let conn = connect_trusting(&key_target(&s), &[], &opts(s.dir.path())).await;
+    let mut c = Collector::default();
+    let mut last = None;
+    for i in 0..2u32 {
+        let (code, out, err) = conn.exec(COLLECT).await.expect("exec");
+        assert_eq!(code, 0, "{}", String::from_utf8_lossy(&err));
+        let raw = parse(&String::from_utf8_lossy(&out));
+        last = Some(c.sample(raw, f64::from(i) * 1000.0));
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    }
+    let sample = last.unwrap();
+    assert!(sample.cpu.is_some_and(|v| (0.0..=100.0).contains(&v)), "{:?}", sample.cpu);
+    assert!(sample.mem_total > 0 && sample.mem_used <= sample.mem_total);
+    assert!(!sample.cores.is_empty());
+    assert!(!sample.mounts.is_empty(), "no mounts parsed");
+    assert!(!sample.kernel.is_empty() && !sample.hostname.is_empty());
+}
