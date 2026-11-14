@@ -3,7 +3,7 @@
   import type { ComposeOp, Stack } from "../../api";
   import { docker } from "../../stores/docker.svelte";
   import { files } from "../../stores/files.svelte";
-  import { composeFile, envFile, isDestructiveOp, opConsequence, opLabel, stacks } from "../../stores/stacks.svelte";
+  import { composeFile, envFile, opConsequence, opLabel, stacks } from "../../stores/stacks.svelte";
   import Modal from "../Modal.svelte";
 
   onMount(() => {
