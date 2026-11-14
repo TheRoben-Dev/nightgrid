@@ -340,7 +340,7 @@ mod tests {
     fn x86_server() {
         let r = parse(A);
         assert_eq!(r.cores.len(), 4);
-        assert_eq!(r.hostname, "lumen");
+        assert_eq!(r.hostname, "server01");
         assert_eq!(r.kernel, "Linux 6.8.0-49-generic");
         assert_eq!(r.load, [0.52, 0.61, 0.70]);
         assert_eq!(r.uptime, 864123.45);

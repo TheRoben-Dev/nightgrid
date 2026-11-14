@@ -142,11 +142,11 @@
     <form class="grid" onsubmit={save} id="host-form">
       <label class="field span2">
         <span>Name</span>
-        <input class="input" bind:value={form.name} placeholder="lumen" autocomplete="off" />
+        <input class="input" bind:value={form.name} placeholder="my-server" autocomplete="off" />
       </label>
       <label class="field span3">
         <span>Hostname / IP</span>
-        <input class="input" bind:value={form.hostname} placeholder="lumen.lan" required autocomplete="off" />
+        <input class="input" bind:value={form.hostname} placeholder="server.lan or 192.0.2.10" required autocomplete="off" />
       </label>
       <label class="field">
         <span>Port</span>

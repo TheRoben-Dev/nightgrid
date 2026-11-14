@@ -229,7 +229,7 @@ mod tests {
     fn stores_rolls_up_queries_and_prunes() {
         let mut s = Store::open_in_memory().unwrap();
         let h = s
-            .create_host(&HostInput { name: "lumen".into(), hostname: "lumen.lan".into(), ..Default::default() })
+            .create_host(&HostInput { name: "server01".into(), hostname: "server01.lan".into(), ..Default::default() })
             .unwrap();
         let day = 86400;
         let base = 100 * day;
