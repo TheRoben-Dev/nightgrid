@@ -2,6 +2,8 @@
   import { untrack } from "svelte";
   import { api, errorText, type AuthMethod, type Host, type HostInput } from "../api";
   import { hosts } from "../stores/hosts.svelte";
+  import { ICON_PRESETS, iconProblem, normalizeIcon } from "../hosts/icons";
+  import HostIcon from "./HostIcon.svelte";
   import Modal from "./Modal.svelte";
   import Toggle from "./Toggle.svelte";
 
@@ -57,6 +59,9 @@
     });
   });
 
+  const iconArt = $derived(normalizeIcon(form.icon));
+  const iconError = $derived(iconProblem(form.icon));
+
   const nullable = (s: string | null) => (s && s.trim() ? s.trim() : null);
 
   function close() {
@@ -81,6 +86,7 @@
         identityFile: form.authMethod === "password" ? null : nullable(form.identityFile),
         proxyJump: nullable(form.proxyJump),
         notes: nullable(form.notes),
+        icon: iconArt,
         tags: tagsText
           .split(",")
           .map((t) => t.trim())
@@ -244,6 +250,37 @@
         </div>
       </div>
 
+      <div class="field span6">
+        <span>ASCII icon</span>
+        <div class="presets" role="group" aria-label="Icon presets">
+          <button type="button" class="btn ghost tiny" class:on={!iconArt} onclick={() => (form.icon = null)}>None</button>
+          {#each ICON_PRESETS as p (p.id)}
+            <button type="button" class="btn ghost tiny" class:on={iconArt === p.art} onclick={() => (form.icon = p.art)}>{p.label}</button>
+          {/each}
+        </div>
+        <div class="iconedit">
+          <textarea
+            class="input mono"
+            rows="6"
+            spellcheck="false"
+            autocomplete="off"
+            aria-label="ASCII icon"
+            placeholder="Draw your own (8 × 32 max)"
+            value={form.icon ?? ""}
+            oninput={(e) => (form.icon = (e.currentTarget as HTMLTextAreaElement).value)}
+          ></textarea>
+          <div class="preview" aria-label="Icon preview">
+            {#if iconArt}<HostIcon art={iconArt} color={form.color} size="md" />{:else}<span class="muted">no icon</span>{/if}
+            <span class="pname">{form.name.trim() || form.hostname.trim() || "host"}</span>
+          </div>
+        </div>
+        {#if iconError}
+          <span class="error-text">{iconError}</span>
+        {:else}
+          <span class="field-hint">Shown above the name on the overview and connect tiles, in the host's color.</span>
+        {/if}
+      </div>
+
       <label class="field span6">
         <span>Notes</span>
         <textarea class="input" rows="2" bind:value={form.notes}></textarea>
@@ -279,7 +316,7 @@
         {/if}
       {/if}
       <button type="button" class="btn ghost" onclick={close}>Cancel</button>
-      <button type="submit" form="host-form" class="btn primary" disabled={busy || !form.hostname.trim()}>
+      <button type="submit" form="host-form" class="btn primary" disabled={busy || !form.hostname.trim() || !!iconError}>
         {existing ? "Save" : "Add host"}
       </button>
     {/if}
@@ -371,6 +408,47 @@
   }
   textarea {
     resize: vertical;
+  }
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .presets .on {
+    color: var(--magenta);
+    border-color: var(--magenta);
+    box-shadow: var(--glow-active);
+  }
+  .iconedit {
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    gap: 8px;
+  }
+  .mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.12;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .preview {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    background: var(--bg-0);
+    overflow: hidden;
+  }
+  .pname {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--fs-lg);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-0);
   }
   .toggles {
     display: flex;

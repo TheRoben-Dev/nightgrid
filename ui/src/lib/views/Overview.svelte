@@ -3,6 +3,7 @@
   import Barcode from "../components/Barcode.svelte";
   import Panel from "../components/Panel.svelte";
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
+  import HostIcon from "../components/HostIcon.svelte";
   import { hosts } from "../stores/hosts.svelte";
   import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
@@ -36,6 +37,7 @@
             {@const st = !p ? "unknown" : p.connected ? "connected" : p.state}
             <button type="button" class="htile {st}" onclick={() => terms.openHost(h.id)} title="Open a shell on {h.name}">
               <span class="stripe" style:background={h.color ?? "var(--line)"} aria-hidden="true"></span>
+              <HostIcon art={h.icon} color={h.color} />
               <span class="hname">{h.name}{#if h.favorite}<span class="star" aria-hidden="true"> ★</span>{/if}</span>
               <span class="hhost">{h.username ? `${h.username}@` : ""}{h.hostname}</span>
               <span class="hstate">

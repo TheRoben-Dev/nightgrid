@@ -107,3 +107,6 @@ Running containers only reveal stacks that are up. To manage stacks that are dow
 ### D-034 · Which stack actions confirm
 Down, Restart and Update interrupt running services, so they confirm with the stack name and host (rule 5). Up and Pull don't stop anything that is running and run straight away. Stack actions are single-host, so no typed name is needed.
 
+### D-035 · ASCII host icons live in the existing `hosts.icon` column
+Roben asked for an ASCII icon above each saved host's name, styled like the app. The `icon` column has existed since migration 0001 and was unused, so the art text is stored there directly (no migration, and it travels with the host). Presets are just text the editor fills in, so changing a preset later doesn't change hosts that already use it. The backend normalizes and validates the icon (≤ 8 lines × 32 characters; printable ASCII, Latin-1, arrows, box drawing, blocks, geometric shapes and braille, which are all single-width in monospace fonts; no control characters, so nothing can inject terminal or markup sequences). The UI applies the same rules to warn as you type. Icons render as plain text in a `<pre>`, never as HTML.
+

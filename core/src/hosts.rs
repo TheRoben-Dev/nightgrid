@@ -121,6 +121,50 @@ fn valid_color(c: &Option<String>) -> Result<()> {
     Ok(())
 }
 
+/// Largest ASCII icon: lines × columns.
+pub const ICON_MAX_LINES: usize = 8;
+pub const ICON_MAX_COLS: usize = 32;
+
+/// Characters an ASCII icon may use: printable ASCII and Latin-1, arrows,
+/// box drawing, blocks, geometric shapes and braille (all single-width in
+/// monospace fonts).
+fn icon_char_ok(c: char) -> bool {
+    matches!(c, ' '..='~' | '\u{a0}'..='\u{ff}' | '\u{2190}'..='\u{21ff}' | '\u{2500}'..='\u{25ff}' | '\u{2800}'..='\u{28ff}')
+}
+
+/// Normalizes a host's ASCII icon: unix newlines, tabs as spaces, trailing
+/// spaces, blank edge lines and the common indent removed. `None` if empty.
+pub fn normalize_icon(icon: &Option<String>) -> Result<Option<String>> {
+    let Some(raw) = icon else { return Ok(None) };
+    let text = raw.replace("\r\n", "\n").replace('\r', "\n").replace('\t', "    ");
+    if let Some(c) = text.chars().find(|c| *c != '\n' && !icon_char_ok(*c)) {
+        return Err(Error::Invalid {
+            field: "icon",
+            reason: format!("{c:?} can't be used; stick to ASCII, box drawing and block characters"),
+        });
+    }
+    let mut lines: Vec<&str> = text.lines().map(str::trim_end).collect();
+    while lines.first().is_some_and(|l| l.is_empty()) {
+        lines.remove(0);
+    }
+    while lines.last().is_some_and(|l| l.is_empty()) {
+        lines.pop();
+    }
+    if lines.is_empty() {
+        return Ok(None);
+    }
+    let indent =
+        lines.iter().filter(|l| !l.is_empty()).map(|l| l.len() - l.trim_start_matches(' ').len()).min().unwrap_or(0);
+    let lines: Vec<&str> = lines.iter().map(|l| if l.is_empty() { *l } else { &l[indent..] }).collect();
+    if lines.len() > ICON_MAX_LINES {
+        return Err(Error::Invalid { field: "icon", reason: format!("at most {ICON_MAX_LINES} lines") });
+    }
+    if lines.iter().any(|l| l.chars().count() > ICON_MAX_COLS) {
+        return Err(Error::Invalid { field: "icon", reason: format!("at most {ICON_MAX_COLS} characters per line") });
+    }
+    Ok(Some(lines.join("\n")))
+}
+
 impl HostInput {
     /// Trims and validates; returns a normalized copy.
     pub fn normalized(&self) -> Result<Self> {
@@ -138,7 +182,7 @@ impl HostInput {
         }
         h.username = blank_to_none(&h.username);
         h.color = blank_to_none(&h.color);
-        h.icon = blank_to_none(&h.icon);
+        h.icon = normalize_icon(&h.icon)?;
         h.notes = blank_to_none(&h.notes);
         h.identity_file = blank_to_none(&h.identity_file);
         h.proxy_jump = blank_to_none(&h.proxy_jump);
@@ -382,6 +426,20 @@ mod tests {
 
     fn input(name: &str) -> HostInput {
         HostInput { name: name.into(), hostname: format!("{name}.lan"), ..Default::default() }
+    }
+
+    #[test]
+    fn ascii_icons_are_normalized_and_limited() {
+        let n = |s: &str| normalize_icon(&Some(s.to_owned()));
+        assert_eq!(n("\r\n   ┌──┐  \r\n   │▓▓│\r\n   └──┘\n\n").unwrap().as_deref(), Some("┌──┐\n│▓▓│\n└──┘"));
+        assert_eq!(n("  \n \n").unwrap(), None);
+        assert_eq!(normalize_icon(&None).unwrap(), None);
+        assert_eq!(n("\ta\n  b").unwrap().as_deref(), Some("  a\nb"));
+        assert!(n("x\u{1b}[31m").is_err(), "control characters");
+        assert!(n("🖥").is_err(), "emoji are double width");
+        assert!(n(&"x\n".repeat(ICON_MAX_LINES + 1)).is_err());
+        assert!(n(&"=".repeat(ICON_MAX_COLS + 1)).is_err());
+        assert!(n(&"█".repeat(ICON_MAX_COLS)).is_ok(), "limit counts characters, not bytes");
     }
 
     #[test]
