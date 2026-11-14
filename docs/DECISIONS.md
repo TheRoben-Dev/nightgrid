@@ -76,3 +76,18 @@ A job is one selected file or folder. If the destination exists, the job waits f
 ### D-024 · CodeMirror is code-split
 The editor and its language packs load on first use, keeping the main bundle under the 900 kB warning limit. CodeMirror injects its styles through constructable stylesheets, which our CSP allows, and none of its packages assign over `Object.prototype` members (checked against `freezePrototype` in a Chromium run).
 
+
+### D-025 · Docker API over per-request SSH channels
+bollard's custom transport hands us each HTTP request. We open a fresh `direct-streamlocal` channel to the daemon socket on the host's pooled SSH connection, run HTTP/1.1 over it with hyper, and let the channel close when the response body is done. That keeps the client stateless across reconnects (the per-host `DockerCache` is keyed to the pooled connection) and lets long log streams run beside short calls. Stats requests run 6 at a time so a big host doesn't use up sshd's session limit.
+
+### D-026 · Socket discovery and dial-stdio fallback
+On first use a small `sh` probe looks for a readable+writable socket at `/var/run/docker.sock`, then `$XDG_RUNTIME_DIR/docker.sock` (rootless), and checks whether the `docker` CLI exists. If the socket is there but not accessible, we stop with a "join the docker group" message instead of trying sudo. Being in that group is root-equivalent, and the UI says so. If forwarding fails (`AllowStreamLocalForwarding no`), we use `docker system dial-stdio` over an exec channel. With no socket but a CLI (contexts, a `DOCKER_HOST` in the login environment), dial-stdio is tried directly.
+
+### D-027 · Container shell uses the docker CLI in a PTY
+Exec over the API needs a hijacked HTTP connection plus our own TTY resize plumbing. Running `docker exec -it <id> sh -c 'command -v bash … || exec sh'` in a PTY channel reuses the terminal stack (resize, reconnect, copy/paste) for free. It needs the docker CLI on the host, which every normal install has. Container ids/names are validated (`[A-Za-z0-9_.-]`, no leading `-`) and shell-quoted.
+
+### D-028 · Typing the host name only for removing several containers
+Rule 5 asks for a confirmation that names the targets, and for typed names on multi-host runs. Docker actions are single-host, so stop/restart/kill/remove always show the exact containers. Only removal of more than one container also needs the host name typed, because removal is the one action you can't undo by starting the container again. Start, pause and unpause run without asking.
+
+### D-029 · Env values travel to the webview but are masked there
+`docker_inspect` returns env values, so the panel can reveal them on click without another round trip. They are masked by default in the UI, replaced with `••••••` in the raw JSON view, and never logged (bollard's debug logging is filtered out). They are never written to SQLite.

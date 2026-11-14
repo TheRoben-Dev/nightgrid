@@ -317,7 +317,7 @@ async fn shell_io_exit_code() {
     connect_trusting(&t, &[], &o).await;
 
     let (rec, sink) = recorder();
-    let h = spawn_ssh(connector_for(t, o), 80, 24, sink).await.unwrap();
+    let h = spawn_ssh(connector_for(t, o), None, 80, 24, sink).await.unwrap();
     wait_until(&rec, 5, |r| String::from_utf8_lossy(&r.data).contains("welcome")).await;
     h.write("ls");
     wait_until(&rec, 5, |r| String::from_utf8_lossy(&r.data).contains("echo:ls")).await;
@@ -337,7 +337,7 @@ async fn shell_reconnects_after_server_restart() {
     connect_trusting(&t, &[], &o).await;
 
     let (rec, sink) = recorder();
-    let h = spawn_ssh(connector_for(t, o), 80, 24, sink).await.unwrap();
+    let h = spawn_ssh(connector_for(t, o), None, 80, 24, sink).await.unwrap();
     wait_until(&rec, 5, |r| r.states.contains(&TermState::Connected)).await;
 
     // Network drop: server goes away, comes back on the same port with the same key.

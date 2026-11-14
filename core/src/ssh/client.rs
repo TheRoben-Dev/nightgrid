@@ -181,6 +181,34 @@ impl Connection {
         Ok(ch)
     }
 
+    /// Opens a channel to a Unix socket on the server (`direct-streamlocal`,
+    /// like `ssh -L local:/remote.sock`). Fails if the server forbids it.
+    pub async fn open_streamlocal(&self, path: &str) -> Result<russh::Channel<client::Msg>, ConnectError> {
+        self.handle.channel_open_direct_streamlocal(path).await.map_err(ConnectError::other)
+    }
+
+    /// Starts `command` without a PTY and returns its channel (raw stdio stream).
+    pub async fn open_exec(&self, command: &str) -> Result<russh::Channel<client::Msg>, ConnectError> {
+        let ch = self.handle.channel_open_session().await.map_err(ConnectError::other)?;
+        ch.exec(true, command).await.map_err(ConnectError::other)?;
+        Ok(ch)
+    }
+
+    /// Opens a PTY channel running `command` (e.g. `docker exec -it ...`).
+    pub async fn open_pty_exec(
+        &self,
+        command: &str,
+        cols: u16,
+        rows: u16,
+    ) -> Result<russh::Channel<client::Msg>, ConnectError> {
+        let ch = self.handle.channel_open_session().await.map_err(ConnectError::other)?;
+        ch.request_pty(true, "xterm-256color", cols.into(), rows.into(), 0, 0, &[])
+            .await
+            .map_err(ConnectError::other)?;
+        ch.exec(true, command).await.map_err(ConnectError::other)?;
+        Ok(ch)
+    }
+
     /// Runs a command and collects stdout/stderr/exit code (for tests and quick probes).
     pub async fn exec(&self, command: &str) -> Result<(i32, Vec<u8>, Vec<u8>), ConnectError> {
         let mut ch = self.handle.channel_open_session().await.map_err(ConnectError::other)?;

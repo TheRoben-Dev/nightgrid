@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
+use nightgrid_core::docker::DockerCache;
 use nightgrid_core::files::remote::SftpCache;
 use nightgrid_core::files::transfer::Transfers;
 use nightgrid_core::hosts::HostId;
@@ -32,6 +33,10 @@ pub struct AppState {
     pub sftp: SftpCache,
     /// Created on first use (needs the app handle for its resolver).
     pub transfers: OnceLock<Transfers>,
+    /// One Docker engine client per host, on the pooled connection.
+    pub docker: DockerCache,
+    /// Running log streams, by id (aborted on stop).
+    pub log_streams: Mutex<HashMap<u32, tauri::async_runtime::JoinHandle<()>>>,
     next_term: AtomicU32,
 }
 
@@ -53,6 +58,8 @@ impl AppState {
             terms: Mutex::default(),
             sftp: SftpCache::new(),
             transfers: OnceLock::new(),
+            docker: DockerCache::new(),
+            log_streams: Mutex::default(),
             next_term: AtomicU32::new(1),
         })
     }

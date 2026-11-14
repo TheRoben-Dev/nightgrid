@@ -1,4 +1,5 @@
 import { SECTIONS } from "../sections";
+import { docker } from "../stores/docker.svelte";
 import { files } from "../stores/files.svelte";
 import { hosts } from "../stores/hosts.svelte";
 import { settings } from "../stores/settings.svelte";
@@ -74,6 +75,42 @@ export function buildCommands(): PaletteCommand[] {
     },
   }));
 
+  const dockerHosts: PaletteCommand[] = hosts.hosts.map((h) => ({
+    id: `docker.${h.id}`,
+    title: `Docker: ${h.name}`,
+    group: "DOCKER",
+    keywords: ["containers", "compose", h.hostname],
+    run: () => {
+      docker.select(h.id);
+      ui.go("docker");
+    },
+  }));
+
+  // Containers already loaded for the current Docker host.
+  const containers: PaletteCommand[] = docker.containers.flatMap((c) => [
+    {
+      id: `docker.logs.${c.id}`,
+      title: `Logs: ${c.name}`,
+      group: "DOCKER",
+      keywords: [c.image, c.project ?? "", "container"],
+      run: () => {
+        docker.detailId = c.id;
+        ui.go("docker");
+      },
+    },
+    ...(c.state === "running" && docker.hostId !== null
+      ? [
+          {
+            id: `docker.shell.${c.id}`,
+            title: `Shell: ${c.name}`,
+            group: "DOCKER",
+            keywords: [c.image, "exec", "container"],
+            run: () => terms.openContainer(docker.hostId!, { id: c.id, name: c.name }),
+          },
+        ]
+      : []),
+  ]);
+
   const hostCmds: PaletteCommand[] = [
     {
       id: "term.newLocal",
@@ -100,5 +137,5 @@ export function buildCommands(): PaletteCommand[] {
     })),
   ];
 
-  return [...connect, ...browse, ...hostCmds, ...nav, ...view, ...themes];
+  return [...connect, ...browse, ...dockerHosts, ...containers, ...hostCmds, ...nav, ...view, ...themes];
 }

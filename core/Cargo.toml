@@ -11,7 +11,12 @@ name = "nightgrid_core"
 
 [dependencies]
 base64 = "0.23.1"
+bollard = { version = "0.21", default-features = false }
+bytes = "1"
+futures-util = "0.3"
 hmac = "0.13"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 keyring = "4.2.0"
 portable-pty = "0.9"
 rusqlite = { version = "0.41", features = ["bundled"] }

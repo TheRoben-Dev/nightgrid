@@ -2,6 +2,7 @@
 //! `nightgrid-core`; anything with real logic belongs in the core crate.
 
 mod commands;
+mod docker_cmd;
 mod files_cmd;
 mod hosts_cmd;
 mod logging;
@@ -59,6 +60,15 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         files_cmd::transfer_cancel,
         files_cmd::transfer_resolve,
         files_cmd::transfers_clear,
+        docker_cmd::docker_info,
+        docker_cmd::docker_containers,
+        docker_cmd::docker_stats,
+        docker_cmd::docker_action,
+        docker_cmd::docker_inspect,
+        docker_cmd::docker_logs_start,
+        docker_cmd::docker_logs_stop,
+        docker_cmd::docker_forget,
+        term_cmd::term_open_docker_exec,
     ])
 }
 

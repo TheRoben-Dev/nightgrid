@@ -119,7 +119,40 @@ pub async fn term_open_ssh(
     on_event: Channel<TermMessage>,
 ) -> CmdResult<TermOpen> {
     let connector = connector_for(app.clone(), host_id);
-    match term::spawn_ssh(connector, cols, rows, sink_for(on_event)).await {
+    match term::spawn_ssh(connector, None, cols, rows, sink_for(on_event)).await {
+        Ok(handle) => {
+            let id = state.next_term_id();
+            state.terms.lock().expect("poisoned").insert(id, handle);
+            Ok(TermOpen::Opened { id })
+        }
+        Err(e) if e.needs_user() => Ok(TermOpen::NeedsUser { error: e }),
+        Err(e) => Err(CommandError::msg(e.to_string())),
+    }
+}
+
+/// Opens a terminal tab with an interactive shell inside a container
+/// (`docker exec -it`, bash if present, else sh). Reconnects re-run it.
+#[tauri::command]
+#[specta::specta]
+pub async fn term_open_docker_exec(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    host_id: HostId,
+    container: String,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<TermMessage>,
+) -> CmdResult<TermOpen> {
+    let docker = match crate::docker_cmd::docker_for(&app, host_id).await {
+        Ok(d) => d,
+        Err(e) => match e.connect {
+            Some(c) if c.needs_user() => return Ok(TermOpen::NeedsUser { error: *c }),
+            _ => return Err(CommandError::msg(e.message)),
+        },
+    };
+    let command = crate::docker_cmd::exec_command(&docker, &container)?;
+    let connector = connector_for(app.clone(), host_id);
+    match term::spawn_ssh(connector, Some(command), cols, rows, sink_for(on_event)).await {
         Ok(handle) => {
             let id = state.next_term_id();
             state.terms.lock().expect("poisoned").insert(id, handle);

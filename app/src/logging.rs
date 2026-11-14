@@ -22,8 +22,9 @@ pub fn init(dir: &Path) -> Result<LogGuard, Box<dyn std::error::Error>> {
         .build(dir)?;
     let (writer, guard) = tracing_appender::non_blocking(appender);
 
-    let filter = EnvFilter::try_from_env("NIGHTGRID_LOG")
-        .unwrap_or_else(|_| EnvFilter::new(if cfg!(debug_assertions) { "debug" } else { "info" }));
+    let filter = EnvFilter::try_from_env("NIGHTGRID_LOG").unwrap_or_else(|_| {
+        EnvFilter::new(if cfg!(debug_assertions) { "debug,bollard=warn" } else { "info,bollard=warn" })
+    });
 
     let file_layer = fmt::layer().with_writer(writer).with_ansi(false).with_target(true);
     let stderr_layer = cfg!(debug_assertions).then(|| fmt::layer().with_writer(std::io::stderr));

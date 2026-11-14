@@ -61,6 +61,8 @@ jobs:
         run: cargo test --workspace --locked
         env:
           NIGHTGRID_TEST_OPENSSH: "1"
+          # Docker-over-SSH test against the runner's own dockerd.
+          NIGHTGRID_TEST_DOCKER: "1"
       - name: TS bindings are up to date
         run: git diff --exit-code -- ui/src/lib/bindings.ts || (echo "::error::ui/src/lib/bindings.ts is stale. Run 'cargo test -p nightgrid --lib bindings' and commit." && exit 1)
 

@@ -56,6 +56,10 @@ fn free_port() -> u16 {
 }
 
 fn start_sshd(host_key_name: &str, dir: Option<tempfile::TempDir>, port: Option<u16>) -> Sshd {
+    start_sshd_with(host_key_name, dir, port, "")
+}
+
+fn start_sshd_with(host_key_name: &str, dir: Option<tempfile::TempDir>, port: Option<u16>, extra: &str) -> Sshd {
     let dir = dir.unwrap_or_else(|| tempfile::tempdir().unwrap());
     let d = dir.path();
     let host_key = d.join(host_key_name);
@@ -70,7 +74,7 @@ fn start_sshd(host_key_name: &str, dir: Option<tempfile::TempDir>, port: Option<
     let config = format!(
         "Port {port}\nListenAddress 127.0.0.1\nHostKey {hk}\nAuthorizedKeysFile {ak}\nPidFile {pid}\n\
          PasswordAuthentication no\nKbdInteractiveAuthentication no\nUsePAM no\nStrictModes no\n\
-         AllowTcpForwarding yes\nSubsystem sftp internal-sftp\nLogLevel ERROR\n",
+         AllowTcpForwarding yes\nSubsystem sftp internal-sftp\nLogLevel ERROR\n{extra}",
         hk = host_key.display(),
         ak = d.join("authorized_keys").display(),
         pid = d.join("sshd.pid").display(),
@@ -163,7 +167,7 @@ async fn openssh_interactive_shell() {
         let (t, o) = (t.clone(), o.clone());
         Box::pin(async move { connect(&t, &[], &o).await.map(Arc::new) })
     });
-    let h = spawn_ssh(connector, 100, 30, sink).await.unwrap();
+    let h = spawn_ssh(connector, None, 100, 30, sink).await.unwrap();
     h.write("echo marker-$((1+1)); exit 3\n");
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
@@ -310,4 +314,88 @@ async fn openssh_sftp_browse_edit_and_transfer() {
     fs.remove(&renamed).await.unwrap();
     fs.remove(&up_dir).await.unwrap();
     assert!(fs.list(&root).await.unwrap().is_empty());
+}
+
+/// Docker through a real sshd: socket forwarding, the dial-stdio fallback when
+/// sshd forbids it, list/stats/logs/inspect/actions. Needs a local Docker the
+/// test user can reach; opt-in with `NIGHTGRID_TEST_DOCKER=1` (CI on Linux).
+#[tokio::test(flavor = "multi_thread")]
+async fn openssh_docker_over_ssh() {
+    use nightgrid_core::docker::{Action, DockerHost, LogQuery, Route, MASK};
+
+    if !enabled() || std::env::var("NIGHTGRID_TEST_DOCKER").map_or(true, |v| v != "1") {
+        return;
+    }
+    let s = start_sshd("ssh_host_ed25519_key", None, None);
+    let conn = Arc::new(connect_trusting(&key_target(&s), &[], &opts(s.dir.path())).await);
+    let name = format!("ng-test-{}", std::process::id());
+    let run = format!(
+        "docker rm -f {name} >/dev/null 2>&1; docker run -d --name {name} --network none \
+         --label com.docker.compose.project=ngtest --label com.docker.compose.service=web \
+         -e API_TOKEN=s3cr3t-value alpine:3.20 \
+         sh -c 'i=0; while true; do echo tick $i; echo oops $i >&2; i=$((i+1)); sleep 0.2; done'"
+    );
+    let (code, _, err) = conn.exec(&run).await.unwrap();
+    assert_eq!(code, 0, "docker run: {}", String::from_utf8_lossy(&err));
+
+    let d = DockerHost::connect(conn.clone()).await.expect("docker connect");
+    assert!(matches!(d.route, Route::Socket(_)), "{:?}", d.route);
+    let info = d.info().await.unwrap();
+    assert!(!info.version.is_empty());
+
+    let list = d.containers().await.unwrap();
+    let c = list.iter().find(|c| c.name == name).expect("test container listed");
+    assert_eq!(c.state, "running");
+    assert_eq!(c.project.as_deref(), Some("ngtest"));
+    assert_eq!(c.service.as_deref(), Some("web"));
+
+    let stats = d.stats(std::slice::from_ref(&c.id)).await;
+    assert_eq!(stats.len(), 1);
+    assert!(stats[0].mem_used > 0);
+
+    let detail = d.inspect(&name).await.unwrap();
+    assert!(detail.env.iter().any(|e| e.key == "API_TOKEN" && e.value == "s3cr3t-value"));
+    assert!(!detail.raw.contains("s3cr3t-value") && detail.raw.contains(MASK));
+
+    // Backlog: both streams, timestamps parsed.
+    tokio::time::sleep(Duration::from_millis(700)).await;
+    let mut lines = Vec::new();
+    d.logs(&name, LogQuery { follow: false, tail: Some(4), since: None }, |b| {
+        lines.extend(b);
+        true
+    })
+    .await
+    .unwrap();
+    assert_eq!(lines.len(), 4, "{lines:?}");
+    assert!(lines.iter().all(|l| l.ts.is_some()));
+    assert!(lines.iter().any(|l| l.text.starts_with("oops")));
+    // Follow: new lines arrive; returning false stops the stream.
+    let mut got = 0;
+    let follow = d.logs(&name, LogQuery { follow: true, tail: Some(0), since: None }, |b| {
+        got += b.len();
+        got < 6
+    });
+    tokio::time::timeout(Duration::from_secs(15), follow).await.expect("follow delivers").unwrap();
+    assert!(got >= 6);
+
+    // Same daemon via `docker system dial-stdio` when sshd refuses forwarding.
+    let s2 = start_sshd_with("ssh_host_ed25519_key", None, None, "AllowStreamLocalForwarding no\n");
+    let conn2 = Arc::new(connect_trusting(&key_target(&s2), &[], &opts(s2.dir.path())).await);
+    let d2 = DockerHost::connect(conn2).await.expect("dial-stdio fallback");
+    assert!(matches!(d2.route, Route::DialStdio(_)), "{:?}", d2.route);
+    assert!(d2.containers().await.unwrap().iter().any(|c| c.name == name));
+
+    // Lifecycle.
+    d.act(&name, Action::Pause).await.unwrap();
+    d.act(&name, Action::Unpause).await.unwrap();
+    d.act(&name, Action::Kill).await.unwrap();
+    let state = |l: Vec<nightgrid_core::docker::ContainerView>| l.into_iter().find(|c| c.name == name).map(|c| c.state);
+    assert_eq!(state(d.containers().await.unwrap()).as_deref(), Some("exited"));
+    d.act(&name, Action::Start).await.unwrap();
+    d.act(&name, Action::Start).await.expect("start when running is a no-op");
+    d.act(&name, Action::Remove { force: false }).await.expect_err("running container needs force");
+    d.act(&name, Action::Remove { force: true }).await.unwrap();
+    assert_eq!(state(d.containers().await.unwrap()), None);
+    let err = d.inspect(&name).await.unwrap_err();
+    assert!(matches!(err, nightgrid_core::docker::DockerError::NotFound { .. }), "{err:?}");
 }

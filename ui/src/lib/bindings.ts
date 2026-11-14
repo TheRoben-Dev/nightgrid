@@ -75,9 +75,45 @@ export const commands = {
 	transferCancel: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("transfer_cancel", { id }, options),
 	transferResolve: (id: number, policy: ConflictPolicy, all: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("transfer_resolve", { id, policy, all }, options),
 	transfersClear: (options?: InvokeOptions) => __TAURI_INVOKE<null>("transfers_clear", undefined, options),
+	dockerInfo: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<EngineInfo>("docker_info", { hostId }, options),
+	dockerContainers: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<ContainerView_Serialize[]>("docker_containers", { hostId }, options),
+	dockerStats: (hostId: number, ids: string[], options?: InvokeOptions) => __TAURI_INVOKE<ContainerStats[]>("docker_stats", { hostId, ids }, options),
+	/**
+	 *  Runs `action` on each container. The UI has already shown a confirmation
+	 *  naming every target for destructive actions (security rule 5).
+	 */
+	dockerAction: (hostId: number, ids: string[], action: Action, options?: InvokeOptions) => __TAURI_INVOKE<ActionResult_Serialize[]>("docker_action", { hostId, ids, action }, options),
+	dockerInspect: (hostId: number, id: string, options?: InvokeOptions) => __TAURI_INVOKE<ContainerDetail_Serialize>("docker_inspect", { hostId, id }, options),
+	/**  Starts streaming a container's logs; stop with `docker_logs_stop`. */
+	dockerLogsStart: (hostId: number, id: string, query: LogQuery_Deserialize, onEvent: Channel<LogEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("docker_logs_start", { hostId, id, query, onEvent }, options),
+	dockerLogsStop: (stream: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_logs_stop", { stream }, options),
+	/**
+	 *  Forgets the cached engine (e.g. after adding the user to the docker group
+	 *  and reconnecting).
+	 */
+	dockerForget: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_forget", { hostId }, options),
+	/**
+	 *  Opens a terminal tab with an interactive shell inside a container
+	 *  (`docker exec -it`, bash if present, else sh). Reconnects re-run it.
+	 */
+	termOpenDockerExec: (hostId: number, container: string, cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_docker_exec", { hostId, container, cols, rows, onEvent }, options),
 };
 
 /* Types */
+export type Action = { kind: "start" } | { kind: "stop" } | { kind: "restart" } | { kind: "kill" } | { kind: "pause" } | { kind: "unpause" } | { kind: "remove"; force: boolean };
+
+export type ActionResult = ActionResult_Serialize | ActionResult_Deserialize;
+
+export type ActionResult_Deserialize = {
+	id: string,
+	error?: string | null,
+};
+
+export type ActionResult_Serialize = {
+	id: string,
+	error: string | null,
+};
+
 export type AppInfo = AppInfo_Serialize | AppInfo_Deserialize;
 
 export type AppInfo_Deserialize = {
@@ -222,6 +258,136 @@ export type ConflictPolicy =
 export type ConnectError = { kind: "hostKeyUnknown"; host: string; port: number; key: HostKeyInfo } | { kind: "hostKeyChanged"; host: string; port: number; key: HostKeyInfo; previous: HostKeyInfo[] } | 
 /**  `target` is the hop label (`user@host[:port]`) the secret is for. */
 { kind: "passphraseRequired"; target: string; host: string; path: string; retry: boolean } | { kind: "passwordRequired"; target: string; host: string; user: string; retry: boolean } | { kind: "authFailed"; host: string; user: string; message: string } | { kind: "network"; host: string; message: string } | { kind: "other"; message: string };
+
+export type ContainerDetail = ContainerDetail_Serialize | ContainerDetail_Deserialize;
+
+export type ContainerDetail_Deserialize = {
+	id: string,
+	name: string,
+	image: string,
+	created: string,
+	state: string,
+	startedAt?: string | null,
+	finishedAt?: string | null,
+	exitCode?: number | null,
+	health?: string | null,
+	restartPolicy: string,
+	restartCount: number,
+	command: string,
+	/**  Shown masked by default in the UI (security rule 6). */
+	env: KeyValue[],
+	mounts: MountView_Deserialize[],
+	networks: NetworkView[],
+	ports: PortView_Deserialize[],
+	labels: KeyValue[],
+	/**  Full inspect JSON, pretty printed, with env values masked. */
+	raw: string,
+};
+
+export type ContainerDetail_Serialize = {
+	id: string,
+	name: string,
+	image: string,
+	created: string,
+	state: string,
+	startedAt: string | null,
+	finishedAt: string | null,
+	exitCode: number | null,
+	health: string | null,
+	restartPolicy: string,
+	restartCount: number,
+	command: string,
+	/**  Shown masked by default in the UI (security rule 6). */
+	env: KeyValue[],
+	mounts: MountView_Serialize[],
+	networks: NetworkView[],
+	ports: PortView_Serialize[],
+	labels: KeyValue[],
+	/**  Full inspect JSON, pretty printed, with env values masked. */
+	raw: string,
+};
+
+export type ContainerStats = {
+	id: string,
+	/**  CPU in tenths of a percent of one core (1000 = one full core). */
+	cpuPermille: number,
+	memUsed: number,
+	memLimit: number,
+};
+
+export type ContainerView = ContainerView_Serialize | ContainerView_Deserialize;
+
+export type ContainerView_Deserialize = {
+	id: string,
+	name: string,
+	image: string,
+	/**  created, running, paused, restarting, exited, removing, dead */
+	state: string,
+	/**  Docker's own status line, e.g. "Up 3 hours (healthy)". */
+	status: string,
+	/**  healthy, unhealthy, starting; None when there is no healthcheck. */
+	health?: string | null,
+	/**  Unix seconds. */
+	created: number,
+	ports: PortView_Deserialize[],
+	project?: string | null,
+	service?: string | null,
+	composeDir?: string | null,
+};
+
+export type ContainerView_Serialize = {
+	id: string,
+	name: string,
+	image: string,
+	/**  created, running, paused, restarting, exited, removing, dead */
+	state: string,
+	/**  Docker's own status line, e.g. "Up 3 hours (healthy)". */
+	status: string,
+	/**  healthy, unhealthy, starting; None when there is no healthcheck. */
+	health: string | null,
+	/**  Unix seconds. */
+	created: number,
+	ports: PortView_Serialize[],
+	project: string | null,
+	service: string | null,
+	composeDir: string | null,
+};
+
+/**
+ *  Docker command error: a message plus the structured cause, so the UI can
+ *  show a host-key / password prompt or the docker-group hint.
+ */
+export type DockerCmdError = DockerCmdError_Serialize | DockerCmdError_Deserialize;
+
+/**
+ *  Docker command error: a message plus the structured cause, so the UI can
+ *  show a host-key / password prompt or the docker-group hint.
+ */
+export type DockerCmdError_Deserialize = {
+	message: string,
+	connect?: ConnectError | null,
+	docker?: DockerError | null,
+};
+
+/**
+ *  Docker command error: a message plus the structured cause, so the UI can
+ *  show a host-key / password prompt or the docker-group hint.
+ */
+export type DockerCmdError_Serialize = {
+	message: string,
+	connect: ConnectError | null,
+	docker: DockerError | null,
+};
+
+export type DockerError = { kind: "notInstalled" } | { kind: "permissionDenied"; socket: string; user: string } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
+
+/**  Engine summary shown in the Docker view header. */
+export type EngineInfo = {
+	version: string,
+	apiVersion: string,
+	os: string,
+	route: string,
+};
 
 /**  One directory entry (or a `stat` result). */
 export type Entry = Entry_Serialize | Entry_Deserialize;
@@ -500,6 +666,11 @@ export type JobView_Serialize = {
 	current: string | null,
 };
 
+export type KeyValue = {
+	key: string,
+	value: string,
+};
+
 export type KeychainStatus = KeychainStatus_Serialize | KeychainStatus_Deserialize;
 
 export type KeychainStatus_Deserialize = {
@@ -528,6 +699,80 @@ export type Listing_Serialize = {
 	entries: Entry_Serialize[],
 };
 
+/**  What the log channel carries. */
+export type LogEvent = LogEvent_Serialize | LogEvent_Deserialize;
+
+/**  What the log channel carries. */
+export type LogEvent_Deserialize = { kind: "lines"; lines: LogLine_Deserialize[] } | 
+/**  The stream ended (container stopped, backlog sent, or an error). */
+{ kind: "end"; error?: string | null };
+
+/**  What the log channel carries. */
+export type LogEvent_Serialize = { kind: "lines"; lines: LogLine_Serialize[] } | 
+/**  The stream ended (container stopped, backlog sent, or an error). */
+{ kind: "end"; error: string | null };
+
+export type LogLine = LogLine_Serialize | LogLine_Deserialize;
+
+export type LogLine_Deserialize = {
+	stream: LogStream,
+	/**  RFC 3339 timestamp from the daemon. */
+	ts?: string | null,
+	text: string,
+};
+
+export type LogLine_Serialize = {
+	stream: LogStream,
+	/**  RFC 3339 timestamp from the daemon. */
+	ts: string | null,
+	text: string,
+};
+
+export type LogQuery = LogQuery_Serialize | LogQuery_Deserialize;
+
+export type LogQuery_Deserialize = {
+	follow: boolean,
+	/**  Last N lines; None = everything. */
+	tail?: number | null,
+	/**  Unix seconds. */
+	since?: number | null,
+};
+
+export type LogQuery_Serialize = {
+	follow: boolean,
+	/**  Last N lines; None = everything. */
+	tail: number | null,
+	/**  Unix seconds. */
+	since: number | null,
+};
+
+export type LogStream = "out" | "err";
+
+export type MountView = MountView_Serialize | MountView_Deserialize;
+
+export type MountView_Deserialize = {
+	kind: string,
+	source: string,
+	destination: string,
+	rw: boolean,
+	name?: string | null,
+};
+
+export type MountView_Serialize = {
+	kind: string,
+	source: string,
+	destination: string,
+	rw: boolean,
+	name: string | null,
+};
+
+export type NetworkView = {
+	name: string,
+	ip: string,
+	gateway: string,
+	aliases: string[],
+};
+
 export type NewJob = NewJob_Serialize | NewJob_Deserialize;
 
 export type NewJob_Deserialize = {
@@ -546,6 +791,22 @@ export type NewJob_Serialize = {
 	/**  Directory the item is copied into. */
 	dstDir: string,
 	policy: ConflictPolicy,
+};
+
+export type PortView = PortView_Serialize | PortView_Deserialize;
+
+export type PortView_Deserialize = {
+	ip?: string | null,
+	private: number,
+	public?: number | null,
+	proto: string,
+};
+
+export type PortView_Serialize = {
+	ip: string | null,
+	private: number,
+	public: number | null,
+	proto: string,
 };
 
 export type PromptKind = "password" | "passphrase";

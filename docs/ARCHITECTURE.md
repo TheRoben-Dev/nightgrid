@@ -63,6 +63,13 @@ _Last updated: M2 (SFTP + editor)._
 - **Transfers** (`files::transfer::Transfers`) run up to 3 jobs as Tokio tasks. Progress lives in atomics; a 250 ms ticker computes speed and pushes the whole job list to the UI over one `Channel` when something changed. Pause/cancel are flags checked between 256 KiB chunks; resume continues from the destination's size.
 - **Connection prompts** (host key, password) surface from file commands as `FilesError.connect`, and the pane shows the same prompts as the terminal.
 
+## Docker (M3)
+
+- **Transport** (`core/src/docker/transport.rs`): bollard with a custom transport. Each request opens an SSH channel (streamlocal to the socket, or `docker system dial-stdio`), does a hyper HTTP/1.1 handshake on it, and sends the request in origin form. See D-025 and D-026.
+- **`DockerHost`** (`core/src/docker/mod.rs`) wraps one engine: probe and route choice, container list → `ContainerView` (compose labels, health from the API or the status text, ports with v4/v6 folded), `stats` (CPU from the pre/post sample delta, memory minus inactive file cache, like `docker stats`), actions (304 "already in that state" counts as success), `inspect` → `ContainerDetail` (env values masked in `raw`), and `logs` (frames reassembled into lines, timestamps split off, ANSI stripped, sent in batches every 80 ms or 1000 lines).
+- **App layer** (`app/src/docker_cmd.rs`): `DockerCache` per host on the pooled connection, log streams as Tokio tasks in `AppState.log_streams` (aborted on stop), and `term_open_docker_exec` for container shells. Errors come back as `DockerCmdError { connect, docker }`, so the view can show SSH prompts or the docker-group hint.
+- **UI**: `stores/docker.svelte.ts` polls the list and stats every 5 s while the view is mounted. `views/Docker.svelte` groups by project. `components/docker/ContainerPanel.svelte` (details/env/labels/raw) and `ContainerLogs.svelte` (virtualised, merges batches per animation frame).
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.
@@ -77,7 +84,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Keyboard:** all shortcuts are defined in `DEFAULT_KEYMAP` (`ui/src/lib/keys.ts`) using `Mod` = Cmd on macOS / Ctrl elsewhere, so a rebinding UI can override them later.
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
-## Security posture (M2)
+## Security posture (M3)
 
 - CSP: `default-src 'self'`, no inline script/style, no remote origins; `connect-src` limited to Tauri IPC. Runtime `<style>` elements (xterm) are mirrored into constructable stylesheets instead of relaxing the CSP (D-013).
 - Capabilities: `core:default`, clipboard read/write text (terminal copy/paste) and `opener:allow-open-url` limited to `http(s)://` (links in terminal output) on the `main` window only. App commands are registered explicitly via tauri-specta.
@@ -85,6 +92,7 @@ _Last updated: M2 (SFTP + editor)._
 - SSH secrets: agent preferred; passwords/passphrases come from a prompt or, only with "remember", the OS keychain. They are cached in memory per run (D-016) and never logged or stored in SQLite.
 - Host keys: unknown → fingerprint prompt; changed → connection blocked until the user types the host name; `~/.ssh` is never written (D-017).
 - Files: delete confirms with the exact target list (and the host name typed for multi-item deletes on a host); overwrites in the transfer queue name the target; overwriting a file changed on the server needs a confirmation. File contents are never logged; logs record paths of deletes and saves only.
+- Docker: stop/restart/kill/remove confirm with the exact containers (removing several also needs the host name typed); destructive actions are logged with their targets. Env values are masked in the UI and raw JSON and never logged (bollard debug output filtered). Container references are validated before they reach a URL or shell. No sudo: socket permission problems surface as a docker-group hint.
 
 ## Platform notes
 
