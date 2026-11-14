@@ -1,0 +1,74 @@
+/*
+ * Design tokens. Colour values here are the NIGHTGRID defaults used for the
+ * first paint; the theme system (lib/theme/themes.ts) overrides them at runtime.
+ */
+:root {
+  --bg-0: #07080B;
+  --bg-1: #0D0F14;
+  --bg-2: #141821;
+  --line: #1F2633;
+  --text-0: #E6EDF3;
+  --text-1: #8B98A9;
+  --accent: #F3E600;
+  --cyan: #00E5FF;
+  --magenta: #FF2A6D;
+  --danger: #FF003C;
+  --ok: #2BFF88;
+  --warn: #FF9F1C;
+  --mint: #BDF5EC;
+  --glow: 0 0 12px color-mix(in srgb, var(--cyan) 35%, transparent);
+  --glow-active: 0 0 14px color-mix(in srgb, var(--magenta) 45%, transparent);
+  --glow-accent: 0 0 10px color-mix(in srgb, var(--accent) 40%, transparent);
+
+  /* Text on accent-coloured fills (accent is bright in every theme). */
+  --on-accent: #07080B;
+
+  /* Typography */
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --font-display: "Rajdhani", "Segoe UI", system-ui, sans-serif;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-lg: 16px;
+  --fs-xl: 22px;
+  --tracking-label: 0.14em;
+
+  /* Geometry */
+  --chamfer: 10px;
+  --chamfer-sm: 6px;
+  --hit: 28px; /* minimum click target */
+  --rail-w: 232px;
+  --rail-w-collapsed: 56px;
+  --topbar-h: 44px;
+  --strip-h: 26px;
+  --gap: 8px;
+
+  /* Motion */
+  --dur-fast: 120ms;
+  --dur: 160ms;
+  --dur-slow: 200ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* UI scale (90–150 %), set from settings. */
+  --ui-scale: 1;
+
+  color-scheme: dark;
+}
+
+/* Effects off: plain theme, the in-app "reduce effects" toggle, or OS reduced motion. */
+:root[data-effects="off"] {
+  --glow: none;
+  --glow-active: none;
+  --glow-accent: none;
+  --dur-fast: 0ms;
+  --dur: 0ms;
+  --dur-slow: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur: 0ms;
+    --dur-slow: 0ms;
+  }
+}
