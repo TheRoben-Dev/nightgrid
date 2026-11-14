@@ -7,7 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [0.3.0] - 2026-11-14 (prerelease: M0–M3)
 
 ### Added: release builds
-- Pushing a `v*` tag publishes the macOS (.dmg), Windows (.exe, portable .zip) and Linux (.deb, .rpm, .AppImage) installers as a GitHub prerelease. Builds are unsigned.
+- Pushing a `v*` tag, or running CI manually with a `release_tag`, publishes the macOS (.dmg), Windows (.exe, portable .zip) and Linux (.deb, .rpm, .AppImage) installers as a GitHub prerelease. Builds are unsigned.
 
 ### Added: ASCII host icons
 - Each saved host can have a small ASCII icon (up to 8 lines × 32 characters) shown above its name on the overview tiles and the terminal's connect tiles. It's drawn in mono in the host's color (cyan if none), with the app's glow, which turns off with "reduce effects".
