@@ -70,7 +70,7 @@ fn start_sshd(host_key_name: &str, dir: Option<tempfile::TempDir>, port: Option<
     let config = format!(
         "Port {port}\nListenAddress 127.0.0.1\nHostKey {hk}\nAuthorizedKeysFile {ak}\nPidFile {pid}\n\
          PasswordAuthentication no\nKbdInteractiveAuthentication no\nUsePAM no\nStrictModes no\n\
-         AllowTcpForwarding yes\nLogLevel ERROR\n",
+         AllowTcpForwarding yes\nSubsystem sftp internal-sftp\nLogLevel ERROR\n",
         hk = host_key.display(),
         ak = d.join("authorized_keys").display(),
         pid = d.join("sshd.pid").display(),
@@ -201,4 +201,113 @@ async fn openssh_changed_host_key_is_blocked() {
     let sshd = start_sshd("host_b", Some(dir), Some(port));
     let e = connect(&key_target(&sshd), &[], &o).await.err().expect("must not connect");
     assert!(matches!(e, ConnectError::HostKeyChanged { .. }), "{e:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn openssh_sftp_browse_edit_and_transfer() {
+    use nightgrid_core::files::text::{read_text, save_text, Stamp};
+    use nightgrid_core::files::transfer::{ConflictPolicy, JobState, NewJob, Resolver, Side, Transfers};
+    use nightgrid_core::files::{EntryKind, Fs, FsError, RemoteFs};
+    use std::os::unix::fs::PermissionsExt;
+
+    if !enabled() {
+        return;
+    }
+    let sshd = start_sshd("host_ed25519", None, None);
+    let o = opts(sshd.dir.path());
+    let conn = Arc::new(connect_trusting(&key_target(&sshd), &[], &o).await);
+    let remote = Arc::new(RemoteFs::open(conn.clone()).await.unwrap());
+    let fs = Fs::Remote(remote.clone());
+
+    // The sshd runs as us, so "remote" paths are on this machine: use a temp dir.
+    let work = tempfile::tempdir().unwrap();
+    let root = work.path().to_string_lossy().into_owned();
+    let home = fs.home().await.unwrap();
+    assert!(home.starts_with('/'), "{home}");
+
+    let stack = fs.join(&root, "stack");
+    fs.mkdir(&stack).await.unwrap();
+    assert!(matches!(fs.mkdir(&stack).await, Err(FsError::Exists { .. })));
+    let compose = fs.join(&stack, "compose.yaml");
+    save_text(&fs, &compose, "services: {}\n", None).await.unwrap();
+    std::fs::set_permissions(&compose, std::fs::Permissions::from_mode(0o640)).unwrap();
+
+    let listed = fs.list(&root).await.unwrap();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].kind, EntryKind::Dir);
+
+    // Edit: atomic replace keeps the mode; a stale stamp is a conflict.
+    let t = read_text(&fs, &compose).await.unwrap();
+    assert_eq!(t.content, "services: {}\n");
+    let r = save_text(&fs, &t.path, "services:\n  web: {}\n", Some(Stamp::of(&t.stat))).await.unwrap();
+    assert!(r.atomic);
+    assert_eq!(std::fs::read_to_string(&compose).unwrap(), "services:\n  web: {}\n");
+    assert_eq!(std::fs::metadata(&compose).unwrap().permissions().mode() & 0o777, 0o640);
+    assert_eq!(std::fs::read_dir(&stack).unwrap().count(), 1, "temp file left behind");
+    std::thread::sleep(Duration::from_millis(1100));
+    std::fs::write(&compose, "changed elsewhere\n").unwrap();
+    let e = save_text(&fs, &t.path, "mine\n", Some(Stamp::of(&r.stat))).await.unwrap_err();
+    assert!(matches!(e, FsError::Changed { .. }), "{e:?}");
+
+    // Transfers: remote → local and local → remote.
+    let resolver: Resolver = {
+        let remote = remote.clone();
+        Arc::new(move |side| {
+            let remote = remote.clone();
+            Box::pin(async move {
+                Ok(match side {
+                    Side::Local => Fs::Local,
+                    Side::Host { .. } => Fs::Remote(remote),
+                })
+            })
+        })
+    };
+    let q = Transfers::new(resolver, 2);
+    std::fs::write(work.path().join("stack/big.bin"), vec![7u8; 2_500_000]).unwrap();
+    let down = tempfile::tempdir().unwrap();
+    let id = q.add(vec![NewJob {
+        src: Side::Host { id: 1 },
+        src_path: stack.clone(),
+        dst: Side::Local,
+        dst_dir: down.path().to_string_lossy().into_owned(),
+        policy: ConflictPolicy::Ask,
+    }])[0];
+    let up_dir = fs.join(&root, "up");
+    fs.mkdir(&up_dir).await.unwrap();
+    let deadline = Instant::now() + Duration::from_secs(20);
+    loop {
+        let v = q.list().into_iter().find(|v| v.id == id).unwrap();
+        if v.state == JobState::Done {
+            break;
+        }
+        assert!(v.state == JobState::Running || v.state == JobState::Queued, "{v:?}");
+        assert!(Instant::now() < deadline);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(std::fs::metadata(down.path().join("stack/big.bin")).unwrap().len(), 2_500_000);
+    let id = q.add(vec![NewJob {
+        src: Side::Local,
+        src_path: down.path().join("stack").to_string_lossy().into_owned(),
+        dst: Side::Host { id: 1 },
+        dst_dir: up_dir.clone(),
+        policy: ConflictPolicy::Ask,
+    }])[0];
+    loop {
+        let v = q.list().into_iter().find(|v| v.id == id).unwrap();
+        if v.state == JobState::Done {
+            break;
+        }
+        assert!(v.state == JobState::Running || v.state == JobState::Queued, "{v:?}");
+        assert!(Instant::now() < deadline);
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert_eq!(std::fs::read(work.path().join("up/stack/big.bin")).unwrap(), vec![7u8; 2_500_000]);
+
+    // Rename and recursive delete.
+    let renamed = fs.join(&root, "stack2");
+    fs.rename(&stack, &renamed).await.unwrap();
+    assert!(matches!(fs.rename(&renamed, &up_dir).await, Err(FsError::Exists { .. })));
+    fs.remove(&renamed).await.unwrap();
+    fs.remove(&up_dir).await.unwrap();
+    assert!(fs.list(&root).await.unwrap().is_empty());
 }

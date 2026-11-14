@@ -174,6 +174,13 @@ impl Connection {
         Ok(ch)
     }
 
+    /// Opens a session channel running a subsystem (e.g. `sftp`).
+    pub async fn open_subsystem(&self, name: &str) -> Result<russh::Channel<client::Msg>, ConnectError> {
+        let ch = self.handle.channel_open_session().await.map_err(ConnectError::other)?;
+        ch.request_subsystem(true, name).await.map_err(ConnectError::other)?;
+        Ok(ch)
+    }
+
     /// Runs a command and collects stdout/stderr/exit code (for tests and quick probes).
     pub async fn exec(&self, command: &str) -> Result<(i32, Vec<u8>, Vec<u8>), ConnectError> {
         let mut ch = self.handle.channel_open_session().await.map_err(ConnectError::other)?;

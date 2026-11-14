@@ -1,8 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
+use nightgrid_core::files::remote::SftpCache;
+use nightgrid_core::files::transfer::Transfers;
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::secrets::{KeyringStore, Secret, SecretKind, SecretRef, SecretStore};
 use nightgrid_core::ssh::client::ConnectOptions;
@@ -26,6 +28,10 @@ pub struct AppState {
     /// prompt answer can be saved to the right keychain entry.
     pub label_hosts: Mutex<HashMap<String, HostId>>,
     pub terms: Mutex<HashMap<u32, TermHandle>>,
+    /// One SFTP session per host, on the pooled connection.
+    pub sftp: SftpCache,
+    /// Created on first use (needs the app handle for its resolver).
+    pub transfers: OnceLock<Transfers>,
     next_term: AtomicU32,
 }
 
@@ -45,6 +51,8 @@ impl AppState {
             secret_cache: Mutex::default(),
             label_hosts: Mutex::default(),
             terms: Mutex::default(),
+            sftp: SftpCache::new(),
+            transfers: OnceLock::new(),
             next_term: AtomicU32::new(1),
         })
     }

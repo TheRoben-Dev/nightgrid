@@ -48,6 +48,33 @@ export const commands = {
 	 *  `remember` is set and the hop is a stored host.
 	 */
 	sshProvideSecret: (target: string, kind: PromptKind, secret: string, remember: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("ssh_provide_secret", { target, kind, secret, remember }, options),
+	fsHome: (side: Side, options?: InvokeOptions) => __TAURI_INVOKE<string>("fs_home", { side }, options),
+	/**  Lists a directory (`~` and relative paths are resolved). */
+	fsList: (side: Side, path: string, options?: InvokeOptions) => __TAURI_INVOKE<Listing_Serialize>("fs_list", { side, path }, options),
+	fsMkdir: (side: Side, dir: string, name: string, options?: InvokeOptions) => __TAURI_INVOKE<string>("fs_mkdir", { side, dir, name }, options),
+	fsRename: (side: Side, path: string, newName: string, options?: InvokeOptions) => __TAURI_INVOKE<string>("fs_rename", { side, path, newName }, options),
+	/**
+	 *  Deletes files and folders (recursively). The UI confirms first, naming
+	 *  every target.
+	 */
+	fsDelete: (side: Side, paths: string[], options?: InvokeOptions) => __TAURI_INVOKE<null>("fs_delete", { side, paths }, options),
+	fsReadText: (side: Side, path: string, options?: InvokeOptions) => __TAURI_INVOKE<TextFile_Serialize>("fs_read_text", { side, path }, options),
+	/**
+	 *  Saves atomically. `expect` is the stamp from opening; a mismatch returns
+	 *  a `changed` error unless the user chose to overwrite (`expect: null`).
+	 */
+	fsSaveText: (side: Side, path: string, content: string, expect: Stamp_Deserialize | null, options?: InvokeOptions) => __TAURI_INVOKE<SaveResult_Serialize>("fs_save_text", { side, path, content, expect }, options),
+	bookmarksList: (hostId: number | null, options?: InvokeOptions) => __TAURI_INVOKE<Bookmark_Serialize[]>("bookmarks_list", { hostId }, options),
+	bookmarkAdd: (hostId: number | null, path: string, label: string | null, options?: InvokeOptions) => __TAURI_INVOKE<Bookmark_Serialize>("bookmark_add", { hostId, path, label }, options),
+	bookmarkDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("bookmark_delete", { id }, options),
+	/**  Streams the job list to the UI (replaces any previous subscriber). */
+	transfersSubscribe: (onEvent: Channel<JobView_Deserialize[]>, options?: InvokeOptions) => __TAURI_INVOKE<null>("transfers_subscribe", { onEvent }, options),
+	transfersAdd: (jobs: NewJob_Deserialize[], options?: InvokeOptions) => __TAURI_INVOKE<number[]>("transfers_add", { jobs }, options),
+	transferPause: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("transfer_pause", { id }, options),
+	transferResume: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("transfer_resume", { id }, options),
+	transferCancel: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("transfer_cancel", { id }, options),
+	transferResolve: (id: number, policy: ConflictPolicy, all: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("transfer_resolve", { id, policy, all }, options),
+	transfersClear: (options?: InvokeOptions) => __TAURI_INVOKE<null>("transfers_clear", undefined, options),
 };
 
 /* Types */
@@ -147,15 +174,130 @@ export type AuthMethod =
 /**  Password, from the keychain (opt-in) or a prompt. */
 "password";
 
+export type Bookmark = Bookmark_Serialize | Bookmark_Deserialize;
+
+export type Bookmark_Deserialize = {
+	id: number,
+	/**  `None` = this machine. */
+	hostId?: number | null,
+	path: string,
+	label: string,
+};
+
+export type Bookmark_Serialize = {
+	id: number,
+	/**  `None` = this machine. */
+	hostId: number | null,
+	path: string,
+	label: string,
+};
+
 /**  Error returned to the frontend. Messages are user-safe and secret-free. */
 export type CommandError = {
 	message: string,
 };
 
+export type ConflictInfo = ConflictInfo_Serialize | ConflictInfo_Deserialize;
+
+export type ConflictInfo_Deserialize = {
+	src: Entry_Deserialize,
+	dst: Entry_Deserialize,
+};
+
+export type ConflictInfo_Serialize = {
+	src: Entry_Serialize,
+	dst: Entry_Serialize,
+};
+
+/**  What to do when the destination already exists. */
+export type ConflictPolicy = 
+/**  Pause the job and let the user compare and choose. */
+"ask" | 
+/**  Replace files (folders are merged, replacing files inside). */
+"overwrite" | "skip" | 
+/**  Keep both: copy as `name (1).ext`. */
+"rename";
+
 /**  Why a connection failed, in a shape the UI can act on. */
 export type ConnectError = { kind: "hostKeyUnknown"; host: string; port: number; key: HostKeyInfo } | { kind: "hostKeyChanged"; host: string; port: number; key: HostKeyInfo; previous: HostKeyInfo[] } | 
 /**  `target` is the hop label (`user@host[:port]`) the secret is for. */
 { kind: "passphraseRequired"; target: string; host: string; path: string; retry: boolean } | { kind: "passwordRequired"; target: string; host: string; user: string; retry: boolean } | { kind: "authFailed"; host: string; user: string; message: string } | { kind: "network"; host: string; message: string } | { kind: "other"; message: string };
+
+/**  One directory entry (or a `stat` result). */
+export type Entry = Entry_Serialize | Entry_Deserialize;
+
+export type EntryKind = "dir" | "file" | "symlink" | "other";
+
+/**  One directory entry (or a `stat` result). */
+export type Entry_Deserialize = {
+	name: string,
+	path: string,
+	kind: EntryKind,
+	/**  For symlinks: what the link points at (`None` if dangling). */
+	targetKind?: EntryKind | null,
+	size: number,
+	/**  Seconds since the Unix epoch. */
+	mtime?: number | null,
+	/**  Permission bits (`0o7777`), when known. */
+	mode?: number | null,
+	uid?: number | null,
+	gid?: number | null,
+};
+
+/**  One directory entry (or a `stat` result). */
+export type Entry_Serialize = {
+	name: string,
+	path: string,
+	kind: EntryKind,
+	/**  For symlinks: what the link points at (`None` if dangling). */
+	targetKind: EntryKind | null,
+	size: number,
+	/**  Seconds since the Unix epoch. */
+	mtime: number | null,
+	/**  Permission bits (`0o7777`), when known. */
+	mode: number | null,
+	uid: number | null,
+	gid: number | null,
+};
+
+/**
+ *  File command error: a message, plus the structured cause so the UI can
+ *  show the host-key / password prompt or a save conflict.
+ */
+export type FilesError = FilesError_Serialize | FilesError_Deserialize;
+
+/**
+ *  File command error: a message, plus the structured cause so the UI can
+ *  show the host-key / password prompt or a save conflict.
+ */
+export type FilesError_Deserialize = {
+	message: string,
+	connect?: ConnectError | null,
+	fs?: FsError_Deserialize | null,
+};
+
+/**
+ *  File command error: a message, plus the structured cause so the UI can
+ *  show the host-key / password prompt or a save conflict.
+ */
+export type FilesError_Serialize = {
+	message: string,
+	connect: ConnectError | null,
+	fs: FsError_Serialize | null,
+};
+
+/**  File errors in a shape the UI can act on. Messages never contain secrets. */
+export type FsError = FsError_Serialize | FsError_Deserialize;
+
+/**  File errors in a shape the UI can act on. Messages never contain secrets. */
+export type FsError_Deserialize = { kind: "notFound"; path: string } | { kind: "permissionDenied"; path: string } | { kind: "exists"; path: string } | { kind: "isDir"; path: string } | { kind: "tooLarge"; path: string; size: number; limit: number } | { kind: "notText"; path: string } | 
+/**  The file changed on disk since it was opened (save conflict). */
+{ kind: "changed"; path: string; current: Entry_Deserialize } | { kind: "disconnected" } | { kind: "cancelled" } | { kind: "other"; message: string };
+
+/**  File errors in a shape the UI can act on. Messages never contain secrets. */
+export type FsError_Serialize = { kind: "notFound"; path: string } | { kind: "permissionDenied"; path: string } | { kind: "exists"; path: string } | { kind: "isDir"; path: string } | { kind: "tooLarge"; path: string; size: number; limit: number } | { kind: "notText"; path: string } | 
+/**  The file changed on disk since it was opened (save conflict). */
+{ kind: "changed"; path: string; current: Entry_Serialize } | { kind: "disconnected" } | { kind: "cancelled" } | { kind: "other"; message: string };
 
 export type Group = Group_Serialize | Group_Deserialize;
 
@@ -308,6 +450,56 @@ export type ImportResult = {
 	updated: number,
 };
 
+export type JobState = "queued" | "running" | "paused" | 
+/**  Waiting for the user to resolve a conflict. */
+"conflict" | "done" | "skipped" | "failed" | "cancelled";
+
+export type JobView = JobView_Serialize | JobView_Deserialize;
+
+export type JobView_Deserialize = {
+	id: number,
+	src: Side,
+	srcPath: string,
+	dst: Side,
+	dstDir: string,
+	/**  Name at the destination (may differ after a rename). */
+	name: string,
+	isDir: boolean,
+	state: JobState,
+	bytesDone: number,
+	bytesTotal: number,
+	filesDone: number,
+	filesTotal: number,
+	/**  Bytes per second (smoothed) while running. */
+	speed: number,
+	error?: string | null,
+	conflict?: ConflictInfo_Deserialize | null,
+	/**  Destination path of the file being copied. */
+	current?: string | null,
+};
+
+export type JobView_Serialize = {
+	id: number,
+	src: Side,
+	srcPath: string,
+	dst: Side,
+	dstDir: string,
+	/**  Name at the destination (may differ after a rename). */
+	name: string,
+	isDir: boolean,
+	state: JobState,
+	bytesDone: number,
+	bytesTotal: number,
+	filesDone: number,
+	filesTotal: number,
+	/**  Bytes per second (smoothed) while running. */
+	speed: number,
+	error: string | null,
+	conflict: ConflictInfo_Serialize | null,
+	/**  Destination path of the file being copied. */
+	current: string | null,
+};
+
 export type KeychainStatus = KeychainStatus_Serialize | KeychainStatus_Deserialize;
 
 export type KeychainStatus_Deserialize = {
@@ -320,7 +512,66 @@ export type KeychainStatus_Serialize = {
 	detail: string | null,
 };
 
+export type Listing = Listing_Serialize | Listing_Deserialize;
+
+export type Listing_Deserialize = {
+	/**  Canonical absolute path of the directory. */
+	path: string,
+	parent?: string | null,
+	entries: Entry_Deserialize[],
+};
+
+export type Listing_Serialize = {
+	/**  Canonical absolute path of the directory. */
+	path: string,
+	parent: string | null,
+	entries: Entry_Serialize[],
+};
+
+export type NewJob = NewJob_Serialize | NewJob_Deserialize;
+
+export type NewJob_Deserialize = {
+	src: Side,
+	srcPath: string,
+	dst: Side,
+	/**  Directory the item is copied into. */
+	dstDir: string,
+	policy?: ConflictPolicy,
+};
+
+export type NewJob_Serialize = {
+	src: Side,
+	srcPath: string,
+	dst: Side,
+	/**  Directory the item is copied into. */
+	dstDir: string,
+	policy: ConflictPolicy,
+};
+
 export type PromptKind = "password" | "passphrase";
+
+export type SaveResult = SaveResult_Serialize | SaveResult_Deserialize;
+
+export type SaveResult_Deserialize = {
+	stat: Entry_Deserialize,
+	/**
+	 *  `false` when the file had to be rewritten in place (directory not
+	 *  writable, or the owner could not be preserved through a new file).
+	 */
+	atomic: boolean,
+};
+
+export type SaveResult_Serialize = {
+	stat: Entry_Serialize,
+	/**
+	 *  `false` when the file had to be rewritten in place (directory not
+	 *  writable, or the owner could not be preserved through a new file).
+	 */
+	atomic: boolean,
+};
+
+/**  Which filesystem a path is on. */
+export type Side = { kind: "local" } | { kind: "host"; id: number };
 
 export type SshConfigCandidate = SshConfigCandidate_Serialize | SshConfigCandidate_Deserialize;
 
@@ -357,6 +608,30 @@ export type SshConfigHost_Serialize = {
 	proxyJump: string | null,
 };
 
+/**
+ *  What the editor saw when it opened the file; a save fails with
+ *  [`FsError::Changed`] if the file no longer matches.
+ */
+export type Stamp = Stamp_Serialize | Stamp_Deserialize;
+
+/**
+ *  What the editor saw when it opened the file; a save fails with
+ *  [`FsError::Changed`] if the file no longer matches.
+ */
+export type Stamp_Deserialize = {
+	size: number,
+	mtime?: number | null,
+};
+
+/**
+ *  What the editor saw when it opened the file; a save fails with
+ *  [`FsError::Changed`] if the file no longer matches.
+ */
+export type Stamp_Serialize = {
+	size: number,
+	mtime: number | null,
+};
+
 /**  What the terminal channel carries to the UI. */
 export type TermMessage = TermMessage_Serialize | TermMessage_Deserialize;
 
@@ -379,3 +654,19 @@ export type TermOpen = { kind: "opened"; id: number } | { kind: "needsUser"; err
 export type TermState = "connecting" | "connected" | "reconnecting" | 
 /**  Gave up or needs the user (e.g. host key changed). Can be retried. */
 "disconnected";
+
+export type TextFile = TextFile_Serialize | TextFile_Deserialize;
+
+export type TextFile_Deserialize = {
+	/**  Resolved path (symlinks followed), which is what gets saved. */
+	path: string,
+	content: string,
+	stat: Entry_Deserialize,
+};
+
+export type TextFile_Serialize = {
+	/**  Resolved path (symlinks followed), which is what gets saved. */
+	path: string,
+	content: string,
+	stat: Entry_Serialize,
+};

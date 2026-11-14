@@ -75,31 +75,33 @@ pub enum TermOpen {
     NeedsUser { error: ConnectError },
 }
 
-/// Builds the reconnect-capable connector for a stored host. Every call
-/// re-resolves the host so edits and newly entered secrets take effect.
+/// Returns the host's pooled connection, connecting if needed. Re-resolves
+/// the host each time so edits and newly entered secrets take effect.
+pub(crate) async fn connect_host(app: &AppHandle, host_id: HostId) -> Result<Arc<client::Connection>, ConnectError> {
+    let state = app.state::<AppState>();
+    let (hop, jumps) = {
+        let store = state.store();
+        let remembering: HashSet<HostId> = store
+            .list_hosts()
+            .map_err(|e| ConnectError::Other { message: e.to_string() })?
+            .into_iter()
+            .filter(|h| h.remember_secret)
+            .map(|h| h.id)
+            .collect();
+        let lookup = |h: Option<HostId>, k: SecretKind, label: &str| state.lookup_secret(&remembering, h, k, label);
+        resolve(&store, host_id, state.home.as_deref(), &lookup)
+            .map_err(|e| ConnectError::Other { message: e.to_string() })?
+    };
+    let opts = state.connect_options();
+    let jump_targets: Vec<_> = jumps.into_iter().map(|h| h.target).collect();
+    state.pool.get(host_id, || client::connect(&hop.target, &jump_targets, &opts)).await
+}
+
+/// Builds the reconnect-capable connector for a stored host.
 fn connector_for(app: AppHandle, host_id: HostId) -> Connector {
     Arc::new(move |_fresh: bool| -> ConnectFuture {
         let app = app.clone();
-        Box::pin(async move {
-            let state = app.state::<AppState>();
-            let (hop, jumps) = {
-                let store = state.store();
-                let remembering: HashSet<HostId> = store
-                    .list_hosts()
-                    .map_err(|e| ConnectError::Other { message: e.to_string() })?
-                    .into_iter()
-                    .filter(|h| h.remember_secret)
-                    .map(|h| h.id)
-                    .collect();
-                let lookup =
-                    |h: Option<HostId>, k: SecretKind, label: &str| state.lookup_secret(&remembering, h, k, label);
-                resolve(&store, host_id, state.home.as_deref(), &lookup)
-                    .map_err(|e| ConnectError::Other { message: e.to_string() })?
-            };
-            let opts = state.connect_options();
-            let jump_targets: Vec<_> = jumps.into_iter().map(|h| h.target).collect();
-            state.pool.get(host_id, || client::connect(&hop.target, &jump_targets, &opts)).await
-        })
+        Box::pin(async move { connect_host(&app, host_id).await })
     })
 }
 

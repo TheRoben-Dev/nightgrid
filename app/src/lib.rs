@@ -2,6 +2,7 @@
 //! `nightgrid-core`; anything with real logic belongs in the core crate.
 
 mod commands;
+mod files_cmd;
 mod hosts_cmd;
 mod logging;
 mod platform;
@@ -41,6 +42,23 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         term_cmd::term_close,
         term_cmd::ssh_trust_host_key,
         term_cmd::ssh_provide_secret,
+        files_cmd::fs_home,
+        files_cmd::fs_list,
+        files_cmd::fs_mkdir,
+        files_cmd::fs_rename,
+        files_cmd::fs_delete,
+        files_cmd::fs_read_text,
+        files_cmd::fs_save_text,
+        files_cmd::bookmarks_list,
+        files_cmd::bookmark_add,
+        files_cmd::bookmark_delete,
+        files_cmd::transfers_subscribe,
+        files_cmd::transfers_add,
+        files_cmd::transfer_pause,
+        files_cmd::transfer_resume,
+        files_cmd::transfer_cancel,
+        files_cmd::transfer_resolve,
+        files_cmd::transfers_clear,
     ])
 }
 
