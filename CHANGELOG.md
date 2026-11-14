@@ -9,6 +9,9 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 - New app icon (and matching sidebar mark): a terminal window in the app's colours (mint frame, a magenta/mint title-bar stepper, cyan prompt, magenta cursor) on a near-black tile sized to the macOS icon grid. The vector source is `app/icons/source.svg`.
 
+### Fixed
+- Command palette: the prompt and the search text sit on one left-aligned line again. A global form-field style was stacking them and centering the text.
+
 ## [0.4.0] - 2026-11-14 (prerelease: M0–M4)
 
 ### Added: monitoring (M4)
