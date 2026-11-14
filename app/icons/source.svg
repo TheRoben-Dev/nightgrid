@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#11141B"/><stop offset="1" stop-color="#07080B"/></linearGradient>
+<linearGradient id="win" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0B0E13"/><stop offset="1" stop-color="#06070A"/></linearGradient>
+<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="14" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<!-- macOS grid: 824px squircle centered on 1024 -->
+<rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+<rect x="101.5" y="101.5" width="821" height="821" rx="183.5" fill="none" stroke="#252C3A" stroke-width="3"/>
+<!-- window: chamfered top-right and bottom-left -->
+<path d="M232 272H748L792 316V752H276L232 708Z" fill="url(#win)" stroke="#BDF5EC" stroke-width="12" stroke-linejoin="miter" filter="url(#soft)"/>
+<path d="M238 352H786" stroke="#BDF5EC" stroke-width="5" opacity=".45"/>
+<!-- title-bar stepper: active, done, pending -->
+<rect x="270" y="298" width="104" height="26" fill="#FF2A6D" filter="url(#soft)"/>
+<rect x="390" y="298" width="104" height="26" fill="#BDF5EC"/>
+<rect x="513" y="301" width="98" height="20" fill="none" stroke="#BDF5EC" stroke-width="5" opacity=".45"/>
+<!-- prompt -->
+<path d="M310 468L398 550L310 632" fill="none" stroke="#00E5FF" stroke-width="50" stroke-linecap="square" stroke-linejoin="miter" filter="url(#glow)"/>
+<rect x="462" y="582" width="186" height="50" fill="#FF2A6D" filter="url(#glow)"/>
+</svg>
