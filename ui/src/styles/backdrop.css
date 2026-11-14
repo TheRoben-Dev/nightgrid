@@ -1,0 +1,35 @@
+/* Grid / dot-matrix background and the optional scanline overlay. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(color-mix(in srgb, var(--line) 80%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--line) 35%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--line) 35%, transparent) 1px, transparent 1px);
+  background-size:
+    16px 16px,
+    128px 128px,
+    128px 128px;
+  opacity: 0.55;
+}
+
+.scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1000;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.025) 0,
+    rgba(255, 255, 255, 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+}
+
+:root[data-effects="off"] .scanlines {
+  display: none;
+}

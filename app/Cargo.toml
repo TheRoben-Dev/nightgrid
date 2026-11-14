@@ -1,0 +1,28 @@
+[package]
+name = "nightgrid"
+description = "NIGHTGRID — homelab command center"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+default-run = "nightgrid"
+
+[lib]
+# The `_lib` suffix avoids a name clash with the bin target on Windows.
+name = "nightgrid_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+nightgrid-core = { path = "../core", features = ["specta"] }
+tauri = { version = "2", features = [] }
+tauri-specta = { version = "=2.0.0-rc.29", features = ["derive", "typescript"] }
+specta = { version = "=2.0.0-rc.28", features = ["derive"] }
+specta-typescript = "=0.0.15"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
