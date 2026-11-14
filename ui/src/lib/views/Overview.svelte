@@ -15,8 +15,8 @@
   const ROADMAP = [
     ["M0", "Skeleton", "done"],
     ["M1", "Hosts + terminal", "done"],
-    ["M2", "SFTP + editor", "next"],
-    ["M3", "Docker", "todo"],
+    ["M2", "SFTP + editor", "done"],
+    ["M3", "Docker", "next"],
     ["M4", "Monitoring + overview", "todo"],
     ["M5", "Services, Homepage import, tunnels", "todo"],
     ["M6", "systemd, journal, updates, SMART", "todo"],
