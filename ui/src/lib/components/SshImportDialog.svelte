@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scramble } from "../scramble";
   import { untrack } from "svelte";
   import { api, errorText, type SshConfigCandidate } from "../api";
   import { hosts } from "../stores/hosts.svelte";
@@ -104,7 +105,7 @@
     </table>
   {/if}
   {#if result}<p class="ok" role="status">{result}</p>{/if}
-  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert" use:scramble={error}></p>{/if}
 
   {#snippet footer()}
     <button type="button" class="btn ghost left" onclick={importKnownHosts} title="Copy ~/.ssh/known_hosts into NIGHTGRID's own file">

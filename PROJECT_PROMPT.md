@@ -168,7 +168,7 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 - Status uses **color + icon + text**, never color alone.
 
 ### Motion
-- Fast and purposeful: 120–200 ms, ease-out. A brief **glitch/scramble text effect** only on: app boot, panel title on first open, and alert banners. Never on content you're reading.
+- Fast and purposeful: 120–200 ms, ease-out. A brief **glitch/scramble text decode-in** is part of the identity and used widely *(widened 2026-11-14)*: app boot, view switches, panel and dialog titles, notices/alerts, state changes (e.g. a host going OFFLINE), and later the LLM helper's replies as they stream in and help articles as they load. It settles fast (≈0.2–0.65 s) so text stays readable, and never runs on live-updating numbers, logs or terminal output.
 - Number tickers for live stats, and sparklines that draw left-to-right.
 - Optional **boot sequence** splash (< 800 ms, skippable, off after first run if I want).
 - **Respect `prefers-reduced-motion`** and add an in-app "reduce effects" toggle that disables glitch, scanlines and glow.

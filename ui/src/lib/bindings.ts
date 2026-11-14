@@ -128,6 +128,12 @@ export const commands = {
 	 *  (`docker exec -it`, bash if present, else sh). Reconnects re-run it.
 	 */
 	termOpenDockerExec: (hostId: number, container: string, cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_docker_exec", { hostId, container, cols, rows, onEvent }, options),
+	updateCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateStatus_Serialize>("update_check", undefined, options),
+	/**
+	 *  Downloads, verifies and installs the update from the last check, then
+	 *  restarts the app. Returns an error (and leaves the app running) on failure.
+	 */
+	updateInstall: (onProgress: Channel<UpdateProgress_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("update_install", { onProgress }, options),
 };
 
 /* Types */
@@ -218,6 +224,10 @@ export type AppSettings_Deserialize = {
 	metricsBackgroundSecs?: number,
 	/**  Days of 1-minute history to keep (15-minute rollups are kept 90 days). */
 	metricsRetentionDays?: number,
+	/**  Check GitHub Releases for a newer Nightgrid on launch. */
+	updateCheck?: boolean,
+	/**  A version the user chose to skip (no launch prompt for it). */
+	updateSkipVersion?: string | null,
 };
 
 /**
@@ -257,6 +267,10 @@ export type AppSettings_Serialize = {
 	metricsBackgroundSecs: number,
 	/**  Days of 1-minute history to keep (15-minute rollups are kept 90 days). */
 	metricsRetentionDays: number,
+	/**  Check GitHub Releases for a newer Nightgrid on launch. */
+	updateCheck: boolean,
+	/**  A version the user chose to skip (no launch prompt for it). */
+	updateSkipVersion: string | null,
 };
 
 export type AuthMethod = 
@@ -1211,3 +1225,51 @@ export type TextFile_Serialize = {
 	content: string,
 	stat: Entry_Serialize,
 };
+
+export type UpdateInfo = UpdateInfo_Serialize | UpdateInfo_Deserialize;
+
+export type UpdateInfo_Deserialize = {
+	version: string,
+	current: string,
+	/**  Release notes as plain text (rendered as text, never HTML). */
+	notes?: string | null,
+	/**  RFC 3339 publish date, when the manifest has one. */
+	date?: string | null,
+};
+
+export type UpdateInfo_Serialize = {
+	version: string,
+	current: string,
+	/**  Release notes as plain text (rendered as text, never HTML). */
+	notes: string | null,
+	/**  RFC 3339 publish date, when the manifest has one. */
+	date: string | null,
+};
+
+export type UpdateProgress = UpdateProgress_Serialize | UpdateProgress_Deserialize;
+
+export type UpdateProgress_Deserialize = 
+/**  Bytes so far and the total when known (capped at u32 for the UI). */
+{ kind: "downloading"; done: number; total?: number | null } | 
+/**  Download verified; installing and restarting. */
+{ kind: "installing" };
+
+export type UpdateProgress_Serialize = 
+/**  Bytes so far and the total when known (capped at u32 for the UI). */
+{ kind: "downloading"; done: number; total: number | null } | 
+/**  Download verified; installing and restarting. */
+{ kind: "installing" };
+
+export type UpdateStatus = UpdateStatus_Serialize | UpdateStatus_Deserialize;
+
+export type UpdateStatus_Deserialize = 
+/**  This build has no update key (dev builds, or before signing was set up). */
+({ kind: "notConfigured" }) & { current?: never } | { kind: "upToDate"; current: string } | {
+	kind: "available",
+} & UpdateInfo_Deserialize;
+
+export type UpdateStatus_Serialize = 
+/**  This build has no update key (dev builds, or before signing was set up). */
+({ kind: "notConfigured" }) & { current?: never } | { kind: "upToDate"; current: string } | {
+	kind: "available",
+} & UpdateInfo_Serialize;

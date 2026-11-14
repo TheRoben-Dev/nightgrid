@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scramble } from "../../scramble";
   import type { ConnectError } from "../../api";
   import { errorText } from "../../api";
 
@@ -60,7 +61,7 @@
   {#if !canRemember}
     <p class="muted small">Not available for this hop (not a saved host, or no keychain).</p>
   {/if}
-  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert" use:scramble={error}></p>{/if}
   <div class="actions">
     <button type="button" class="btn ghost" onclick={oncancel}>Cancel</button>
     <button type="submit" class="btn primary" disabled={!secret || busy}>Connect</button>

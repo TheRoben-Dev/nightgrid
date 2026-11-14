@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scramble } from "../../scramble";
   import type { ConnectError } from "../../api";
   import { errorText } from "../../api";
 
@@ -80,7 +81,7 @@
     </div>
     <p class="muted small">On the server: <code>ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub</code></p>
   {/if}
-  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert" use:scramble={error}></p>{/if}
   <div class="actions">
     <button type="button" class="btn ghost" onclick={oncancel}>{changed ? "Disconnect" : "Cancel"}</button>
     <button type="button" class="btn {changed ? 'danger' : 'primary'}" disabled={!canAccept || busy} onclick={accept}>

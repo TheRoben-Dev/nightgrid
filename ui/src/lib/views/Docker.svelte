@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scramble } from "../scramble";
   import { onMount } from "svelte";
   import type { ContainerView, DockerAction } from "../api";
   import ContainerPanel from "../components/docker/ContainerPanel.svelte";
@@ -155,7 +156,7 @@
   {/if}
   {#if docker.notice}
     <p class="notice {docker.notice.tone}" role="status">
-      {docker.notice.text}
+      <span use:scramble={docker.notice.text}></span>
       <button type="button" class="x" aria-label="Dismiss" onclick={() => (docker.notice = null)}>×</button>
     </p>
   {/if}
@@ -202,7 +203,7 @@
         </div>
       {:else if docker.error}
         <div class="empty">
-          <p class="error-text" role="alert">{docker.error}</p>
+          <p class="error-text" role="alert" use:scramble={docker.error}></p>
           <button type="button" class="btn primary" onclick={() => docker.retry()}>Retry</button>
         </div>
       {:else if !docker.loaded}

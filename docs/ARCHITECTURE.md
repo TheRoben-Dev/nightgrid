@@ -79,6 +79,12 @@ _Last updated: M2 (SFTP + editor)._
 - **Pollers** (`app/src/metrics_cmd.rs`): `MetricsHub` in `AppState` holds one Tokio task per host, the visible-host set and the event `Channel`. Each poller connects through the shared `SshPool` without prompting (D-038), runs the script with a 15 s timeout, and sends `MetricsEvent::Sample` / `MetricsEvent::State`. Commands: `metrics_subscribe`, `metrics_sync` (after host or setting changes), `metrics_set_visible`, `metrics_retry`, `metrics_history`.
 - **UI**: `stores/metrics.svelte.ts` keeps the latest sample and ~5 minutes of sparkline values per host and merges "visible" requests from the Overview and the monitor panel. `components/metrics/`: `HostTile` (Overview), `HostMonitor` (modal with cores, mounts, interfaces, disks, temperatures and the history chart), `Sparkline`, `Meter`, `HistoryChart` (SVG, gaps for missing minutes, hover readout). In the browser dev mode `mockMetrics.ts` fakes samples and history.
 
+## Updates (M4.5)
+
+- `app/src/update_cmd.rs`: `update_check` (plugin `check()` against `latest.json`, keeps the found `Update` in `PendingUpdate`) and `update_install` (download with progress over a `Channel`, verify, install, `app.restart()`). The public key is `app/updater.pub`; an empty key means `notConfigured`.
+- CI: with the `TAURI_SIGNING_PRIVATE_KEY` secret set, builds add `createUpdaterArtifacts` (signed `.app.tar.gz`, NSIS `.exe.sig`, AppImage `.sig`). The release job runs `scripts/updater-manifest.mjs` to write `latest.json` and publishes a regular (latest) release.
+- UI: `stores/updates.svelte.ts` (launch check, skip, install), `components/update/UpdateDialog.svelte`, Settings → Updates.
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.

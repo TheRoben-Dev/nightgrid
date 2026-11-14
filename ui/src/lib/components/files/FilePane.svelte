@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scramble } from "../../scramble";
   import type { Entry, Side } from "../../api";
   import { formatMode, formatSize, formatTime, moveCursor, selectClick } from "../../files/util";
   import { files, type Pane } from "../../stores/files.svelte";
@@ -311,7 +312,7 @@
       <p class="muted empty">{pane.filter ? "Nothing matches the filter." : "Empty folder."}</p>
     {/if}
     {#if pane.error}
-      <p class="error-text empty" role="alert">{pane.error}</p>
+      <p class="error-text empty" role="alert" use:scramble={pane.error}></p>
     {/if}
   </div>
 
