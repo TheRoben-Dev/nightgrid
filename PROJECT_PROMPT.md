@@ -245,8 +245,6 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 
 **M4.5 — App auto-updates** (pulled forward from M9, since prereleases now exist). Tauri updater against GitHub Releases: signed update bundles + `latest.json` published by the release job, check on launch and from Settings, "update available" prompt with release notes, on by default with an off switch and a stable/prerelease channel.
 
-**M4.6 — In-app knowledge base.** Searchable guide articles bundled with the app (offline markdown, no network), rendered in the app theme as plain sanitized text/markdown (no raw HTML). Full-text search, reachable from the command palette (`Help: …`), a Help section, and contextual "?" links in each view that open the matching article. Two shelves: **Using Nightgrid** (one article per feature: hosts & SSH auth, terminal, files & editor, Docker & stacks, monitoring, and every later feature) and a limited **Homelab basics** library (SSH keys & agents, hardening sshd, Docker & compose basics, the docker group, reverse proxies, Tailscale/WireGuard, backups, reading logs). From then on, each milestone ships its feature articles.
-
 **M5 — Services + Homepage import + Tunnels.** Health checks, TLS expiry, `services.yaml` import, saved/auto-start tunnels, "open through tunnel".
 
 **M6 — systemd, journal, package updates, SMART.**
@@ -266,6 +264,8 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 - **Image changelogs before pulling**: show what changed between the running and the new image (release notes / tags / digest) before an update.
 - **VMs**: Proxmox and libvirt VM list with start/stop/reboot and console.
 - **Phone status page**: optional read-only status page served by the app on the LAN or Tailscale (off by default, token-protected, no actions).
+
+**M11 — In-app knowledge base** (last: built once everything else is in place). Fully local: articles are bundled with the app, with no internet links, images or fetches inside them. Searchable (full text), reachable from the command palette (`Help: …`), a Help section and contextual "?" links in each view, rendered in the app theme as sanitized markdown (no raw HTML). Two shelves: **Using Nightgrid** (one article per feature) and a limited **Homelab basics** library (SSH keys & agents, hardening sshd, Docker & compose basics, the docker group, reverse proxies, Tailscale/WireGuard, backups, reading logs).
 
 ---
 
