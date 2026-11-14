@@ -11,6 +11,9 @@ pub const THEMES: &[&str] = &["nightgrid", "ice", "bloodline", "plain"];
 /// UI scale bounds in percent.
 pub const UI_SCALE_MIN: u16 = 90;
 pub const UI_SCALE_MAX: u16 = 150;
+pub const TERM_FONT_MIN: u16 = 9;
+pub const TERM_FONT_MAX: u16 = 28;
+pub const TERM_SCROLLBACK_MAX: u32 = 200_000;
 
 /// User-facing app settings. Unknown/missing fields fall back to defaults so
 /// older databases keep loading as fields are added.
@@ -28,11 +31,31 @@ pub struct AppSettings {
     pub ui_scale: u16,
     /// Collapse the left rail to icons.
     pub rail_collapsed: bool,
+    /// Terminal font size in px.
+    pub term_font_size: u16,
+    /// Terminal scrollback lines.
+    pub term_scrollback: u32,
+    /// Copy terminal selections to the clipboard automatically.
+    pub term_copy_on_select: bool,
+    /// Right-click pastes (otherwise it opens the normal context menu).
+    pub term_right_click_paste: bool,
+    pub term_cursor_blink: bool,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
-        Self { theme: "nightgrid".into(), reduce_effects: false, scanlines: true, ui_scale: 100, rail_collapsed: false }
+        Self {
+            theme: "nightgrid".into(),
+            reduce_effects: false,
+            scanlines: true,
+            ui_scale: 100,
+            rail_collapsed: false,
+            term_font_size: 13,
+            term_scrollback: 10_000,
+            term_copy_on_select: true,
+            term_right_click_paste: true,
+            term_cursor_blink: true,
+        }
     }
 }
 
@@ -46,6 +69,15 @@ impl AppSettings {
                 field: "uiScale",
                 reason: format!("must be between {UI_SCALE_MIN} and {UI_SCALE_MAX} percent"),
             });
+        }
+        if !(TERM_FONT_MIN..=TERM_FONT_MAX).contains(&self.term_font_size) {
+            return Err(Error::Invalid {
+                field: "termFontSize",
+                reason: format!("must be between {TERM_FONT_MIN} and {TERM_FONT_MAX}"),
+            });
+        }
+        if self.term_scrollback > TERM_SCROLLBACK_MAX {
+            return Err(Error::Invalid { field: "termScrollback", reason: format!("at most {TERM_SCROLLBACK_MAX}") });
         }
         Ok(())
     }

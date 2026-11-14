@@ -2,6 +2,8 @@ import { api, DEFAULT_SETTINGS, type AppSettings } from "../api";
 import { applyTheme, isThemeId, THEMES, type ThemeId } from "../theme/themes";
 
 export const UI_SCALE_STEPS = [90, 100, 110, 120, 130, 140, 150] as const;
+export const TERM_FONT_STEPS = [10, 11, 12, 13, 14, 15, 16, 18, 20, 24] as const;
+export const TERM_SCROLLBACK_STEPS = [1000, 2000, 5000, 10000, 20000, 50000, 100000] as const;
 
 class SettingsStore {
   value = $state<AppSettings>({ ...DEFAULT_SETTINGS });

@@ -5,7 +5,7 @@
   import SegmentSlider from "../components/SegmentSlider.svelte";
   import Toggle from "../components/Toggle.svelte";
   import { DEFAULT_KEYMAP, formatChord, type ActionId } from "../keys";
-  import { settings, UI_SCALE_STEPS } from "../stores/settings.svelte";
+  import { settings, TERM_FONT_STEPS, TERM_SCROLLBACK_STEPS, UI_SCALE_STEPS } from "../stores/settings.svelte";
   import { THEME_IDS, THEMES } from "../theme/themes";
 
   interface Props {
@@ -25,6 +25,14 @@
     "nav.tunnels": "Tunnels",
     "nav.automation": "Automation",
     "effects.toggle": "Toggle effects",
+    "palette.openAlt": "Command palette (works in terminal)",
+    "term.newLocal": "New local terminal",
+    "term.closePane": "Close terminal pane",
+    "term.splitRight": "Split pane right",
+    "term.splitDown": "Split pane down",
+    "term.find": "Find in terminal",
+    "term.nextTab": "Next terminal tab",
+    "term.prevTab": "Previous terminal tab",
   };
   const bindings = Object.entries(DEFAULT_KEYMAP) as [ActionId, string][];
   const plain = $derived(!THEMES[settings.themeId].effects);
@@ -92,6 +100,41 @@
     {#if settings.error}<p class="error" role="alert"><span aria-hidden="true">▲</span> {settings.error}</p>{/if}
   </Panel>
 
+  <Panel title="TERMINAL">
+    <SegmentSlider
+      label="FONT SIZE"
+      steps={TERM_FONT_STEPS}
+      value={settings.value.termFontSize}
+      format={(v) => `${v}px`}
+      onchange={(v) => settings.update({ termFontSize: v })}
+    />
+    <SegmentSlider
+      label="SCROLLBACK"
+      steps={TERM_SCROLLBACK_STEPS}
+      value={settings.value.termScrollback}
+      format={(v) => (v >= 1000 ? `${v / 1000}k` : String(v))}
+      onchange={(v) => settings.update({ termScrollback: v })}
+    />
+    <div class="toggles">
+      <Toggle
+        label="Copy on select"
+        hint="Selecting text copies it to the clipboard."
+        checked={settings.value.termCopyOnSelect}
+        onchange={(v) => settings.update({ termCopyOnSelect: v })}
+      />
+      <Toggle
+        label="Right-click pastes"
+        checked={settings.value.termRightClickPaste}
+        onchange={(v) => settings.update({ termRightClickPaste: v })}
+      />
+      <Toggle
+        label="Blinking cursor"
+        checked={settings.value.termCursorBlink}
+        onchange={(v) => settings.update({ termCursorBlink: v })}
+      />
+    </div>
+  </Panel>
+
   <Panel title="KEYBINDINGS" prefix=">" count={bindings.length}>
     <table>
       <tbody>
@@ -103,7 +146,10 @@
         {/each}
       </tbody>
     </table>
-    <p class="muted note">Rebinding UI arrives with the full settings screen.</p>
+    <p class="muted note">
+      While a terminal has focus on Windows/Linux, only shortcuts with Shift (and Ctrl+Tab) are taken, so the shell
+      keeps Ctrl+K, Ctrl+B and friends. On macOS, Cmd shortcuts always work. Rebinding UI arrives later.
+    </p>
   </Panel>
 
   <div class="wide">

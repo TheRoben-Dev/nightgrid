@@ -1,5 +1,7 @@
 import { SECTIONS } from "../sections";
+import { hosts } from "../stores/hosts.svelte";
 import { settings } from "../stores/settings.svelte";
+import { terms } from "../stores/terms.svelte";
 import { ui } from "../stores/ui.svelte";
 import { THEME_IDS, THEMES } from "../theme/themes";
 import type { PaletteCommand } from "./types";
@@ -52,5 +54,39 @@ export function buildCommands(): PaletteCommand[] {
     },
   ];
 
-  return [...nav, ...view, ...themes];
+  const connect: PaletteCommand[] = hosts.hosts.map((h) => ({
+    id: `ssh.${h.id}`,
+    title: `SSH: ${h.name}`,
+    group: "CONNECT",
+    keywords: [h.hostname, h.username ?? "", ...h.tags],
+    run: () => terms.openHost(h.id),
+  }));
+
+  const hostCmds: PaletteCommand[] = [
+    {
+      id: "term.newLocal",
+      title: "New local terminal",
+      group: "TERMINAL",
+      keywords: ["shell", "pty"],
+      action: "term.newLocal",
+      run: () => terms.openLocal(),
+    },
+    { id: "host.add", title: "Add host", group: "HOSTS", keywords: ["new", "node"], run: () => void (hosts.editing = 0) },
+    {
+      id: "host.import",
+      title: "Import hosts from ~/.ssh/config",
+      group: "HOSTS",
+      keywords: ["ssh config", "sync"],
+      run: () => void (hosts.importOpen = true),
+    },
+    ...hosts.hosts.map((h) => ({
+      id: `host.edit.${h.id}`,
+      title: `Edit host: ${h.name}`,
+      group: "HOSTS",
+      keywords: [h.hostname],
+      run: () => void (hosts.editing = h.id),
+    })),
+  ];
+
+  return [...connect, ...hostCmds, ...nav, ...view, ...themes];
 }

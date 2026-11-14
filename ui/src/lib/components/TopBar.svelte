@@ -1,9 +1,14 @@
 <script lang="ts">
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
   import { sectionById } from "../sections";
+  import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
 
-  const segments = $derived(["NODE::LOCAL", sectionById(ui.section).label.toUpperCase(), ...ui.crumbs]);
+  const node = $derived.by(() => {
+    const o = ui.section === "terminal" ? terms.currentSession?.origin : undefined;
+    return o?.kind === "ssh" ? o.name.toUpperCase() : "LOCAL";
+  });
+  const segments = $derived([`NODE::${node}`, sectionById(ui.section).label.toUpperCase(), ...ui.crumbs]);
 </script>
 
 <header class="topbar">
@@ -24,7 +29,7 @@
   </button>
 
   <div class="indicators" aria-label="Connections">
-    <span class="ind" title="Active SSH sessions"><span class="glyph" aria-hidden="true">◇</span> SSH <b>0</b></span>
+    <span class="ind" title="Active SSH sessions"><span class="glyph" aria-hidden="true">◇</span> SSH <b>{terms.stats.ssh}</b></span>
     <span class="ind" title="Active tunnels"><span class="glyph" aria-hidden="true">⇄</span> TUN <b>0</b></span>
   </div>
 </header>

@@ -55,8 +55,12 @@ jobs:
         run: cargo fmt --all --check
       - name: cargo clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: OpenSSH server for integration tests
+        run: sudo apt-get install -y openssh-server && sudo mkdir -p /run/sshd
       - name: cargo test
         run: cargo test --workspace --locked
+        env:
+          NIGHTGRID_TEST_OPENSSH: "1"
       - name: TS bindings are up to date
         run: git diff --exit-code -- ui/src/lib/bindings.ts || (echo "::error::ui/src/lib/bindings.ts is stale. Run 'cargo test -p nightgrid --lib bindings' and commit." && exit 1)
 
@@ -99,6 +103,9 @@ jobs:
       # Core logic (SQLite, settings, secrets wrapper) on every OS.
       - name: cargo test (core)
         run: cargo test -p nightgrid-core --locked
+        env:
+          # Real-sshd tests: macOS ships sshd; Linux is covered by the checks job.
+          NIGHTGRID_TEST_OPENSSH: ${{ matrix.name == 'macos-arm64' && '1' || '0' }}
 
       - name: Tauri build
         run: pnpm tauri build --bundles ${{ matrix.bundles }}

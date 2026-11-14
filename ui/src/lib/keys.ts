@@ -88,6 +88,38 @@ export const DEFAULT_KEYMAP = {
   "nav.tunnels": "Mod+6",
   "nav.automation": "Mod+7",
   "effects.toggle": "Mod+Shift+E",
+  "palette.openAlt": "Mod+Shift+K",
+  "term.newLocal": "Mod+Shift+T",
+  "term.closePane": "Mod+Shift+W",
+  "term.splitRight": "Mod+Shift+D",
+  "term.splitDown": "Mod+Shift+S",
+  "term.find": "Mod+Shift+F",
+  "term.nextTab": "Ctrl+Tab",
+  "term.prevTab": "Ctrl+Shift+Tab",
 } as const;
 
 export type ActionId = keyof typeof DEFAULT_KEYMAP;
+
+/**
+ * Whether a shortcut still fires while a terminal has focus. Shells use plain
+ * Ctrl/Alt chords (Ctrl+K, Ctrl+B, ...), so on Windows/Linux only chords with
+ * Shift (and Ctrl+Tab) are taken from the terminal. On macOS, Cmd chords are
+ * free because shells never see Cmd.
+ */
+export function capturedInTerminal(spec: string, mac = isMac()): boolean {
+  const c = parseChord(spec);
+  if (c.key === "tab") return true;
+  if (mac) return c.mod || c.meta;
+  return c.shift && (c.mod || c.ctrl);
+}
+
+/** The app action a key event maps to, honouring the terminal rule. */
+export function actionFor(e: KeyLike, inTerminal: boolean, mac = isMac()): ActionId | null {
+  for (const [action, spec] of Object.entries(DEFAULT_KEYMAP) as [ActionId, string][]) {
+    if (matches(e, spec, mac)) {
+      if (inTerminal && !capturedInTerminal(spec, mac)) return null;
+      return action;
+    }
+  }
+  return null;
+}

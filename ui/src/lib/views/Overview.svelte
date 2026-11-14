@@ -3,6 +3,8 @@
   import Barcode from "../components/Barcode.svelte";
   import Panel from "../components/Panel.svelte";
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
+  import { hosts } from "../stores/hosts.svelte";
+  import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
 
   interface Props {
@@ -12,8 +14,8 @@
 
   const ROADMAP = [
     ["M0", "Skeleton", "done"],
-    ["M1", "Hosts + terminal", "next"],
-    ["M2", "SFTP + editor", "todo"],
+    ["M1", "Hosts + terminal", "done"],
+    ["M2", "SFTP + editor", "next"],
     ["M3", "Docker", "todo"],
     ["M4", "Monitoring + overview", "todo"],
     ["M5", "Services, Homepage import, tunnels", "todo"],
@@ -26,7 +28,31 @@
 
 <div class="grid">
   <div class="nodes">
-    <Panel title="NODES" prefix=">" count={0} reveal>
+    <Panel title="NODES" prefix=">" count={hosts.hosts.length} reveal>
+      {#if hosts.hosts.length}
+        <div class="hostgrid">
+          {#each hosts.hosts as h (h.id)}
+            {@const p = hosts.pings[h.id]}
+            {@const st = !p ? "unknown" : p.connected ? "connected" : p.state}
+            <button type="button" class="htile {st}" onclick={() => terms.openHost(h.id)} title="Open a shell on {h.name}">
+              <span class="stripe" style:background={h.color ?? "var(--line)"} aria-hidden="true"></span>
+              <span class="hname">{h.name}{#if h.favorite}<span class="star" aria-hidden="true"> ★</span>{/if}</span>
+              <span class="hhost">{h.username ? `${h.username}@` : ""}{h.hostname}</span>
+              <span class="hstate">
+                <i aria-hidden="true"></i>
+                {st === "connected"
+                  ? "LINKED"
+                  : st === "online"
+                    ? `ONLINE${p?.latencyMs != null ? ` · ${p.latencyMs}MS` : ""}`
+                    : st === "offline"
+                      ? "OFFLINE"
+                      : "VIA JUMP / UNKNOWN"}
+              </span>
+            </button>
+          {/each}
+        </div>
+        <p class="muted hint">Live CPU / RAM / disk tiles arrive in M4.</p>
+      {:else}
       <div class="empty">
         <div class="tiles" aria-hidden="true">
           {#each Array(6) as _, i (i)}<span class="ghost"></span>{/each}
@@ -34,15 +60,17 @@
         <div class="msg">
           <p class="label">NO NODES REGISTERED</p>
           <p class="muted">
-            Hosts, <code>~/.ssh/config</code> import and live HUD tiles arrive in M1 and M4. Open the palette with
+            Add a host or import your <code>~/.ssh/config</code>. Open the palette with
             <kbd>{formatChord(DEFAULT_KEYMAP["palette.open"])}</kbd> to look around.
           </p>
           <div class="actions">
-            <button class="btn primary chamfer-sm" type="button" disabled title="Arrives in M1">Add host</button>
+            <button class="btn primary chamfer-sm" type="button" onclick={() => (hosts.editing = 0)}>Add host</button>
+            <button class="btn chamfer-sm" type="button" onclick={() => (hosts.importOpen = true)}>Import ssh config</button>
             <button class="btn chamfer-sm" type="button" onclick={() => (ui.paletteOpen = true)}>Command palette</button>
           </div>
         </div>
       </div>
+      {/if}
     </Panel>
   </div>
 
@@ -82,6 +110,84 @@
 </div>
 
 <style>
+  .hostgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 8px;
+  }
+  .htile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px 10px 16px;
+    border: 1px solid var(--line);
+    background: var(--bg-0);
+    text-align: left;
+    cursor: pointer;
+    min-width: 0;
+  }
+  .htile:hover {
+    border-color: var(--magenta);
+    box-shadow: var(--glow-active);
+  }
+  .htile .stripe {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+  .hname {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--fs-lg);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-0);
+  }
+  .star {
+    color: var(--accent);
+    font-size: var(--fs-xs);
+  }
+  .hhost {
+    font-size: var(--fs-xs);
+    color: var(--text-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hstate {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text-1);
+  }
+  .hstate i {
+    width: 6px;
+    height: 6px;
+    border: 1px solid currentColor;
+  }
+  .online .hstate {
+    color: var(--mint);
+  }
+  .online .hstate i,
+  .connected .hstate i {
+    background: currentColor;
+  }
+  .connected .hstate {
+    color: var(--magenta);
+  }
+  .offline .hstate {
+    color: var(--danger);
+  }
+  .hint {
+    margin: 10px 0 0;
+    font-size: var(--fs-xs);
+  }
   .grid {
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);

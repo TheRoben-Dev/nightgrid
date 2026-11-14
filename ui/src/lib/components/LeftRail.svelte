@@ -4,6 +4,7 @@
   import { settings } from "../stores/settings.svelte";
   import { ui } from "../stores/ui.svelte";
   import Barcode from "./Barcode.svelte";
+  import HostList from "./HostList.svelte";
 
   interface Props {
     version: string;
@@ -27,10 +28,7 @@
   </div>
 
   {#if !collapsed}
-    <div class="group">
-      <div class="label group-label"><span class="cyan">&gt;</span> NODES <span class="muted">[0]</span></div>
-      <p class="empty">No hosts yet. Host management lands in M1.</p>
-    </div>
+    <HostList />
   {/if}
 
   <div class="group sections">
@@ -128,18 +126,13 @@
   .cyan {
     color: var(--cyan);
   }
-  .empty {
-    margin: 0 6px;
-    padding: 8px 10px;
-    border: 1px dashed var(--line);
-    color: var(--text-1);
-    font-size: var(--fs-xs);
-    line-height: 1.5;
-  }
-
   .sections {
+    flex: none;
+    border-top: 1px solid var(--line);
+  }
+  .collapsed .sections {
     flex: 1;
-    overflow-y: auto;
+    border-top: 0;
   }
   ul {
     list-style: none;

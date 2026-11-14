@@ -102,6 +102,15 @@ export type AppSettings_Deserialize = {
 	uiScale?: number,
 	/**  Collapse the left rail to icons. */
 	railCollapsed?: boolean,
+	/**  Terminal font size in px. */
+	termFontSize?: number,
+	/**  Terminal scrollback lines. */
+	termScrollback?: number,
+	/**  Copy terminal selections to the clipboard automatically. */
+	termCopyOnSelect?: boolean,
+	/**  Right-click pastes (otherwise it opens the normal context menu). */
+	termRightClickPaste?: boolean,
+	termCursorBlink?: boolean,
 };
 
 /**
@@ -119,6 +128,15 @@ export type AppSettings_Serialize = {
 	uiScale: number,
 	/**  Collapse the left rail to icons. */
 	railCollapsed: boolean,
+	/**  Terminal font size in px. */
+	termFontSize: number,
+	/**  Terminal scrollback lines. */
+	termScrollback: number,
+	/**  Copy terminal selections to the clipboard automatically. */
+	termCopyOnSelect: boolean,
+	/**  Right-click pastes (otherwise it opens the normal context menu). */
+	termRightClickPaste: boolean,
+	termCursorBlink: boolean,
 };
 
 export type AuthMethod = 

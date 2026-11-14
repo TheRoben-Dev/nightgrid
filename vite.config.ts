@@ -1,12 +1,13 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { freezeSafe } from "./ui/tools/freezeSafe.ts";
 
 const host = process.env.TAURI_DEV_HOST;
 
 // https://v2.tauri.app/start/frontend/vite/
 export default defineConfig({
   root: "ui",
-  plugins: [svelte()],
+  plugins: [freezeSafe(), svelte()],
   clearScreen: false,
   server: {
     port: 1420,
@@ -19,6 +20,8 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
+    // xterm.js (+ WebGL renderer) is most of the bundle; it is loaded locally, so size is not a network cost.
+    chunkSizeWarningLimit: 900,
     // Tauri webviews: WebView2 (Chromium), WKWebView (Safari 15+), WebKitGTK.
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome110" : "safari15",
     minify: !process.env.TAURI_ENV_DEBUG ? "oxc" : false,
@@ -26,7 +29,7 @@ export default defineConfig({
   },
   test: {
     root: ".",
-    include: ["ui/src/**/*.test.ts"],
+    include: ["ui/src/**/*.test.ts", "ui/tools/**/*.test.ts"],
     environment: "jsdom",
   },
   resolve: process.env.VITEST ? { conditions: ["browser"] } : undefined,
