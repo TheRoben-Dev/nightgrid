@@ -256,6 +256,7 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 **M9 — Polish & ship**: Ally/handheld layout preset, alternate themes, encrypted config export/import, auto-updater, Flatpak/AUR/AppImage/NSIS/DMG release pipeline, and docs (`README`, user guide, `ARCHITECTURE.md`).
 
 **M10 — Backlog (added 2026-11-14).** All generic: no assumptions about a particular server, stack or service; any specific app is an optional example.
+- **LLM helper (HIGH PRIORITY, first in the backlog)**: explain a log excerpt or error, write/fix a compose file, suggest a fix for a failing container or service, all from where you are (logs, editor, stack console). Opt-in and off by default. Backend is a local model (Ollama/OpenAI-compatible endpoint on this machine or one of your hosts) or a user-supplied API key stored in the OS keychain. Shows exactly what will be sent before sending, masks env values/secrets, never runs commands on its own (suggested commands go through the normal confirmations). Also powers the log-anomaly summary below.
 - **Deploy wizard**: pick an image or paste a compose file → suggested volumes, ports, env and labels (from the image's metadata) → review → deploy to any host as a stack.
 - **Snapshot & rollback**: before risky actions (compose update/down, config edits, package upgrades), save a copy of the affected compose/.env/config files and offer one-click rollback.
 - **Backup status board**: restic / borg / rsync jobs per host, with last run, size and result, and a "stale" flag after a configurable age.
@@ -264,6 +265,15 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 - **Image changelogs before pulling**: show what changed between the running and the new image (release notes / tags / digest) before an update.
 - **VMs**: Proxmox and libvirt VM list with start/stop/reboot and console.
 - **Phone status page**: optional read-only status page served by the app on the LAN or Tailscale (off by default, token-protected, no actions).
+- **Firewall / exposure audit**: ufw/nftables/iptables rules plus listening sockets per host; flag services bound to 0.0.0.0/:: that the firewall doesn't restrict.
+- **Reverse proxy manager**: read Caddy / Traefik / Nginx Proxy Manager routes and certificates; domain → container/service map with cert expiry.
+- **Security hygiene score per host**: sshd password auth / root login, pending security updates, fail2ban/crowdsec present, old or weak authorized keys; each item explains the fix.
+- **Cron & systemd timer explorer**: all scheduled jobs per host in one list, with next/last run and result.
+- **Resource forecasting**: from metric history, project when a disk fills or memory runs out ("/ full in ~23 days").
+- **Command history search**: local, cross-host search of commands run in Nightgrid terminals (stored locally, opt-in, secrets-looking lines skipped).
+- **Notes & runbooks**: markdown notes per host and per container/stack, searchable, included in the encrypted export.
+- **GPU monitoring**: NVIDIA (nvidia-smi), AMD (sysfs/rocm-smi) and Intel GPU usage, memory, temperature and power in the monitor.
+- **Static dashboard export**: export the overview (hosts, status, metrics snapshot) as a self-contained HTML file, with no secrets.
 
 **M11 — In-app knowledge base** (last: built once everything else is in place). Fully local: articles are bundled with the app, with no internet links, images or fetches inside them. Searchable (full text), reachable from the command palette (`Help: …`), a Help section and contextual "?" links in each view, rendered in the app theme as sanitized markdown (no raw HTML). Two shelves: **Using Nightgrid** (one article per feature) and a limited **Homelab basics** library (SSH keys & agents, hardening sshd, Docker & compose basics, the docker group, reverse proxies, Tailscale/WireGuard, backups, reading logs).
 
