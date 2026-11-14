@@ -2,9 +2,11 @@
 //! `nightgrid-core`; anything with real logic belongs in the core crate.
 
 mod commands;
+mod hosts_cmd;
 mod logging;
 mod platform;
 mod state;
+mod term_cmd;
 
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
@@ -18,6 +20,27 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::app_info,
         commands::settings_get,
         commands::settings_set,
+        hosts_cmd::hosts_list,
+        hosts_cmd::host_create,
+        hosts_cmd::host_update,
+        hosts_cmd::host_delete,
+        hosts_cmd::host_forget_secrets,
+        hosts_cmd::groups_list,
+        hosts_cmd::group_create,
+        hosts_cmd::group_update,
+        hosts_cmd::group_delete,
+        hosts_cmd::ssh_config_scan,
+        hosts_cmd::ssh_config_import,
+        hosts_cmd::known_hosts_import_system,
+        hosts_cmd::hosts_ping,
+        term_cmd::term_open_local,
+        term_cmd::term_open_ssh,
+        term_cmd::term_write,
+        term_cmd::term_resize,
+        term_cmd::term_reconnect,
+        term_cmd::term_close,
+        term_cmd::ssh_trust_host_key,
+        term_cmd::ssh_provide_secret,
     ])
 }
 
@@ -41,6 +64,8 @@ pub fn run() {
     export_bindings(&builder);
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);

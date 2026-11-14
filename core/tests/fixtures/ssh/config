@@ -1,0 +1,31 @@
+# Fixture modelled on a typical homelab ~/.ssh/config.
+Include config.d/*.conf
+
+Host lumen
+    HostName 192.168.1.10
+    User roben
+
+Host nas
+    HostName nas.lan
+    Port=2222
+    User admin
+    IdentityFile none
+
+Host bastion
+    HostName bastion.example.net
+    User jump
+
+Match host bastion exec "true"
+    ProxyJump should-be-ignored
+
+Host inner
+    HostName 10.0.0.5
+    ProxyJump bastion
+
+Host lumen-ts *.ts.net
+    HostName lumen.tail1234.ts.net
+
+Host *
+    User fallback
+    IdentityFile ~/.ssh/id_ed25519
+    ServerAliveInterval 30

@@ -1,7 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main-window",
-  "description": "Minimal capability set for the main window. App commands are registered via tauri-specta; core plugin permissions are added only when a feature needs them.",
+  "description": "Minimal capability set for the main window. App commands are registered via tauri-specta. Plugins get only what a feature needs: clipboard text for the terminal, and opening http(s) links from terminal output in the system browser.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://*" }, { "url": "http://*" }]
+    }
+  ]
 }

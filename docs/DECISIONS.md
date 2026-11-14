@@ -39,3 +39,24 @@ CI runners often lack an unlocked keychain/Secret Service, so the real-keychain 
 
 ### D-012 · Tray icon deferred to M7
 The spec lists the tray as P0 but schedules it in M7 with notifications. M0 ships no tray to keep the capability set minimal.
+
+### D-013 · Runtime `<style>` elements mirrored into constructable stylesheets
+xterm.js injects `<style>` elements, which a CSP without `'unsafe-inline'` blocks (Chromium and WebKit check CSP for any `<style>`, whatever its `type`). Instead of loosening the CSP, `ui/src/lib/term/cspStyles.ts` makes `document.createElement("style")` return an inert `<nightgrid-style>` element and mirrors its text into `document.adoptedStyleSheets`, which CSP allows. Verified in Chromium and WebKitGTK with zero violations. Needs Safari 16.4+ / WebKitGTK 2.38+ for constructable stylesheets (macOS 11+ has it through Safari updates). Libraries that read `HTMLStyleElement.sheet` would not work with this.
+
+### D-014 · Keep `freezePrototype`, rewrite xterm's prototype-shadowing assignments
+With `Object.prototype` frozen, strict-mode code like `ns.toString = fn` throws, and xterm.js does exactly that at module load (bundled VS Code helpers), leaving a blank window. Rather than turn the hardening off, a small Vite plugin (`ui/tools/freezeSafe.ts`) rewrites such assignments in `@xterm/*` to `Object.defineProperty`. A test runs the rewrite over the installed xterm packages so an upgrade that changes the pattern fails CI instead of shipping a blank window.
+
+### D-015 · Terminal keyboard rule
+Shells need `Ctrl+K`, `Ctrl+B`, `Ctrl+W` and friends. On Windows/Linux, while a terminal has focus, the app only takes chords with Shift (plus `Ctrl+Tab`); the palette has a `Mod+Shift+K` alternative. On macOS, Cmd chords always go to the app since shells never see Cmd. Copy/paste on Windows/Linux is `Ctrl+Shift+C/V`.
+
+### D-016 · Secrets entered at a prompt are cached in memory for the session
+So reconnects and new panes don't re-prompt. The cache is per process, keyed by hop label, zeroized on drop, and cleared for a host when its connection settings change, it is deleted, or "remember" is turned off. Only an explicit "remember" writes to the OS keychain.
+
+### D-017 · NIGHTGRID keeps its own `known_hosts`
+New and accepted keys go to `<app_data_dir>/known_hosts`; `~/.ssh/known_hosts` is only read (as a fallback source) or copied on request, in line with "never write to the user's SSH config without asking". A key changed in either file blocks the connection.
+
+### D-018 · Reachability is a TCP connect to the SSH port
+ICMP needs privileges on most OSes. A TCP connect to port 22 (or the host's port) every 30 s while the window is visible gives online/offline plus latency without authenticating. Hosts behind a ProxyJump show "unknown" unless already connected.
+
+### D-019 · SSH integration tests use an in-process server plus a real `sshd`
+Docker isn't available on macOS/Windows runners, so the default suite runs an in-process russh server on every OS, and `core/tests/ssh_openssh.rs` starts a real OpenSSH `sshd` as the current user on Linux and macOS CI (`NIGHTGRID_TEST_OPENSSH=1`) to catch interop issues.

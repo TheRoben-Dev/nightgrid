@@ -10,6 +10,10 @@ import "./styles/backdrop.css";
 
 import { mount } from "svelte";
 import App from "./App.svelte";
+import { installCspStyleMirror } from "./lib/term/cspStyles";
+
+// Before anything can inject <style> elements (see cspStyles.ts).
+installCspStyleMirror();
 
 const app = mount(App, { target: document.getElementById("app")! });
 

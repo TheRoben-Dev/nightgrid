@@ -1,17 +1,107 @@
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex};
 
+use nightgrid_core::hosts::HostId;
+use nightgrid_core::secrets::{KeyringStore, Secret, SecretKind, SecretRef, SecretStore};
+use nightgrid_core::ssh::client::ConnectOptions;
+use nightgrid_core::ssh::known_hosts::KnownHosts;
+use nightgrid_core::ssh::pool::Pool;
 use nightgrid_core::store::Store;
+use nightgrid_core::term::TermHandle;
 
 pub struct AppState {
     pub store: Mutex<Store>,
     pub data_dir: PathBuf,
     pub log_dir: PathBuf,
+    pub home: Option<PathBuf>,
+    pub known_hosts: KnownHosts,
+    pub pool: Pool,
+    pub keychain: KeyringStore,
+    /// Secrets entered this run (for reconnects without re-prompting). Memory
+    /// only, zeroized on drop; keyed by `(kind, hop label)`.
+    pub secret_cache: Mutex<HashMap<(SecretKind, String), Arc<Secret>>>,
+    /// Hop label → stored host id, filled when a host is resolved, so a
+    /// prompt answer can be saved to the right keychain entry.
+    pub label_hosts: Mutex<HashMap<String, HostId>>,
+    pub terms: Mutex<HashMap<u32, TermHandle>>,
+    next_term: AtomicU32,
 }
 
 impl AppState {
     pub fn open(data_dir: &Path, log_dir: PathBuf) -> nightgrid_core::Result<Self> {
         let store = Store::open(&data_dir.join("nightgrid.db"))?;
-        Ok(Self { store: Mutex::new(store), data_dir: data_dir.to_owned(), log_dir })
+        let home = std::env::home_dir();
+        let system_kh = home.as_ref().map(|h| h.join(".ssh").join("known_hosts"));
+        Ok(Self {
+            store: Mutex::new(store),
+            data_dir: data_dir.to_owned(),
+            log_dir,
+            known_hosts: KnownHosts::new(data_dir.join("known_hosts"), system_kh),
+            home,
+            pool: Pool::new(),
+            keychain: KeyringStore::new(),
+            secret_cache: Mutex::default(),
+            label_hosts: Mutex::default(),
+            terms: Mutex::default(),
+            next_term: AtomicU32::new(1),
+        })
+    }
+
+    pub fn store(&self) -> std::sync::MutexGuard<'_, Store> {
+        self.store.lock().expect("store poisoned")
+    }
+
+    pub fn connect_options(&self) -> ConnectOptions {
+        ConnectOptions::new(self.known_hosts.clone())
+    }
+
+    pub fn next_term_id(&self) -> u32 {
+        self.next_term.fetch_add(1, Ordering::Relaxed)
+    }
+
+    /// Secret for a hop: this run's cache first, then the keychain for hosts
+    /// that opted in to "remember".
+    pub fn lookup_secret(
+        &self,
+        remembering: &HashSet<HostId>,
+        host: Option<HostId>,
+        kind: SecretKind,
+        label: &str,
+    ) -> Option<Arc<Secret>> {
+        if let Some(id) = host {
+            self.label_hosts.lock().expect("poisoned").insert(label.to_owned(), id);
+        }
+        if let Some(s) = self.secret_cache.lock().expect("poisoned").get(&(kind, label.to_owned())) {
+            return Some(s.clone());
+        }
+        let id = host.filter(|id| remembering.contains(id))?;
+        match self.keychain.get(&SecretRef::new(kind, id.to_string())) {
+            Ok(Some(s)) => Some(Arc::new(s)),
+            Ok(None) => None,
+            Err(e) => {
+                tracing::warn!("keychain read failed: {e}");
+                None
+            }
+        }
+    }
+
+    /// Forgets cached and stored secrets for a host.
+    pub fn forget_host_secrets(&self, id: HostId) {
+        let labels: Vec<String> = self
+            .label_hosts
+            .lock()
+            .expect("poisoned")
+            .iter()
+            .filter(|(_, h)| **h == id)
+            .map(|(l, _)| l.clone())
+            .collect();
+        self.secret_cache.lock().expect("poisoned").retain(|(_, l), _| !labels.contains(l));
+        for kind in [SecretKind::HostPassword, SecretKind::KeyPassphrase, SecretKind::SudoPassword] {
+            if let Err(e) = self.keychain.delete(&SecretRef::new(kind, id.to_string())) {
+                tracing::warn!("keychain delete failed: {e}");
+            }
+        }
     }
 }

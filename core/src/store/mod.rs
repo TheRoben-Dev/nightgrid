@@ -13,8 +13,12 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use crate::Result;
 
-static MIGRATIONS: LazyLock<Migrations<'static>> =
-    LazyLock::new(|| Migrations::new(vec![M::up(include_str!("migrations/0001_init.sql"))]));
+static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
+    Migrations::new(vec![
+        M::up(include_str!("migrations/0001_init.sql")),
+        M::up(include_str!("migrations/0002_host_auth.sql")),
+    ])
+});
 
 /// The migration list, exposed for tests and diagnostics.
 pub fn migrations() -> &'static Migrations<'static> {
@@ -50,6 +54,14 @@ impl Store {
         Ok(Self { conn })
     }
 
+    /// Runs `f` inside a transaction that commits on `Ok`.
+    pub(crate) fn tx<T>(&mut self, f: impl FnOnce(&rusqlite::Transaction<'_>) -> Result<T>) -> Result<T> {
+        let tx = self.conn.transaction()?;
+        let out = f(&tx)?;
+        tx.commit()?;
+        Ok(out)
+    }
+
     /// Current schema version (`PRAGMA user_version`).
     pub fn schema_version(&self) -> Result<i64> {
         Ok(self.conn.pragma_query_value(None, "user_version", |r| r.get(0))?)
@@ -74,7 +86,6 @@ impl Store {
     }
 
     /// Raw connection access for domain modules inside the crate.
-    #[allow(dead_code)]
     pub(crate) fn conn(&self) -> &Connection {
         &self.conn
     }
@@ -84,6 +95,8 @@ impl Store {
 mod tests {
     use super::*;
 
+    const LATEST: i64 = 2;
+
     #[test]
     fn migrations_are_valid() {
         migrations().validate().expect("migrations validate");
@@ -92,7 +105,7 @@ mod tests {
     #[test]
     fn opens_in_memory_at_latest_version() {
         let store = Store::open_in_memory().unwrap();
-        assert_eq!(store.schema_version().unwrap(), 1);
+        assert_eq!(store.schema_version().unwrap(), LATEST);
     }
 
     #[test]
@@ -104,7 +117,7 @@ mod tests {
             s.set_setting("k", &42u32).unwrap();
         }
         let s = Store::open(&path).unwrap();
-        assert_eq!(s.schema_version().unwrap(), 1);
+        assert_eq!(s.schema_version().unwrap(), LATEST);
         assert_eq!(s.get_setting::<u32>("k").unwrap(), Some(42));
     }
 
@@ -139,6 +152,10 @@ mod tests {
             stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().collect::<std::result::Result<_, _>>().unwrap();
         for (table, col) in cols {
             let c = col.to_lowercase();
+            // Boolean opt-in flags (e.g. `remember_secret`) hold no secret material.
+            if c.starts_with("remember_") {
+                continue;
+            }
             for bad in ["password", "passphrase", "secret", "token", "private_key"] {
                 assert!(!c.contains(bad), "{table}.{col} looks like a secret column");
             }
