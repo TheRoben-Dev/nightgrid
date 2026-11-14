@@ -2,6 +2,7 @@
   import Barcode from "../components/Barcode.svelte";
   import SplitNode from "../components/terminal/SplitNode.svelte";
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
+  import HostIcon from "../components/HostIcon.svelte";
   import { hosts } from "../stores/hosts.svelte";
   import { terms } from "../stores/terms.svelte";
   import { leaves } from "../term/layout";
@@ -92,6 +93,7 @@
               {#each recent as h (h.id)}
                 <button type="button" class="hosttile" onclick={() => terms.openHost(h.id)}>
                   <span class="stripe" style:background={h.color ?? "var(--line)"}></span>
+                  <HostIcon art={h.icon} color={h.color} />
                   <span class="hn">{h.name}</span>
                   <span class="hh muted">{h.hostname}</span>
                 </button>

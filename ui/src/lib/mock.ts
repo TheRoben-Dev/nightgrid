@@ -3,6 +3,7 @@
  * Tauri, by tests and for screenshots. It keeps hosts in localStorage and
  * fakes terminals with a tiny echo shell. It never touches the network.
  */
+import { normalizeIcon } from "./hosts/icons";
 import type {
   Group_Serialize as Group,
   GroupInput_Serialize as GroupInput,
@@ -52,7 +53,7 @@ const toHost = (id: number, i: HostInput): Host => ({
   username: i.username,
   groupId: i.groupId,
   color: i.color,
-  icon: i.icon,
+  icon: normalizeIcon(i.icon),
   favorite: i.favorite,
   notes: i.notes,
   authMethod: i.authMethod,
