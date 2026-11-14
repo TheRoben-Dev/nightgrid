@@ -26,6 +26,10 @@
   import Terminal from "./lib/views/Terminal.svelte";
   import Files from "./lib/views/Files.svelte";
   import Docker from "./lib/views/Docker.svelte";
+  import Services from "./lib/views/Services.svelte";
+  import ServiceEditor from "./lib/components/services/ServiceEditor.svelte";
+  import HomepageImport from "./lib/components/services/HomepageImport.svelte";
+  import { services } from "./lib/stores/services.svelte";
 
   let info = $state<AppInfo | null>(null);
   /** Files stays mounted after the first visit so open editors survive section switches. */
@@ -41,6 +45,7 @@
     settings.load().then(() => {
       booted = true;
       metrics.start();
+      services.start();
       updates.startLaunchCheck();
     });
     api
@@ -135,6 +140,8 @@
         <!-- rendered above -->
       {:else if section.id === "docker"}
         <div class="view-fill"><Docker /></div>
+      {:else if section.id === "services"}
+        <Services />
       {:else if section.id === "overview"}
         <Overview {info} />
       {:else if section.id === "settings"}
@@ -152,6 +159,8 @@
 <SshImportDialog />
 <HostMonitor />
 <UpdateDialog />
+<ServiceEditor />
+<HomepageImport />
 
 <style>
   .shell {

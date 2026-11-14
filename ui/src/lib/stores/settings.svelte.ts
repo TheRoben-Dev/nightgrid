@@ -8,6 +8,7 @@ export const TERM_SCROLLBACK_STEPS = [1000, 2000, 5000, 10000, 20000, 50000, 100
 export const METRICS_INTERVAL_STEPS = [1, 2, 5, 10, 30] as const;
 export const METRICS_BACKGROUND_STEPS = [15, 30, 60, 120, 300] as const;
 export const METRICS_RETENTION_STEPS = [1, 3, 7, 14, 30, 90] as const;
+export const SERVICES_INTERVAL_STEPS = [15, 30, 60, 120, 300, 900] as const;
 
 class SettingsStore {
   value = $state<AppSettings>({ ...DEFAULT_SETTINGS });

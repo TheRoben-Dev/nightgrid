@@ -61,11 +61,23 @@ import {
   type UpdateInfo,
   type UpdateProgress_Serialize as UpdateProgress,
   type UpdateStatus_Serialize as UpdateStatus,
+  type Service_Serialize as Service,
+  type ServiceInput_Deserialize as ServiceInput,
+  type ServiceStatus_Serialize as ServiceStatus,
+  type ServiceEvent_Serialize as ServiceEvent,
+  type CheckPoint_Serialize as CheckPoint,
+  type CheckResult_Serialize as CheckResult,
+  type TlsInfo_Serialize as TlsInfo,
+  type HomepageCandidate,
+  type HomepageEntry_Serialize as HomepageEntry,
+  type HomepagePreview_Serialize as HomepagePreview,
+  type ImportSummary,
 } from "./bindings";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
 import { mockFiles } from "./mockFiles";
 import { mockMetrics } from "./mockMetrics";
+import { mockServices } from "./mockServices";
 
 export type {
   AppInfo,
@@ -115,6 +127,17 @@ export type {
   StackDir,
   MetricsEvent,
   UpdateInfo,
+  Service,
+  ServiceInput,
+  ServiceStatus,
+  ServiceEvent,
+  CheckPoint,
+  CheckResult,
+  TlsInfo,
+  HomepageCandidate,
+  HomepageEntry,
+  HomepagePreview,
+  ImportSummary,
   UpdateProgress,
   UpdateStatus,
   MountUsage,
@@ -141,6 +164,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   metricsIntervalSecs: 2,
   metricsBackgroundSecs: 60,
   metricsRetentionDays: 7,
+  servicesChecks: true,
+  servicesIntervalSecs: 60,
   updateCheck: true,
   updateSkipVersion: null,
 };
@@ -310,6 +335,27 @@ export const api = {
   metricsRetry: (hostId: number): Promise<null> => (T() ? commands.metricsRetry(hostId) : Promise.resolve(null)),
   metricsHistory: (hostId: number, from: number, to: number): Promise<MetricPoint[]> =>
     T() ? commands.metricsHistory(hostId, from, to) : mockMetrics.history(hostId, from, to),
+  servicesSubscribe: (on: (e: ServiceEvent) => void): Promise<null> => {
+    if (!T()) return mockServices.subscribe(on);
+    const ch = new Channel<ServiceEvent>();
+    ch.onmessage = on;
+    return commands.servicesSubscribe(ch as unknown as Parameters<typeof commands.servicesSubscribe>[0]);
+  },
+  servicesCheckAll: (): Promise<null> => (T() ? commands.servicesCheckAll() : mockServices.checkAll()),
+  servicesList: (): Promise<Service[]> => (T() ? commands.servicesList() : mockServices.list()),
+  serviceCreate: (i: ServiceInput): Promise<Service> => (T() ? commands.serviceCreate(i) : mockServices.create(i)),
+  serviceUpdate: (id: number, i: ServiceInput): Promise<Service> =>
+    T() ? commands.serviceUpdate(id, i) : mockServices.update(id, i),
+  serviceDelete: (id: number): Promise<null> => (T() ? commands.serviceDelete(id) : mockServices.remove(id)),
+  serviceCheck: (id: number): Promise<ServiceStatus> => (T() ? commands.serviceCheck(id) : mockServices.check(id)),
+  serviceHistory: (id: number, from: number): Promise<CheckPoint[]> =>
+    T() ? commands.serviceHistory(id, from) : mockServices.history(id, from),
+  homepageDetect: (hostId: number): Promise<HomepageCandidate[]> =>
+    T() ? commands.homepageDetect(hostId) : mockServices.detect(hostId),
+  homepagePreview: (side: Side, dir: string): Promise<HomepagePreview> =>
+    T() ? commands.homepagePreview(side, dir) : mockServices.preview(side, dir),
+  homepageImport: (side: Side, dir: string, linkHost: boolean, prune: boolean): Promise<ImportSummary> =>
+    T() ? commands.homepageImport(side, dir, linkHost, prune) : mockServices.importHomepage(side, dir, linkHost, prune),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));
