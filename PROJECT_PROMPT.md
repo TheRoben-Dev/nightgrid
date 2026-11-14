@@ -243,6 +243,8 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 
 **M4 — Monitoring + Overview.** `/proc` collectors with fixture tests, temps, an overview dashboard of HUD tiles, and metric history.
 
+**M4.5 — App auto-updates** (pulled forward from M9, since prereleases now exist). Tauri updater against GitHub Releases: signed update bundles + `latest.json` published by the release job, check on launch and from Settings, "update available" prompt with release notes, on by default with an off switch and a stable/prerelease channel.
+
 **M5 — Services + Homepage import + Tunnels.** Health checks, TLS expiry, `services.yaml` import, saved/auto-start tunnels, "open through tunnel".
 
 **M6 — systemd, journal, package updates, SMART.**
@@ -252,6 +254,16 @@ Neat, modern and readable first; **very digital** second. Inspired by the *feel*
 **M8 — Automation**: multi-host run, snippets with variables, playbooks.
 
 **M9 — Polish & ship**: Ally/handheld layout preset, alternate themes, encrypted config export/import, auto-updater, Flatpak/AUR/AppImage/NSIS/DMG release pipeline, and docs (`README`, user guide, `ARCHITECTURE.md`).
+
+**M10 — Backlog (added 2026-11-14).** All generic: no assumptions about a particular server, stack or service; any specific app is an optional example.
+- **Deploy wizard**: pick an image or paste a compose file → suggested volumes, ports, env and labels (from the image's metadata) → review → deploy to any host as a stack.
+- **Snapshot & rollback**: before risky actions (compose update/down, config edits, package upgrades), save a copy of the affected compose/.env/config files and offer one-click rollback.
+- **Backup status board**: restic / borg / rsync jobs per host, with last run, size and result, and a "stale" flag after a configurable age.
+- **Network / port map**: hosts, containers and published/listening ports in one view, with conflicts and exposed ports highlighted.
+- **Log anomaly alerts**: spot error bursts and new error patterns in container logs and the journal; optional AI "what broke" summary (opt-in, user-supplied provider, nothing sent without consent).
+- **Image changelogs before pulling**: show what changed between the running and the new image (release notes / tags / digest) before an update.
+- **VMs**: Proxmox and libvirt VM list with start/stop/reboot and console.
+- **Phone status page**: optional read-only status page served by the app on the LAN or Tailscale (off by default, token-protected, no actions).
 
 ---
 
