@@ -3009,7 +3009,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nightgrid"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.23.1",
  "futures-util",
@@ -3032,7 +3032,7 @@ dependencies = [
 
 [[package]]
 name = "nightgrid-core"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "base64 0.23.1",
  "bollard",
