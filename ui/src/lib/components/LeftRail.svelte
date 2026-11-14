@@ -16,8 +16,12 @@
 <nav class="rail" class:collapsed aria-label="Main">
   <div class="brand">
     <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-      <path d="M4 1H31V27L27 31H1V5Z" fill="none" stroke="currentColor" stroke-width="2" />
-      <path d="M9 23V9h2.5l8 9V9H22v14h-2.5l-8-9v9Z" fill="currentColor" />
+      <path d="M1.5 3.5H27.5L30.5 6.5V28.5H4.5L1.5 25.5Z" fill="none" stroke="var(--mint)" stroke-width="1.6" />
+      <path d="M2 9H30" stroke="var(--mint)" stroke-width="1" opacity=".5" />
+      <rect x="4.5" y="5.4" width="5.5" height="2" fill="var(--magenta)" />
+      <rect x="11" y="5.4" width="5.5" height="2" fill="var(--mint)" />
+      <path d="M7 14.5L11.5 18.5L7 22.5" fill="none" stroke="var(--cyan)" stroke-width="2.6" stroke-linecap="square" />
+      <rect x="14.5" y="20.5" width="9" height="2.6" fill="var(--magenta)" />
     </svg>
     {#if !collapsed}
       <div class="wordmark">
@@ -97,7 +101,7 @@
     width: 26px;
     height: 26px;
     flex: none;
-    filter: drop-shadow(var(--glow-accent));
+    filter: drop-shadow(var(--glow));
   }
   .wordmark {
     display: flex;
