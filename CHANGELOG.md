@@ -11,6 +11,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Settings → Status page · Snapshot → Serve the phone status page** (off by default): a read-only page with every host's state, CPU, memory, fullest disk, temperature and uptime, plus active alerts and service checks. It refreshes every 30 seconds and is served by the app on this machine's LAN address, its Tailscale address or every interface, behind a secret link (masked until **Reveal link**, **New link** invalidates the old one). The page has no buttons, scripts or commands.
 - **Save snapshot…** writes the same page as one static HTML file. Host addresses are left out unless you tick them. Both are also in the command palette.
 
+### Fixed
+- **CRT scanlines** now show on macOS (the overlay used a blend mode WebKit drops) and feel alive everywhere: lines that slowly crawl, a faint rolling refresh band, a rare subtle flicker and a vignette. Motion is GPU-only; reduced motion keeps the static lines, and Reduce effects turns it off.
+
 ## [0.10.6] - 2026-11-15
 
 ### Added: backup board, proxy routes and log anomaly alerts (M10g)
