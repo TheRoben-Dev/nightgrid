@@ -175,6 +175,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Local**: `TermHandle::foreground` (PTY `process_group_leader` + `ps`), command `term_foreground`.
 - **UI**: `term/keyhints.ts` (maps, `programFromCommand`, `parseHint`, `keymapDocs`), `TermSession.command` / `hintId`, `components/terminal/KeyHints.svelte`; DRIFT gets `keymapDocs` in `guideIndex` and `HelperContext.program`.
 - **Local network discovery**: `netmap::discover_local` / `netmap_discover_local` (same script via `/bin/sh`).
+- **Device labels**: `core/src/device_labels.rs`, table `device_labels` (migration 0015, key = lower-case MAC or `ip:<addr>`, part of the profile export); commands `device_labels_list` / `device_label_save` / `device_label_delete`. `buildGraph(..., labels)` names device and router nodes; `labelLines` gives DRIFT one line per label (all on the Network view, else those the question names) as `HelperContext.devices` (D-090).
 
 ## Backups (M9)
 

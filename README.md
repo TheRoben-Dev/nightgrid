@@ -173,6 +173,7 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 5. **Terminal stress**: split right and down a few times (`Cmd+Shift+D` / `Cmd+Shift+S`), run `htop` or `fastfetch` in each, then close panes in different orders and switch tabs: every remaining pane keeps its text and fits its space. The app backdrop shows behind the text; **Settings → Terminal → Solid background** switches back.
 6. Open a terminal on a host, then click that host in the sidebar from another view: it jumps back to that terminal. Alt-click opens a second one. **+ NEW** lists your hosts; pick one with **Split right**.
 7. `Cmd+Shift+F` opens Find; Esc, **×** or the ⌕ button closes it.
+8. **Network**: scan, select a device that isn't a host, fill in **Label** (name, type, `#tags`, note) and **Save label**: the map shows the name and type. Rescan: the label sticks. With nothing selected, **Labelled devices** lists it. Ask DRIFT "what is <its address>?".
 
 ### macOS: testing M10i (network map, custom scheme, notes in DRIFT)
 

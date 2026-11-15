@@ -116,6 +116,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - **Red** lines and the ▲ count mark ways in from the internet: a public address on the host, a port forward on the router, a Funnel or a tunnel. Nightgrid finds these from your own machines and never asks an outside service. Cyan lines are the LAN, dashed lines the tailnet; a host with a dashed outline wasn't seen in the last scan.
 - Select a host to see how the internet reaches it and its listening ports. **Audit ports** (or **Audit ports on all hosts**) runs the same check as System → Security; exposed ports are marked INTERNET. **Scan from here** rescans from that host.
 - Select another device to see its address, MAC, names, services and how it was found. **Add as host** opens the host editor with the address filled in.
+- **Label** devices that aren't hosts (a TV, a phone, a printer): a name, a type, `#tags` and a note. The label follows the device by its MAC address (or its address when the scan saw no MAC), shows on the map and in **Labelled devices** (with nothing selected), is included in profile exports, and DRIFT can read it ("what is 192.168.1.44?"). The router can be labelled too. **Clear** removes a label.
 
 ## DRIFT helper
 

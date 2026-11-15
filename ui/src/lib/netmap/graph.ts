@@ -3,7 +3,7 @@
  * list, port audits (System → Security) and one discovery scan run from a
  * chosen host. Pure, so it is unit-tested without a backend.
  */
-import type { Device, Discovery, Exposure, Listener, SecurityReport } from "../api";
+import type { Device, DeviceLabel, Discovery, Exposure, Listener, SecurityReport } from "../api";
 
 export interface HostLike {
   id: number;
@@ -39,6 +39,8 @@ export interface MapNode {
   portsError?: string;
   /** Host not seen by the last scan. */
   unseen?: boolean;
+  /** The user's label for a device (or the router). */
+  named?: DeviceLabel;
 }
 
 export interface MapLink {
@@ -58,6 +60,34 @@ const isIp = (s: string) => IPV4.test(s) || s.includes(":");
 const norm = (s: string) => s.trim().toLowerCase().replace(/\.$/, "");
 /** "nas.lan", "nas.local", "NAS" → "nas" (only for names, never addresses). */
 const stem = (s: string) => (isIp(s) ? s : norm(s).split(".")[0]);
+
+/** A device's label key: its MAC when the scan saw one, else `ip:<address>` (same as core `device_labels::key_for`). */
+export function labelKey(mac: string | null | undefined, ip: string): string {
+  const m = mac?.trim();
+  return m ? m.toLowerCase().replaceAll("-", ":") : `ip:${ip.trim()}`;
+}
+
+/** Short text for a label's kind, shown on map nodes. */
+export const KIND_LABEL: Record<string, string> = {
+  other: "Other",
+  phone: "Phone",
+  tablet: "Tablet",
+  laptop: "Laptop",
+  desktop: "Desktop",
+  tv: "TV",
+  media: "Media player",
+  speaker: "Speaker",
+  console: "Game console",
+  printer: "Printer",
+  camera: "Camera",
+  iot: "Smart home",
+  nas: "NAS",
+  router: "Router",
+  ap: "Access point",
+  switch: "Switch",
+  server: "Server",
+  vm: "VM",
+};
 
 const LOCAL = /^(127\.|localhost|\[?::1\]?)/i;
 
@@ -100,6 +130,8 @@ export function buildGraph(
   disc: Discovery | null,
   /** Where the scan ran: a host id, "local" (this computer), or null. */
   scanFrom: number | "local" | null,
+  /** The user's device labels, by `labelKey`. */
+  labels: ReadonlyMap<string, DeviceLabel> = new Map(),
 ): NetGraph {
   const scanHostId = typeof scanFrom === "number" ? scanFrom : null;
   const nodes: MapNode[] = [];
@@ -166,6 +198,8 @@ export function buildGraph(
       const g = nodes.find((n) => n.id === "gw");
       if (g) {
         g.device = d;
+        g.named = labels.get(labelKey(d.mac, d.ip));
+        if (g.named?.name) g.label = g.named.name;
         if (d.names[0]) g.sub = `${gw} · ${d.names[0]}`;
       }
       continue;
@@ -180,12 +214,21 @@ export function buildGraph(
       if (net) link(net, h.id, viaTs ? "tailnet" : "lan");
       continue;
     }
-    const label = d.names[0] ?? d.ip;
+    const named = labels.get(labelKey(d.mac, d.ip)) ?? labels.get(labelKey(null, d.ip));
+    const label = named?.name || d.names[0] || d.ip;
     const n: MapNode = {
       id: `d${d.ip}`,
       kind: "device",
       label,
-      sub: d.names[0] ? d.ip : d.mac ? d.mac : seenText(d),
+      named,
+      sub:
+        named && named.kind !== "other"
+          ? `${KIND_LABEL[named.kind] ?? named.kind} · ${d.ip}`
+          : named?.name || d.names[0]
+            ? d.ip
+            : d.mac
+              ? d.mac
+              : seenText(d),
       col: 3,
       row: row++,
       ip: d.ip,
@@ -247,4 +290,39 @@ export function serviceLabel(t: string): string {
     workstation: "Workstation",
   };
   return m ? (known[m[1].toLowerCase()] ?? m[1]) : t;
+}
+
+/**
+ * Device labels as short lines for DRIFT: all of them on the Network view
+ * (up to `max`), elsewhere only those the question names (name, tag, address).
+ */
+export function labelLines(
+  labels: readonly DeviceLabel[],
+  devices: readonly Device[],
+  question: string,
+  all: boolean,
+  max = 20,
+): string[] {
+  const words = new Set(question.toLowerCase().match(/[a-z0-9.:'-]+/g) ?? []);
+  const ipOf = (l: DeviceLabel) => devices.find((d) => labelKey(d.mac, d.ip) === l.key)?.ip ?? (l.key.startsWith("ip:") ? l.key.slice(3) : null);
+  const hit = (l: DeviceLabel) => {
+    const ip = ipOf(l);
+    return (
+      (ip !== null && words.has(ip)) ||
+      l.tags.some((t) => words.has(t)) ||
+      l.name.toLowerCase().split(/\s+/).some((w) => w.length > 2 && words.has(w)) ||
+      words.has(l.key)
+    );
+  };
+  return labels
+    .filter((l) => all || hit(l))
+    .slice(0, max)
+    .map((l) => {
+      const ip = ipOf(l);
+      const kind = l.kind !== "other" ? ` (${KIND_LABEL[l.kind] ?? l.kind})` : "";
+      const where = [ip, l.key.startsWith("ip:") ? null : `MAC ${l.key}`].filter(Boolean).join(", ");
+      const tags = l.tags.length ? ` #${l.tags.join(" #")}` : "";
+      const note = l.note ? `: ${l.note.replace(/\s+/g, " ").slice(0, 200)}` : "";
+      return `${l.name || "Unnamed device"}${kind}${where ? ` [${where}]` : ""}${tags}${note}`;
+    });
 }

@@ -64,3 +64,26 @@ pub async fn backup_jobs_detect(app: AppHandle, host_id: HostId) -> SysResult<Ve
     let conn = connect_host(&app, host_id).await?;
     Ok(backup_jobs::detect(&conn).await.map_err(SystemError::other)?)
 }
+
+// Network map device labels live here too: small local config, no host access.
+
+use nightgrid_core::device_labels::DeviceLabel;
+
+#[tauri::command]
+#[specta::specta]
+pub fn device_labels_list(state: State<'_, AppState>) -> CmdResult<Vec<DeviceLabel>> {
+    Ok(state.store().list_device_labels()?)
+}
+
+/// Saves a label; returns null when every field was empty and it was removed.
+#[tauri::command]
+#[specta::specta]
+pub fn device_label_save(state: State<'_, AppState>, label: DeviceLabel) -> CmdResult<Option<DeviceLabel>> {
+    Ok(state.store().save_device_label(&label)?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn device_label_delete(state: State<'_, AppState>, key: String) -> CmdResult<()> {
+    Ok(state.store().delete_device_label(&key)?)
+}

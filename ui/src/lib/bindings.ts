@@ -343,6 +343,10 @@ export const commands = {
 	 */
 	alertsLogSamples: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<string[]>("alerts_log_samples", { key }, options),
 	backupJobsList: (options?: InvokeOptions) => __TAURI_INVOKE<BackupJob[]>("backup_jobs_list", undefined, options),
+	deviceLabelsList: (options?: InvokeOptions) => __TAURI_INVOKE<DeviceLabel[]>("device_labels_list", undefined, options),
+	/**  Saves a label; returns null when every field was empty and it was removed. */
+	deviceLabelSave: (label: DeviceLabel, options?: InvokeOptions) => __TAURI_INVOKE<DeviceLabel | null>("device_label_save", { label }, options),
+	deviceLabelDelete: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("device_label_delete", { key }, options),
 	/**  Creates (`id` = null) or updates a job. */
 	backupJobSave: (id: number | null, input: BackupJobInput, options?: InvokeOptions) => __TAURI_INVOKE<BackupJob>("backup_job_save", { id, input }, options),
 	backupJobDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("backup_job_delete", { id }, options),
@@ -971,6 +975,7 @@ export type BackupSummary_Deserialize = {
 	playbooks: number,
 	notes?: number,
 	backupJobs?: number,
+	deviceLabels?: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -991,6 +996,7 @@ export type BackupSummary_Serialize = {
 	playbooks: number,
 	notes: number,
 	backupJobs: number,
+	deviceLabels: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -1333,6 +1339,15 @@ export type DeployInput_Serialize = {
 };
 
 export type Device = Device_Serialize | Device_Deserialize;
+
+export type DeviceLabel = {
+	/**  Lower-case MAC (`aa:bb:cc:dd:ee:ff`), or `ip:<address>`. */
+	key: string,
+	name: string,
+	kind: string,
+	tags: string[],
+	note: string,
+};
 
 export type Device_Deserialize = {
 	ip: string,

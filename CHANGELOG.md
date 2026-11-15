@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 - **Terminal key hints**: a strip under the terminal shows the keys of the program in front (nano, vim, less/man, htop, top, btop, tmux, screen, watch, mc, nested ssh, and `journalctl -f` / `tail -f` / `docker logs -f`). SSH shells report the command through the session-only hook (bash, zsh, fish); local terminals ask the terminal which program is in front. Hide hints per program, or turn the strip off in **Settings → Terminal**. DRIFT knows the same keys and sees what's running.
+- **Network map labels**: name, type, tags and a note for devices that aren't hosts (TVs, phones, printers …), kept by MAC address. Labels show on the map and in a **Labelled devices** list, travel with profile exports, and DRIFT can read them.
 - **Network → Scan from → This computer** (macOS and Linux): discovery, including the ping sweep, runs on the machine Nightgrid runs on, which appears on the map as its own node.
 
 ### Changed
@@ -20,6 +21,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 - **Terminal panes going black after closing a split**: closing a pane crashed the hand-off of the terminal to the pane that stays, so that pane was left empty until the tab was reloaded. Panes now keep what they were opened with while they close.
 - **Terminal text drifting out of its columns** (garbled banners, misaligned `htop`): terminals no longer use the GPU renderer, which WebKit could blank when a pane moved; the regular renderer is used everywhere. Cells are measured again when a font finishes loading or a pane comes back on screen, fits wait for the layout to settle, and bold and accented text use bundled faces instead of synthesized ones.
+- Network discovery no longer lists loopback interfaces.
 - Network discovery works on macOS and BSD hosts: the ping sweep used a Linux-only timeout flag, and tools were wrapped in `timeout`, which macOS doesn't have.
 
 ## [0.10.9] - 2026-11-15

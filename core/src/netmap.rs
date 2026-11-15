@@ -292,6 +292,8 @@ pub fn parse_addrs(lines: &[&str]) -> Vec<Iface> {
             out.push(Iface { name: bsd_iface.clone(), addr: ip.to_string(), prefix, kind: addr_kind(&ip) });
         }
     }
+    // Loopback says nothing about the network (and every computer has it).
+    out.retain(|i| i.kind != AddrKind::Loopback);
     out
 }
 
@@ -742,7 +744,7 @@ running\n\
 @@NGNET@@ end\n";
         let d = parse_discovery(out);
         assert_eq!(d.gateway.as_deref(), Some("192.168.1.1"));
-        assert_eq!(d.ifaces.len(), 4);
+        assert_eq!(d.ifaces.len(), 3); // lo is left out
         assert_eq!(d.swept.as_deref(), Some("192.168.1.0/24"));
         let ips: Vec<&str> = d.devices.iter().map(|x| x.ip.as_str()).collect();
         assert_eq!(ips, vec!["100.64.0.9", "192.168.1.1", "192.168.1.30"]);
@@ -768,8 +770,12 @@ running\n\
 
     #[test]
     fn parses_bsd_tools() {
-        let addrs =
-            ["en0: flags=8863<UP,BROADCAST> mtu 1500", "\tinet 192.168.1.8 netmask 0xffffff00 broadcast 192.168.1.255"];
+        let addrs = [
+            "lo0: flags=8049<UP,LOOPBACK,RUNNING> mtu 16384",
+            "\tinet 127.0.0.1 netmask 0xff000000",
+            "en0: flags=8863<UP,BROADCAST> mtu 1500",
+            "\tinet 192.168.1.8 netmask 0xffffff00 broadcast 192.168.1.255",
+        ];
         let a = parse_addrs(&addrs);
         assert_eq!(
             a,

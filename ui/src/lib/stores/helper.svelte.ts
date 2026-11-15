@@ -7,8 +7,10 @@ import { guideTarget } from "../helper/guide";
 import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
 import { buildTurns, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
 import { sectionById } from "../sections";
+import { labelLines } from "../netmap/graph";
 import { keymap } from "../term/keyhints";
 import { docker } from "./docker.svelte";
+import { netmap } from "./netmap.svelte";
 import { notes } from "./notes.svelte";
 import { settings } from "./settings.svelte";
 import { system } from "./system.svelte";
@@ -214,6 +216,8 @@ class HelperStore {
     if (!q || this.busy) return;
     const ctx = { ...this.context, view: this.context.view ?? ui.section };
     if (!notes.loaded) await notes.load();
+    if (!netmap.labelsLoaded) await netmap.loadLabels();
+    ctx.devices = labelLines(netmap.labels, netmap.result?.devices ?? [], q, ctx.view === "network");
     const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, 4), ...notesIndex(notes.notes).search(q, 2)];
     const history: Turn[] = this.messages
       .filter((m) => !m.error && m.text)

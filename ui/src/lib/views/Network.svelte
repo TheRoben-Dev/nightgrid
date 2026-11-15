@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Exposure, ExposureKind, Listener, ListenScope } from "../api";
   import Toggle from "../components/Toggle.svelte";
-  import { exposureIp, seenText, serviceLabel, type MapLink, type MapNode } from "../netmap/graph";
+  import { onMount } from "svelte";
+  import { exposureIp, KIND_LABEL, labelKey, seenText, serviceLabel, type MapLink, type MapNode } from "../netmap/graph";
   import { hosts } from "../stores/hosts.svelte";
   import { netmap } from "../stores/netmap.svelte";
   import { system } from "../stores/system.svelte";
@@ -72,11 +73,72 @@
   const ago = (t: number | null) => (t ? new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
   const tsPeers = $derived(netmap.result?.devices.filter((d) => d.seen.includes("tailscale")) ?? []);
 
+  onMount(() => {
+    if (!netmap.labelsLoaded) void netmap.loadLabels();
+  });
+
+  // Label form for the selected device (or router).
+  let fName = $state("");
+  let fKind = $state("other");
+  let fTags = $state("");
+  let fNote = $state("");
+  let fKey = $state<string | null>(null);
+  let saved = $state(false);
+  const formKey = $derived(netmap.current?.device ? labelKey(netmap.current.device.mac, netmap.current.device.ip) : null);
+  $effect(() => {
+    const k = formKey;
+    if (k === fKey) return;
+    fKey = k;
+    const l = netmap.current?.named;
+    fName = l?.name ?? "";
+    fKind = l?.kind ?? "other";
+    fTags = l?.tags.map((t) => "#" + t).join(" ") ?? "";
+    fNote = l?.note ?? "";
+    saved = false;
+    netmap.labelError = null;
+  });
+  async function saveLabel() {
+    if (!fKey) return;
+    const tags = fTags.split(/[\s,]+/).filter(Boolean);
+    saved = await netmap.saveLabel({ key: fKey, name: fName, kind: fKind, tags, note: fNote });
+  }
+  const labelled = $derived(
+    netmap.labels
+      .map((l) => {
+        const d = netmap.result?.devices.find((x) => labelKey(x.mac, x.ip) === l.key);
+        return { l, ip: d?.ip ?? (l.key.startsWith("ip:") ? l.key.slice(3) : null), node: d ? `d${d.ip}` : null };
+      })
+      .sort((a, b) => (a.l.name || a.l.key).localeCompare(b.l.name || b.l.key)),
+  );
+
   function addAsHost(n: MapNode) {
     const name = n.device?.names[0]?.split(".")[0] ?? "";
     hosts.addFrom({ name, hostname: n.ip ?? "" });
   }
 </script>
+
+{#snippet labelForm()}
+  <form class="labelform" data-guide="netmap-label" onsubmit={(e) => { e.preventDefault(); void saveLabel(); }}>
+    <h4>LABEL</h4>
+    <label><span class="lbl">NAME</span><input class="input" maxlength="80" placeholder="e.g. Living room TV" bind:value={fName} oninput={() => (saved = false)} /></label>
+    <label
+      ><span class="lbl">TYPE</span>
+      <select class="input" bind:value={fKind} onchange={() => (saved = false)}>
+        {#each Object.entries(KIND_LABEL) as [k, v] (k)}<option value={k}>{v}</option>{/each}
+      </select>
+    </label>
+    <label><span class="lbl">TAGS</span><input class="input" placeholder="#media #upstairs" bind:value={fTags} oninput={() => (saved = false)} /></label>
+    <label><span class="lbl">NOTE</span><textarea class="input" rows="2" maxlength="2000" bind:value={fNote} oninput={() => (saved = false)}></textarea></label>
+    {#if netmap.labelError}<p class="err">{netmap.labelError}</p>{/if}
+    <div class="actions">
+      <button type="submit" class="btn">{saved ? "SAVED" : "SAVE LABEL"}</button>
+      {#if netmap.current?.named}
+        <button type="button" class="btn ghost" onclick={() => { if (fKey) void netmap.deleteLabel(fKey); fName = ""; fKind = "other"; fTags = ""; fNote = ""; }}>CLEAR</button>
+      {/if}
+    </div>
+    <p class="muted small">Kept on this computer and in profile exports, keyed by {fKey?.startsWith("ip:") ? "address (no MAC seen)" : "MAC address"}. DRIFT can read it.</p>
+  </form>
+{/snippet}
 
 <div class="net">
   <header class="bar">
@@ -168,7 +230,22 @@
 
     <aside class="detail" aria-label="Details">
       {#if !netmap.current}
-        <p class="muted">Select a node for details. Hosts show their listening ports once audited; unknown devices can be added as hosts.</p>
+        <p class="muted">Select a node for details. Hosts show their listening ports once audited; other devices can be labelled or added as hosts.</p>
+        {#if labelled.length}
+          <h4>LABELLED DEVICES</h4>
+          <ul class="plain labelled">
+            {#each labelled as x (x.l.key)}
+              <li>
+                {#if x.node && netmap.graph.nodes.some((n) => n.id === x.node)}
+                  <button type="button" class="linkish" onclick={() => (netmap.selected = x.node)}>{x.l.name || x.ip || x.l.key}</button>
+                {:else}
+                  <span>{x.l.name || x.ip || x.l.key}</span>
+                {/if}
+                <span class="muted">{KIND_LABEL[x.l.kind] ?? x.l.kind}{x.ip ? ` · ${x.ip}` : ""}{x.l.tags.length ? " · #" + x.l.tags.join(" #") : ""}</span>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       {:else}
         {@const n = netmap.current}
         <h3>{n.label}</h3>
@@ -183,6 +260,7 @@
           </ul>
         {:else if n.kind === "gateway"}
           {#if n.device?.mac}<p class="mono muted">MAC {n.device.mac}</p>{/if}
+          {#if n.device}{@render labelForm()}{/if}
           <p>The default route of the scanned host. Router port forwards (UPnP) are listed under <strong>Internet</strong> and on the host they land on.</p>
         {:else if n.kind === "tailnet"}
           <ul class="plain">
@@ -256,6 +334,9 @@
             {#if d.os}<dt>OS</dt><dd>{d.os}{d.online === false ? " (offline)" : ""}</dd>{/if}
             <dt>SEEN BY</dt><dd>{seenText(d)}</dd>
           </dl>
+          {#if n.named?.note}<p class="note">{n.named.note}</p>{/if}
+          {#if n.named?.tags.length}<p class="tags">{#each n.named.tags as t (t)}<span class="chip">#{t}</span>{/each}</p>{/if}
+          {@render labelForm()}
           <p class="muted">Not one of your hosts. Add it to manage it over SSH; nothing is sent to it until you connect.</p>
           <div class="actions">
             <button type="button" class="btn primary" data-guide="netmap-add-host" onclick={() => addAsHost(n)}>ADD AS HOST</button>
@@ -267,6 +348,53 @@
 </div>
 
 <style>
+  .labelform {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+  .labelform label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .labelform textarea {
+    resize: vertical;
+  }
+  .small {
+    font-size: var(--fs-xs);
+  }
+  .note {
+    white-space: pre-wrap;
+  }
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .chip {
+    padding: 0 6px;
+    border: 1px solid var(--line);
+    font-size: var(--fs-xs);
+    color: var(--cyan);
+  }
+  .labelled li {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 4px;
+  }
+  .linkish {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-0);
+    text-align: left;
+    cursor: pointer;
+    text-decoration: underline dotted;
+  }
   .net {
     display: flex;
     flex-direction: column;

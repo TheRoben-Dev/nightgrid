@@ -9,6 +9,7 @@ pub mod automation;
 pub mod backup;
 pub mod backup_jobs;
 pub mod bookmarks;
+pub mod device_labels;
 pub mod docker;
 pub mod edit_hook;
 pub mod error;

@@ -49,6 +49,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "netmap-ports", view: "network", what: "audit listening ports on every host for the map" },
   { id: "netmap-graph", view: "network", what: "network map: internet, router and tailnet, your hosts, other devices; red lines are internet-facing" },
   { id: "netmap-add-host", view: "network", what: "add a discovered device as a host (select an unknown device first)" },
+  { id: "netmap-label", view: "network", what: "label a device that isn't a host: name, type, #tags and a note (select the device first)" },
   { id: "notes-new", view: "notes", what: "write a new note or runbook" },
   { id: "notes-list", view: "notes", what: "list of notes with search, host and tag filters" },
   { id: "notes-view", view: "notes", what: "the open note; code blocks have Send to terminal and Copy" },
