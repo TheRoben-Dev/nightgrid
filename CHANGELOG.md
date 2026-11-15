@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-15
+
+### Added: automation (M8)
+- New **Automation** view (`Cmd+8`): type a command or pick a saved one, choose hosts (click a group to select all of its hosts) and **Run**. Hosts run in parallel, each with its own status, exit code, duration and live output (errors in red). **Stop** ends a run; **Select failed** re-targets the hosts that failed.
+- **Snippets**: saved commands with variables. `{{container}}` asks for a value when it runs, `{{lines=100}}` pre-fills one, and `{{host}}` / `{{hostname}}` / `{{user}}` are filled per host. A preview shows the exact command for the first host. Values are safely quoted. Snippets can be shown for all hosts, one host or a group, and can run as root.
+- **Playbooks**: steps in order (run a command, upload a file from this computer, wait until a port answers, start/stop/restart a container or pull an image), with live progress per step and stop-on-error.
+- **Root**: snippets and steps marked "run as root" use sudo like the System view. Root and passwordless hosts just run; others use their remembered sudo password or the one you type for the run (sent on stdin, never stored).
+- **Safety**: commands that delete, kill, stop, restart, reboot, upgrade or overwrite (`rm`, `docker prune`, `compose down`, `systemctl restart`, `> file`, ...) ask first, listing what was found and the hosts. On several hosts you type the group name or the number of hosts.
+- **Palette**: `Snippet: …` (aimed at the host of the terminal in front), **Type into terminal** for plain snippets, `Playbook: …`, **Run a command on several hosts**, **New snippet** and **New playbook**.
+
 ## [0.7.1] - 2026-11-15
 
 ### Added: integrations (M7)

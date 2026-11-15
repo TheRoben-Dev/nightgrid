@@ -2,6 +2,7 @@
 //! `nightgrid-core`; anything with real logic belongs in the core crate.
 
 mod alerts_cmd;
+mod automation_cmd;
 mod commands;
 mod docker_cmd;
 mod files_cmd;
@@ -126,6 +127,15 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         integrations_cmd::integration_status,
         integrations_cmd::integration_test,
         integrations_cmd::amp_instance_action,
+        automation_cmd::snippets_list,
+        automation_cmd::snippet_save,
+        automation_cmd::snippet_delete,
+        automation_cmd::playbooks_list,
+        automation_cmd::playbook_save,
+        automation_cmd::playbook_delete,
+        automation_cmd::automation_inspect,
+        automation_cmd::automation_run,
+        automation_cmd::automation_stop,
         alerts_cmd::alerts_subscribe,
         alerts_cmd::alerts_refresh,
         alerts_cmd::alerts_clear_history,

@@ -124,6 +124,12 @@ _Last updated: M2 (SFTP + editor)._
 - **App** (`app/src/integrations_cmd.rs`): CRUD with the secret in the keychain (`integration-<id>`), reveal, status, test-before-save and AMP actions.
 - **UI**: `stores/integrations.svelte.ts` (list, per-integration status entries, polling only while watched, AMP confirmation), `components/integrations/IntegrationCard.svelte` and `IntegrationEditor.svelte`; the panel lives in `views/Services.svelte`, and `docker/ContainerPanel.svelte` asks `portainerUrl()` for its link. `mockIntegrations.ts` for browser dev.
 
+## Automation (M8)
+
+- **Core** (`core/src/automation/`): `mod.rs` has snippets, playbooks and their steps with validation and store CRUD (migration 0009); `template.rs` finds and renders `{{variables}}` (shell-quoting values for commands); `danger.rs` flags destructive commands; `run.rs` runs one step on one connection (command via the sudo wrapper, SFTP upload, port wait over `direct-tcpip`, Docker command) (D-054..D-056).
+- **App** (`app/src/automation_cmd.rs`): CRUD, `automation_inspect` (variables, destructive list, preview for the first host), `automation_run` (hosts in parallel behind a semaphore, events batched onto one channel) and `automation_stop` (shares the stop switches with System runs).
+- **UI**: `stores/automation.svelte.ts` (source, targets, values, run state and event reducer, confirmation word), `views/Automation.svelte`, `components/automation/SnippetEditor.svelte` and `PlaybookEditor.svelte`; palette entries in `palette/commands.ts`; `mockAutomation.ts` for browser dev.
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.
@@ -138,7 +144,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Keyboard:** all shortcuts are defined in `DEFAULT_KEYMAP` (`ui/src/lib/keys.ts`) using `Mod` = Cmd on macOS / Ctrl elsewhere, so a rebinding UI can override them later.
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
-## Security posture (M7)
+## Security posture (M8)
 
 - CSP: `default-src 'self'`, no inline script/style, no remote origins; `connect-src` limited to Tauri IPC. Runtime `<style>` elements (xterm) are mirrored into constructable stylesheets instead of relaxing the CSP (D-013).
 - Capabilities: `core:default`, clipboard read/write text (terminal copy/paste) and `opener:allow-open-url` limited to `http(s)://` (links in terminal output) on the `main` window only. App commands are registered explicitly via tauri-specta.
@@ -152,6 +158,7 @@ _Last updated: M2 (SFTP + editor)._
 - sudo (M6): passwords go to sudo's stdin on the exec channel, never on a command line, in the environment or in logs; prompted per action by default; kept in the keychain only with the per-host "remember" (off by default) and deleted when it stops working; never cached in memory between actions. Root and NOPASSWD hosts skip the prompt. Unit stop/restart/disable confirm with the unit and host named, package upgrades list the packages, reboot needs the host name typed; all of these are logged with their targets. Unit names, journal filters and times are validated and shell-quoted.
 - Alerts (M7): background checks never open connections or prompt; SMART only runs where sudo needs no password. The webhook URL is kept in the keychain only and shown back as scheme + host; webhook requests verify certificates before sending and go only to the URL the user saved. Notifications are sent from Rust, so the webview has no notification permission. The tray only emits events; connecting still goes through the UI's normal prompts.
 - Integrations (M7): tokens and passwords live in the keychain only, masked in the editor with click to reveal; status is read only while Services is open and only from URLs the user entered; AMP stop/restart confirm with the instance named and are logged; instance names are validated; untrusted certificates are refused unless allowed per integration. Portainer is used for links only, with no token.
+- Automation (M8): runs never prompt for SSH logins or host keys (those hosts fail with a Connect button); sudo passwords typed for a run go to sudo's stdin and are dropped, never remembered from here; variable values are shell-quoted into commands; destructive commands (rule 5's list plus `>` overwrites, uploads and Docker stop/restart steps) need a confirmation naming the targets, with the group name or host count typed for several hosts; every run is logged with its hosts, never its output.
 - Tunnels: listeners default to loopback, other bind addresses are flagged as public; SOCKS has no auth for that reason. Auto-start never prompts; a host that needs a login fails with that reason. Remote-forward channels for ports nobody asked for are rejected.
 
 ## Platform notes

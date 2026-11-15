@@ -5,6 +5,7 @@
 //! thin layer of commands and events over this crate.
 
 pub mod alerts;
+pub mod automation;
 pub mod bookmarks;
 pub mod docker;
 pub mod edit_hook;

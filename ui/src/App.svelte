@@ -35,6 +35,10 @@
   import HomepageImport from "./lib/components/services/HomepageImport.svelte";
   import { services } from "./lib/stores/services.svelte";
   import Tunnels from "./lib/views/Tunnels.svelte";
+  import Automation from "./lib/views/Automation.svelte";
+  import SnippetEditor from "./lib/components/automation/SnippetEditor.svelte";
+  import PlaybookEditor from "./lib/components/automation/PlaybookEditor.svelte";
+  import { automation } from "./lib/stores/automation.svelte";
   import System from "./lib/views/System.svelte";
   import TunnelEditor from "./lib/components/tunnels/TunnelEditor.svelte";
   import { tunnels } from "./lib/stores/tunnels.svelte";
@@ -56,6 +60,7 @@
       services.start();
       tunnels.start();
       alerts.start();
+      void automation.load();
       updates.startLaunchCheck();
     });
     // Tray menu: quick connect and "open alerts".
@@ -133,7 +138,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.7.1"} />
+  <LeftRail version={info?.version ?? "0.8.0"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system"} aria-label={section.label}>
@@ -163,6 +168,8 @@
         <Services />
       {:else if section.id === "tunnels"}
         <Tunnels />
+      {:else if section.id === "automation"}
+        <Automation />
       {:else if section.id === "overview"}
         <Overview {info} />
       {:else if section.id === "settings"}
@@ -185,6 +192,8 @@
 <TunnelEditor />
 <AlertsPanel />
 <IntegrationEditor />
+<SnippetEditor />
+<PlaybookEditor />
 
 <style>
   .shell {

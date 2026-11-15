@@ -28,8 +28,8 @@
     ["M5", "Services, Homepage import, tunnels", "done"],
     ["M6", "systemd, journal, updates, SMART", "done"],
     ["M7", "Integrations, alerts, tray", "done"],
-    ["M8", "Automation", "next"],
-    ["M9", "Polish + ship", "todo"],
+    ["M8", "Automation", "done"],
+    ["M9", "Polish + ship", "next"],
   ] as const;
 </script>
 

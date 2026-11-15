@@ -154,6 +154,12 @@ export class TermSession {
     }
   }
 
+  /** Types `text` at the prompt as a bracketed paste; the user presses Enter. */
+  paste(text: string) {
+    this.term.paste(text);
+    this.focus();
+  }
+
   focus() {
     this.term.focus();
   }

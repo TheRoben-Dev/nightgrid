@@ -73,15 +73,15 @@ impl std::fmt::Debug for SudoInput {
 pub struct SystemRuns(Mutex<HashMap<u32, watch::Sender<bool>>>);
 
 impl SystemRuns {
-    fn add(&self, id: u32) -> watch::Receiver<bool> {
+    pub(crate) fn add(&self, id: u32) -> watch::Receiver<bool> {
         let (tx, rx) = watch::channel(false);
         self.0.lock().expect("poisoned").insert(id, tx);
         rx
     }
-    fn remove(&self, id: u32) {
+    pub(crate) fn remove(&self, id: u32) {
         self.0.lock().expect("poisoned").remove(&id);
     }
-    fn stop(&self, id: u32) {
+    pub(crate) fn stop(&self, id: u32) {
         if let Some(tx) = self.0.lock().expect("poisoned").get(&id) {
             let _ = tx.send(true);
         }
