@@ -4,6 +4,8 @@
   import Panel from "../components/Panel.svelte";
   import SegmentSlider from "../components/SegmentSlider.svelte";
   import Toggle from "../components/Toggle.svelte";
+  import { scramble } from "../scramble";
+  import { updates } from "../stores/updates.svelte";
   import { DEFAULT_KEYMAP, formatChord, type ActionId } from "../keys";
   import {
     METRICS_BACKGROUND_STEPS,
@@ -179,6 +181,32 @@
     <p class="muted note">Minute detail is kept for the chosen days; 15-minute averages are kept for at least 90 days.</p>
   </Panel>
 
+  <Panel title="UPDATES">
+    <div class="update-row">
+      <span class="muted">Installed</span>
+      <span class="data">v{info?.version ?? "…"}</span>
+      <button type="button" class="btn ghost" disabled={updates.checking} onclick={() => void updates.check(true)}>
+        {updates.checking ? "Checking…" : "Check now"}
+      </button>
+    </div>
+    <p class="muted note" role="status">
+      {#if updates.status?.kind === "upToDate"}You're on the latest version.
+      {:else if updates.status?.kind === "available"}v{updates.status.version} is available.
+        <button type="button" class="link" onclick={() => (updates.prompt = updates.status?.kind === "available" ? updates.status : null)}>Show</button>
+      {:else if updates.status?.kind === "notConfigured"}This build can't self-update yet (no release signing key). Download new versions from GitHub Releases.
+      {:else}Updates come from the project's GitHub Releases and are verified with a signature before installing.{/if}
+    </p>
+    {#if updates.error}<p class="error" role="alert" use:scramble={updates.error}></p>{/if}
+    <div class="toggles">
+      <Toggle
+        label="Check for updates on launch"
+        hint="One request to GitHub Releases after start-up. Nothing installs without your click."
+        checked={settings.value.updateCheck}
+        onchange={(v) => settings.update({ updateCheck: v })}
+      />
+    </div>
+  </Panel>
+
   <Panel title="KEYBINDINGS" prefix=">" count={bindings.length}>
     <table>
       <tbody>
@@ -290,6 +318,25 @@
   .note {
     margin: 10px 0 0;
     font-size: var(--fs-xs);
+  }
+  .update-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .update-row .btn {
+    margin-left: auto;
+  }
+  .data {
+    color: var(--cyan);
+  }
+  .link {
+    border: 0;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
   }
   .error {
     color: var(--danger);

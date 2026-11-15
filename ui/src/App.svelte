@@ -5,6 +5,7 @@
   import CommandPalette from "./lib/components/CommandPalette.svelte";
   import HostEditor from "./lib/components/HostEditor.svelte";
   import HostMonitor from "./lib/components/metrics/HostMonitor.svelte";
+  import UpdateDialog from "./lib/components/update/UpdateDialog.svelte";
   import SshImportDialog from "./lib/components/SshImportDialog.svelte";
   import LeftRail from "./lib/components/LeftRail.svelte";
   import StatusStrip from "./lib/components/StatusStrip.svelte";
@@ -16,6 +17,7 @@
   import { settings } from "./lib/stores/settings.svelte";
   import { hosts } from "./lib/stores/hosts.svelte";
   import { metrics } from "./lib/stores/metrics.svelte";
+  import { updates } from "./lib/stores/updates.svelte";
   import { terms } from "./lib/stores/terms.svelte";
   import { ui } from "./lib/stores/ui.svelte";
   import Overview from "./lib/views/Overview.svelte";
@@ -39,6 +41,7 @@
     settings.load().then(() => {
       booted = true;
       metrics.start();
+      updates.startLaunchCheck();
     });
     api
       .appInfo()
@@ -108,14 +111,14 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.4.1"} />
+  <LeftRail version={info?.version ?? "0.4.2"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>
-          {#key section.id}<span use:scramble>{section.label.toUpperCase()}</span>{/key}
+          <span use:scramble={section.label.toUpperCase()}></span>
         </h1>
         <span class="micro" aria-hidden="true">SEC.{section.code} · {section.milestone}</span>
       </div>
@@ -148,6 +151,7 @@
 <HostEditor />
 <SshImportDialog />
 <HostMonitor />
+<UpdateDialog />
 
 <style>
   .shell {

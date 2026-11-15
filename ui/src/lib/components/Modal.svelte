@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import { hexId } from "../hex";
+  import { scramble } from "../scramble";
 
   interface Props {
     open: boolean;
@@ -35,7 +36,7 @@
 >
   {#if open}
     <header>
-      <h2 class="label"><span class="prefix" aria-hidden="true">//</span> {title}</h2>
+      <h2 class="label"><span class="prefix" aria-hidden="true">//</span> <span use:scramble={title}></span></h2>
       <span class="hex" aria-hidden="true">{hexId(title)}</span>
       <button type="button" class="x" aria-label="Close" onclick={onclose}>×</button>
     </header>

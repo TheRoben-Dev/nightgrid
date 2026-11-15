@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scramble } from "../../scramble";
   import { onMount, tick } from "svelte";
   import type { ComposeOp, Stack } from "../../api";
   import { docker } from "../../stores/docker.svelte";
@@ -71,7 +72,7 @@
   <div class="table" role="table" aria-label="Compose stacks">
     {#if stacks.error}
       <div class="empty">
-        <p class="error-text" role="alert">{stacks.error}</p>
+        <p class="error-text" role="alert" use:scramble={stacks.error}></p>
         <button type="button" class="btn primary" onclick={() => stacks.load()}>Retry</button>
       </div>
     {:else if !stacks.loaded}
@@ -147,7 +148,7 @@
           {/if}
         </div>
       {/if}
-      {#if run.error}<p class="error-text pad" role="alert">{run.error}</p>{/if}
+      {#if run.error}<p class="error-text pad" role="alert" use:scramble={run.error}></p>{/if}
       <pre bind:this={consoleEl} onscroll={onScroll}>{run.lines.join("\n")}</pre>
     </section>
   {/if}

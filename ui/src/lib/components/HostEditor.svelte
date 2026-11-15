@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scramble } from "../scramble";
   import { untrack } from "svelte";
   import { api, errorText, type AuthMethod, type Host, type HostInput } from "../api";
   import { hosts } from "../stores/hosts.svelte";
@@ -302,7 +303,7 @@
       {/if}
     </form>
   {/if}
-  {#if error}<p class="error-text" role="alert">{error}</p>{/if}
+  {#if error}<p class="error-text" role="alert" use:scramble={error}></p>{/if}
 
   {#snippet footer()}
     {#if confirmDelete}

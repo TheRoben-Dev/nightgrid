@@ -51,6 +51,10 @@ pub struct AppSettings {
     pub metrics_background_secs: u16,
     /// Days of 1-minute history to keep (15-minute rollups are kept 90 days).
     pub metrics_retention_days: u16,
+    /// Check GitHub Releases for a newer Nightgrid on launch.
+    pub update_check: bool,
+    /// A version the user chose to skip (no launch prompt for it).
+    pub update_skip_version: Option<String>,
 }
 
 impl Default for AppSettings {
@@ -71,6 +75,8 @@ impl Default for AppSettings {
             metrics_interval_secs: 2,
             metrics_background_secs: 60,
             metrics_retention_days: 7,
+            update_check: true,
+            update_skip_version: None,
         }
     }
 }

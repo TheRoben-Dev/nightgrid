@@ -3,6 +3,7 @@
   import { formatSize } from "../../files/util";
   import { formatRate, formatUptime, metrics } from "../../stores/metrics.svelte";
   import { terms } from "../../stores/terms.svelte";
+  import { scramble } from "../../scramble";
   import HostIcon from "../HostIcon.svelte";
   import Meter from "./Meter.svelte";
   import Sparkline from "./Sparkline.svelte";
@@ -25,18 +26,22 @@
   const st = $derived(
     m.state === "ok" ? "linked" : m.state === "needsLogin" ? "login" : m.state === "offline" ? "offline" : m.state === "error" ? "error" : (ping?.state ?? "unknown"),
   );
-  const stateText = $derived(
+  // The state word decodes in when it changes; live numbers stay plain.
+  const stateWord = $derived(
     m.state === "ok"
-      ? `UP ${s ? formatUptime(s.uptimeSecs) : ""}`
+      ? "UP"
       : m.state === "needsLogin"
         ? "LOGIN NEEDED"
         : m.state === "offline"
-          ? `OFFLINE${m.retrySecs ? ` · RETRY ${m.retrySecs}S` : ""}`
+          ? "OFFLINE"
           : m.state === "error"
             ? "NO METRICS"
             : m.state === "off"
               ? "METRICS OFF"
               : "CONNECTING",
+  );
+  const stateExtra = $derived(
+    m.state === "ok" && s ? formatUptime(s.uptimeSecs) : m.state === "offline" && m.retrySecs ? `· RETRY ${m.retrySecs}S` : "",
   );
   const pct = (v: number | null | undefined) => (v == null ? "--" : `${Math.round(v)}%`);
 </script>
@@ -76,7 +81,7 @@
     {:else if m.message && m.state !== "connecting"}
       <span class="note" title={m.message}>{m.message}</span>
     {/if}
-    <span class="hstate"><i aria-hidden="true"></i>{stateText}</span>
+    <span class="hstate"><i aria-hidden="true"></i><span use:scramble={stateWord}></span>{#if stateExtra}<span>{stateExtra}</span>{/if}</span>
   </button>
   <span class="tools">
     {#if m.state === "offline" || m.state === "error"}

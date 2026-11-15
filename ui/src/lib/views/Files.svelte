@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { scramble } from "../scramble";
   import { api, errorText, type Entry } from "../api";
   import Modal from "../components/Modal.svelte";
   import Resizer from "../components/Resizer.svelte";
@@ -193,7 +194,7 @@
         <input class="input" bind:value={delTyped} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
-    {#if dlgError}<p class="error-text" role="alert">{dlgError}</p>{/if}
+    {#if dlgError}<p class="error-text" role="alert" use:scramble={dlgError}></p>{/if}
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (del = null)}>Cancel</button>
@@ -216,7 +217,7 @@
         <!-- svelte-ignore a11y_autofocus -->
         <input class="input" bind:value={nameValue} autocomplete="off" spellcheck="false" autofocus />
       </label>
-      {#if dlgError}<p class="error-text" role="alert">{dlgError}</p>{/if}
+      {#if dlgError}<p class="error-text" role="alert" use:scramble={dlgError}></p>{/if}
     </form>
   {/if}
   {#snippet footer()}

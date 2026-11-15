@@ -8,13 +8,13 @@
     /** Prefix glyph for the label: `//` for sections, `>` for lists. */
     prefix?: "//" | ">";
     count?: number;
-    /** Run the glitch reveal on the title (first open only). */
+    /** Decode the title in with the glitch effect (on by default). */
     reveal?: boolean;
     children: Snippet;
     actions?: Snippet;
   }
 
-  let { title, prefix = "//", count, reveal = false, children, actions }: Props = $props();
+  let { title, prefix = "//", count, reveal = true, children, actions }: Props = $props();
   const id = $derived(hexId(title));
 </script>
 
@@ -24,7 +24,7 @@
   <header>
     <h2 class="label">
       <span class="prefix" aria-hidden="true">{prefix}</span>
-      {#if reveal}<span use:scramble>{title}</span>{:else}<span>{title}</span>{/if}
+      {#if reveal}<span use:scramble={title}></span>{:else}<span>{title}</span>{/if}
       {#if count !== undefined}<span class="count">[{count}]</span>{/if}
     </h2>
     <div class="right">

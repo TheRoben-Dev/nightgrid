@@ -58,6 +58,9 @@ import {
   type Rate,
   type Sample_Serialize as Sample,
   type Temp,
+  type UpdateInfo,
+  type UpdateProgress_Serialize as UpdateProgress,
+  type UpdateStatus_Serialize as UpdateStatus,
 } from "./bindings";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
@@ -111,6 +114,9 @@ export type {
   Stack,
   StackDir,
   MetricsEvent,
+  UpdateInfo,
+  UpdateProgress,
+  UpdateStatus,
   MountUsage,
   MetricPoint,
   PollState,
@@ -135,6 +141,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   metricsIntervalSecs: 2,
   metricsBackgroundSecs: 60,
   metricsRetentionDays: 7,
+  updateCheck: true,
+  updateSkipVersion: null,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -142,7 +150,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.4.1-web",
+      version: "0.4.2-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -302,6 +310,13 @@ export const api = {
   metricsRetry: (hostId: number): Promise<null> => (T() ? commands.metricsRetry(hostId) : Promise.resolve(null)),
   metricsHistory: (hostId: number, from: number, to: number): Promise<MetricPoint[]> =>
     T() ? commands.metricsHistory(hostId, from, to) : mockMetrics.history(hostId, from, to),
+  updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
+  updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
+    if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));
+    const ch = new Channel<UpdateProgress>();
+    ch.onmessage = on;
+    return commands.updateInstall(ch as unknown as Parameters<typeof commands.updateInstall>[0]);
+  },
   termOpenDockerExec: (hostId: number, container: string, cols: number, rows: number, on: TermListener): Promise<TermOpen> =>
     T()
       ? commands.termOpenDockerExec(hostId, container, cols, rows, channel(on))

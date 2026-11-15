@@ -10,6 +10,7 @@ mod metrics_cmd;
 mod platform;
 mod state;
 mod term_cmd;
+mod update_cmd;
 
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
@@ -81,6 +82,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         metrics_cmd::metrics_retry,
         metrics_cmd::metrics_history,
         term_cmd::term_open_docker_exec,
+        update_cmd::update_check,
+        update_cmd::update_install,
     ])
 }
 
@@ -106,6 +109,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().pubkey(update_cmd::PUBKEY.trim()).build())
+        .manage(update_cmd::PendingUpdate::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
