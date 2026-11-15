@@ -7,6 +7,7 @@ import { layout } from "../stores/layout.svelte";
 import { metrics } from "../stores/metrics.svelte";
 import { services } from "../stores/services.svelte";
 import { isActive, tunnels } from "../stores/tunnels.svelte";
+import { system, type SystemTab } from "../stores/system.svelte";
 import { settings } from "../stores/settings.svelte";
 import { terms } from "../stores/terms.svelte";
 import { ui } from "../stores/ui.svelte";
@@ -229,6 +230,26 @@ export function buildCommands(): PaletteCommand[] {
     }),
   ];
 
-  return [...connect, ...browse, ...dockerHosts, ...tunnelCmds,
+  const systemTabs: [SystemTab, string, string[]][] = [
+    ["units", "systemd units", ["services", "systemctl", "restart"]],
+    ["journal", "journal (logs)", ["journalctl", "logs", "syslog"]],
+    ["updates", "package updates", ["apt", "dnf", "pacman", "upgrade", "reboot"]],
+    ["disks", "disk health (SMART)", ["smartctl", "smart", "drive"]],
+  ];
+  const systemCmds: PaletteCommand[] = hosts.hosts.flatMap((h) =>
+    systemTabs.map(([tab, label, keywords]) => ({
+      id: `system.${tab}.${h.id}`,
+      title: `${h.name}: ${label}`,
+      group: "SYSTEM",
+      keywords: [...keywords, h.hostname],
+      run: () => {
+        ui.go("system");
+        system.select(h.id);
+        void system.openTab(tab);
+      },
+    })),
+  );
+
+  return [...connect, ...browse, ...dockerHosts, ...tunnelCmds, ...systemCmds,
     ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...themes];
 }

@@ -31,6 +31,7 @@
   import HomepageImport from "./lib/components/services/HomepageImport.svelte";
   import { services } from "./lib/stores/services.svelte";
   import Tunnels from "./lib/views/Tunnels.svelte";
+  import System from "./lib/views/System.svelte";
   import TunnelEditor from "./lib/components/tunnels/TunnelEditor.svelte";
   import { tunnels } from "./lib/stores/tunnels.svelte";
 
@@ -120,10 +121,10 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.5.0"} />
+  <LeftRail version={info?.version ?? "0.6.0"} />
   <div class="main">
     <TopBar />
-    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker"} aria-label={section.label}>
+    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>
@@ -144,6 +145,8 @@
         <!-- rendered above -->
       {:else if section.id === "docker"}
         <div class="view-fill"><Docker /></div>
+      {:else if section.id === "system"}
+        <div class="view-fill"><System /></div>
       {:else if section.id === "services"}
         <Services />
       {:else if section.id === "tunnels"}

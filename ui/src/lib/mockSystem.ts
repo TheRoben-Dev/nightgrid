@@ -1,0 +1,241 @@
+/**
+ * Browser-only stand-in for the System view: a fake host with units, a
+ * journal, pending updates and disks. sudo "needs" a password once per
+ * action; any password works except "wrong". Used by `pnpm dev` and tests.
+ */
+import type {
+  DisksReport_Serialize as DisksReport,
+  JournalEntry_Serialize as JournalEntry,
+  JournalEvent_Serialize as JournalEvent,
+  JournalQuery_Deserialize as JournalQuery,
+  Manager,
+  RunEvent_Serialize as RunEvent,
+  SudoInput,
+  SystemInfo,
+  Unit_Serialize as Unit,
+  UnitAction,
+  UpdatesReport_Serialize as UpdatesReport,
+  UpgradeOp,
+} from "./bindings";
+
+let remembered = false;
+
+const sudoError = (retry: boolean) => ({ message: retry ? "sudo: wrong password" : "sudo needs your password", connect: null, system: { kind: "sudoRequired", retry } });
+
+function checkSudo(sudo: SudoInput | null) {
+  if (remembered && !sudo) return;
+  if (!sudo) throw sudoError(false);
+  if (sudo.password === "wrong") throw sudoError(true);
+  if (sudo.remember) remembered = true;
+}
+
+const u = (name: string, active: string, sub: string, description: string, fileState: string | null = "enabled"): Unit => ({
+  name,
+  load: "loaded",
+  active,
+  sub,
+  description,
+  fileState,
+});
+
+let units: Unit[] = [
+  u("cron.service", "active", "running", "Regular background program processing daemon"),
+  u("docker.service", "active", "running", "Docker Application Container Engine"),
+  u("fail2ban.service", "active", "running", "Fail2Ban Service"),
+  u("nginx.service", "failed", "failed", "A high performance web server and a reverse proxy server"),
+  u("rsync.service", "inactive", "dead", "", "disabled"),
+  u("smartmontools.service", "active", "running", "Self Monitoring and Reporting Technology (SMART) Daemon"),
+  u("ssh.service", "active", "running", "OpenBSD Secure Shell server"),
+  u("systemd-journald.service", "active", "running", "Journal Service", "static"),
+  u("ufw.service", "active", "exited", "Uncomplicated firewall"),
+  u("unattended-upgrades.service", "active", "running", "Unattended Upgrades Shutdown"),
+];
+
+const IDENTS = ["sshd", "dockerd", "kernel", "systemd", "nginx", "cron", "fail2ban"];
+const MESSAGES: [number, string][] = [
+  [6, "Accepted publickey for admin from 10.0.0.5 port 51234 ssh2: ED25519 SHA256:abc"],
+  [6, "Started Session 42 of User admin."],
+  [5, "container 3f2a1c exited with code 0"],
+  [4, "eth0: link is not ready"],
+  [3, "bind() to 0.0.0.0:80 failed (98: Address already in use)"],
+  [6, "(root) CMD (run-parts /etc/cron.hourly)"],
+  [4, "[sshd] Found 203.0.113.9 - 2026-11-15 00:12:01"],
+  [7, "debug: worker pool resized to 8"],
+  [2, "Out of memory: Killed process 4242 (java)"],
+];
+
+function entry(ts: number, i: number, unit: string | null): JournalEntry {
+  const [priority, message] = MESSAGES[i % MESSAGES.length];
+  const ident = IDENTS[i % IDENTS.length];
+  return { ts, priority, unit: unit ?? `${ident}.service`, ident, pid: 1000 + (i % 97), message };
+}
+
+const streams = new Map<number, ReturnType<typeof setInterval>>();
+let nextRun = 1;
+
+export const mockSystem = {
+  async info(_hostId: number): Promise<SystemInfo> {
+    return { sudo: "password", remembered };
+  },
+  async forget(_hostId: number): Promise<null> {
+    remembered = false;
+    return null;
+  },
+  async units(_hostId: number): Promise<Unit[]> {
+    return units.map((x) => ({ ...x }));
+  },
+  async unitStatus(_hostId: number, unit: string): Promise<string> {
+    const x = units.find((y) => y.name === unit);
+    if (!x) return `Unit ${unit} could not be found.`;
+    return [
+      `● ${x.name} - ${x.description || x.name}`,
+      `     Loaded: ${x.load} (/lib/systemd/system/${x.name}; ${x.fileState ?? "static"}; preset: enabled)`,
+      `     Active: ${x.active} (${x.sub}) since Sat 2026-11-14 22:01:13 UTC; 2h 11min ago`,
+      x.active === "active" ? `   Main PID: 812 (${x.name.replace(".service", "")})` : `    Process: 812 ExecStart=/usr/sbin/${x.name.replace(".service", "")} (code=exited, status=1/FAILURE)`,
+    ].join("\n");
+  },
+  async unitAction(_hostId: number, unit: string, action: UnitAction, sudo: SudoInput | null): Promise<null> {
+    checkSudo(sudo);
+    await new Promise((r) => setTimeout(r, 300));
+    units = units.map((x) => {
+      if (x.name !== unit) return x;
+      switch (action) {
+        case "start":
+        case "restart":
+        case "reload":
+          return { ...x, active: "active", sub: "running" };
+        case "stop":
+          return { ...x, active: "inactive", sub: "dead" };
+        case "enable":
+          return { ...x, fileState: "enabled" };
+        case "disable":
+          return { ...x, fileState: "disabled" };
+      }
+      return x;
+    });
+    return null;
+  },
+  async journalStart(_hostId: number, q: JournalQuery, elevated: boolean, sudo: SudoInput | null, on: (e: JournalEvent) => void): Promise<number> {
+    if (elevated) checkSudo(sudo);
+    const id = nextRun++;
+    const now = Date.now();
+    const n = Math.min(q.lines ?? 200, 2000);
+    const unit = q.unit || null;
+    const maxPrio = q.priority ?? 7;
+    const backlog = Array.from({ length: n }, (_, i) => entry(now - (n - i) * 7000, i, unit)).filter((e) => e.priority <= maxPrio);
+    setTimeout(() => {
+      if (!elevated) on({ kind: "limited" });
+      on({ kind: "entries", entries: backlog });
+      if (!q.follow) on({ kind: "end", error: null });
+    }, 120);
+    if (q.follow) {
+      let i = n;
+      streams.set(
+        id,
+        setInterval(() => {
+          const e = entry(Date.now(), i++, unit);
+          if (e.priority <= maxPrio) on({ kind: "entries", entries: [e] });
+        }, 1500),
+      );
+    }
+    return id;
+  },
+  async streamStop(run: number): Promise<null> {
+    const t = streams.get(run);
+    if (t) clearInterval(t);
+    streams.delete(run);
+    return null;
+  },
+  async updates(_hostId: number): Promise<UpdatesReport> {
+    await new Promise((r) => setTimeout(r, 400));
+    return {
+      manager: "apt",
+      updates: [
+        { name: "openssl", current: "3.0.2-0ubuntu1.17", available: "3.0.2-0ubuntu1.18", repo: "jammy-security" },
+        { name: "linux-image-generic", current: "6.8.0.48.48", available: "6.8.0.49.49", repo: "jammy-updates" },
+        { name: "docker-ce", current: "5:27.3.0-1", available: "5:27.3.1-1", repo: "jammy" },
+        { name: "tzdata", current: "2024a-0ubuntu0.22.04", available: "2024b-0ubuntu0.22.04", repo: "jammy-updates" },
+      ],
+      rebootRequired: true,
+      rebootReasons: ["updated: linux-image-6.8.0-48-generic"],
+      note: null,
+    };
+  },
+  async upgradeRun(_hostId: number, _m: Manager, op: UpgradeOp, sudo: SudoInput | null, on: (e: RunEvent) => void): Promise<number> {
+    checkSudo(sudo);
+    const id = nextRun++;
+    const lines =
+      op === "refresh"
+        ? ["Hit:1 http://archive.example/ubuntu jammy InRelease", "Get:2 http://archive.example/ubuntu jammy-updates InRelease [128 kB]", "Fetched 128 kB in 1s (210 kB/s)", "Reading package lists... Done"]
+        : [
+            "Reading package lists...",
+            "Building dependency tree...",
+            "The following packages will be upgraded:",
+            "  docker-ce linux-image-generic openssl tzdata",
+            "4 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.",
+            "Unpacking openssl (3.0.2-0ubuntu1.18) over (3.0.2-0ubuntu1.17) ...",
+            "Setting up openssl (3.0.2-0ubuntu1.18) ...",
+            "Processing triggers for man-db (2.10.2-1) ...",
+          ];
+    let i = 0;
+    const t = setInterval(() => {
+      if (i < lines.length) on({ kind: "lines", lines: [lines[i++]] });
+      else {
+        clearInterval(t);
+        on({ kind: "done", code: 0, error: null });
+      }
+    }, 250);
+    return id;
+  },
+  async reboot(_hostId: number, sudo: SudoInput | null): Promise<null> {
+    checkSudo(sudo);
+    return null;
+  },
+  async disks(_hostId: number, sudo: SudoInput | null): Promise<DisksReport> {
+    checkSudo(sudo);
+    await new Promise((r) => setTimeout(r, 300));
+    return {
+      health: "warn",
+      disks: [
+        {
+          name: "/dev/nvme0",
+          protocol: "NVMe",
+          model: "Example NVMe 1TB",
+          serial: "EX0000000003",
+          firmware: "3B2QGXA7",
+          capacity: 1000204886016,
+          rotationRpm: null,
+          passed: true,
+          tempC: 41,
+          powerOnHours: 8123,
+          health: "ok",
+          issues: [],
+          attributes: [],
+          nvme: { criticalWarning: 0, availableSpare: 100, spareThreshold: 10, percentageUsed: 7, mediaErrors: 0, errorLogEntries: 12, unsafeShutdowns: 41, bytesWritten: 63209472000000 },
+        },
+        {
+          name: "/dev/sda",
+          protocol: "ATA",
+          model: "EXAMPLE HDD 4TB",
+          serial: "EX0000000002",
+          firmware: "CC43",
+          capacity: 4000787030016,
+          rotationRpm: 5400,
+          passed: true,
+          tempC: 38,
+          powerOnHours: 42411,
+          health: "warn",
+          issues: ["8 reallocated sectors", "2 sectors pending reallocation"],
+          attributes: [
+            { id: 1, name: "Raw_Read_Error_Rate", value: 117, worst: 99, thresh: 6, raw: "148212344", failed: null, health: "ok" },
+            { id: 5, name: "Reallocated_Sector_Ct", value: 100, worst: 100, thresh: 10, raw: "8", failed: null, health: "warn" },
+            { id: 9, name: "Power_On_Hours", value: 52, worst: 52, thresh: 0, raw: "42411", failed: null, health: "ok" },
+            { id: 194, name: "Temperature_Celsius", value: 38, worst: 51, thresh: 0, raw: "38 (0 15 0 0 0)", failed: null, health: "ok" },
+            { id: 197, name: "Current_Pending_Sector", value: 100, worst: 100, thresh: 0, raw: "2", failed: null, health: "warn" },
+          ],
+          nvme: null,
+        },
+      ],
+    };
+  },
+};

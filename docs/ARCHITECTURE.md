@@ -100,6 +100,16 @@ _Last updated: M2 (SFTP + editor)._
 - **App** (`app/src/tunnels_cmd.rs`): `TunnelHub` holds one task per running tunnel (connect via the pool → serve → backoff and retry), the states, temporary forwards (negative ids) and a 1 s stats ticker. `connect_host` calls `host_connected` so auto-start tunnels follow reconnects (D-047).
 - **UI**: `stores/tunnels.svelte.ts` (states, traffic, per-second rates, `openThrough`), `views/Tunnels.svelte`, `components/tunnels/TunnelEditor.svelte`; `mockTunnels.ts` for browser dev.
 
+## System (M6)
+
+- **sudo** (`core/src/system/sudo.rs`): `probe` (uid + `sudo -n true` in one round trip), `wrap` (`sudo -S -k -p <marker> -- sh -c …`), `run` (collects output) and `stream` (per-line callback, cancel = SIGTERM + close). The password is written to the channel followed by EOF; sudo's own failures are classified into `SystemError` (D-048).
+- **systemd** (`systemd.rs`): one exec lists units and unit files and merges them; `status`; `act` runs `systemctl <verb> -- '<unit>'` as root. Unit names are validated before use.
+- **journal** (`journal.rs`): builds `journalctl -o json …` from a `JournalQuery` (unit, priority, since/until, lines, follow; all validated and quoted) and parses entries.
+- **packages** (`packages.rs`): one exec detects the manager, lists upgrades and reboot-required signals; `upgrade_command` per manager (D-049).
+- **smart** (`smart.rs`): scans and reads every disk in one root session and judges health; fixtures in `core/src/system/fixtures/`.
+- **App** (`app/src/system_cmd.rs`): `resolve_sudo` (probe → prompt input or keychain → `sudo true` check), commands for units, journal (stream with batching), updates, upgrade runs, reboot and disks. Streams share a stop switch map (`system_runs`).
+- **UI**: `stores/system.svelte.ts` (per-tab state, `withSudo` retry loop around the prompt), `views/System.svelte`, `components/system/*`; `mockSystem.ts` for browser dev.
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.
@@ -114,7 +124,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Keyboard:** all shortcuts are defined in `DEFAULT_KEYMAP` (`ui/src/lib/keys.ts`) using `Mod` = Cmd on macOS / Ctrl elsewhere, so a rebinding UI can override them later.
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
-## Security posture (M5)
+## Security posture (M6)
 
 - CSP: `default-src 'self'`, no inline script/style, no remote origins; `connect-src` limited to Tauri IPC. Runtime `<style>` elements (xterm) are mirrored into constructable stylesheets instead of relaxing the CSP (D-013).
 - Capabilities: `core:default`, clipboard read/write text (terminal copy/paste) and `opener:allow-open-url` limited to `http(s)://` (links in terminal output) on the `main` window only. App commands are registered explicitly via tauri-specta.
@@ -125,6 +135,7 @@ _Last updated: M2 (SFTP + editor)._
 - Docker: stop/restart/kill/remove confirm with the exact containers (removing several also needs the host name typed); destructive actions are logged with their targets. Env values are masked in the UI and raw JSON and never logged (bollard debug output filtered). Container references are validated before they reach a URL or shell. Compose down/restart/update confirm with the stack and host named, and are logged; stack names and paths are validated and shell-quoted. No sudo: socket permission problems surface as a docker-group hint.
 - Metrics: read-only commands only, no sudo, nothing written on the host. Background pollers never prompt for passwords or host keys; they wait for a connection the user made (D-038). History holds numbers only.
 - Services: checks are plain GETs to URLs the user entered or imported (rule 7: their own hosts); URLs with credentials are rejected; untrusted certificates count as down unless allowed per service; imported icons are never fetched. Homepage import only reads files.
+- sudo (M6): passwords go to sudo's stdin on the exec channel, never on a command line, in the environment or in logs; prompted per action by default; kept in the keychain only with the per-host "remember" (off by default) and deleted when it stops working; never cached in memory between actions. Root and NOPASSWD hosts skip the prompt. Unit stop/restart/disable confirm with the unit and host named, package upgrades list the packages, reboot needs the host name typed; all of these are logged with their targets. Unit names, journal filters and times are validated and shell-quoted.
 - Tunnels: listeners default to loopback, other bind addresses are flagged as public; SOCKS has no auth for that reason. Auto-start never prompts; a host that needs a login fails with that reason. Remote-forward channels for ports nobody asked for are rejected.
 
 ## Platform notes

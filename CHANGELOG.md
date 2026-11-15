@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-15
+
+### Added: system management (M6)
+- New **System** view (`Cmd+7`) per host with four tabs:
+  - **Units**: every systemd service with its state and whether it starts at boot. Filter by active, failed or inactive. Select one for its `systemctl status` and **Start / Stop / Restart / Reload / Enable / Disable**; **Logs** jumps to its journal.
+  - **Journal**: `journalctl` with unit, level (e.g. "WARN and worse"), time range and backlog size, following new lines live, with colour by priority and a find box. If you can only see your own entries, **Read with sudo** shows everything.
+  - **Updates**: upgradable packages for apt, dnf or pacman with installed and new versions (security updates highlighted), a **REBOOT REQUIRED** flag with the reason, **Refresh lists** (apt), **Upgrade all** with live output, and **Reboot**.
+  - **Disks**: SMART health from `smartctl` for every disk (SATA, SAS, NVMe): model, size, temperature, power-on time, NVMe wear and data written, plus a WARNING/FAILING badge with the reasons (reallocated or pending sectors, failed attributes, worn-out flash, overheating). **Details** shows the full attribute table.
+- **sudo prompt**: actions that need root ask for your sudo password each time. It's sent to sudo on its standard input, never on a command line. Tick **Remember for this host** to keep it in the OS keychain (off by default); **Forget sudo password** removes it. Hosts where you're root or have passwordless sudo never ask.
+- Stop, restart and disable confirm with the unit and host named, upgrades list the packages first, and a reboot needs the host name typed.
+- The palette has **<host>: systemd units / journal / package updates / disk health** for every host.
+
+### Changed
+- Shortcuts: **Automation** moved to `Cmd+8` to make room for **System** on `Cmd+7`.
+
 ## [0.5.0] - 2026-11-15
 
 ### Added: services board (M5)

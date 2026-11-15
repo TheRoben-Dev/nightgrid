@@ -10,6 +10,7 @@ mod metrics_cmd;
 mod platform;
 mod services_cmd;
 mod state;
+mod system_cmd;
 mod term_cmd;
 mod tunnels_cmd;
 mod update_cmd;
@@ -103,6 +104,17 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         tunnels_cmd::tunnel_start,
         tunnels_cmd::tunnel_stop,
         tunnels_cmd::tunnel_open_temporary,
+        system_cmd::system_info,
+        system_cmd::system_sudo_forget,
+        system_cmd::system_units,
+        system_cmd::system_unit_status,
+        system_cmd::system_unit_action,
+        system_cmd::system_journal_start,
+        system_cmd::system_stream_stop,
+        system_cmd::system_updates,
+        system_cmd::system_upgrade_run,
+        system_cmd::system_reboot,
+        system_cmd::system_disks,
         update_cmd::update_check,
         update_cmd::update_install,
     ])

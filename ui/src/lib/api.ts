@@ -79,6 +79,24 @@ import {
   type TunnelState,
   type TunnelKind,
   type StatsView as TunnelTraffic,
+  type DisksReport_Serialize as DisksReport,
+  type Disk_Serialize as Disk,
+  type Health,
+  type JournalEntry_Serialize as JournalEntry,
+  type JournalEvent_Serialize as JournalEvent,
+  type JournalQuery_Deserialize as JournalQuery,
+  type Manager as PackageManager,
+  type PackageUpdate_Serialize as PackageUpdate,
+  type RunEvent_Serialize as RunEvent,
+  type SmartAttr_Serialize as SmartAttr,
+  type SudoInput,
+  type SudoState,
+  type SystemError,
+  type SystemInfo,
+  type Unit_Serialize as Unit,
+  type UnitAction,
+  type UpdatesReport_Serialize as UpdatesReport,
+  type UpgradeOp,
 } from "./bindings";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
@@ -86,6 +104,7 @@ import { mockFiles } from "./mockFiles";
 import { mockMetrics } from "./mockMetrics";
 import { mockServices } from "./mockServices";
 import { mockTunnels } from "./mockTunnels";
+import { mockSystem } from "./mockSystem";
 
 export type {
   AppInfo,
@@ -153,6 +172,24 @@ export type {
   TunnelState,
   TunnelKind,
   TunnelTraffic,
+  DisksReport,
+  Disk,
+  Health,
+  JournalEntry,
+  JournalEvent,
+  JournalQuery,
+  PackageManager,
+  PackageUpdate,
+  RunEvent,
+  SmartAttr,
+  SudoInput,
+  SudoState,
+  SystemError,
+  SystemInfo,
+  Unit,
+  UnitAction,
+  UpdatesReport,
+  UpgradeOp,
   UpdateProgress,
   UpdateStatus,
   MountUsage,
@@ -190,7 +227,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.5.0-web",
+      version: "0.6.0-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -386,6 +423,37 @@ export const api = {
   tunnelStop: (id: number): Promise<null> => (T() ? commands.tunnelStop(id) : mockTunnels.stop(id)),
   tunnelOpenTemporary: (hostId: number, destHost: string, destPort: number): Promise<number> =>
     T() ? commands.tunnelOpenTemporary(hostId, destHost, destPort) : mockTunnels.openTemporary(hostId, destHost, destPort),
+  systemInfo: (hostId: number): Promise<SystemInfo> => (T() ? commands.systemInfo(hostId) : mockSystem.info(hostId)),
+  systemSudoForget: (hostId: number): Promise<null> => (T() ? commands.systemSudoForget(hostId) : mockSystem.forget(hostId)),
+  systemUnits: (hostId: number): Promise<Unit[]> => (T() ? commands.systemUnits(hostId) : mockSystem.units(hostId)),
+  systemUnitStatus: (hostId: number, unit: string): Promise<string> =>
+    T() ? commands.systemUnitStatus(hostId, unit) : mockSystem.unitStatus(hostId, unit),
+  systemUnitAction: (hostId: number, unit: string, action: UnitAction, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.systemUnitAction(hostId, unit, action, sudo) : mockSystem.unitAction(hostId, unit, action, sudo),
+  systemJournalStart: (
+    hostId: number,
+    query: JournalQuery,
+    elevated: boolean,
+    sudo: SudoInput | null,
+    on: (e: JournalEvent) => void,
+  ): Promise<number> => {
+    if (!T()) return mockSystem.journalStart(hostId, query, elevated, sudo, on);
+    const ch = new Channel<JournalEvent>();
+    ch.onmessage = on;
+    return commands.systemJournalStart(hostId, query, elevated, sudo, ch as unknown as Parameters<typeof commands.systemJournalStart>[4]);
+  },
+  systemStreamStop: (run: number): Promise<null> => (T() ? commands.systemStreamStop(run) : mockSystem.streamStop(run)),
+  systemUpdates: (hostId: number): Promise<UpdatesReport> => (T() ? commands.systemUpdates(hostId) : mockSystem.updates(hostId)),
+  systemUpgradeRun: (hostId: number, manager: PackageManager, op: UpgradeOp, sudo: SudoInput | null, on: (e: RunEvent) => void): Promise<number> => {
+    if (!T()) return mockSystem.upgradeRun(hostId, manager, op, sudo, on);
+    const ch = new Channel<RunEvent>();
+    ch.onmessage = on;
+    return commands.systemUpgradeRun(hostId, manager, op, sudo, ch as unknown as Parameters<typeof commands.systemUpgradeRun>[4]);
+  },
+  systemReboot: (hostId: number, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.systemReboot(hostId, sudo) : mockSystem.reboot(hostId, sudo),
+  systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
+    T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));
@@ -406,6 +474,15 @@ export function dockerError(e: unknown): { connect: ConnectError | null; docker:
     return { connect: o.connect ?? null, docker: o.docker ?? null };
   }
   return { connect: null, docker: null };
+}
+
+/** The structured parts of a rejected system command, when present. */
+export function systemError(e: unknown): { connect: ConnectError | null; system: SystemError | null } {
+  if (e && typeof e === "object") {
+    const o = e as { connect?: ConnectError | null; system?: SystemError | null };
+    return { connect: o.connect ?? null, system: o.system ?? null };
+  }
+  return { connect: null, system: null };
 }
 
 /** The structured parts of a rejected file command, when present. */
