@@ -24,6 +24,7 @@ use nightgrid_core::system::sudo::{self, Stream, SudoAuth, SudoState};
 use nightgrid_core::system::systemd::{self, Unit, UnitAction};
 use nightgrid_core::system::vms::{self, VmAction, VmKind, VmReport};
 use nightgrid_core::system::SystemError;
+use nightgrid_core::timeline::{EventKind, Level};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::ipc::Channel;
@@ -257,7 +258,20 @@ pub async fn system_unit_action(
     let conn = connect_host(&app, host_id).await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     tracing::info!(host = %host_id, unit = %unit, action = action.verb(), "unit action");
-    Ok(systemd::act(&conn, &auth, &unit, action).await?)
+    let r = systemd::act(&conn, &auth, &unit, action).await;
+    let (level, detail) = match &r {
+        Ok(()) => (Level::Info, "from Nightgrid".to_owned()),
+        Err(e) => (Level::Warn, format!("from Nightgrid, failed: {e}")),
+    };
+    crate::timeline_cmd::record(
+        &app,
+        host_id,
+        EventKind::Unit,
+        level,
+        &format!("{} {unit}", cap(action.verb())),
+        &detail,
+    );
+    Ok(r?)
 }
 
 /// What the journal channel carries.
@@ -425,6 +439,16 @@ pub async fn system_upgrade_run(
         let r = sudo::stream(&conn, &auth, &cmd, Some(cancel), &mut on_line).await;
         drop(tx);
         let _ = forward.await;
+        let (level, detail) = match &r {
+            Ok(Some(0)) => (Level::Info, "finished".to_owned()),
+            Ok(Some(c)) => (Level::Warn, format!("exit code {c}")),
+            Ok(None) => (Level::Warn, "stopped before it finished".to_owned()),
+            Err(e) => (Level::Warn, e.to_string()),
+        };
+        if op == UpgradeOp::Upgrade {
+            let title = format!("{} upgrade from Nightgrid", manager.label());
+            crate::timeline_cmd::record(&app2, host_id, EventKind::Packages, level, &title, &detail);
+        }
         let done = match r {
             Ok(code) => RunEvent::Done { code, error: None },
             Err(e) => RunEvent::Done { code: None, error: Some(e.to_string()) },
@@ -460,6 +484,14 @@ pub async fn system_power(
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
     // Noted first: the host may stop answering before the command returns.
     power::note(host_id, action.state(), format!("{} from Nightgrid", past(action)), now);
+    crate::timeline_cmd::record(
+        &app,
+        host_id,
+        EventKind::Power,
+        Level::Info,
+        &format!("{} from Nightgrid", cap(past(action))),
+        "",
+    );
     // The connection usually drops before an answer comes back.
     let r = tokio::time::timeout(std::time::Duration::from_secs(5), sudo::run(&conn, &auth, action.command())).await;
     if let Ok(Ok(o)) = &r {
@@ -471,6 +503,11 @@ pub async fn system_power(
     let state = app.state::<AppState>();
     state.pool.disconnect(host_id).await;
     Ok(())
+}
+
+fn cap(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
 }
 
 fn past(a: PowerAction) -> &'static str {
@@ -522,10 +559,26 @@ pub async fn host_wake(app: AppHandle, host_id: HostId) -> SysResult<WakeSent> {
                 let e = String::from_utf8_lossy(&err);
                 return Err(SystemError::other(format!("{}: {}", r.name, e.trim())).into());
             }
+            crate::timeline_cmd::record(
+                &app,
+                host_id,
+                EventKind::Power,
+                Level::Info,
+                "Wake-up sent",
+                &format!("via {}", r.name),
+            );
             Ok(WakeSent { via: Some(r.name), mac: power::format_mac(&mac) })
         }
         None => {
             power::wake_local(&mac, None).await.map_err(SystemError::other)?;
+            crate::timeline_cmd::record(
+                &app,
+                host_id,
+                EventKind::Power,
+                Level::Info,
+                "Wake-up sent",
+                "from this computer",
+            );
             Ok(WakeSent { via: None, mac: power::format_mac(&mac) })
         }
     }

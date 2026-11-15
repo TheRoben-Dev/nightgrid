@@ -148,6 +148,10 @@ import {
   type PowerAction,
   type WakeSent_Serialize as WakeSent,
   type HostSchedule_Serialize as HostSchedule,
+  type HostEvent,
+  type Timeline,
+  type EventKind,
+  type Level,
   type ScheduleSpec_Deserialize as ScheduleSpec,
   type ScheduledAction,
   type SshKey_Serialize as SshKey,
@@ -352,6 +356,10 @@ export type {
   PowerAction,
   WakeSent,
   HostSchedule,
+  HostEvent,
+  Timeline,
+  EventKind,
+  Level,
   ScheduleSpec,
   ScheduledAction,
   SshKey,
@@ -473,7 +481,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.15-web",
+      version: "0.10.16-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -738,6 +746,8 @@ export const api = {
     T() ? commands.powerScheduleSet(hostId, spec, sudo) : mockOps.powerScheduleSet(hostId, spec),
   powerScheduleRemove: (onHostId: number, unit: string, sudo: SudoInput | null): Promise<null> =>
     T() ? commands.powerScheduleRemove(onHostId, unit, sudo) : mockOps.powerScheduleRemove(unit),
+  timelineGet: (hostId: number, days: number): Promise<Timeline> => (T() ? commands.timelineGet(hostId, days) : mockOps.timeline(hostId, days)),
+  timelineClear: (hostId: number): Promise<null> => (T() ? commands.timelineClear(hostId) : mockOps.timelineClear(hostId)),
   keysList: (): Promise<KeyList> => (T() ? commands.keysList() : mockKeys.list()),
   keysGenerate: (name: string, comment: string, passphrase: string | null): Promise<SshKey> =>
     T() ? commands.keysGenerate(name, comment, passphrase) : mockKeys.generate(name, comment, passphrase),

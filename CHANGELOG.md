@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.16] - 2026-11-15
+
+### Added: incident timeline (M10l, part 1)
+- **System → TIMELINE** shows what happened on a host, newest first and grouped by day, for the last 24 hours, 7, 30 or 90 days. Nightgrid now records alerts firing and clearing, power actions and wake-ups, compose runs, deploys and rollbacks, container actions, unit actions, package upgrades and automation runs as they happen (kept 90 days on this computer). Opening the tab also reads the host's own history without installing anything: boots (with how long it was down), failed systemd units, kernel out-of-memory kills, apt, pacman and dnf transactions, and Docker container crashes, restarts, OOMs and health changes.
+- Filter chips (alerts, boots and power, containers and stacks, units and OOM, packages, automation, problems only) and a text filter. **✦ Summarize** asks DRIFT to explain the shown period: the incidents, likely causes, how they connect and what still needs attention.
+- **Clear recorded history…** forgets what Nightgrid recorded for a host; the host's own logs aren't touched.
+
 ## [0.10.15] - 2026-11-15
 
 ### Added: group and scheduled power (completes M10k)

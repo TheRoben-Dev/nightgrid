@@ -22,6 +22,7 @@ mod status_cmd;
 mod system_cmd;
 mod tailnet_cmd;
 mod term_cmd;
+mod timeline_cmd;
 mod tray;
 mod tunnels_cmd;
 mod update_cmd;
@@ -148,6 +149,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         keys_cmd::keys_push,
         keys_cmd::keys_remove,
         keys_cmd::keys_verify,
+        timeline_cmd::timeline_get,
+        timeline_cmd::timeline_clear,
         system_cmd::system_disks,
         integrations_cmd::integrations_list,
         integrations_cmd::integration_create,

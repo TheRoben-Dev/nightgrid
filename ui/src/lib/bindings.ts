@@ -286,6 +286,13 @@ export const commands = {
 	 *  disconnects. Proves the key works before the old one is removed.
 	 */
 	keysVerify: (hostId: number, file: string, passphrase: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("keys_verify", { hostId, file, passphrase }, options),
+	/**
+	 *  The host's timeline for the last `days` days (1–90): recorded events
+	 *  always; the host's own history and Docker's when it answers.
+	 */
+	timelineGet: (hostId: number, days: number, options?: InvokeOptions) => __TAURI_INVOKE<Timeline>("timeline_get", { hostId, days }, options),
+	/**  Forgets what Nightgrid recorded for the host (the host's own logs stay). */
+	timelineClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("timeline_clear", { hostId }, options),
 	/**  SMART health of every disk (needs root). */
 	systemDisks: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<DisksReport_Serialize>("system_disks", { hostId, sudo }, options),
 	integrationsList: (options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize[]>("integrations_list", undefined, options),
@@ -1659,6 +1666,28 @@ export type Entry_Serialize = {
 	gid: number | null,
 };
 
+export type EventKind = 
+/**  An alert fired. */
+"alert" | 
+/**  An alert cleared. */
+"recovered" | 
+/**  The host booted. */
+"boot" | 
+/**  Reboot, shutdown, suspend or wake sent from Nightgrid. */
+"power" | 
+/**  A container died, restarted, ran out of memory or turned unhealthy. */
+"container" | 
+/**  A systemd unit failed, or was started/stopped/restarted from Nightgrid. */
+"unit" | 
+/**  The kernel killed a process for memory. */
+"oom" | 
+/**  A package transaction (install, upgrade, removal). */
+"packages" | 
+/**  A compose run, deploy, snapshot or rollback. */
+"stack" | 
+/**  An automation (snippet or playbook) run. */
+"automation";
+
 export type Exposure = Exposure_Serialize | Exposure_Deserialize;
 
 export type ExposureKind = 
@@ -1943,6 +1972,16 @@ export type HomepagePreview_Serialize = {
 };
 
 export type Host = Host_Serialize | Host_Deserialize;
+
+export type HostEvent = {
+	/**  Unix seconds. */
+	at: number,
+	kind: EventKind,
+	level: Level,
+	title: string,
+	detail: string,
+	origin: Origin,
+};
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
 export type HostInput = HostInput_Serialize | HostInput_Deserialize;
@@ -2546,6 +2585,10 @@ export type KumaStatus_Serialize = {
 	down: number,
 };
 
+export type Level = "info" | 
+/**  Something went back to normal. */
+"ok" | "warn" | "critical";
+
 /**  One listening socket. */
 export type Listener = Listener_Serialize | Listener_Deserialize;
 
@@ -2779,6 +2822,13 @@ export type NvmeHealth = {
 	unsafeShutdowns: number,
 	bytesWritten: number,
 };
+
+/**  Where an entry came from. */
+export type Origin = 
+/**  Recorded by Nightgrid. */
+"nightgrid" | 
+/**  Read from the host's own logs. */
+"host";
 
 export type OutLine = {
 	stream: OutStream,
@@ -3961,6 +4011,14 @@ export type TextFile_Serialize = {
 	path: string,
 	content: string,
 	stat: Entry_Serialize,
+};
+
+export type Timeline = {
+	events: HostEvent[],
+	/**  What couldn't be read (journal permissions, Docker, an offline host). */
+	notes: string[],
+	/**  Unix seconds the timeline starts at. */
+	since: number,
 };
 
 /**  One systemd timer. */

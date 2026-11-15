@@ -18,6 +18,7 @@ use nightgrid_core::files::Fs;
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::ssh::client::ConnectError;
 use nightgrid_core::stack_dirs::{valid_stack_dir, StackDir, StackDirId};
+use nightgrid_core::timeline::{EventKind, Level};
 use serde::Serialize;
 use specta::Type;
 use tauri::ipc::Channel;
@@ -123,6 +124,10 @@ pub async fn docker_action(
     if action.is_destructive() {
         tracing::info!(host = %host_id, action = action.verb(), targets = ?ids, "docker action");
     }
+    // Names for the timeline (ids mean nothing there); looked up first since
+    // a removed container is gone afterwards.
+    let known: std::collections::HashMap<String, String> =
+        d.containers().await.map(|l| l.into_iter().map(|c| (c.id, c.name)).collect()).unwrap_or_default();
     let runs = ids.into_iter().map(|id| {
         let d = d.clone();
         async move {
@@ -130,7 +135,55 @@ pub async fn docker_action(
             ActionResult { id, error }
         }
     });
-    Ok(futures_util::future::join_all(runs).await)
+    let results = futures_util::future::join_all(runs).await;
+    let failed = results.iter().filter(|r| r.error.is_some()).count();
+    let names: Vec<&str> = results
+        .iter()
+        .map(|r| {
+            known
+                .get(&r.id)
+                .or_else(|| known.iter().find(|(k, _)| k.starts_with(&r.id)).map(|(_, v)| v))
+                .unwrap_or(&r.id)
+                .as_str()
+        })
+        .take(6)
+        .collect();
+    let mut title = format!("{} {}", cap(action.verb()), names.join(", "));
+    if results.len() > names.len() {
+        title.push_str(&format!(" and {} more", results.len() - names.len()));
+    }
+    let (level, detail) = if failed == 0 {
+        (Level::Info, "from Nightgrid".to_owned())
+    } else {
+        (Level::Warn, format!("from Nightgrid, {failed} failed"))
+    };
+    crate::timeline_cmd::record(&app, host_id, EventKind::Container, level, &title, &detail);
+    Ok(results)
+}
+
+fn cap(s: &str) -> String {
+    let mut c = s.chars();
+    c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+}
+
+fn compose_word(op: ComposeOp) -> &'static str {
+    match op {
+        ComposeOp::Up => "Started",
+        ComposeOp::Pull => "Pulled images for",
+        ComposeOp::Restart => "Restarted",
+        ComposeOp::Down => "Took down",
+        ComposeOp::Update => "Updated",
+    }
+}
+
+/// What a finished compose run puts on the timeline.
+fn stack_outcome(code: Option<i32>, error: Option<&str>) -> (Level, String) {
+    match (code, error) {
+        (_, Some(e)) => (Level::Warn, format!("failed: {e}")),
+        (Some(0), None) => (Level::Info, "from Nightgrid".into()),
+        (Some(c), None) => (Level::Warn, format!("from Nightgrid, exit code {c}")),
+        (None, None) => (Level::Warn, "from Nightgrid, didn't finish".into()),
+    }
 }
 
 #[tauri::command]
@@ -297,6 +350,15 @@ pub async fn docker_compose_run(
             Ok((code, changes)) => ComposeEvent::Done { code: Some(code), changes, error: None },
             Err(e) => ComposeEvent::Done { code: None, changes: None, error: Some(e.to_string()) },
         };
+        if let ComposeEvent::Done { code, changes, error } = &done {
+            let (level, mut detail) = stack_outcome(*code, error.as_deref());
+            if let Some(c) = changes.as_ref().filter(|c| !c.is_empty()) {
+                let names: Vec<&str> = c.iter().map(|x| x.service.as_str()).collect();
+                detail.push_str(&format!("; new images: {}", names.join(", ")));
+            }
+            let title = format!("{} stack {}", compose_word(op), stack.name);
+            crate::timeline_cmd::record(&app2, host_id, EventKind::Stack, level, &title, &detail);
+        }
         let _ = on_event.send(done);
         app2.state::<AppState>().compose_runs.lock().expect("poisoned").remove(&run_id);
     });
@@ -382,10 +444,16 @@ pub async fn docker_stack_rollback(
             },
             Ok(_) => {
                 sink(vec!["Saved the current state as a snapshot first.".into()]);
-                match d.rollback(&stack, &snap, rx, &mut sink).await {
+                let done = match d.rollback(&stack, &snap, rx, &mut sink).await {
                     Ok(code) => ComposeEvent::Done { code: Some(code), changes: None, error: None },
                     Err(e) => ComposeEvent::Done { code: None, changes: None, error: Some(e.to_string()) },
+                };
+                if let ComposeEvent::Done { code, error, .. } = &done {
+                    let (level, detail) = stack_outcome(*code, error.as_deref());
+                    let title = format!("Rolled back stack {} to snapshot #{}", stack.name, snap.id);
+                    crate::timeline_cmd::record(&app2, host_id, EventKind::Stack, level, &title, &detail);
                 }
+                done
             }
         };
         let _ = on_event.send(done);
@@ -485,6 +553,8 @@ pub async fn docker_stack_deploy(app: AppHandle, host_id: HostId, input: DeployI
     if let Err(msg) = d.validate_stack(&stack).await? {
         return Err(DockerCmdError::msg(format!("compose.yaml was saved, but docker compose rejects it:\n{msg}")));
     }
+    let title = format!("Deployed stack files for {}", stack.name);
+    crate::timeline_cmd::record(&app, host_id, EventKind::Stack, Level::Info, &title, &stack.dir);
     Ok(stack)
 }
 
