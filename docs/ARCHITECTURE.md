@@ -225,6 +225,12 @@ _Last updated: M2 (SFTP + editor)._
 - **Alerts** (`alerts_cmd.rs`): source `fill` every loop from the local table; source `pool` every 30 minutes per connected host; settings `diskForecast`, `forecastDays`, `poolDegraded`.
 - **UI**: `components/fleet/DiskHealth.svelte`, `fleet.checkDisks` / `checkDisksHost` (forecasts, then pools, then SMART with `sudo: null`), helpers in `fleet.ts` (`fillText`, `rateText`, `sparkPath`, `diskRows`, `disksText`) (D-103).
 
+## Fleet: backup test restore (M10m)
+
+- **Core** (`core/src/backup_restore.rs`, migration 0021 adds `tested_at`, `test_ok`, `test_note` to `backup_jobs`): `unsupported`, `test_command` (one root `sh` script: prelude with a `mktemp` folder and an exit trap, the unit's environment via `systemctl show -p EnvironmentFiles/Environment/User` and `runuser`, then the restic, borg or copy step, then the check; it prints `@step`/`@snap`/`@file`/`@ok`/`@fail`), `parse_test` → `RestoreTest`, `note`, `Store::backup_test_save` / `backup_tests`.
+- **App** (`backup_jobs_cmd.rs`): `backup_test_restore(job_id, sudo)` (resolve_sudo, `sudo::run` with a 20-minute limit, saves the result) and `backup_tests_list`.
+- **UI**: the board (`components/system/BackupsPanel.svelte`) now renders in `views/Fleet.svelte` (tab BACKUPS, `fleet.openBackups`); `backups.testRestore` goes through `system.withSudo(…, host)`, and `SudoPrompt` names that host (D-104).
+
 ## SSH key manager (M10k)
 
 - **Core** (`core/src/ssh/keys.rs`, D-097): `SshKey`, `scan_dir`, `agent_keys`, `merge_agent`, `generate` (ed25519, optional passphrase, never overwrites), `AuthorizedKey` / `parse_authorized` / `find_authorized`, and the shell commands `READ_AUTHORIZED`, `add_command`, `remove_command` (+ `parse_removed`).

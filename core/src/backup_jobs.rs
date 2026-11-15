@@ -1,8 +1,10 @@
 //! Backup status board (M10g): restic, borg, rsync and rclone jobs per host,
 //! with last run, size, result and a "stale" flag.
 //!
-//! Nightgrid doesn't run backups or open repositories (that would need the
-//! repository password). A job points at something the host already has:
+//! Nightgrid doesn't run backups, and the board doesn't open repositories
+//! (that would need the repository password; the on-request test restore in
+//! `backup_restore` does it on the host with the unit's own environment). A
+//! job points at something the host already has:
 //!
 //! - a **systemd unit** (the timer or the service it starts): the last run,
 //!   exit status and the run's journal output, where restic, borg, rsync and

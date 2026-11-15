@@ -21,11 +21,10 @@ import {
   type UpdatesReport,
   type UpgradeOp,
 } from "../api";
-import { backups } from "./backups.svelte";
 import { hosts } from "./hosts.svelte";
 import { vms } from "./vms.svelte";
 
-export type SystemTab = "units" | "journal" | "schedules" | "timeline" | "config" | "security" | "updates" | "disks" | "vms" | "backups";
+export type SystemTab = "units" | "journal" | "schedules" | "timeline" | "config" | "security" | "updates" | "disks" | "vms";
 export type UnitFilter = "all" | "running" | "failed" | "inactive";
 
 /** Journal rows kept in memory; older ones scroll off. */
@@ -124,7 +123,8 @@ class SystemStore {
   notice = $state<{ text: string; tone: "ok" | "err" } | null>(null);
 
   /** Open sudo prompt: what it's for, and whether the last try failed. */
-  sudoAsk = $state<{ reason: string; retry: boolean } | null>(null);
+  /** `host` names the target when it isn't the selected host (Fleet). */
+  sudoAsk = $state<{ reason: string; retry: boolean; host?: string } | null>(null);
   private sudoResolve: ((v: SudoInput | null) => void) | null = null;
 
   units = $state<Unit[]>([]);
@@ -236,7 +236,6 @@ class SystemStore {
     else if (tab === "security" && !this.security) await this.loadSecurity();
     else if (tab === "updates" && !this.updates) await this.checkUpdates();
     else if (tab === "vms" && (!vms.report || vms.hostId !== this.hostId) && !vms.loading) await vms.load();
-    else if (tab === "backups" && !backups.loaded) await backups.load().then(() => backups.checkAll());
     else if (tab === "disks" && !this.disks && !this.sudoNeedsPassword && this.info) await this.loadDisks();
   }
 
@@ -267,9 +266,9 @@ class SystemStore {
 
   // ---- sudo -------------------------------------------------------------
 
-  askSudo(reason: string, retry: boolean): Promise<SudoInput | null> {
+  askSudo(reason: string, retry: boolean, host?: string): Promise<SudoInput | null> {
     this.sudoResolve?.(null);
-    this.sudoAsk = { reason, retry };
+    this.sudoAsk = { reason, retry, host };
     return new Promise((resolve) => (this.sudoResolve = resolve));
   }
 
@@ -285,18 +284,18 @@ class SystemStore {
    * and asks for the sudo password when the host wants it. Rejects with
    * "Cancelled" if the prompt is dismissed.
    */
-  async withSudo<T>(reason: string, f: (sudo: SudoInput | null) => Promise<T>): Promise<T> {
+  async withSudo<T>(reason: string, f: (sudo: SudoInput | null) => Promise<T>, host?: string): Promise<T> {
     let sudo: SudoInput | null = null;
     for (;;) {
       try {
         const r = await f(sudo);
-        if (sudo?.remember && this.info) this.info = { ...this.info, remembered: true };
+        if (!host && sudo?.remember && this.info) this.info = { ...this.info, remembered: true };
         return r;
       } catch (e) {
         const { system } = systemError(e);
         if (system?.kind !== "sudoRequired") throw e;
-        if (this.info?.remembered && !sudo) this.info = { ...this.info, remembered: false };
-        sudo = await this.askSudo(reason, system.retry || sudo !== null);
+        if (!host && this.info?.remembered && !sudo) this.info = { ...this.info, remembered: false };
+        sudo = await this.askSudo(reason, system.retry || sudo !== null, host);
         if (!sudo) throw new Error("Cancelled.", { cause: e });
       }
     }

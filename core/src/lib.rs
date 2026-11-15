@@ -8,6 +8,7 @@ pub mod alerts;
 pub mod automation;
 pub mod backup;
 pub mod backup_jobs;
+pub mod backup_restore;
 pub mod bookmarks;
 pub mod confdiff;
 pub mod device_labels;

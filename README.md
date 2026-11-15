@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.20 (backup monitor with test restores)
+
+1. **Fleet → BACKUPS** shows the board that used to be under System. Pick a host, **Find jobs**, and add a restic or borg systemd timer.
+2. **Test restore** → **Run test restore**: enter the sudo password if asked. After a few seconds **RESTORE TEST PASSED** names the file, the snapshot and the SHA-256. On the host, `ls /tmp | grep nightgrid-restore` shows nothing left behind. The row now says "✓ restore tested just now".
+3. Break it on a test job (point the unit's `RESTIC_PASSWORD_FILE` at a wrong file): the test fails with restic's own message, and the row turns red.
+4. A path job for an rsync target folder: **Test restore** copies one file and compares checksums. An rclone job's button is disabled and explains why.
+
 ### macOS: testing 0.10.19 (disk health and forecast)
 
 1. **Fleet → DISKS**: every host lists its mounts with usage and growth. A host that was just added says the forecast is still learning. After a day or more of monitoring, mounts show "+X GB/day" and "full in about N days" (or "not growing").

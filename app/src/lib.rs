@@ -220,6 +220,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         backup_jobs_cmd::backup_job_delete,
         backup_jobs_cmd::backup_jobs_check,
         backup_jobs_cmd::backup_jobs_detect,
+        backup_jobs_cmd::backup_tests_list,
+        backup_jobs_cmd::backup_test_restore,
         system_cmd::system_vms,
         system_cmd::netmap_discover,
         system_cmd::netmap_discover_local,

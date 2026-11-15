@@ -2,10 +2,12 @@
   /**
    * Backup status board (M10g): restic / borg / rsync / rclone jobs on every
    * host with last run, size, result and a stale flag. Jobs point at a
-   * systemd unit or a path; nothing here opens a repository or runs a backup.
+   * systemd unit or a path. Nothing here runs a backup; a test restore (M10m)
+   * opens the repository only when started, as root on the host.
    */
   import type { BackupJob, BackupStatus } from "../../api";
-  import { backups, bytes, jobState, staleWords, TOOL_LABEL, type JobState } from "../../stores/backups.svelte";
+  import { backups, bytes, jobState, staleWords, testUnsupported, TOOL_LABEL, type JobState } from "../../stores/backups.svelte";
+  import { ui } from "../../stores/ui.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { system } from "../../stores/system.svelte";
   import Modal from "../Modal.svelte";
@@ -74,6 +76,10 @@
   }
 
   const e = $derived(backups.editing);
+  let detectPick = $state<number | null>(null);
+  const detectId = $derived(detectPick ?? system.hostId ?? hosts.hosts[0]?.id ?? null);
+  const tr = $derived(backups.testResult);
+  const trJob = $derived(tr ? backups.jobs.find((j) => j.id === tr.jobId) : undefined);
   const detectFor = $derived(backups.detectHost === null ? "" : hostName(backups.detectHost));
 </script>
 
@@ -86,10 +92,13 @@
     </span>
     <span class="spacer"></span>
     {#if backups.jobs.length}<ExplainButton source="backup board" text={explainText} question="Are my backups healthy? What's failing or stale, and what should I check first?" />{/if}
-    <button type="button" class="btn ghost tiny" data-guide="backups-detect" disabled={backups.detecting || system.hostId === null} onclick={() => system.hostId !== null && backups.detect(system.hostId)}
-      >{backups.detecting ? "Looking…" : `Find jobs on ${system.host?.name ?? "host"}`}</button
+    <select class="input tiny-select" aria-label="Host to search for backup jobs" value={detectId ?? ""} onchange={(ev) => (detectPick = Number(ev.currentTarget.value))}>
+      {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
+    </select>
+    <button type="button" class="btn ghost tiny" data-guide="backups-detect" disabled={backups.detecting || detectId === null} onclick={() => detectId !== null && backups.detect(detectId)}
+      >{backups.detecting ? "Looking…" : "Find jobs"}</button
     >
-    <button type="button" class="btn ghost tiny" data-guide="backups-add" onclick={() => backups.edit(null, system.hostId ?? undefined)}>+ Add job</button>
+    <button type="button" class="btn ghost tiny" data-guide="backups-add" onclick={() => backups.edit(null, detectId ?? undefined)}>+ Add job</button>
     <button type="button" class="btn ghost tiny" disabled={backups.checking || !backups.jobs.length} onclick={() => backups.checkAll()}>{backups.checking ? "Checking…" : "Check all"}</button>
   </div>
 
@@ -135,10 +144,13 @@
           {#each g.jobs as j (j.id)}
             {@const s = backups.status[j.id]}
             {@const st = jobState(s)}
+            {@const lt = backups.tests[j.id]}
+            {@const why = testUnsupported(j)}
             <div class="row {st}" role="row">
               <span class="name">
                 <span><span class="tool">{TOOL_LABEL[j.tool]}</span> {j.name}</span>
                 <code class="muted small" title={j.target}>{j.source === "unit" ? "unit" : "path"} {j.target}</code>
+                {#if lt}<span class="tested small" class:bad={!lt.ok} title={lt.note}>{lt.ok ? "✓ restore tested" : "✗ restore test failed"} {rel(lt.at)}</span>{/if}
               </span>
               <span class="state">
                 <span class="badge {st}" title={st === "stale" ? `No good run in the last ${staleWords(j.staleHours)}` : (s?.error ?? "")}>{STATE_WORD[st]}</span>
@@ -151,8 +163,17 @@
               </span>
               <span class="size">{sizeText(s)}</span>
               <span class="acts">
+                <button
+                  type="button"
+                  class="btn ghost tiny"
+                  data-guide="backups-test"
+                  title={why ?? "Restore one file from the latest backup into a temporary folder and check it"}
+                  disabled={!!why || backups.testing.includes(j.id)}
+                  onclick={() => (backups.confirmTest = j)}>{backups.testing.includes(j.id) ? "Testing…" : "Test restore"}</button
+                >
                 {#if j.source === "unit"}<button type="button" class="btn ghost tiny" title="Journal of this unit" onclick={() => {
                       system.select(j.hostId);
+                      ui.go("system");
                       void system.showJournal(j.target.endsWith(".timer") ? j.target.replace(/\.timer$/, ".service") : j.target);
                     }}>Journal</button
                   >{/if}
@@ -165,7 +186,7 @@
     {/each}
     {#if backups.jobs.length}
       <p class="muted small note">
-        Read-only: Nightgrid never opens a repository or runs a backup. Sizes come from the last run's output (restic, borg <code>--stats</code>, rsync <code>--stats</code> or <code>-v</code>, rclone) or from
+        The board is read-only: Nightgrid never runs a backup, and opens a repository only for a <strong>Test restore</strong> you start (as root, with the unit's own environment, into a temporary folder it deletes). Sizes come from the last run's output (restic, borg <code>--stats</code>, rsync <code>--stats</code> or <code>-v</code>, rclone) or from
         <code>du</code> for paths. Journal lines may need the login to be in the <code>systemd-journal</code> or <code>adm</code> group.
       </p>
     {/if}
@@ -234,6 +255,48 @@
     <span class="spacer"></span>
     <button type="button" class="btn ghost" onclick={() => (backups.editing = null)}>Cancel</button>
     <button type="button" class="btn primary" disabled={!e?.input.name.trim() || !e?.input.target.trim()} onclick={() => void backups.save()}>Save</button>
+  {/snippet}
+</Modal>
+
+<Modal open={!!backups.confirmTest} title="TEST RESTORE" width={520} onclose={() => (backups.confirmTest = null)}>
+  {#if backups.confirmTest}
+    {@const j = backups.confirmTest}
+    <p>Restore one file from the latest backup of <strong>{j.name}</strong> on <strong>{hostName(j.hostId)}</strong> and check it?</p>
+    <p class="muted">
+      {#if j.tool === "restic" || j.tool === "borg"}
+        Nightgrid picks a random file under 20 MB from the latest {j.tool === "restic" ? "snapshot" : "archive"}, restores it into a new folder under <code>/tmp</code>, compares its size with
+        the backup's listing and deletes the folder. It runs as root{j.source === "unit" ? " with the unit's own environment and user, so the repository password stays on the host" : ""}.
+        Nothing in the repository or the live files changes.
+      {:else}
+        Nightgrid copies a random file under 20 MB from <code>{j.target}</code> into a new folder under <code>/tmp</code>, compares checksums and deletes the folder. It runs as root.
+      {/if}
+    </p>
+  {/if}
+  {#snippet footer()}
+    <button type="button" class="btn ghost" onclick={() => (backups.confirmTest = null)}>Cancel</button>
+    <button type="button" class="btn primary" onclick={() => backups.confirmTest && backups.testRestore(backups.confirmTest)}>Run test restore</button>
+  {/snippet}
+</Modal>
+
+<Modal open={!!tr} title={tr?.ok ? "RESTORE TEST PASSED" : "RESTORE TEST FAILED"} tone={tr?.ok ? "default" : "danger"} width={560} onclose={() => (backups.testResult = null)}>
+  {#if tr}
+    <p>
+      <strong>{trJob?.name ?? "Backup job"}</strong> on {trJob ? hostName(trJob.hostId) : "its host"}:
+      {#if tr.ok}
+        restored <code>{tr.file}</code> ({bytes(tr.size)}){tr.snapshot ? ` from ${tr.snapshot}` : ""}{tr.snapshotTime ? ` (${tr.snapshotTime})` : ""}. Size matched; the temporary copy was deleted.
+      {:else}
+        <span class="bad">{tr.error}</span>
+      {/if}
+    </p>
+    {#if tr.sha256}<p class="muted small">SHA-256 <code class="hash">{tr.sha256}</code></p>{/if}
+    {#if tr.steps.length}
+      <ol class="steps muted small">
+        {#each tr.steps as s, i (i)}<li>{s}</li>{/each}
+      </ol>
+    {/if}
+  {/if}
+  {#snippet footer()}
+    <button type="button" class="btn primary" onclick={() => (backups.testResult = null)}>Close</button>
   {/snippet}
 </Modal>
 
@@ -312,7 +375,7 @@
   .grid .head,
   .grid .row {
     display: grid;
-    grid-template-columns: minmax(200px, 1.4fr) minmax(160px, 1.2fr) 130px 130px 120px;
+    grid-template-columns: minmax(200px, 1.4fr) minmax(160px, 1.2fr) 110px 100px 270px;
     gap: 10px;
     align-items: center;
     padding: 5px 10px;
@@ -451,5 +514,26 @@
   }
   .mono {
     font-family: var(--font-mono);
+  }
+  .acts {
+    white-space: nowrap;
+  }
+  .tested {
+    color: var(--mint);
+  }
+  .tested.bad {
+    color: var(--danger);
+  }
+  .tiny-select {
+    font-size: var(--fs-xs);
+    padding: 1px 4px;
+    max-width: 140px;
+  }
+  .steps {
+    margin: 6px 0 0;
+    padding-left: 18px;
+  }
+  .hash {
+    overflow-wrap: anywhere;
   }
 </style>
