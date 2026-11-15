@@ -62,6 +62,10 @@ pub struct Host {
     pub remember_secret: bool,
     pub ssh_alias: Option<String>,
     pub tags: Vec<String>,
+    /// Second address (100.x or MagicDNS name) tried when `hostname` doesn't answer.
+    pub tailnet_address: Option<String>,
+    /// DRIFT may read this host's recent shell history (opt-in).
+    pub drift_history: bool,
 }
 
 /// Fields the user edits. Missing optional fields mean "unset".
@@ -84,6 +88,10 @@ pub struct HostInput {
     pub remember_secret: bool,
     pub ssh_alias: Option<String>,
     pub tags: Vec<String>,
+    /// Second address (100.x or MagicDNS name) tried when `hostname` doesn't answer.
+    pub tailnet_address: Option<String>,
+    /// DRIFT may read this host's recent shell history (opt-in).
+    pub drift_history: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -187,6 +195,10 @@ impl HostInput {
         h.identity_file = blank_to_none(&h.identity_file);
         h.proxy_jump = blank_to_none(&h.proxy_jump);
         h.ssh_alias = blank_to_none(&h.ssh_alias);
+        h.tailnet_address = blank_to_none(&h.tailnet_address);
+        if h.tailnet_address.as_deref().is_some_and(|a| a.chars().any(char::is_whitespace) || a.contains('/')) {
+            return Err(Error::Invalid { field: "tailnetAddress", reason: "a host name or address, no spaces".into() });
+        }
         valid_color(&h.color)?;
         if h.auth_method == AuthMethod::Key && h.identity_file.is_none() {
             return Err(Error::Invalid { field: "identityFile", reason: "required for key authentication".into() });
@@ -200,7 +212,7 @@ impl HostInput {
 }
 
 const HOST_COLS: &str = "id, name, hostname, port, username, group_id, color, icon, favorite, notes, \
-     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias";
+     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history";
 
 fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
     Ok(Host {
@@ -220,6 +232,8 @@ fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
         remember_secret: r.get(13)?,
         ssh_alias: r.get(14)?,
         tags: Vec::new(),
+        tailnet_address: r.get(15)?,
+        drift_history: r.get(16)?,
     })
 }
 
@@ -286,8 +300,8 @@ impl Store {
         let id = self.tx(|tx| {
             tx.execute(
                 "INSERT INTO hosts (name, hostname, port, username, group_id, color, icon, favorite, notes,
-                    auth_method, identity_file, proxy_jump, remember_secret, ssh_alias)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                    auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
                 params![
                     h.name,
                     h.hostname,
@@ -302,7 +316,9 @@ impl Store {
                     h.identity_file,
                     h.proxy_jump,
                     h.remember_secret,
-                    h.ssh_alias
+                    h.ssh_alias,
+                    h.tailnet_address,
+                    h.drift_history
                 ],
             )?;
             let id = tx.last_insert_rowid() as HostId;
@@ -318,7 +334,8 @@ impl Store {
             let n = tx.execute(
                 "UPDATE hosts SET name = ?2, hostname = ?3, port = ?4, username = ?5, group_id = ?6, color = ?7,
                     icon = ?8, favorite = ?9, notes = ?10, auth_method = ?11, identity_file = ?12,
-                    proxy_jump = ?13, remember_secret = ?14, ssh_alias = ?15, updated_at = unixepoch()
+                    proxy_jump = ?13, remember_secret = ?14, ssh_alias = ?15,
+                    tailnet_address = ?16, drift_history = ?17, updated_at = unixepoch()
                  WHERE id = ?1",
                 params![
                     id,
@@ -335,7 +352,9 @@ impl Store {
                     h.identity_file,
                     h.proxy_jump,
                     h.remember_secret,
-                    h.ssh_alias
+                    h.ssh_alias,
+                    h.tailnet_address,
+                    h.drift_history
                 ],
             )?;
             if n > 0 {

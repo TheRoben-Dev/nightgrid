@@ -12,7 +12,6 @@ use hyper::body::Bytes;
 use hyper_util::rt::TokioIo;
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpStream;
 
 use crate::services::check::{connect_error, parse_target, tls_connector, Captured, Target};
 
@@ -106,7 +105,12 @@ pub async fn send(req: Request) -> Result<Response, String> {
     let target = parse_target(&req.url)?;
     let started = Instant::now();
     let left = |t: Duration| t.saturating_sub(started.elapsed());
-    let tcp = match tokio::time::timeout(req.timeout, TcpStream::connect((target.host.as_str(), target.port))).await {
+    let tcp = match tokio::time::timeout(
+        req.timeout,
+        crate::tailnet::dial(&target.host, target.port, req.timeout + Duration::from_millis(50)),
+    )
+    .await
+    {
         Ok(Ok(s)) => s,
         Ok(Err(e)) => return Err(connect_error(&e)),
         Err(_) => return Err("timed out connecting".into()),

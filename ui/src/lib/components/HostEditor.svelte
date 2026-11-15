@@ -3,6 +3,7 @@
   import { untrack } from "svelte";
   import { api, errorText, type AuthMethod, type Host, type HostInput } from "../api";
   import { hosts } from "../stores/hosts.svelte";
+  import { tailnet } from "../stores/tailnet.svelte";
   import { ICON_PRESETS, iconProblem, normalizeIcon } from "../hosts/icons";
   import HostIcon from "./HostIcon.svelte";
   import Modal from "./Modal.svelte";
@@ -35,6 +36,8 @@
     proxyJump: null,
     rememberSecret: false,
     sshAlias: null,
+    tailnetAddress: null,
+    driftHistory: false,
     tags: [],
   });
 
@@ -52,6 +55,7 @@
     if (!open) return;
     const h = existing;
     untrack(() => {
+      tailnet.start();
       form = h ? fromHost(h) : { ...blank(), ...(hosts.prefill ?? {}) };
       hosts.prefill = null;
       tagsText = form.tags.join(", ");
@@ -87,6 +91,7 @@
         username: nullable(form.username),
         identityFile: form.authMethod === "password" ? null : nullable(form.identityFile),
         proxyJump: nullable(form.proxyJump),
+        tailnetAddress: nullable(form.tailnetAddress),
         notes: nullable(form.notes),
         icon: iconArt,
         tags: tagsText
@@ -205,6 +210,18 @@
         <span class="field-hint">Comma-separated hops. Names of hosts saved here use their own settings.</span>
       </label>
 
+      <label class="field span6" data-guide="host-tailnet-address">
+        <span>Tailnet address</span>
+        <input class="input mono" bind:value={form.tailnetAddress} placeholder="100.x.y.z or a MagicDNS name" list="ng-tailnet-peers" autocomplete="off" />
+        <datalist id="ng-tailnet-peers">
+          {#each tailnet.status?.peers ?? [] as p (p.dnsName || p.name)}
+            <option value={p.dnsName || p.name}>{p.ips[0] ?? ""}</option>
+            {#if p.ips[0]}<option value={p.ips[0]}>{p.name}</option>{/if}
+          {/each}
+        </datalist>
+        <span class="field-hint">Optional. Tried when the address above doesn't answer (away from home), and the other way round when you're back. The host key is checked against the main address.</span>
+      </label>
+
       <label class="field span3">
         <span>Group</span>
         <select
@@ -298,6 +315,12 @@
             onchange={(v) => (form.rememberSecret = v)}
           />
         {/if}
+        <Toggle
+          label="DRIFT may read shell history"
+          hint="When you ask DRIFT about this host, it reads the last commands from bash, zsh or fish history over SSH. Lines that look like passwords or tokens are left out. Nothing is stored."
+          checked={form.driftHistory}
+          onchange={(v) => (form.driftHistory = v)}
+        />
       </div>
       {#if form.sshAlias}
         <p class="span6 field-hint">Imported from ~/.ssh/config alias <code>{form.sshAlias}</code>.</p>

@@ -3,6 +3,7 @@
   import AlertSettings from "../components/alerts/AlertSettings.svelte";
   import BackupPanel from "../components/backup/BackupPanel.svelte";
   import StatusPagePanel from "../components/status/StatusPagePanel.svelte";
+  import TailnetPanel from "../components/tailnet/TailnetPanel.svelte";
   import HelperSettings from "../components/helper/HelperSettings.svelte";
   import Barcode from "../components/Barcode.svelte";
   import CustomThemeEditor from "../components/CustomThemeEditor.svelte";
@@ -241,6 +242,8 @@
       />
     </div>
   </Panel>
+
+  <TailnetPanel />
 
   <AlertSettings />
 

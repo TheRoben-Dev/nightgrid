@@ -16,13 +16,32 @@ use crate::state::AppState;
 #[tauri::command]
 #[specta::specta]
 pub fn hosts_list(state: State<'_, AppState>) -> CmdResult<Vec<Host>> {
-    Ok(state.store().list_hosts()?)
+    let hosts = state.store().list_hosts()?;
+    // The UI reloads the list after every change (edits, imports, restores),
+    // so this keeps the dialer's fallback table current.
+    sync_fallbacks(&hosts);
+    Ok(hosts)
+}
+
+/// Tells the dialer which hosts have a tailnet fallback address.
+pub fn sync_fallbacks(hosts: &[Host]) {
+    nightgrid_core::tailnet::set_fallbacks(
+        hosts.iter().filter_map(|h| h.tailnet_address.clone().map(|a| (h.hostname.clone(), a))),
+    );
+}
+
+fn resync(state: &AppState) {
+    if let Ok(hosts) = state.store().list_hosts() {
+        sync_fallbacks(&hosts);
+    }
 }
 
 #[tauri::command]
 #[specta::specta]
 pub fn host_create(state: State<'_, AppState>, input: HostInput) -> CmdResult<Host> {
-    Ok(state.store().create_host(&input)?)
+    let h = state.store().create_host(&input)?;
+    resync(&state);
+    Ok(h)
 }
 
 #[tauri::command]
@@ -37,7 +56,8 @@ pub async fn host_update(state: State<'_, AppState>, id: HostId, input: HostInpu
             || before.username != after.username
             || before.auth_method != after.auth_method
             || before.identity_file != after.identity_file
-            || before.proxy_jump != after.proxy_jump;
+            || before.proxy_jump != after.proxy_jump
+            || before.tailnet_address != after.tailnet_address;
         (after, conn_changed, before.remember_secret && !input.remember_secret)
     };
     if dropped_remember || conn_changed {
@@ -46,6 +66,7 @@ pub async fn host_update(state: State<'_, AppState>, id: HostId, input: HostInpu
     if conn_changed {
         state.pool.disconnect(id).await;
     }
+    resync(&state);
     Ok(host)
 }
 
@@ -53,6 +74,7 @@ pub async fn host_update(state: State<'_, AppState>, id: HostId, input: HostInpu
 #[specta::specta]
 pub async fn host_delete(state: State<'_, AppState>, id: HostId) -> CmdResult<()> {
     state.store().delete_host(id)?;
+    resync(&state);
     state.forget_host_secrets(id);
     state.pool.disconnect(id).await;
     Ok(())
@@ -155,6 +177,8 @@ pub fn ssh_config_import(state: State<'_, AppState>, aliases: Vec<String>) -> Cm
                 remember_secret: h.remember_secret,
                 ssh_alias: Some(c.alias),
                 tags: h.tags.clone(),
+                tailnet_address: h.tailnet_address.clone(),
+                drift_history: h.drift_history,
             };
             store.update_host(h.id, &input)?;
             updated += 1;

@@ -258,3 +258,37 @@ pub async fn helper_ask(
 pub fn helper_stop(helper: State<'_, Helper>) {
     helper.stop.store(true, Ordering::SeqCst);
 }
+
+/// Commands DRIFT gets from a host's history, newest last.
+const HISTORY_KEEP: usize = 60;
+
+/// Recent shell history from a host for DRIFT, when the host allows it
+/// ("DRIFT may read shell history" in the host editor). Lines that look like
+/// they hold a secret are dropped before they leave this side (same filter
+/// as Tasks → History search).
+#[tauri::command]
+#[specta::specta]
+pub async fn helper_host_history(
+    app: AppHandle,
+    host_id: nightgrid_core::hosts::HostId,
+) -> crate::commands::CmdResult<Vec<nightgrid_core::system::history::HistoryEntry>> {
+    use crate::commands::CommandError;
+    use nightgrid_core::system::history;
+    let allowed = {
+        let state = app.state::<AppState>();
+        let store = state.store();
+        store.get_host(host_id)?.is_some_and(|h| h.drift_history)
+    };
+    if !allowed {
+        return Err(CommandError::msg("reading shell history is off for this host"));
+    }
+    let conn = crate::term_cmd::connect_host(&app, host_id).await.map_err(|e| CommandError::msg(e.to_string()))?;
+    let (_, out, _) = tokio::time::timeout(Duration::from_secs(10), conn.exec(&history::read_command()))
+        .await
+        .map_err(|_| CommandError::msg("the host took too long to answer"))?
+        .map_err(|e| CommandError::msg(e.to_string()))?;
+    let found = history::filter(&history::parse(&String::from_utf8_lossy(&out)), "");
+    let mut recent: Vec<_> = found.entries.into_iter().take(HISTORY_KEEP).collect();
+    recent.reverse();
+    Ok(recent)
+}

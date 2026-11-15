@@ -96,6 +96,11 @@ pub fn settings_set(
     settings.backup_folder = current.backup_folder;
     // The status page restarts its server on change: only through its own command.
     settings.status_page = current.status_page;
+    // The built-in Tailscale client starts and stops through its own commands.
+    settings.tailnet_enabled = current.tailnet_enabled;
+    settings.tailnet_accept_routes = current.tailnet_accept_routes;
+    settings.tailnet_hostname = current.tailnet_hostname;
+    settings.tailnet_control_url = current.tailnet_control_url;
     settings.save(&store)?;
     drop(store);
     crate::tray::apply(&app);

@@ -4,3 +4,4 @@
 /app/gen
 *.log
 .DS_Store
+/app/binaries

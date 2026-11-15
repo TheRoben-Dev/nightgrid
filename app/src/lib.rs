@@ -19,6 +19,7 @@ mod services_cmd;
 mod state;
 mod status_cmd;
 mod system_cmd;
+mod tailnet_cmd;
 mod term_cmd;
 mod tray;
 mod tunnels_cmd;
@@ -170,6 +171,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         helper_cmd::helper_unload,
         helper_cmd::helper_ask,
         helper_cmd::helper_stop,
+        helper_cmd::helper_host_history,
         alerts_cmd::alerts_subscribe,
         alerts_cmd::alerts_refresh,
         alerts_cmd::alerts_clear_history,
@@ -179,6 +181,11 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_log_samples,
         backup_jobs_cmd::backup_jobs_list,
         backup_jobs_cmd::device_labels_list,
+        tailnet_cmd::tailnet_status,
+        tailnet_cmd::tailnet_set_enabled,
+        tailnet_cmd::tailnet_configure,
+        tailnet_cmd::tailnet_login,
+        tailnet_cmd::tailnet_logout,
         backup_jobs_cmd::device_label_save,
         backup_jobs_cmd::device_label_delete,
         backup_jobs_cmd::backup_job_save,
@@ -237,10 +244,14 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             tracing::info!(version = env!("CARGO_PKG_VERSION"), ?data_dir, "starting NIGHTGRID");
             let state = state::AppState::open(&data_dir, log_dir)?;
+            if let Ok(hosts) = state.store().list_hosts() {
+                hosts_cmd::sync_fallbacks(&hosts);
+            }
             app.manage(state);
             tray::apply(app.handle());
             alerts_cmd::start(app.handle());
             status_cmd::apply(app.handle());
+            tailnet_cmd::start_if_enabled(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {

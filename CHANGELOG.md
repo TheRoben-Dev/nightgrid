@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.11] - 2026-11-15
+
+### Added: built-in Tailscale and DRIFT knows your hosts (M10j)
+- **Settings → Tailnet → Built-in Tailscale** (off by default): Nightgrid joins your tailnet as its own device, without the Tailscale app and without admin rights. **LOG IN** opens the login page once; the node's keys are stored encrypted with a key kept in the OS keychain. SSH, files, Docker, metrics, service checks and tunnels all reach tailnet addresses, MagicDNS names and accepted subnet routes through it. **Use subnet routes** reaches LAN addresses another device advertises; Nightgrid tries the LAN first and the tailnet when the LAN doesn't answer. **DEVICES** lists your tailnet with copyable addresses; **Advanced** sets the device name and a self-hosted control server (Headscale). Nothing is sent to Tailscale's log servers. With it off, tailnet addresses go through the system Tailscale app as before.
+- **Tailnet address** per host (host editor): a second address (100.x or a MagicDNS name) tried when the main one doesn't answer. Nightgrid remembers which one worked and tries it first next time, so a host works on the home LAN and away from it. The host key is always checked against the main address.
+- **DRIFT knows your hosts**: when a question names one of your saved hosts (loosely: one word of its name, a typo, a follow-up like "check its history"), DRIFT gets that host's live facts first: reachability, monitoring state and last error, last seen and uptime, and active and recent alerts. It answers from those instead of the guide.
+- **DRIFT may read shell history** per host (host editor, off by default): DRIFT also gets the host's last 60 commands from bash, zsh or fish history, read over SSH when you ask. Lines that look like passwords or tokens are left out, and nothing is stored.
+
 ## [0.10.10] - 2026-11-15
 
 ### Added

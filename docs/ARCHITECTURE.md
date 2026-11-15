@@ -177,6 +177,14 @@ _Last updated: M2 (SFTP + editor)._
 - **Local network discovery**: `netmap::discover_local` / `netmap_discover_local` (same script via `/bin/sh`).
 - **Device labels**: `core/src/device_labels.rs`, table `device_labels` (migration 0015, key = lower-case MAC or `ip:<addr>`, part of the profile export); commands `device_labels_list` / `device_label_save` / `device_label_delete`. `buildGraph(..., labels)` names device and router nodes; `labelLines` gives DRIFT one line per label (all on the Network view, else those the question names) as `HelperContext.devices` (D-090).
 
+## Built-in Tailscale and DRIFT host facts (M10j)
+
+- **Sidecar** (`tailnet/`, Go, `tsnet`, D-091): `main.go` reads a config line (state key, dir, hostname, accept-routes, control URL) then commands (`login`, `logout`, `acceptRoutes`, `status`, `quit`) on stdin, and writes events (`ready` with the SOCKS address and per-run credentials, `login`, `state`, `status`, `error`) on stdout. `store.go` is the AES-256-GCM `ipn.StateStore` (`node-state.enc`). CI builds it per target into `app/binaries/nightgrid-tailnet-<triple>` and passes it to `tauri build` as `bundle.externalBin`, so it ships next to the app executable.
+- **Core** (`core/src/tailnet.rs`): `Sidecar::start/login/logout/accept_routes/stop`, `TailnetStatus`, the process-wide routing table (`route_for`), `dial(host, port, timeout)` (direct, SOCKS5, or direct-then-SOCKS5) and the per-host fallback table (`set_fallbacks`, `active_address`, D-092). `ssh::client::tcp_connect`, `tcp_ping`, `http`, service checks and tunnel forwards all dial through `tailnet::dial`.
+- **App** (`app/src/tailnet_cmd.rs`): `TailnetHub` in `AppState`; commands `tailnet_status`, `tailnet_set_enabled`, `tailnet_configure`, `tailnet_login`, `tailnet_logout`; status pushed as `tailnet://status`. The state key is `SecretKind::TailnetStateKey` in the keychain; state lives in `<data dir>/tailnet`. `hosts_cmd::sync_fallbacks` refreshes the fallback table on start-up and on every host list load or change.
+- **UI**: `stores/tailnet.svelte.ts`, `components/tailnet/TailnetPanel.svelte` (Settings), the host editor's **Tailnet address** with peer suggestions; browser preview uses `mockTailnet.ts`.
+- **DRIFT host facts** (D-093): `helper/hostFacts.ts` (`mentionedHosts`, `hostFacts`) → `HelperContext.hosts`, first block in `contextBlock`. History: `helper_host_history` (`app/src/helper_cmd.rs`) checks `hosts.drift_history` (migration 0016) and reuses `system::history::read_command` / `parse` / `filter`.
+
 ## Backups (M9)
 
 - **Core** (`core/src/backup.rs`): `snapshot` copies the config tables into a JSON `Bundle` (history tables left out), `collect_secrets` adds keychain entries on request, `encrypt`/`decrypt` wrap it in an age scrypt passphrase file, `import` merges (natural keys, id remapping) or replaces in one transaction, and `restore_secrets` moves keychain entries to the new ids (D-057, D-058).

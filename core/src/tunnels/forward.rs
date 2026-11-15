@@ -240,7 +240,7 @@ pub async fn serve_remote(mut fwd: RemoteForward, dest_host: String, dest_port: 
                 let stats = stats.clone();
                 let host = dest_host.clone();
                 tasks.spawn(async move {
-                    match tokio::time::timeout(Duration::from_secs(10), TcpStream::connect((host.as_str(), dest_port))).await {
+                    match tokio::time::timeout(Duration::from_secs(10), crate::tailnet::dial(&host, dest_port, Duration::from_secs(11))).await {
                         Ok(Ok(sock)) => pipe(sock, ch, stats).await,
                         Ok(Err(e)) => tracing::debug!(%host, dest_port, "remote forward target unreachable: {e}"),
                         Err(_) => tracing::debug!(%host, dest_port, "remote forward target timed out"),

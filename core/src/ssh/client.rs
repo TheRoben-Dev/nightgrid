@@ -520,10 +520,9 @@ async fn authenticate(h: &mut SshHandle, t: &Target, opts: &ConnectOptions) -> R
 }
 
 async fn tcp_connect(t: &Target, opts: &ConnectOptions) -> Result<tokio::net::TcpStream, ConnectError> {
-    let addr = (t.host.as_str(), t.port);
-    let s = tokio::time::timeout(opts.connect_timeout, tokio::net::TcpStream::connect(addr))
+    // Through the built-in tailnet when that's the way there (M10j).
+    let s = crate::tailnet::dial(&t.host, t.port, opts.connect_timeout)
         .await
-        .map_err(|_| ConnectError::Network { host: t.host.clone(), message: "connection timed out".into() })?
         .map_err(|e| ConnectError::Network { host: t.host.clone(), message: e.to_string() })?;
     let _ = s.set_nodelay(true);
     Ok(s)
@@ -558,8 +557,5 @@ pub async fn connect(target: &Target, jumps: &[Target], opts: &ConnectOptions) -
 /// Lightweight reachability check: TCP connect to host:port, returns latency.
 pub async fn tcp_ping(host: &str, port: u16, timeout: Duration) -> Option<Duration> {
     let start = std::time::Instant::now();
-    match tokio::time::timeout(timeout, tokio::net::TcpStream::connect((host, port))).await {
-        Ok(Ok(_)) => Some(start.elapsed()),
-        _ => None,
-    }
+    crate::tailnet::dial(host, port, timeout).await.ok().map(|_| start.elapsed())
 }

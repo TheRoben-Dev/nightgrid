@@ -16,7 +16,6 @@ use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::TcpStream;
 
 use super::status_matches;
 
@@ -113,7 +112,12 @@ pub async fn check(url: &str, expect_status: &str, allow_untrusted: bool, timeou
         Err(e) => return CheckResult::failed(e, None),
     };
     let started = Instant::now();
-    let tcp = match tokio::time::timeout(timeout, TcpStream::connect((target.host.as_str(), target.port))).await {
+    let tcp = match tokio::time::timeout(
+        timeout,
+        crate::tailnet::dial(&target.host, target.port, timeout + Duration::from_millis(50)),
+    )
+    .await
+    {
         Ok(Ok(s)) => s,
         Ok(Err(e)) => return CheckResult::failed(connect_error(&e), None),
         Err(_) => return CheckResult::failed("timed out connecting", None),
