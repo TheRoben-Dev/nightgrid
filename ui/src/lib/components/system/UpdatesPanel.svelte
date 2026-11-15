@@ -4,7 +4,7 @@
 
   const r = $derived(system.updates);
   const run = $derived(system.run);
-  const canUpgrade = $derived(!!r?.manager && r.manager !== "ostree");
+  const canUpgrade = $derived(!!r?.manager);
   let out: HTMLPreElement | undefined = $state();
 
   $effect(() => {

@@ -2801,8 +2801,8 @@ export type LogStream = "out" | "err";
 
 export type Manager = "apt" | "dnf" | "pacman" | 
 /**
- *  Image-based OS (Fedora Atomic, Bazzite, ...): updated with
- *  rpm-ostree/bootc, not package by package. Listed, not upgraded here.
+ *  Image-based OS (Fedora Atomic, Bazzite, ...): updated as one image
+ *  with rpm-ostree, which stages it for the next boot.
  */
 "ostree";
 

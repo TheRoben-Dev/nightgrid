@@ -212,6 +212,12 @@ _Last updated: M2 (SFTP + editor)._
 - **App** (`app/src/confdiff_cmd.rs`): `confdiff_baseline`, `confdiff_save_baseline`, `confdiff_compare`, `confdiff_file`.
 - **UI**: `components/system/ConfigPanel.svelte` (System → CONFIG), `stores/confdiff.svelte.ts`, helpers in `confdiff.ts`; browser preview uses `mockOps.confdiff*`.
 
+## Fleet: update center (M10m)
+
+- **Core**: `system/packages.rs` also handles rpm-ostree: `rpm-ostree upgrade --check` (prefixed `@os`) and `rpm-ostree status --json` (`@json`) → one "system image" row, a staged-deployment reboot reason and a note; `upgrade_command(Ostree, Upgrade)` = `rpm-ostree upgrade`.
+- **App**: no new commands. The update center reuses `system_updates`, `system_upgrade_run`, `docker_stacks` and `docker_stack_check_updates` per host.
+- **UI**: `views/Fleet.svelte` (new `fleet` section, `nav.fleet`), `components/fleet/UpdateCenter.svelte`, `stores/fleet.svelte.ts` (three-at-a-time pool, batch upgrade with `sudo: null`, so hosts without NOPASSWD or a remembered password are skipped), pure helpers in `fleet.ts` (rows, totals, `confirmPhrase`, DRIFT text) (D-102).
+
 ## SSH key manager (M10k)
 
 - **Core** (`core/src/ssh/keys.rs`, D-097): `SshKey`, `scan_dir`, `agent_keys`, `merge_agent`, `generate` (ed25519, optional passphrase, never overwrites), `AuthorizedKey` / `parse_authorized` / `find_authorized`, and the shell commands `READ_AUTHORIZED`, `add_command`, `remove_command` (+ `parse_removed`).

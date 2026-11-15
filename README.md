@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.18 (update center)
+
+1. **Fleet** (`Cmd+Shift+U`): every host is checked; hosts with security updates or a pending reboot are listed first with red/orange marks. Click a host name for its packages.
+2. Tick a test host with updates (whose sudo is NOPASSWD or remembered) and a second one whose sudo password isn't remembered, then **Upgrade 2 selected…**: the phrase to type is `upgrade 2 hosts` (or the group name if both make up one group). The first host's output streams under its row and it ends **UPGRADED** after a re-check; the second shows **SKIPPED: needs a sudo password**.
+3. **Reboot…** on a flagged host opens System with the reboot confirmation.
+4. **Check images** on a Docker host with stacks: images with a newer tag are listed; **Open stack** jumps to Docker → STACKS.
+5. On a Bazzite/Fedora Atomic host (the Ally over SSH, if enabled): the row shows RPM-OSTREE with a "system image" update when one exists; after **Upgrade**, it shows REBOOT ("a new system image is staged").
+
 ### macOS: testing 0.10.17 (expiry watch and config drift)
 
 1. **Services**, scroll to **Expiry watch**: HTTPS services show their certificate with days left. Open **Docker → Routes** on a host with a reverse proxy, come back: route certificates are listed too.
