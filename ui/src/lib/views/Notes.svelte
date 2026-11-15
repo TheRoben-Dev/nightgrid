@@ -13,6 +13,7 @@
   import { hosts } from "../stores/hosts.svelte";
   import { hasSecret, notes, parseTags } from "../stores/notes.svelte";
   import { terms } from "../stores/terms.svelte";
+  import { formatChord } from "../keys";
 
   onMount(() => {
     void notes.load();
@@ -58,6 +59,14 @@
     if (s < 3600) return `${Math.floor(s / 60)}m ago`;
     if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
     return `${Math.floor(s / 86400)}d ago`;
+  }
+
+  /** Mod+S in any editor field submits the form. */
+  function saveKey(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      (e.currentTarget as HTMLElement).closest("form")?.requestSubmit();
+    }
   }
 
   async function onSave(e: SubmitEvent) {
@@ -123,7 +132,7 @@
     {#if draft}
       <form class="editor" onsubmit={onSave}>
         <div class="row">
-          <input class="input title" placeholder="Title" aria-label="Title" maxlength="120" bind:value={draft.input.title} />
+          <input class="input title" placeholder="Title" aria-label="Title" maxlength="120" bind:value={draft.input.title} onkeydown={saveKey} />
           <label class="pinbox"><input type="checkbox" bind:checked={draft.input.pinned} /> Pin</label>
         </div>
         <div class="row">
@@ -131,13 +140,14 @@
             <option value={null}>Not tied to a host</option>
             {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
           </select>
-          <input class="input grow" placeholder="Tags, e.g. docker, backup" aria-label="Tags" bind:value={tagText} />
+          <input class="input grow" placeholder="Tags, e.g. docker, backup" aria-label="Tags" bind:value={tagText} onkeydown={saveKey} />
         </div>
         <textarea
           class="input body"
           aria-label="Note text (markdown)"
           placeholder="Markdown. Use ``` code blocks for commands: each gets a button to type it into a terminal on this note's host."
           bind:value={draft.input.body}
+          onkeydown={saveKey}
           spellcheck="false"
         ></textarea>
         {#if secret}
@@ -148,7 +158,7 @@
         {/if}
         {#if notes.saveError}<p class="error-text">{notes.saveError}</p>{/if}
         <div class="row end">
-          <span class="muted small">Markdown: # headings, - lists, **bold**, `code`, ``` blocks.</span>
+          <span class="muted small">Markdown: # headings, - lists, **bold**, `code`, ``` blocks. {formatChord("Mod+S")} saves.</span>
           <span class="spacer"></span>
           <button type="button" class="btn ghost" onclick={() => notes.cancel()}>Cancel</button>
           <button type="submit" class="btn primary" disabled={notes.saving || !draft.input.title.trim()}>{notes.saving ? "Saving…" : "Save"}</button>
@@ -212,6 +222,8 @@
     height: 100%;
     display: grid;
     grid-template-columns: minmax(240px, 320px) 1fr;
+    /* One row the height of the view: the list and the editor scroll inside it. */
+    grid-template-rows: minmax(0, 1fr);
     gap: 12px;
     min-height: 0;
   }
@@ -387,7 +399,7 @@
   }
   .body {
     flex: 1;
-    min-height: 200px;
+    min-height: 120px;
     resize: none;
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
