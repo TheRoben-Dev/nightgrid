@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.15] - 2026-11-15
+
+### Added: group and scheduled power (completes M10k)
+- **System → GROUP…** suspends, shuts down or reboots every host in a group, one after another, after you type the group's name. Hosts whose sudo needs a password Nightgrid doesn't remember are skipped and listed, not prompted one by one.
+- **System → Schedules → POWER SCHEDULE**: shut down, suspend or reboot a host at a set time on chosen days (or every day), or wake it up from its **Wake from** host. Each schedule is a systemd timer on the host itself (`nightgrid-power-…`, `nightgrid-wake-…` on the relay), so it runs whether or not Nightgrid is open, and a scheduled shutdown shows as planned, not offline. Schedules are listed with their next run and can be replaced or removed.
+
 ## [0.10.14] - 2026-11-15
 
 ### Added: SSH key manager (M10k, part 2)

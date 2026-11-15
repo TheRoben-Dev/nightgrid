@@ -164,6 +164,12 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.15 (group and scheduled power)
+
+1. Put two test hosts in a group. **System → GROUP…**, pick the group and **Suspend**, type the group name: each host turns **SUSPENDED** in turn. A host whose sudo password isn't remembered shows ✕ with the reason.
+2. **System → Schedules**: under **POWER SCHEDULE**, pick **Reboot**, a time two minutes ahead, no days, **ADD** (enter the sudo password). The list shows the next run, and `systemctl list-timers 'nightgrid-*'` on the host shows the timer. Quit Nightgrid: the host still reboots on time.
+3. With a host's MAC and **Wake from** set, schedule **Wake up**: the list says "from <relay>" and the timer is on the relay. **Remove** deletes it (`ls /etc/systemd/system/nightgrid-*`).
+
 ### macOS: testing 0.10.14 (SSH key manager)
 
 1. **Settings → SSH keys**: your keys from `~/.ssh` and the agent are listed with fingerprints (compare with `ssh-keygen -lf ~/.ssh/id_ed25519.pub`). **Copy public key** copies the `.pub` line.

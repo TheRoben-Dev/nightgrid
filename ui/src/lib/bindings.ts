@@ -257,6 +257,15 @@ export const commands = {
 	 *  from this computer.
 	 */
 	hostWake: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<WakeSent_Serialize>("host_wake", { hostId }, options),
+	/**  Power schedules for a host: its own timers, plus wake-ups for it on its relay. */
+	powerSchedules: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<HostSchedule_Serialize[]>("power_schedules", { hostId }, options),
+	/**
+	 *  Installs (or replaces) a schedule as a systemd timer. Wake-ups go on the
+	 *  host's relay, with the host's MAC address. Needs root on that host.
+	 */
+	powerScheduleSet: (hostId: number, spec: ScheduleSpec_Deserialize, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<HostSchedule_Serialize>("power_schedule_set", { hostId, spec, sudo }, options),
+	/**  Removes a Nightgrid schedule from the host it's installed on. */
+	powerScheduleRemove: (onHostId: number, unit: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_schedule_remove", { onHostId, unit, sudo }, options),
 	keysList: (options?: InvokeOptions) => __TAURI_INVOKE<KeyList_Serialize>("keys_list", undefined, options),
 	/**
 	 *  Generates an ed25519 key in `~/.ssh`. The passphrase is used once to
@@ -2030,6 +2039,30 @@ export type HostPing_Serialize = {
 	connected: boolean,
 };
 
+/**
+ *  A Nightgrid power schedule and the host it is installed on (the host
+ *  itself, or its wake relay for wake-ups).
+ */
+export type HostSchedule = HostSchedule_Serialize | HostSchedule_Deserialize;
+
+/**
+ *  A Nightgrid power schedule and the host it is installed on (the host
+ *  itself, or its wake relay for wake-ups).
+ */
+export type HostSchedule_Deserialize = {
+	onHostId: number,
+	onHostName: string,
+} & InstalledSchedule_Deserialize;
+
+/**
+ *  A Nightgrid power schedule and the host it is installed on (the host
+ *  itself, or its wake relay for wake-ups).
+ */
+export type HostSchedule_Serialize = {
+	onHostId: number,
+	onHostName: string,
+} & InstalledSchedule_Serialize;
+
 export type Host_Deserialize = {
 	id: number,
 	name: string,
@@ -2182,6 +2215,25 @@ export type ImportSummary = {
 	/**  Previously imported entries no longer in the file. */
 	removed: number,
 	stale: string[],
+};
+
+/**  One installed schedule. */
+export type InstalledSchedule = InstalledSchedule_Serialize | InstalledSchedule_Deserialize;
+
+/**  One installed schedule. */
+export type InstalledSchedule_Deserialize = {
+	unit: string,
+	spec: ScheduleSpec_Deserialize,
+	/**  Next run, as systemd prints it (host's time zone), when known. */
+	next?: string | null,
+};
+
+/**  One installed schedule. */
+export type InstalledSchedule_Serialize = {
+	unit: string,
+	spec: ScheduleSpec_Serialize,
+	/**  Next run, as systemd prints it (host's time zone), when known. */
+	next: string | null,
 };
 
 export type Integration = Integration_Serialize | Integration_Deserialize;
@@ -3204,6 +3256,41 @@ export type SaveResult_Serialize = {
 	 */
 	atomic: boolean,
 };
+
+/**
+ *  When and what. `time` is `HH:MM` in the host's local time; `days` are
+ *  `mon`…`sun` (empty = every day).
+ */
+export type ScheduleSpec = ScheduleSpec_Serialize | ScheduleSpec_Deserialize;
+
+/**
+ *  When and what. `time` is `HH:MM` in the host's local time; `days` are
+ *  `mon`…`sun` (empty = every day).
+ */
+export type ScheduleSpec_Deserialize = {
+	action: ScheduledAction,
+	time: string,
+	days?: string[],
+	/**  The machine to wake (`aa:bb:…`), for `Wake` only. */
+	mac?: string | null,
+};
+
+/**
+ *  When and what. `time` is `HH:MM` in the host's local time; `days` are
+ *  `mon`…`sun` (empty = every day).
+ */
+export type ScheduleSpec_Serialize = {
+	action: ScheduledAction,
+	time: string,
+	days: string[],
+	/**  The machine to wake (`aa:bb:…`), for `Wake` only. */
+	mac: string | null,
+};
+
+/**  What a schedule does. */
+export type ScheduledAction = "reboot" | "shutdown" | "suspend" | 
+/**  Send Wake-on-LAN to `mac` (runs on a relay host). */
+"wake";
 
 export type Schedules = Schedules_Serialize | Schedules_Deserialize;
 

@@ -5,6 +5,8 @@ import {
   type ConnectError,
   type DisksReport,
   type Schedules,
+  type HostSchedule,
+  type ScheduleSpec,
   type SecurityReport,
   type Health,
   type JournalEntry,
@@ -155,6 +157,13 @@ class SystemStore {
 
   schedules = $state<Schedules | null>(null);
   schedulesLoading = $state(false);
+  /** Nightgrid's own power timers for the host (and wake-ups on its relay). */
+  powerSchedules = $state<HostSchedule[] | null>(null);
+  powerSchedulesError = $state<string | null>(null);
+  powerScheduleBusy = $state(false);
+  /** Group power run: confirmation, then one row per host. */
+  confirmGroupPower = $state<{ groupId: number; action: PowerAction } | null>(null);
+  groupRun = $state<{ hostId: number; name: string; state: "pending" | "running" | "done" | "failed"; error: string | null }[] | null>(null);
 
   security = $state<SecurityReport | null>(null);
   securityLoading = $state(false);
@@ -202,6 +211,8 @@ class SystemStore {
     this.run = null;
     this.disks = null;
     this.schedules = null;
+    this.powerSchedules = null;
+    this.powerSchedulesError = null;
     this.security = null;
     vms.reset(id);
     void this.loadInfo();
@@ -213,7 +224,7 @@ class SystemStore {
     if (this.hostId === null || this.prompt) return;
     if (tab === "units" && !this.unitsLoaded) await this.loadUnits();
     else if (tab === "journal" && this.journalRun === null && !this.journal.length) await this.startJournal();
-    else if (tab === "schedules" && !this.schedules) await this.loadSchedules();
+    else if (tab === "schedules" && !this.schedules) await Promise.all([this.loadSchedules(), this.loadPowerSchedules()]);
     else if (tab === "security" && !this.security) await this.loadSecurity();
     else if (tab === "updates" && !this.updates) await this.checkUpdates();
     else if (tab === "vms" && (!vms.report || vms.hostId !== this.hostId) && !vms.loading) await vms.load();
@@ -437,6 +448,54 @@ class SystemStore {
     }
   }
 
+  async loadPowerSchedules() {
+    const id = this.hostId;
+    if (id === null) return;
+    const seq = this.seq;
+    try {
+      const l = await api.powerSchedules(id);
+      if (seq !== this.seq) return;
+      this.powerSchedules = l;
+      this.powerSchedulesError = null;
+    } catch (e) {
+      if (seq === this.seq) this.powerSchedulesError = errorText(e);
+    }
+  }
+
+  /** Installs (or replaces) a power schedule; returns true when it worked. */
+  async addPowerSchedule(spec: ScheduleSpec): Promise<boolean> {
+    const id = this.hostId;
+    if (id === null) return false;
+    const relay = spec.action === "wake" ? hosts.byId(hosts.byId(id)?.wakeRelayId ?? -1)?.name : null;
+    this.powerScheduleBusy = true;
+    try {
+      const r = await this.withSudo(relay ? `schedule a wake-up on ${relay}` : `schedule a ${POWER_VERB[spec.action as PowerAction]}`, (sudo) =>
+        api.powerScheduleSet(id, spec, sudo),
+      );
+      this.notice = { text: `Scheduled on ${r.onHostName}${r.next ? `; next run ${r.next}` : ""}.`, tone: "ok" };
+      await Promise.all([this.loadPowerSchedules(), this.loadSchedules()]);
+      return true;
+    } catch (e) {
+      this.notice = { text: `Schedule: ${errorText(e)}`, tone: "err" };
+      return false;
+    } finally {
+      this.powerScheduleBusy = false;
+    }
+  }
+
+  async removePowerSchedule(s: HostSchedule) {
+    this.powerScheduleBusy = true;
+    try {
+      await this.withSudo(`remove ${s.unit} from ${s.onHostName}`, (sudo) => api.powerScheduleRemove(s.onHostId, s.unit, sudo));
+      this.notice = { text: `Removed the schedule from ${s.onHostName}.`, tone: "ok" };
+      await Promise.all([this.loadPowerSchedules(), this.loadSchedules()]);
+    } catch (e) {
+      this.notice = { text: `Schedule: ${errorText(e)}`, tone: "err" };
+    } finally {
+      this.powerScheduleBusy = false;
+    }
+  }
+
   // ---- security -----------------------------------------------------------
 
   async loadSecurity() {
@@ -558,6 +617,33 @@ class SystemStore {
       this.notice = { text: `Wake-up sent to ${w.mac}${w.via ? ` from ${w.via}` : " from this computer"}.`, tone: "ok" };
     } catch (e) {
       this.notice = { text: `Wake: ${errorText(e)}`, tone: "err" };
+    }
+  }
+
+  /**
+   * Runs a power action on every host in a group, one after another. Hosts
+   * where sudo needs a password that isn't remembered are reported, not
+   * prompted for (one prompt per host would be easy to click through).
+   */
+  async groupPower(groupId: number, action: PowerAction) {
+    this.confirmGroupPower = null;
+    const members = hosts.hosts.filter((h) => h.groupId === groupId);
+    this.groupRun = members.map((h) => ({ hostId: h.id, name: h.name, state: "pending", error: null }));
+    for (let i = 0; i < members.length; i++) {
+      const set = (state: "running" | "done" | "failed", error: string | null = null) => {
+        if (!this.groupRun) return;
+        const rows = this.groupRun.slice();
+        rows[i] = { ...rows[i], state, error };
+        this.groupRun = rows;
+      };
+      set("running");
+      try {
+        await api.systemPower(members[i].id, action, null);
+        set("done");
+      } catch (e) {
+        const { system } = systemError(e);
+        set("failed", system?.kind === "sudoRequired" ? "needs a sudo password: run it from this host's own page, or let Nightgrid remember it" : errorText(e));
+      }
     }
   }
 

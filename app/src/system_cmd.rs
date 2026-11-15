@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::power::{self, PowerAction};
+use nightgrid_core::power_schedule::{self, InstalledSchedule, ScheduleSpec, ScheduledAction};
 use nightgrid_core::secrets::{Secret, SecretKind, SecretRef, SecretStore};
 use nightgrid_core::ssh::client::{ConnectError, Connection};
 use nightgrid_core::system::history::{self, HistoryResult};
@@ -528,6 +529,132 @@ pub async fn host_wake(app: AppHandle, host_id: HostId) -> SysResult<WakeSent> {
             Ok(WakeSent { via: None, mac: power::format_mac(&mac) })
         }
     }
+}
+
+/// A Nightgrid power schedule and the host it is installed on (the host
+/// itself, or its wake relay for wake-ups).
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HostSchedule {
+    pub on_host_id: HostId,
+    pub on_host_name: String,
+    #[serde(flatten)]
+    pub schedule: InstalledSchedule,
+}
+
+/// The host and, when it has a MAC address and a relay, the relay.
+fn host_and_relay(
+    app: &AppHandle,
+    host_id: HostId,
+) -> SysResult<(nightgrid_core::hosts::Host, Option<nightgrid_core::hosts::Host>)> {
+    let state = app.state::<AppState>();
+    let store = state.store();
+    let h = store.get_host(host_id).map_err(SystemError::other)?.ok_or_else(|| SystemError::other("host not found"))?;
+    let relay = match h.wake_relay_id {
+        Some(r) if h.mac_address.is_some() => store.get_host(r).map_err(SystemError::other)?,
+        _ => None,
+    };
+    Ok((h, relay))
+}
+
+async fn list_schedules(app: &AppHandle, id: HostId) -> SysResult<Vec<InstalledSchedule>> {
+    let conn = connect_host(app, id).await?;
+    let (_, out, _) = tokio::time::timeout(std::time::Duration::from_secs(15), conn.exec(power_schedule::LIST_COMMAND))
+        .await
+        .map_err(|_| SystemError::other("the host took too long to answer"))?
+        .map_err(SystemError::other)?;
+    Ok(power_schedule::parse_list(&String::from_utf8_lossy(&out)))
+}
+
+/// Power schedules for a host: its own timers, plus wake-ups for it on its relay.
+#[tauri::command]
+#[specta::specta]
+pub async fn power_schedules(app: AppHandle, host_id: HostId) -> SysResult<Vec<HostSchedule>> {
+    let (host, relay) = host_and_relay(&app, host_id)?;
+    let mut out: Vec<HostSchedule> = list_schedules(&app, host_id)
+        .await?
+        .into_iter()
+        .filter(|s| s.spec.action != ScheduledAction::Wake)
+        .map(|schedule| HostSchedule { on_host_id: host.id, on_host_name: host.name.clone(), schedule })
+        .collect();
+    if let (Some(r), Some(mac)) = (relay, host.mac_address.as_deref()) {
+        let mac = power::format_mac(&power::parse_mac(mac).map_err(SystemError::other)?);
+        // The relay may be off; its schedules are a bonus, not an error.
+        match list_schedules(&app, r.id).await {
+            Ok(list) => {
+                out.extend(
+                    list.into_iter()
+                        .filter(|s| s.spec.mac.as_deref() == Some(mac.as_str()))
+                        .map(|schedule| HostSchedule { on_host_id: r.id, on_host_name: r.name.clone(), schedule }),
+                )
+            }
+            Err(e) => tracing::info!("wake schedules on {}: {e}", r.name),
+        }
+    }
+    Ok(out)
+}
+
+/// Installs (or replaces) a schedule as a systemd timer. Wake-ups go on the
+/// host's relay, with the host's MAC address. Needs root on that host.
+#[tauri::command]
+#[specta::specta]
+pub async fn power_schedule_set(
+    app: AppHandle,
+    host_id: HostId,
+    spec: ScheduleSpec,
+    sudo: Option<SudoInput>,
+) -> SysResult<HostSchedule> {
+    let (host, relay) = host_and_relay(&app, host_id)?;
+    let (target, spec) = if spec.action == ScheduledAction::Wake {
+        let r = relay.ok_or_else(|| {
+            SystemError::other(
+                "a scheduled wake-up runs on another host: set the MAC address and Wake from in the host editor",
+            )
+        })?;
+        (r, ScheduleSpec { mac: host.mac_address.clone(), ..spec })
+    } else {
+        (host, spec)
+    };
+    let spec = spec.normalized().map_err(SystemError::other)?;
+    let cmd = power_schedule::install_command(&spec).map_err(SystemError::other)?;
+    let conn = connect_host(&app, target.id).await?;
+    let auth = resolve_sudo(&app, target.id, &conn, sudo).await?;
+    tracing::info!(host = %target.id, unit = %spec.unit(), "install power schedule");
+    let o = sudo::run(&conn, &auth, &cmd).await?;
+    if o.code != 0 || !o.stdout.contains("installed") {
+        return Err(SystemError::other(format!("couldn't install the schedule: {}", o.stderr.trim())).into());
+    }
+    let unit = spec.unit();
+    let next = list_schedules(&app, target.id)
+        .await
+        .ok()
+        .and_then(|l| l.into_iter().find(|s| s.unit == unit))
+        .and_then(|s| s.next);
+    Ok(HostSchedule {
+        on_host_id: target.id,
+        on_host_name: target.name,
+        schedule: InstalledSchedule { unit, spec, next },
+    })
+}
+
+/// Removes a Nightgrid schedule from the host it's installed on.
+#[tauri::command]
+#[specta::specta]
+pub async fn power_schedule_remove(
+    app: AppHandle,
+    on_host_id: HostId,
+    unit: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let cmd = power_schedule::remove_command(&unit).map_err(SystemError::other)?;
+    let conn = connect_host(&app, on_host_id).await?;
+    let auth = resolve_sudo(&app, on_host_id, &conn, sudo).await?;
+    tracing::info!(host = %on_host_id, %unit, "remove power schedule");
+    let o = sudo::run(&conn, &auth, &cmd).await?;
+    if o.code != 0 || !o.stdout.contains("removed") {
+        return Err(SystemError::other(format!("couldn't remove the schedule: {}", o.stderr.trim())).into());
+    }
+    Ok(())
 }
 
 /// SMART health of every disk (needs root).
