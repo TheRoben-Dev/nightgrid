@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { api, type AppInfo } from "./lib/api";
+  import { api, inTauri, type AppInfo } from "./lib/api";
+  import { listen } from "@tauri-apps/api/event";
+  import AlertsPanel from "./lib/components/alerts/AlertsPanel.svelte";
+  import { alerts } from "./lib/stores/alerts.svelte";
   import "@xterm/xterm/css/xterm.css";
   import CommandPalette from "./lib/components/CommandPalette.svelte";
   import HostEditor from "./lib/components/HostEditor.svelte";
@@ -51,8 +54,15 @@
       metrics.start();
       services.start();
       tunnels.start();
+      alerts.start();
       updates.startLaunchCheck();
     });
+    // Tray menu: quick connect and "open alerts".
+    const unlisten: Promise<() => void>[] = [];
+    if (inTauri()) {
+      unlisten.push(listen<{ hostId: number }>("tray://connect", (e) => terms.openHost(e.payload.hostId)));
+      unlisten.push(listen("tray://alerts", () => (alerts.open = true)));
+    }
     api
       .appInfo()
       .then((i) => {
@@ -63,6 +73,7 @@
     return () => {
       stop();
       stopHosts();
+      for (const u of unlisten) void u.then((f) => f());
     };
   });
 
@@ -121,7 +132,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.6.0"} />
+  <LeftRail version={info?.version ?? "0.7.0"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system"} aria-label={section.label}>
@@ -171,6 +182,7 @@
 <ServiceEditor />
 <HomepageImport />
 <TunnelEditor />
+<AlertsPanel />
 
 <style>
   .shell {

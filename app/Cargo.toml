@@ -19,7 +19,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 futures-util = "0.3"
 nightgrid-core = { path = "../core", features = ["specta"] }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-specta = { version = "=2.0.0-rc.29", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.28", features = ["derive"] }
 specta-typescript = "=0.0.15"
@@ -34,4 +34,6 @@ tokio = { version = "1.54.1", features = ["macros", "rt", "sync", "time"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
+tauri-plugin-notification = "2"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 time = { version = "0.3", features = ["formatting"] }

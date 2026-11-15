@@ -43,6 +43,8 @@ pub struct AppState {
     pub services: Arc<crate::services_cmd::ServicesHub>,
     /// Running port forwards and their UI channel.
     pub tunnels: Arc<crate::tunnels_cmd::TunnelHub>,
+    /// Alert tracker, its loop and UI channel.
+    pub alerts: Arc<crate::alerts_cmd::AlertsHub>,
     /// Journal follows and package runs: stop switch by id.
     pub system_runs: crate::system_cmd::SystemRuns,
     /// Running compose commands: cancel switch by run id.
@@ -75,6 +77,7 @@ impl AppState {
             metrics: Arc::default(),
             services: Arc::default(),
             tunnels: Arc::default(),
+            alerts: Arc::default(),
             next_term: AtomicU32::new(1),
         })
     }
