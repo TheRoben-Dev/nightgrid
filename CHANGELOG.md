@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 - **Notes** fills the window: the list and the note scroll on their own, so **Save** stays in view however many notes you have. **Mod+S** saves a note while editing.
+- **Files**: dragging files from one pane to the other works on macOS (and Windows) again. The window's native file-drop handler was swallowing in-app drags.
 
 ## [0.10.7] - 2026-11-15
 

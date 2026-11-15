@@ -21,7 +21,8 @@
         "minWidth": 960,
         "minHeight": 600,
         "backgroundColor": "#07080B",
-        "center": true
+        "center": true,
+        "dragDropEnabled": false
       }
     ],
     "security": {

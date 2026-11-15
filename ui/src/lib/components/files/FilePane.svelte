@@ -1,3 +1,10 @@
+<script module lang="ts">
+  import type { Side as DragSide } from "../../api";
+  type DragLoad = { side: DragSide; paths: string[]; from: string };
+  /** One drag at a time across both panes. */
+  const sharedDrag: { load: DragLoad | null } = { load: null };
+</script>
+
 <script lang="ts">
   import { scramble } from "../../scramble";
   import type { Entry, Side } from "../../api";
@@ -21,6 +28,12 @@
   let { pane, active, onactivate, onopenfile, ondelete, onrename, onmkdir, oncopy }: Props = $props();
 
   const DRAG_TYPE = "application/x-nightgrid-files";
+  /*
+   * The drag in flight, shared by both panes. WebKit may hide custom
+   * dataTransfer types (and their data until drop), so the panes read this
+   * instead; the dataTransfer copy stays for engines that show it.
+   */
+  const dragNow = sharedDrag;
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
   let pathInput = $state("");
@@ -139,24 +152,39 @@
       pane.selected = [e.path];
       pane.anchor = e.path;
     }
-    ev.dataTransfer?.setData(DRAG_TYPE, JSON.stringify({ side: pane.side, paths: pane.selected, from: pane.id }));
-    if (ev.dataTransfer) ev.dataTransfer.effectAllowed = "copy";
+    const load: DragLoad = { side: pane.side, paths: [...pane.selected], from: pane.id };
+    dragNow.load = load;
+    if (ev.dataTransfer) {
+      ev.dataTransfer.setData(DRAG_TYPE, JSON.stringify(load));
+      // WebKit won't start a drag without a standard type.
+      ev.dataTransfer.setData("text/plain", load.paths.join("\n"));
+      ev.dataTransfer.effectAllowed = "copy";
+    }
+  }
+
+  function dragend() {
+    dragNow.load = null;
+    dropTarget = null;
   }
 
   function dragover(ev: DragEvent, target: string) {
-    if (!ev.dataTransfer?.types.includes(DRAG_TYPE)) return;
+    if (!dragNow.load && !ev.dataTransfer?.types.includes(DRAG_TYPE)) return;
     ev.preventDefault();
-    ev.dataTransfer.dropEffect = "copy";
+    if (ev.dataTransfer) ev.dataTransfer.dropEffect = "copy";
     dropTarget = target;
   }
 
   function drop(ev: DragEvent, dir: string) {
     dropTarget = null;
-    const raw = ev.dataTransfer?.getData(DRAG_TYPE);
-    if (!raw) return;
+    let d = dragNow.load;
+    if (!d) {
+      const raw = ev.dataTransfer?.getData(DRAG_TYPE);
+      if (!raw) return;
+      d = JSON.parse(raw) as DragLoad;
+    }
+    dragNow.load = null;
     ev.preventDefault();
     ev.stopPropagation();
-    const d = JSON.parse(raw) as { side: Side; paths: string[]; from: string };
     // Dropping onto the same folder it came from does nothing.
     const sameDir = d.from === pane.id && dir === pane.path;
     const intoSelf = d.from === pane.id && d.paths.includes(dir);
@@ -299,6 +327,7 @@
         onclick={(ev) => click(ev, e)}
         ondblclick={() => activate(e)}
         ondragstart={(ev) => dragstart(ev, e)}
+        ondragend={dragend}
         ondragover={(ev) => isDirLike(e) && dragover(ev, e.path)}
         ondrop={(ev) => isDirLike(e) && drop(ev, e.path)}
       >
