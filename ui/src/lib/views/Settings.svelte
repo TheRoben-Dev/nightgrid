@@ -31,6 +31,7 @@
     "nav.docker": "Docker",
     "nav.services": "Services",
     "nav.tunnels": "Tunnels",
+    "nav.system": "System",
     "nav.automation": "Automation",
     "effects.toggle": "Toggle effects",
     "palette.openAlt": "Command palette (works in terminal)",

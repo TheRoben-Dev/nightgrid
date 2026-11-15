@@ -43,6 +43,8 @@ pub struct AppState {
     pub services: Arc<crate::services_cmd::ServicesHub>,
     /// Running port forwards and their UI channel.
     pub tunnels: Arc<crate::tunnels_cmd::TunnelHub>,
+    /// Journal follows and package runs: stop switch by id.
+    pub system_runs: crate::system_cmd::SystemRuns,
     /// Running compose commands: cancel switch by run id.
     pub compose_runs: Mutex<HashMap<u32, tokio::sync::watch::Sender<bool>>>,
     next_term: AtomicU32,
@@ -69,6 +71,7 @@ impl AppState {
             docker: DockerCache::new(),
             log_streams: Mutex::default(),
             compose_runs: Mutex::default(),
+            system_runs: Default::default(),
             metrics: Arc::default(),
             services: Arc::default(),
             tunnels: Arc::default(),

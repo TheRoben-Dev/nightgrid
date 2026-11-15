@@ -169,6 +169,34 @@ export const commands = {
 	 *  existing temporary tunnel to the same place is reused.
 	 */
 	tunnelOpenTemporary: (hostId: number, destHost: string, destPort: number, options?: InvokeOptions) => __TAURI_INVOKE<number>("tunnel_open_temporary", { hostId, destHost, destPort }, options),
+	systemInfo: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<SystemInfo>("system_info", { hostId }, options),
+	/**  Deletes the host's saved sudo password. */
+	systemSudoForget: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_sudo_forget", { hostId }, options),
+	systemUnits: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Unit_Serialize[]>("system_units", { hostId }, options),
+	systemUnitStatus: (hostId: number, unit: string, options?: InvokeOptions) => __TAURI_INVOKE<string>("system_unit_status", { hostId, unit }, options),
+	/**
+	 *  Runs a unit action as root. Stop / restart / disable were confirmed in
+	 *  the UI with the unit and host named (security rule 5).
+	 */
+	systemUnitAction: (hostId: number, unit: string, action: UnitAction, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_unit_action", { hostId, unit, action, sudo }, options),
+	/**
+	 *  Streams the journal; stop with `system_stream_stop`. `elevated` reads it
+	 *  with sudo (needed when the user isn't in `systemd-journal`/`adm`).
+	 */
+	systemJournalStart: (hostId: number, query: JournalQuery_Deserialize, elevated: boolean, sudo: SudoInput | null, onEvent: Channel<JournalEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("system_journal_start", { hostId, query, elevated, sudo, onEvent }, options),
+	/**  Stops a journal follow (or asks an upgrade to stop: it gets SIGTERM). */
+	systemStreamStop: (run: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_stream_stop", { run }, options),
+	systemUpdates: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<UpdatesReport_Serialize>("system_updates", { hostId }, options),
+	/**
+	 *  Refreshes package lists or installs upgrades as root, streaming output.
+	 *  Upgrades were confirmed in the UI with the host and package count named
+	 *  (security rule 5).
+	 */
+	systemUpgradeRun: (hostId: number, manager: Manager, op: UpgradeOp, sudo: SudoInput | null, onEvent: Channel<RunEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("system_upgrade_run", { hostId, manager, op, sudo, onEvent }, options),
+	/**  Reboots the host. Confirmed in the UI by typing the host name. */
+	systemReboot: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_reboot", { hostId, sudo }, options),
+	/**  SMART health of every disk (needs root). */
+	systemDisks: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<DisksReport_Serialize>("system_disks", { hostId, sudo }, options),
 	updateCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateStatus_Serialize>("update_check", undefined, options),
 	/**
 	 *  Downloads, verifies and installs the update from the last check, then
@@ -535,6 +563,66 @@ export type ContainerView_Serialize = {
 	composeFiles: string[],
 };
 
+export type Disk = Disk_Serialize | Disk_Deserialize;
+
+export type Disk_Deserialize = {
+	/**  Device path, e.g. `/dev/sda`. */
+	name: string,
+	/**  `ATA`, `NVMe`, `SCSI`. */
+	protocol: string,
+	model?: string | null,
+	serial?: string | null,
+	firmware?: string | null,
+	capacity?: number | null,
+	/**  0 for SSDs, `None` if unknown. */
+	rotationRpm?: number | null,
+	/**  Overall self-assessment. */
+	passed?: boolean | null,
+	tempC?: number | null,
+	powerOnHours?: number | null,
+	health: Health,
+	/**  Plain-language reasons for a non-OK health. */
+	issues: string[],
+	attributes: SmartAttr_Deserialize[],
+	nvme?: NvmeHealth | null,
+};
+
+export type Disk_Serialize = {
+	/**  Device path, e.g. `/dev/sda`. */
+	name: string,
+	/**  `ATA`, `NVMe`, `SCSI`. */
+	protocol: string,
+	model: string | null,
+	serial: string | null,
+	firmware: string | null,
+	capacity: number | null,
+	/**  0 for SSDs, `None` if unknown. */
+	rotationRpm: number | null,
+	/**  Overall self-assessment. */
+	passed: boolean | null,
+	tempC: number | null,
+	powerOnHours: number | null,
+	health: Health,
+	/**  Plain-language reasons for a non-OK health. */
+	issues: string[],
+	attributes: SmartAttr_Serialize[],
+	nvme: NvmeHealth | null,
+};
+
+export type DisksReport = DisksReport_Serialize | DisksReport_Deserialize;
+
+export type DisksReport_Deserialize = {
+	disks: Disk_Deserialize[],
+	/**  Worst health over all disks (`Ok` when there are none). */
+	health: Health,
+};
+
+export type DisksReport_Serialize = {
+	disks: Disk_Serialize[],
+	/**  Worst health over all disks (`Ok` when there are none). */
+	health: Health,
+};
+
 /**
  *  Docker command error: a message plus the structured cause, so the UI can
  *  show a host-key / password prompt or the docker-group hint.
@@ -680,6 +768,14 @@ export type Group_Serialize = {
 	icon: string | null,
 	sortOrder: number,
 };
+
+export type Health = "ok" | 
+/**  Couldn't read SMART (unsupported, USB bridge, ...). */
+"unknown" | 
+/**  Worth watching (reallocated sectors, hot, worn). */
+"warn" | 
+/**  Failing or failed. */
+"bad";
 
 export type HomepageCandidate = {
 	container: string,
@@ -934,6 +1030,85 @@ export type JobView_Serialize = {
 	current: string | null,
 };
 
+export type JournalEntry = JournalEntry_Serialize | JournalEntry_Deserialize;
+
+export type JournalEntry_Deserialize = {
+	/**  Unix time in milliseconds. */
+	ts: number,
+	/**  Syslog priority 0–7 (6 = info if missing). */
+	priority: number,
+	unit?: string | null,
+	/**  `SYSLOG_IDENTIFIER` (or the command name). */
+	ident?: string | null,
+	pid?: number | null,
+	message: string,
+};
+
+export type JournalEntry_Serialize = {
+	/**  Unix time in milliseconds. */
+	ts: number,
+	/**  Syslog priority 0–7 (6 = info if missing). */
+	priority: number,
+	unit: string | null,
+	/**  `SYSLOG_IDENTIFIER` (or the command name). */
+	ident: string | null,
+	pid: number | null,
+	message: string,
+};
+
+/**  What the journal channel carries. */
+export type JournalEvent = JournalEvent_Serialize | JournalEvent_Deserialize;
+
+/**  What the journal channel carries. */
+export type JournalEvent_Deserialize = { kind: "entries"; entries: JournalEntry_Deserialize[] } | 
+/**  Only the user's own entries are visible (read with sudo for all). */
+{ kind: "limited" } | 
+/**  A message from journalctl itself (bad filter, ...). */
+{ kind: "notice"; text: string } | { kind: "end"; error?: string | null };
+
+/**  What the journal channel carries. */
+export type JournalEvent_Serialize = { kind: "entries"; entries: JournalEntry_Serialize[] } | 
+/**  Only the user's own entries are visible (read with sudo for all). */
+{ kind: "limited" } | 
+/**  A message from journalctl itself (bad filter, ...). */
+{ kind: "notice"; text: string } | { kind: "end"; error: string | null };
+
+export type JournalQuery = JournalQuery_Serialize | JournalQuery_Deserialize;
+
+export type JournalQuery_Deserialize = {
+	/**  Only this unit (`-u`). */
+	unit?: string | null,
+	/**  Most verbose priority shown, 0 (emerg) to 7 (debug) (`-p 0..N`). */
+	priority?: number | null,
+	/**
+	 *  `--since` / `--until`: journalctl time specs such as `-1h`, `today`,
+	 *  `2026-11-14 08:00`.
+	 */
+	since?: string | null,
+	until?: string | null,
+	/**  Backlog size (`-n`), at most [`MAX_LINES`]. */
+	lines?: number,
+	/**  Keep streaming new entries (`-f`). */
+	follow?: boolean,
+};
+
+export type JournalQuery_Serialize = {
+	/**  Only this unit (`-u`). */
+	unit: string | null,
+	/**  Most verbose priority shown, 0 (emerg) to 7 (debug) (`-p 0..N`). */
+	priority: number | null,
+	/**
+	 *  `--since` / `--until`: journalctl time specs such as `-1h`, `today`,
+	 *  `2026-11-14 08:00`.
+	 */
+	since: string | null,
+	until: string | null,
+	/**  Backlog size (`-n`), at most [`MAX_LINES`]. */
+	lines: number,
+	/**  Keep streaming new entries (`-f`). */
+	follow: boolean,
+};
+
 export type KeyValue = {
 	key: string,
 	value: string,
@@ -1016,6 +1191,13 @@ export type LogQuery_Serialize = {
 
 export type LogStream = "out" | "err";
 
+export type Manager = "apt" | "dnf" | "pacman" | 
+/**
+ *  Image-based OS (Fedora Atomic, Bazzite, ...): updated with
+ *  rpm-ostree/bootc, not package by package. Listed, not upgraded here.
+ */
+"ostree";
+
 export type MetricsEvent = MetricsEvent_Serialize | MetricsEvent_Deserialize;
 
 export type MetricsEvent_Deserialize = { kind: "sample"; hostId: number; sample: Sample_Deserialize } | { kind: "state"; hostId: number; state: PollState; message?: string | null; retrySecs?: number | null };
@@ -1075,6 +1257,36 @@ export type NewJob_Serialize = {
 	/**  Directory the item is copied into. */
 	dstDir: string,
 	policy: ConflictPolicy,
+};
+
+export type NvmeHealth = {
+	criticalWarning: number,
+	availableSpare: number,
+	spareThreshold: number,
+	/**  Wear estimate; may exceed 100. */
+	percentageUsed: number,
+	mediaErrors: number,
+	errorLogEntries: number,
+	unsafeShutdowns: number,
+	bytesWritten: number,
+};
+
+export type PackageUpdate = PackageUpdate_Serialize | PackageUpdate_Deserialize;
+
+export type PackageUpdate_Deserialize = {
+	name: string,
+	current?: string | null,
+	available: string,
+	/**  apt suite / dnf repository. */
+	repo?: string | null,
+};
+
+export type PackageUpdate_Serialize = {
+	name: string,
+	current: string | null,
+	available: string,
+	/**  apt suite / dnf repository. */
+	repo: string | null,
 };
 
 /**  One stored point (averages over its bucket). */
@@ -1164,6 +1376,15 @@ export type Rate = {
 	/**  Transmitted (network) or written (disk). */
 	tx: number,
 };
+
+/**  What an upgrade run's channel carries. */
+export type RunEvent = RunEvent_Serialize | RunEvent_Deserialize;
+
+/**  What an upgrade run's channel carries. */
+export type RunEvent_Deserialize = { kind: "lines"; lines: string[] } | { kind: "done"; code?: number | null; error?: string | null };
+
+/**  What an upgrade run's channel carries. */
+export type RunEvent_Serialize = { kind: "lines"; lines: string[] } | { kind: "done"; code: number | null; error: string | null };
 
 /**  One processed sample: what the UI shows. */
 export type Sample = Sample_Serialize | Sample_Deserialize;
@@ -1349,6 +1570,34 @@ export type Service_Serialize = {
 /**  Which filesystem a path is on. */
 export type Side = { kind: "local" } | { kind: "host"; id: number };
 
+export type SmartAttr = SmartAttr_Serialize | SmartAttr_Deserialize;
+
+export type SmartAttr_Deserialize = {
+	id: number,
+	name: string,
+	value: number,
+	worst: number,
+	thresh: number,
+	/**  Raw value as smartctl prints it (vendor-specific format). */
+	raw: string,
+	/**  `now` / `past` when the attribute crossed its threshold. */
+	failed?: string | null,
+	health: Health,
+};
+
+export type SmartAttr_Serialize = {
+	id: number,
+	name: string,
+	value: number,
+	worst: number,
+	thresh: number,
+	/**  Raw value as smartctl prints it (vendor-specific format). */
+	raw: string,
+	/**  `now` / `past` when the attribute crossed its threshold. */
+	failed: string | null,
+	health: Health,
+};
+
 export type SshConfigCandidate = SshConfigCandidate_Serialize | SshConfigCandidate_Deserialize;
 
 export type SshConfigCandidate_Deserialize = {
@@ -1436,6 +1685,64 @@ export type StatsView = {
 	tx: number,
 	active: number,
 	total: number,
+};
+
+/**  The sudo password typed into the prompt. Never logged. */
+export type SudoInput = {
+	password: string,
+	/**  Save it in the OS keychain for this host. */
+	remember: boolean,
+};
+
+/**  What it takes to become root on a host. */
+export type SudoState = 
+/**  Already logged in as root. */
+"root" | 
+/**  sudo works without a password (NOPASSWD). */
+"noPassword" | 
+/**  sudo asks for the user's password. */
+"password" | 
+/**  sudo isn't installed. */
+"missing";
+
+/**
+ *  A message plus the structured cause, so the UI can show an SSH prompt,
+ *  the sudo prompt or an install hint.
+ */
+export type SystemCmdError = SystemCmdError_Serialize | SystemCmdError_Deserialize;
+
+/**
+ *  A message plus the structured cause, so the UI can show an SSH prompt,
+ *  the sudo prompt or an install hint.
+ */
+export type SystemCmdError_Deserialize = {
+	message: string,
+	connect?: ConnectError | null,
+	system?: SystemError | null,
+};
+
+/**
+ *  A message plus the structured cause, so the UI can show an SSH prompt,
+ *  the sudo prompt or an install hint.
+ */
+export type SystemCmdError_Serialize = {
+	message: string,
+	connect: ConnectError | null,
+	system: SystemError | null,
+};
+
+export type SystemError = 
+/**  sudo wants a password and none was given (or it was wrong: `retry`). */
+{ kind: "sudoRequired"; retry: boolean } | 
+/**  The user may not use sudo (or not for this command). */
+{ kind: "sudoDenied"; message: string } | { kind: "noSudo" } | 
+/**  A tool the feature needs isn't on the host. */
+{ kind: "missing"; tool: string; hint: string } | { kind: "other"; message: string };
+
+export type SystemInfo = {
+	sudo: SudoState,
+	/**  A sudo password for this host is saved in the keychain. */
+	remembered: boolean,
 };
 
 /**  One temperature sensor. */
@@ -1583,6 +1890,44 @@ export type TunnelView = {
 	state: TunnelState,
 } & Tunnel;
 
+export type Unit = Unit_Serialize | Unit_Deserialize;
+
+export type UnitAction = "start" | "stop" | "restart" | "reload" | "enable" | "disable";
+
+export type Unit_Deserialize = {
+	/**  Full name, e.g. `nginx.service`. */
+	name: string,
+	/**  `loaded`, `not-found`, `masked`, ... */
+	load: string,
+	/**  `active`, `inactive`, `failed`, `activating`, ... */
+	active: string,
+	/**  `running`, `exited`, `dead`, ... */
+	sub: string,
+	description: string,
+	/**
+	 *  Unit file state: `enabled`, `disabled`, `static`, `masked`, ... (None
+	 *  for units without a file, e.g. transient ones).
+	 */
+	fileState?: string | null,
+};
+
+export type Unit_Serialize = {
+	/**  Full name, e.g. `nginx.service`. */
+	name: string,
+	/**  `loaded`, `not-found`, `masked`, ... */
+	load: string,
+	/**  `active`, `inactive`, `failed`, `activating`, ... */
+	active: string,
+	/**  `running`, `exited`, `dead`, ... */
+	sub: string,
+	description: string,
+	/**
+	 *  Unit file state: `enabled`, `disabled`, `static`, `masked`, ... (None
+	 *  for units without a file, e.g. transient ones).
+	 */
+	fileState: string | null,
+};
+
 export type UpdateInfo = UpdateInfo_Serialize | UpdateInfo_Deserialize;
 
 export type UpdateInfo_Deserialize = {
@@ -1630,3 +1975,40 @@ export type UpdateStatus_Serialize =
 ({ kind: "notConfigured" }) & { current?: never } | { kind: "upToDate"; current: string } | {
 	kind: "available",
 } & UpdateInfo_Serialize;
+
+export type UpdatesReport = UpdatesReport_Serialize | UpdatesReport_Deserialize;
+
+export type UpdatesReport_Deserialize = {
+	/**  `None` when no supported package manager was found. */
+	manager?: Manager | null,
+	updates: PackageUpdate_Deserialize[],
+	rebootRequired: boolean,
+	/**
+	 *  Why a reboot is needed (packages from `/var/run/reboot-required.pkgs`,
+	 *  or "running kernel was removed", ...).
+	 */
+	rebootReasons: string[],
+	/**  Something the user should know (stale package lists, ...). */
+	note?: string | null,
+};
+
+export type UpdatesReport_Serialize = {
+	/**  `None` when no supported package manager was found. */
+	manager: Manager | null,
+	updates: PackageUpdate_Serialize[],
+	rebootRequired: boolean,
+	/**
+	 *  Why a reboot is needed (packages from `/var/run/reboot-required.pkgs`,
+	 *  or "running kernel was removed", ...).
+	 */
+	rebootReasons: string[],
+	/**  Something the user should know (stale package lists, ...). */
+	note: string | null,
+};
+
+/**  What an upgrade run does. */
+export type UpgradeOp = 
+/**  Refresh the package lists only (apt). */
+"refresh" | 
+/**  Install all available upgrades. */
+"upgrade";

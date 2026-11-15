@@ -673,3 +673,88 @@ async fn openssh_tunnels_local_dynamic_remote() {
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
 }
+
+/// A stand-in `sudo` (password "hunter2") and `id`, put first on the session
+/// PATH, to exercise the sudo protocol without real root.
+fn fake_sudo_bin(dir: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let bin = dir.join("fakebin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let sudo = r#"#!/bin/sh
+mode=""; prompt=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -n) mode=n; shift ;;
+    -S) mode=S; shift ;;
+    -k) shift ;;
+    -p) prompt="$2"; shift 2 ;;
+    --) shift; break ;;
+    *) break ;;
+  esac
+done
+if [ "$mode" = n ]; then echo "sudo: a password is required" >&2; exit 1; fi
+printf '%s' "$prompt" >&2
+IFS= read -r pw || pw=""
+if [ "$pw" != "hunter2" ]; then
+  echo "Sorry, try again." >&2
+  printf '%s' "$prompt" >&2
+  echo "sudo: no password was provided" >&2
+  echo "sudo: 1 incorrect password attempt" >&2
+  exit 1
+fi
+FAKE_ROOT=1 exec "$@"
+"#;
+    let id = "#!/bin/sh\nif [ \"$FAKE_ROOT\" = 1 ]; then echo 0; else echo 1000; fi\n";
+    for (name, body) in [("sudo", sudo), ("id", id)] {
+        let p = bin.join(name);
+        std::fs::write(&p, body).unwrap();
+        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+    bin
+}
+
+#[tokio::test]
+async fn openssh_sudo_password_on_stdin() {
+    use nightgrid_core::secrets::Secret;
+    use nightgrid_core::system::sudo::{self, Stream, SudoAuth, SudoState};
+    use nightgrid_core::system::SystemError;
+    if !enabled() {
+        return;
+    }
+    let _serial = SERIAL.lock().await;
+    let dir = tempfile::tempdir().unwrap();
+    let bin = fake_sudo_bin(dir.path());
+    let extra = format!("SetEnv PATH={}:/usr/bin:/bin:/usr/sbin:/sbin\n", bin.display());
+    let sshd = start_sshd_with("host_ed25519", Some(dir), None, &extra);
+    let o = opts(sshd.dir.path());
+    let conn = connect_trusting(&key_target(&sshd), &[], &o).await;
+
+    assert_eq!(sudo::probe(&conn).await.unwrap(), SudoState::Password);
+    assert_eq!(
+        sudo::run(&conn, &SudoAuth::NoPassword, "true").await.unwrap_err(),
+        SystemError::SudoRequired { retry: false }
+    );
+    let wrong = SudoAuth::Password(Arc::new(Secret::new("nope")));
+    assert_eq!(sudo::validate(&conn, &wrong).await.unwrap_err(), SystemError::SudoRequired { retry: true });
+
+    // The password line goes to sudo only: `cat` sees an empty stdin.
+    let good = SudoAuth::Password(Arc::new(Secret::new("hunter2")));
+    sudo::validate(&conn, &good).await.unwrap();
+    let out = sudo::run(&conn, &good, "id -u; cat; echo done >&2").await.unwrap();
+    assert_eq!((out.code, out.stdout.as_str(), out.stderr.as_str()), (0, "0\n", "done"));
+
+    let mut lines = Vec::new();
+    let code = sudo::stream(&conn, &good, "echo a; echo b >&2; printf tail; exit 3", None, &mut |s, l| {
+        lines.push((s, l));
+        true
+    })
+    .await
+    .unwrap();
+    assert_eq!(code, Some(3));
+    // stdout and stderr travel separately, so only compare within a stream.
+    let of = |s: Stream| lines.iter().filter(|(x, _)| *x == s).map(|(_, l)| l.as_str()).collect::<Vec<_>>();
+    assert_eq!((of(Stream::Out), of(Stream::Err)), (vec!["a", "tail"], vec!["b"]));
+
+    let err = sudo::stream(&conn, &wrong, "echo never", None, &mut |_, _| true).await.unwrap_err();
+    assert_eq!(err, SystemError::SudoRequired { retry: true });
+}
