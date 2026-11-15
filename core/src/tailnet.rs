@@ -13,7 +13,10 @@
 //! first (you may be at home) and then through the tailnet, so a host saved
 //! by its LAN address works on and off the LAN. With the built-in client off,
 //! everything is dialled directly, which uses a system Tailscale if one is
-//! connected.
+//! connected. Other names are looked up first while the built-in client
+//! runs: a public name whose addresses are all tailnet addresses (a DNS
+//! record pointing at a 100.x node) is dialled through the tailnet by
+//! address, everything else directly.
 
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -214,6 +217,22 @@ pub fn route(host: &str) -> Route {
     route_for(&SHARED.read().expect("poisoned"), host)
 }
 
+/// How long a name lookup may take before the dialer gives up on routing it
+/// through the tailnet (and dials directly, as before).
+const RESOLVE_TIMEOUT: Duration = Duration::from_millis(1500);
+
+/// Where to dial a name whose addresses are `addrs`: through the tailnet when
+/// every address is a tailnet address (IPv4 preferred), else `None` (direct).
+/// A mix of tailnet and other addresses stays direct for now: the public
+/// address may be the one that works (say, a reverse proxy on the internet
+/// next to a tailnet-only record), and the OS picks among them as usual.
+pub fn tailnet_target(addrs: &[IpAddr]) -> Option<IpAddr> {
+    if addrs.is_empty() || !addrs.iter().all(|a| is_tailnet_ip(*a)) {
+        return None;
+    }
+    addrs.iter().find(|a| a.is_ipv4()).or(addrs.first()).copied()
+}
+
 /// How long to try directly before falling back to the tailnet.
 const DIRECT_FIRST: Duration = Duration::from_millis(2500);
 
@@ -265,10 +284,35 @@ pub async fn dial(host: &str, port: u16, timeout: Duration) -> io::Result<TcpStr
 /// Connects to `host:port`, through the built-in tailnet when that's the way
 /// there (see the module docs).
 async fn dial_one(host: &str, port: u16, timeout: Duration) -> io::Result<TcpStream> {
-    let (route, proxy) = {
+    let (route, proxy, running) = {
         let sh = SHARED.read().expect("poisoned");
-        (route_for(&sh, host), sh.proxy.clone())
+        (route_for(&sh, host), sh.proxy.clone(), sh.running)
     };
+    // A public name (split DNS, or a record pointing at a tailnet address)
+    // that resolves to tailnet addresses only goes through the tailnet. Only
+    // while the built-in client runs: otherwise nothing changes and a system
+    // Tailscale handles it.
+    if let (Route::Direct, Some(p), true) = (route, proxy.as_ref(), running) {
+        let bare = host.trim_matches(['[', ']']);
+        if bare.parse::<IpAddr>().is_err() {
+            let started = std::time::Instant::now();
+            let budget = timeout.min(RESOLVE_TIMEOUT);
+            let addrs: Vec<IpAddr> = match tokio::time::timeout(budget, tokio::net::lookup_host((bare, port))).await {
+                Ok(Ok(it)) => it.map(|a| a.ip()).collect(),
+                _ => Vec::new(),
+            };
+            if let Some(ip) = tailnet_target(&addrs) {
+                tracing::debug!(%host, %ip, port, "{host} resolves to tailnet address {ip}; dialing through the tailnet");
+                // The resolved address, not the name: the sidecar's resolver
+                // may not see the same records. TLS SNI and Host headers keep
+                // the name; callers only hand the stream over.
+                let left = timeout.saturating_sub(started.elapsed()).max(Duration::from_millis(500));
+                return within(left, socks_connect(p, &ip.to_string(), port)).await;
+            }
+            let left = timeout.saturating_sub(started.elapsed()).max(Duration::from_millis(500));
+            return within(left, direct(host, port)).await;
+        }
+    }
     match (route, proxy) {
         (Route::Tailnet, Some(p)) => within(timeout, socks_connect(&p, host, port)).await,
         (Route::DirectThenTailnet, Some(p)) => match within(timeout.min(DIRECT_FIRST), direct(host, port)).await {
@@ -549,6 +593,17 @@ fn set_state(s: &mut TailnetStatus, state: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn names_resolving_to_tailnet_addresses() {
+        let ip = |s: &str| s.parse::<IpAddr>().unwrap();
+        assert_eq!(tailnet_target(&[ip("100.101.1.2")]), Some(ip("100.101.1.2")));
+        assert_eq!(tailnet_target(&[ip("fd7a:115c:a1e0::5")]), Some(ip("fd7a:115c:a1e0::5")));
+        assert_eq!(tailnet_target(&[ip("fd7a:115c:a1e0::5"), ip("100.101.1.2")]), Some(ip("100.101.1.2")));
+        assert_eq!(tailnet_target(&[ip("203.0.113.7")]), None);
+        assert_eq!(tailnet_target(&[ip("100.101.1.2"), ip("203.0.113.7")]), None);
+        assert_eq!(tailnet_target(&[]), None);
+    }
 
     #[tokio::test]
     async fn falls_back_to_the_second_address_and_remembers_it() {
