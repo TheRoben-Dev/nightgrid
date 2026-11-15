@@ -54,7 +54,7 @@ impl From<ConnectError> for SystemCmdError {
     }
 }
 
-type SysResult<T> = Result<T, SystemCmdError>;
+pub(crate) type SysResult<T> = Result<T, SystemCmdError>;
 
 /// The sudo password typed into the prompt. Never logged.
 #[derive(Deserialize, Type)]

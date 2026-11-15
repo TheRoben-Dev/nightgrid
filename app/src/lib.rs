@@ -4,6 +4,7 @@
 mod alerts_cmd;
 mod automation_cmd;
 mod backup_cmd;
+mod backup_jobs_cmd;
 mod commands;
 mod docker_cmd;
 mod files_cmd;
@@ -89,6 +90,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         docker_cmd::docker_stack_rollback,
         docker_cmd::docker_stack_check_updates,
         docker_cmd::docker_image_lookup,
+        docker_cmd::docker_proxy_routes,
         docker_cmd::docker_stack_deploy,
         docker_cmd::stack_dirs_list,
         docker_cmd::stack_dirs_add,
@@ -172,6 +174,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_webhook_get,
         alerts_cmd::alerts_webhook_set,
         alerts_cmd::alerts_test,
+        alerts_cmd::alerts_log_samples,
+        backup_jobs_cmd::backup_jobs_list,
+        backup_jobs_cmd::backup_job_save,
+        backup_jobs_cmd::backup_job_delete,
+        backup_jobs_cmd::backup_jobs_check,
+        backup_jobs_cmd::backup_jobs_detect,
         update_cmd::update_check,
         update_cmd::update_install,
     ])

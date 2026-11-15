@@ -46,6 +46,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - Containers per host with live CPU and memory, logs (follow and search), inspect, and a shell inside a container.
 - Start, stop, restart and remove are available. Stop, restart and remove confirm the containers by name.
 - **Stacks**: Compose projects, plus folders you add, with up, down, pull and restart.
+- **Routes**: the domains Traefik, Caddy or Nginx Proxy Manager serve on the host, where each one forwards, the container behind it and how many days its certificate has left.
 - **Updates** asks each image's registry whether its tag moved (only when you click). It shows the version you run and the new one, and **What changed** opens the project's compare page or release notes in your browser.
 - **Snapshots** save each service's exact image plus copies of the compose files and `.env` on the host. One is taken before every Update and Rollback, and the newest 10 are kept. **Roll back…** names every file and service it changes and saves the current state first.
 - **+ New stack** builds a `compose.yaml` from an image (ports, volumes and variables pre-filled from what the image declares) or from pasted YAML. Variable values go into `.env` with mode 600, never into `compose.yaml`.
@@ -82,7 +83,8 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **schedules**: systemd timers (schedule, next and last run, and whether the last run failed, with a **Journal** button for the service it starts) and cron jobs from your crontab, `/etc/crontab` and `/etc/cron.d` in plain words ("daily at 03:30") with the next run. Read-only. Commands that look like they hold a token are masked until you click **Reveal**;
   - **security**: a hygiene score (A–F) from checks that need no root: SSH root and password logins, an active firewall, databases or the Docker API listening on every interface, Docker ports that bypass ufw, fail2ban/CrowdSec, automatic security updates, a pending reboot and extra uid-0 accounts. Each finding says how to fix it, with copy buttons for the commands; Nightgrid never changes anything itself. Below the checks, every listening port shows who can reach it (local, VPN, one address, all interfaces) and which process or container owns it. **Port map · all hosts** scans every host and lays their reachable ports side by side;
   - **updates**: apt, dnf or pacman, with a reboot-needed flag;
-  - **disks**: SMART health.
+  - **disks**: SMART health;
+  - **backups**: a board for every host's restic, borg, rsync and rclone jobs with last run, size, result and a stale flag. A job reads a systemd timer (last run, exit status and the totals the tool printed) or a path such as a repository or rsync target (newest file and size). **Find jobs** suggests the ones in the host's timers and cron tables. Nightgrid never opens a repository or runs a backup.
 - **sudo**: asked each time by default. Tick "remember for this host" to keep it in the keychain. The password is sent on sudo's input, never on a command line.
 
 ## Automation
@@ -122,7 +124,9 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - a container that was running exits with an error;
   - a service is down;
   - a certificate is expiring;
-  - SMART reports a warning.
+  - SMART reports a warning;
+  - a backup job failed or is stale;
+  - (opt-in) a burst of errors or an error never seen before in a container's logs or the journal. **✦ What broke?** asks DRIFT about the recent error lines, on this computer.
 - Alerts arrive as desktop notifications, and optionally through an ntfy, Discord or JSON webhook. Quiet hours hold notifications but still show alerts in the app.
 - The tray (menu bar on macOS) icon offers quick connect, lets you start and stop tunnels, and shows the alert count.
 
@@ -134,6 +138,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **Replace** swaps your setup for the backup. Type `replace` to confirm.
   - Nightgrid restarts afterwards.
 - **Sync folder**: pick a Syncthing, cloud-drive or git folder, and export and import use `nightgrid-backup.age` there in one click. The passphrase is never stored, so keep it somewhere safe. Without it the file can't be opened.
+- **Profiles**: an export is your profile. It imports on macOS, Windows and Linux (**Export profile…** / **Import profile…** in the command palette). A reminder card appears when your last export from this computer is older than a week; change the interval or turn it off under **Remind me to export**.
 
 ## Handhelds (ROG Ally, Steam Deck) and controllers
 

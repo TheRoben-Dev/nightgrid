@@ -148,6 +148,18 @@ import {
   type HistoryResult_Serialize as HistoryResult,
   type Note_Serialize as Note,
   type NoteInput_Serialize as NoteInput,
+  type BackupJob,
+  type BackupJobInput,
+  type BackupStatus_Serialize as BackupStatus,
+  type BackupSuggestion,
+  type BackupTool,
+  type BackupSource,
+  type BackupResult,
+  type ProxyReport_Serialize as ProxyReport,
+  type ProxyRoute_Serialize as ProxyRoute,
+  type ProxyFound,
+  type ProxyKind,
+  type CertInfo_Serialize as CertInfo,
   type SecurityReport_Serialize as SecurityReport,
   type Check_Serialize as SecurityCheck,
   type CheckStatus,
@@ -164,6 +176,7 @@ import {
 import { mockAlerts } from "./mockAlerts";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
+import { mockOps } from "./mockOps";
 import { mockHelper } from "./mockHelper";
 import { mockBackup } from "./mockBackup";
 import { mockIntegrations } from "./mockIntegrations";
@@ -311,6 +324,18 @@ export type {
   HistoryResult,
   Note,
   NoteInput,
+  BackupJob,
+  BackupJobInput,
+  BackupStatus,
+  BackupSuggestion,
+  BackupTool,
+  BackupSource,
+  BackupResult,
+  ProxyReport,
+  ProxyRoute,
+  ProxyFound,
+  ProxyKind,
+  CertInfo,
   SecurityCheck,
   CheckStatus,
   Listener,
@@ -362,6 +387,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     certExpiring: true,
     certDays: 14,
     smartWarning: true,
+    backupStale: true,
+    logAnomaly: false,
     native: true,
     quietHours: false,
     quietStart: 22 * 60,
@@ -376,6 +403,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   controllerNav: true,
   helperEnabled: false,
   historySearch: false,
+  profileReminderDays: 7,
+  lastProfileExport: null,
+  profileReminderSnooze: null,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -383,7 +413,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.5-web",
+      version: "0.10.6-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -538,6 +568,7 @@ export const api = {
   },
   dockerStackCheckUpdates: (hostId: number, stack: Stack): Promise<ImageUpdate[]> =>
     T() ? commands.dockerStackCheckUpdates(hostId, stack) : mockDocker.checkUpdates(hostId, stack),
+  dockerProxyRoutes: (hostId: number): Promise<ProxyReport> => (T() ? commands.dockerProxyRoutes(hostId) : mockOps.proxyRoutes(hostId)),
   dockerImageLookup: (hostId: number, image: string): Promise<RemoteImage> =>
     T() ? commands.dockerImageLookup(hostId, image) : mockDocker.imageLookup(hostId, image),
   dockerStackDeploy: (hostId: number, input: DeployInput): Promise<Stack> =>
@@ -605,6 +636,11 @@ export const api = {
   notesList: (): Promise<Note[]> => (T() ? commands.notesList() : mockNotes.list()),
   noteSave: (id: number | null, i: NoteInput): Promise<Note> => (T() ? commands.noteSave(id, i) : mockNotes.save(id, i)),
   noteDelete: (id: number): Promise<null> => (T() ? commands.noteDelete(id) : mockNotes.delete(id)),
+  backupJobsList: (): Promise<BackupJob[]> => (T() ? commands.backupJobsList() : mockOps.jobsList()),
+  backupJobSave: (id: number | null, i: BackupJobInput): Promise<BackupJob> => (T() ? commands.backupJobSave(id, i) : mockOps.jobSave(id, i)),
+  backupJobDelete: (id: number): Promise<null> => (T() ? commands.backupJobDelete(id) : mockOps.jobDelete(id)),
+  backupJobsCheck: (hostId: number): Promise<BackupStatus[]> => (T() ? commands.backupJobsCheck(hostId) : mockOps.jobsCheck(hostId)),
+  backupJobsDetect: (hostId: number): Promise<BackupSuggestion[]> => (T() ? commands.backupJobsDetect(hostId) : mockOps.jobsDetect(hostId)),
   systemSchedules: (hostId: number): Promise<Schedules> => (T() ? commands.systemSchedules(hostId) : mockSystem.schedules(hostId)),
   systemUnitStatus: (hostId: number, unit: string): Promise<string> =>
     T() ? commands.systemUnitStatus(hostId, unit) : mockSystem.unitStatus(hostId, unit),
@@ -711,6 +747,7 @@ export const api = {
   alertsWebhookSet: (url: string | null): Promise<WebhookInfo> =>
     T() ? commands.alertsWebhookSet(url) : mockAlerts.webhookSet(url),
   alertsTest: (): Promise<AlertTestResult> => (T() ? commands.alertsTest() : mockAlerts.test()),
+  alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));

@@ -160,6 +160,17 @@ pub async fn backup_export(
     .map_err(|e| CommandError::msg(e.to_string()))??;
     write_atomic(&path, &bytes).map_err(|e| CommandError::msg(format!("Couldn't write the backup: {e}")))?;
     tracing::info!(path = %path.display(), secrets, "config exported");
+    // Resets the export reminder.
+    {
+        let store = state.store();
+        if let Ok(mut s) = AppSettings::load(&store) {
+            s.last_profile_export = Some(now() as f64);
+            s.profile_reminder_snooze = None;
+            if let Err(e) = s.save(&store) {
+                tracing::warn!("couldn't record the export time: {e}");
+            }
+        }
+    }
     Ok(Some(BackupWritten { path: path.display().to_string(), secrets, bytes: bytes.len() as u32 }))
 }
 
@@ -213,9 +224,11 @@ pub async fn backup_import(app: AppHandle, passphrase: String, mode: ImportMode)
         let before = AppSettings::load(&store)?;
         let outcome = backup::import(&mut store, &bundle, mode)?;
         if outcome.settings_applied {
-            // The sync folder is a path on this machine; keep ours.
+            // The sync folder and the export reminder belong to this machine; keep ours.
             let mut s = AppSettings::load(&store)?;
             s.backup_folder = before.backup_folder;
+            s.last_profile_export = before.last_profile_export;
+            s.profile_reminder_snooze = before.profile_reminder_snooze;
             s.save(&store)?;
         }
         // The database is already committed: a keychain failure must not

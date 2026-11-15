@@ -46,6 +46,7 @@
   import { tunnels } from "./lib/stores/tunnels.svelte";
   import HelperPanel from "./lib/components/helper/HelperPanel.svelte";
   import Spotlight from "./lib/components/helper/Spotlight.svelte";
+  import ProfileReminder from "./lib/components/backup/ProfileReminder.svelte";
   import { helper } from "./lib/stores/helper.svelte";
 
   let info = $state<AppInfo | null>(null);
@@ -154,7 +155,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.5"} />
+  <LeftRail version={info?.version ?? "0.10.6"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system"} aria-label={section.label}>
@@ -201,6 +202,7 @@
   {#if helper.open}<HelperPanel />{/if}
 </div>
 <Spotlight />
+<ProfileReminder />
 
 <CommandPalette open={ui.paletteOpen} {commands} onclose={() => (ui.paletteOpen = false)} />
 <HostEditor />

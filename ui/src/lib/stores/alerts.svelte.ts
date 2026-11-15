@@ -11,7 +11,20 @@ export const KIND_LABEL: Record<AlertKind, string> = {
   serviceDown: "SERVICE DOWN",
   certExpiring: "CERT EXPIRING",
   smartWarning: "SMART WARNING",
+  backupFailed: "BACKUP FAILED",
+  backupStale: "BACKUP STALE",
+  logBurst: "ERROR BURST",
+  logNewError: "NEW ERROR",
 };
+
+/** Log alerts can be explained from their recent error lines. */
+export const isLogAlert = (a: Alert): boolean => a.kind === "logBurst" || a.kind === "logNewError";
+
+/** `logs:3:container/web:burst` → "container/web". */
+export function logSource(a: Alert): string | null {
+  const m = /^logs:\d+:(.+):(burst|new)$/.exec(a.key);
+  return m ? m[1] : null;
+}
 
 /** Where clicking an alert takes you. */
 export function targetLabel(a: Alert): string {
@@ -26,6 +39,12 @@ export function targetLabel(a: Alert): string {
       return "Services";
     case "smartWarning":
       return "Disks";
+    case "backupFailed":
+    case "backupStale":
+      return "Backups";
+    case "logBurst":
+    case "logNewError":
+      return logSource(a)?.startsWith("container/") ? "Docker logs" : "Journal";
   }
 }
 
@@ -98,10 +117,34 @@ class AlertsStore {
         break;
       case "smartWarning":
         if (host != null) system.select(host);
-        system.openTab("disks");
+        void system.openTab("disks");
         ui.go("system");
         break;
+      case "backupFailed":
+      case "backupStale":
+        void system.openTab("backups");
+        ui.go("system");
+        break;
+      case "logBurst":
+      case "logNewError": {
+        const src = logSource(a) ?? "";
+        if (src.startsWith("container/")) {
+          if (host != null) docker.select(host);
+          docker.tab = "containers";
+          ui.go("docker");
+        } else {
+          if (host != null) system.select(host);
+          void system.openTab("journal");
+          ui.go("system");
+        }
+        break;
+      }
     }
+  }
+
+  /** Recent error lines behind a log alert, for "what broke". */
+  samples(a: Alert): Promise<string[]> {
+    return api.alertsLogSamples(a.key);
   }
 
   clearHistory() {
