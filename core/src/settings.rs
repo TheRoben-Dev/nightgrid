@@ -78,6 +78,13 @@ pub struct AppSettings {
     /// Folder (e.g. a Syncthing or git folder) for quick encrypted backups.
     /// Machine-specific: kept as is when a backup is imported.
     pub backup_folder: Option<String>,
+    /// Remind to export a profile after this many days without one; 0 = off.
+    pub profile_reminder_days: u16,
+    /// When a profile was last exported from this machine (unix seconds).
+    /// Machine-specific: kept as is when a backup is imported.
+    pub last_profile_export: Option<f64>,
+    /// No reminder before this time (unix seconds).
+    pub profile_reminder_snooze: Option<f64>,
 }
 
 pub const WEBHOOK_KINDS: &[&str] = &["none", "ntfy", "discord", "json"];
@@ -168,6 +175,9 @@ impl Default for AppSettings {
             tray_enabled: true,
             close_to_tray: false,
             backup_folder: None,
+            profile_reminder_days: 7,
+            last_profile_export: None,
+            profile_reminder_snooze: None,
             handheld: false,
             controller_nav: true,
             helper_enabled: false,
@@ -203,6 +213,7 @@ impl AppSettings {
         range("metricsBackgroundSecs", self.metrics_background_secs, 10, 600)?;
         range("metricsRetentionDays", self.metrics_retention_days, 1, 90)?;
         range("servicesIntervalSecs", self.services_interval_secs, 15, 3600)?;
+        range("profileReminderDays", self.profile_reminder_days, 0, 90)?;
         let a = &self.alerts;
         range("alerts.diskPercent", u16::from(a.disk_percent), 50, 99)?;
         range("alerts.certDays", a.cert_days, 1, 90)?;

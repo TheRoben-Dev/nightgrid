@@ -38,6 +38,23 @@ export function buildCommands(): PaletteCommand[] {
     run: () => settings.update({ theme: id }),
   }));
 
+  const profile: PaletteCommand[] = [
+    {
+      id: "profile.export",
+      title: "Export profile (encrypted file)…",
+      group: "SETTINGS",
+      keywords: ["backup", "profile", "export", "move", "migrate", "another computer", "age", "encrypt"],
+      run: () => void helper.point("settings-backup", "Export: pick a passphrase; tick secrets to include saved passwords and tokens."),
+    },
+    {
+      id: "profile.import",
+      title: "Import profile…",
+      group: "SETTINGS",
+      keywords: ["restore", "profile", "import", "backup", "migrate", "new computer"],
+      run: () => void helper.point("settings-backup", "Import: choose the .age file and type its passphrase."),
+    },
+  ];
+
   const view: PaletteCommand[] = [
     {
       id: "helper.toggle",
@@ -314,5 +331,5 @@ export function buildCommands(): PaletteCommand[] {
   ];
 
   return [...snippetCmds, ...automationCmds, ...connect, ...browse, ...dockerHosts, ...tunnelCmds, ...systemCmds,
-    ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...themes];
+    ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...profile, ...themes];
 }

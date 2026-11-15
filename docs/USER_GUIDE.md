@@ -138,6 +138,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **Replace** swaps your setup for the backup. Type `replace` to confirm.
   - Nightgrid restarts afterwards.
 - **Sync folder**: pick a Syncthing, cloud-drive or git folder, and export and import use `nightgrid-backup.age` there in one click. The passphrase is never stored, so keep it somewhere safe. Without it the file can't be opened.
+- **Profiles**: an export is your profile. It imports on macOS, Windows and Linux (**Export profile…** / **Import profile…** in the command palette). A reminder card appears when your last export from this computer is older than a week; change the interval or turn it off under **Remind me to export**.
 
 ## Handhelds (ROG Ally, Steam Deck) and controllers
 

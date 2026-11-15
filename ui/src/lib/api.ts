@@ -403,6 +403,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   controllerNav: true,
   helperEnabled: false,
   historySearch: false,
+  profileReminderDays: 7,
+  lastProfileExport: null,
+  profileReminderSnooze: null,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";

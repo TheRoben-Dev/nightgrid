@@ -46,6 +46,7 @@
   import { tunnels } from "./lib/stores/tunnels.svelte";
   import HelperPanel from "./lib/components/helper/HelperPanel.svelte";
   import Spotlight from "./lib/components/helper/Spotlight.svelte";
+  import ProfileReminder from "./lib/components/backup/ProfileReminder.svelte";
   import { helper } from "./lib/stores/helper.svelte";
 
   let info = $state<AppInfo | null>(null);
@@ -201,6 +202,7 @@
   {#if helper.open}<HelperPanel />{/if}
 </div>
 <Spotlight />
+<ProfileReminder />
 
 <CommandPalette open={ui.paletteOpen} {commands} onclose={() => (ui.paletteOpen = false)} />
 <HostEditor />

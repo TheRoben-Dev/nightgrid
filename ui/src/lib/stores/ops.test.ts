@@ -86,3 +86,20 @@ describe("log alerts", () => {
     expect(targetLabel(alert("backup:2:1", "backupStale"))).toBe("Backups");
   });
 });
+
+describe("profile reminder", () => {
+  it("is due weekly once there are hosts", async () => {
+    const { reminderDue, reminderWords, daysSince } = await import("./profileReminder.svelte");
+    const day = 86400;
+    const base = { days: 7, last: 0, snooze: null, firstSeen: 0, hostCount: 1 };
+    expect(reminderDue(base, 6 * day)).toBe(false);
+    expect(reminderDue(base, 7 * day)).toBe(true);
+    expect(reminderDue({ ...base, hostCount: 0 }, 30 * day)).toBe(false);
+    expect(reminderDue({ ...base, days: 0 }, 30 * day)).toBe(false);
+    expect(reminderDue({ ...base, snooze: 8 * day }, 7.5 * day)).toBe(false);
+    expect(reminderDue({ ...base, last: null, firstSeen: 2 * day }, 8 * day)).toBe(false);
+    expect(reminderDue({ ...base, last: null, firstSeen: 2 * day }, 9 * day)).toBe(true);
+    expect(reminderWords(14)).toBe("Every 2 weeks");
+    expect(daysSince(0, 3.5 * day)).toBe(3);
+  });
+});

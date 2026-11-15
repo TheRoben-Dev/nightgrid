@@ -4,6 +4,8 @@
   import { scramble } from "../../scramble";
   import { ago } from "../../stores/alerts.svelte";
   import { fmtDate, passphraseProblem, summaryLines } from "../../stores/backup";
+  import { REMINDER_STEPS, reminderWords } from "../../stores/profileReminder.svelte";
+  import { settings } from "../../stores/settings.svelte";
   import Modal from "../Modal.svelte";
   import Panel from "../Panel.svelte";
   import Toggle from "../Toggle.svelte";
@@ -47,6 +49,9 @@
         exportMsg = `Saved ${r.path}${r.secrets ? ` with ${r.secrets} saved secret${r.secrets === 1 ? "" : "s"}` : ""}.`;
         pass = confirm = "";
         if (toFolder) folder = await api.backupFolder();
+        // The backend records the export time; the browser preview does it here.
+        if (inTauri()) await settings.load();
+        else await settings.update({ lastProfileExport: Date.now() / 1000, profileReminderSnooze: null });
       }
     } catch (e) {
       exportErr = errMsg(e);
@@ -114,10 +119,11 @@
   }
 </script>
 
-<Panel title="BACKUP" guide="settings-backup">
+<Panel title="BACKUP · PROFILE" guide="settings-backup">
   <p class="muted lead">
-    Moves your setup between machines: hosts, groups, tags, snippets, playbooks, notes, services, tunnels, integrations,
-    bookmarks and settings, in one file encrypted with a passphrase (age). Metric and check history stay here.
+    Your whole setup as one profile file, encrypted with a passphrase you choose (age): hosts, groups, tags, snippets, playbooks, notes, services, tunnels,
+    integrations, backup jobs, bookmarks and settings, plus saved passwords and tokens if you tick them. It imports on macOS, Windows and Linux; secrets go
+    into that computer's keychain. Metric and check history, stack snapshots and the DRIFT model file stay here.
   </p>
 
   <form class="export" onsubmit={(e) => (e.preventDefault(), void doExport(false))}>
@@ -147,6 +153,17 @@
     </div>
     {#if exportMsg}<p class="ok" role="status" use:scramble={exportMsg}></p>{/if}
     {#if exportErr}<p class="error" role="alert">{exportErr}</p>{/if}
+    <div class="remind-row">
+      <label class="field">
+        <span>REMIND ME TO EXPORT</span>
+        <select class="input" value={settings.value.profileReminderDays} onchange={(e) => void settings.update({ profileReminderDays: Number(e.currentTarget.value), profileReminderSnooze: null })}>
+          {#each [...new Set([...REMINDER_STEPS, settings.value.profileReminderDays])].sort((a, b) => a - b) as d (d)}<option value={d}>{reminderWords(d)}</option>{/each}
+        </select>
+      </label>
+      <span class="muted small last"
+        >{settings.value.lastProfileExport ? `Last export from this computer: ${ago(Math.floor(settings.value.lastProfileExport))} ago.` : "No export from this computer yet."}</span
+      >
+    </div>
   </form>
 
   <div class="block">
@@ -326,5 +343,15 @@
   }
   .mode.active.danger .name {
     color: var(--danger);
+  }
+  .remind-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .last {
+    padding-bottom: 6px;
   }
 </style>

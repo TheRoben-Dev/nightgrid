@@ -11,6 +11,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Docker → Routes**: every domain Traefik (router labels), Caddy (Caddyfile, in a container or on the host, and caddy-docker-proxy labels) or Nginx Proxy Manager serves on the host, where it forwards, the container behind it, and when its certificate expires (yellow inside your alert window, red when expired or missing).
 - **Alerts**: *Backup failed or stale* (on by default, checked every 30 minutes) and *Log anomalies* (off by default): every 10 minutes, new error lines from running containers and the journal are grouped into patterns, and an error never seen before or a burst of several times the usual count raises an alert. Log alerts have **✦ What broke?**, which hands the recent error lines to DRIFT on this computer.
 
+### Added: profiles and a weekly backup reminder
+- **Settings → Backup · Profile**: the encrypted export is now called a profile: one file, a passphrase you choose, everything from hosts to settings (and saved secrets if ticked), importable on macOS, Windows and Linux. **Export profile…** and **Import profile…** are in the command palette.
+- **Backup reminder**: a small card reminds you to export when the last profile export from this computer is older than a week (or 2 weeks, a month, never). **Tomorrow** snoozes it; any export resets it.
+
 ## [0.10.5] - 2026-11-15
 
 ### Added: stack snapshots, image changelogs and a deploy wizard (M10f)

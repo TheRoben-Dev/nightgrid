@@ -171,6 +171,8 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. On a host running Traefik, Caddy or Nginx Proxy Manager: **Docker → Routes** lists each domain, the upstream, the container (click to open it) and days until the certificate expires. A domain whose certificate expires within your alert window is yellow.
 4. **Settings → Alerts → Log anomalies** on. With a terminal open on the host, run `logger -p user.err "nightgrid test error"`. The first read (within a minute) only learns. Ten minutes later, after running `logger -p user.err "nightgrid widget exploded"`, a **NEW ERROR** alert appears. With DRIFT on, **✦ What broke?** opens DRIFT with the error lines.
 
+5. **Profile reminder**: with at least one host, set **Settings → Backup · Profile → Remind me to export** to Weekly. On a fresh install the card appears a week after first launch (or a week after the last export). **Tomorrow** hides it for a day; **Export profile…** jumps to the export form, and exporting resets it.
+
 ### macOS: testing M10f (snapshots, updates, deploy wizard)
 
 1. **Docker → Stacks**, on a stack that uses a `:latest` image: **Updates** lists each image with a badge. If one says UPDATE, it shows the old → new version, and **What changed** opens GitHub in your browser.

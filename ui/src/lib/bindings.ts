@@ -643,6 +643,15 @@ export type AppSettings_Deserialize = {
 	 *  Machine-specific: kept as is when a backup is imported.
 	 */
 	backupFolder?: string | null,
+	/**  Remind to export a profile after this many days without one; 0 = off. */
+	profileReminderDays?: number,
+	/**
+	 *  When a profile was last exported from this machine (unix seconds).
+	 *  Machine-specific: kept as is when a backup is imported.
+	 */
+	lastProfileExport?: number | null,
+	/**  No reminder before this time (unix seconds). */
+	profileReminderSnooze?: number | null,
 };
 
 /**
@@ -713,6 +722,15 @@ export type AppSettings_Serialize = {
 	 *  Machine-specific: kept as is when a backup is imported.
 	 */
 	backupFolder: string | null,
+	/**  Remind to export a profile after this many days without one; 0 = off. */
+	profileReminderDays: number,
+	/**
+	 *  When a profile was last exported from this machine (unix seconds).
+	 *  Machine-specific: kept as is when a backup is imported.
+	 */
+	lastProfileExport: number | null,
+	/**  No reminder before this time (unix seconds). */
+	profileReminderSnooze: number | null,
 };
 
 export type AuthMethod = 
