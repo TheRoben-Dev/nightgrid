@@ -77,6 +77,11 @@ impl AlertsHub {
         self.wake.notify_one();
     }
 
+    /// Active alerts right now.
+    pub fn active(&self) -> Vec<Alert> {
+        self.tracker.lock().expect("poisoned").active()
+    }
+
     pub fn active_count(&self) -> (usize, usize) {
         let t = self.tracker.lock().expect("poisoned");
         let act = t.active();

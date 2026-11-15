@@ -345,6 +345,29 @@ export const commands = {
 	backupJobsCheck: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<BackupStatus_Serialize[]>("backup_jobs_check", { hostId }, options),
 	/**  Backup jobs found in the host's systemd timers and cron tables. */
 	backupJobsDetect: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<BackupSuggestion[]>("backup_jobs_detect", { hostId }, options),
+	/**
+	 *  VMs and containers on a libvirt or Proxmox host. `elevate` reads as root
+	 *  (when this login may not use virsh / qm / pct).
+	 */
+	systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<VmReport_Serialize>("system_vms", { hostId, elevate, sudo }, options),
+	/**
+	 *  Starts, shuts down, reboots or stops a guest. Everything but start was
+	 *  confirmed in the UI with the guest and host named (security rule 5).
+	 */
+	systemVmAction: (hostId: number, kind: VmKind, id: string, action: VmAction, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_vm_action", { hostId, kind, id, action, elevate, sudo }, options),
+	/**
+	 *  Opens a terminal tab on a guest's console (`virsh console`, `qm
+	 *  terminal`, `pct enter`). With `as_root` it runs under sudo and sudo's own
+	 *  prompt asks in the terminal (nothing goes on the command line).
+	 */
+	termOpenVmConsole: (hostId: number, kind: VmKind, id: string, asRoot: boolean, cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_vm_console", { hostId, kind, id, asRoot, cols, rows, onEvent }, options),
+	statusPageGet: (options?: InvokeOptions) => __TAURI_INVOKE<StatusPageInfo_Serialize>("status_page_get", undefined, options),
+	/**  Saves the status page settings and restarts the server to match. */
+	statusPageSet: (settings: StatusPageSettings_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<StatusPageInfo_Serialize>("status_page_set", { settings }, options),
+	/**  A new token: old links stop working. */
+	statusPageNewToken: (options?: InvokeOptions) => __TAURI_INVOKE<StatusPageInfo_Serialize>("status_page_new_token", undefined, options),
+	/**  Writes a static HTML snapshot of the dashboard. `None` when cancelled. */
+	dashboardExport: (withAddresses: boolean, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("dashboard_export", { withAddresses }, options),
 	updateCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateStatus_Serialize>("update_check", undefined, options),
 	/**
 	 *  Downloads, verifies and installs the update from the last check, then
@@ -652,6 +675,8 @@ export type AppSettings_Deserialize = {
 	lastProfileExport?: number | null,
 	/**  No reminder before this time (unix seconds). */
 	profileReminderSnooze?: number | null,
+	/**  Read-only phone status page served by the app. Machine-specific. */
+	statusPage?: StatusPageSettings_Deserialize,
 };
 
 /**
@@ -731,6 +756,8 @@ export type AppSettings_Serialize = {
 	lastProfileExport: number | null,
 	/**  No reminder before this time (unix seconds). */
 	profileReminderSnooze: number | null,
+	/**  Read-only phone status page served by the app. Machine-specific. */
+	statusPage: StatusPageSettings_Serialize,
 };
 
 export type AuthMethod = 
@@ -3188,6 +3215,49 @@ export type StatsView = {
 	total: number,
 };
 
+export type StatusPageInfo = StatusPageInfo_Serialize | StatusPageInfo_Deserialize;
+
+export type StatusPageInfo_Deserialize = {
+	settings: StatusPageSettings_Deserialize,
+	running: boolean,
+	/**  Page links with the token in them (masked in the UI until revealed). */
+	urls: string[],
+	error?: string | null,
+};
+
+export type StatusPageInfo_Serialize = {
+	settings: StatusPageSettings_Serialize,
+	running: boolean,
+	/**  Page links with the token in them (masked in the UI until revealed). */
+	urls: string[],
+	error: string | null,
+};
+
+/**  The phone status page (off by default; the token lives in the keychain). */
+export type StatusPageSettings = StatusPageSettings_Serialize | StatusPageSettings_Deserialize;
+
+/**  The phone status page (off by default; the token lives in the keychain). */
+export type StatusPageSettings_Deserialize = {
+	enabled?: boolean,
+	/**
+	 *  `lan` (this machine's LAN address), `tailscale` (its 100.x address)
+	 *  or `all` (every interface).
+	 */
+	bind?: string,
+	port?: number,
+};
+
+/**  The phone status page (off by default; the token lives in the keychain). */
+export type StatusPageSettings_Serialize = {
+	enabled: boolean,
+	/**
+	 *  `lan` (this machine's LAN address), `tailscale` (its 100.x address)
+	 *  or `all` (every interface).
+	 */
+	bind: string,
+	port: number,
+};
+
 /**  One playbook step. Text fields may use `{{variables}}`. */
 export type Step = Step_Serialize | Step_Deserialize;
 
@@ -3631,6 +3701,68 @@ export type VersionInfo_Serialize = {
 	revision: string | null,
 	/**  RFC 3339 build time. */
 	created: string | null,
+};
+
+export type Vm = Vm_Serialize | Vm_Deserialize;
+
+export type VmAction = "start" | 
+/**  Asks the guest to shut down (ACPI). */
+"shutdown" | "reboot" | 
+/**  Pulls the plug. */
+"stop";
+
+export type VmKind = 
+/**  A libvirt / KVM domain. */
+"libvirt" | 
+/**  A Proxmox VE virtual machine (`qm`). */
+"qemu" | 
+/**  A Proxmox VE container (`pct`). */
+"lxc";
+
+export type VmReport = VmReport_Serialize | VmReport_Deserialize;
+
+export type VmReport_Deserialize = {
+	vms: Vm_Deserialize[],
+	libvirt: boolean,
+	proxmox: boolean,
+	/**  A tool is installed but this login may not use it: read as root. */
+	needsRoot: boolean,
+	/**  Messages from the tools (permission errors, a daemon that's down). */
+	notes: string[],
+};
+
+export type VmReport_Serialize = {
+	vms: Vm_Serialize[],
+	libvirt: boolean,
+	proxmox: boolean,
+	/**  A tool is installed but this login may not use it: read as root. */
+	needsRoot: boolean,
+	/**  Messages from the tools (permission errors, a daemon that's down). */
+	notes: string[],
+};
+
+export type Vm_Deserialize = {
+	kind: VmKind,
+	/**  Domain name (libvirt) or VMID (Proxmox). */
+	id: string,
+	name: string,
+	/**  running, stopped, paused, … (lower case, "shut off" → "stopped"). */
+	state: string,
+	vcpus?: number | null,
+	memoryMb?: number | null,
+	autostart?: boolean | null,
+};
+
+export type Vm_Serialize = {
+	kind: VmKind,
+	/**  Domain name (libvirt) or VMID (Proxmox). */
+	id: string,
+	name: string,
+	/**  running, stopped, paused, … (lower case, "shut off" → "stopped"). */
+	state: string,
+	vcpus: number | null,
+	memoryMb: number | null,
+	autostart: boolean | null,
 };
 
 export type WebhookInfo = WebhookInfo_Serialize | WebhookInfo_Deserialize;

@@ -85,6 +85,28 @@ pub struct AppSettings {
     pub last_profile_export: Option<f64>,
     /// No reminder before this time (unix seconds).
     pub profile_reminder_snooze: Option<f64>,
+    /// Read-only phone status page served by the app. Machine-specific.
+    pub status_page: StatusPageSettings,
+}
+
+pub const STATUS_BINDS: &[&str] = &["lan", "tailscale", "all"];
+
+/// The phone status page (off by default; the token lives in the keychain).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(default, rename_all = "camelCase")]
+pub struct StatusPageSettings {
+    pub enabled: bool,
+    /// `lan` (this machine's LAN address), `tailscale` (its 100.x address)
+    /// or `all` (every interface).
+    pub bind: String,
+    pub port: u16,
+}
+
+impl Default for StatusPageSettings {
+    fn default() -> Self {
+        Self { enabled: false, bind: "lan".into(), port: 8787 }
+    }
 }
 
 pub const WEBHOOK_KINDS: &[&str] = &["none", "ntfy", "discord", "json"];
@@ -178,6 +200,7 @@ impl Default for AppSettings {
             profile_reminder_days: 7,
             last_profile_export: None,
             profile_reminder_snooze: None,
+            status_page: StatusPageSettings::default(),
             handheld: false,
             controller_nav: true,
             helper_enabled: false,
@@ -214,6 +237,13 @@ impl AppSettings {
         range("metricsRetentionDays", self.metrics_retention_days, 1, 90)?;
         range("servicesIntervalSecs", self.services_interval_secs, 15, 3600)?;
         range("profileReminderDays", self.profile_reminder_days, 0, 90)?;
+        range("statusPage.port", self.status_page.port, 1024, 65535)?;
+        if !STATUS_BINDS.contains(&self.status_page.bind.as_str()) {
+            return Err(Error::Invalid {
+                field: "statusPage.bind",
+                reason: format!("unknown bind {:?}", self.status_page.bind),
+            });
+        }
         let a = &self.alerts;
         range("alerts.diskPercent", u16::from(a.disk_percent), 50, 99)?;
         range("alerts.certDays", a.cert_days, 1, 90)?;

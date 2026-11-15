@@ -2,6 +2,7 @@
   import { api, type AppInfo } from "../api";
   import AlertSettings from "../components/alerts/AlertSettings.svelte";
   import BackupPanel from "../components/backup/BackupPanel.svelte";
+  import StatusPagePanel from "../components/status/StatusPagePanel.svelte";
   import HelperSettings from "../components/helper/HelperSettings.svelte";
   import Barcode from "../components/Barcode.svelte";
   import Panel from "../components/Panel.svelte";
@@ -272,6 +273,7 @@
 
   <HelperSettings />
   <BackupPanel />
+  <StatusPagePanel />
 
   <Panel title="KEYBINDINGS" guide="settings-keybindings" prefix=">" count={bindings.length}>
     <table>

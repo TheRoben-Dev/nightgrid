@@ -9,7 +9,7 @@ import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { Terminal } from "@xterm/xterm";
-import { api, errorText, type ConnectError, type PromptKind, type TermMessage, type TermState } from "../api";
+import { api, errorText, type ConnectError, type PromptKind, type TermMessage, type TermState, type VmKind } from "../api";
 import { openExternal, readClipboard, writeClipboard } from "../clipboard";
 import { actionFor } from "../keys";
 import { files } from "../stores/files.svelte";
@@ -22,7 +22,14 @@ export type PaneState = TermState | "idle" | "prompt" | "failed" | "exited";
 export type Origin =
   | { kind: "local" }
   /** `container` set: a shell inside that container (`docker exec -it`). */
-  | { kind: "ssh"; hostId: number; name: string; container?: { id: string; name: string } };
+  | {
+      kind: "ssh";
+      hostId: number;
+      name: string;
+      container?: { id: string; name: string };
+      /** A guest's console (`virsh console`, `qm terminal`, `pct enter`). */
+      vm?: { kind: VmKind; id: string; name: string; asRoot: boolean };
+    };
 
 /** OSC number the remote edit helper uses (see core `edit_hook`). */
 export const EDIT_OSC = 7766;
@@ -118,7 +125,8 @@ export class TermSession {
 
   get title(): string {
     if (this.origin.kind === "local") return "local";
-    return this.origin.container ? `${this.origin.name} ▸ ${this.origin.container.name}` : this.origin.name;
+    const sub = this.origin.container?.name ?? this.origin.vm?.name;
+    return sub ? `${this.origin.name} ▸ ${sub}` : this.origin.name;
   }
 
   /** Puts the terminal into `host` (first call opens xterm). */
@@ -260,10 +268,12 @@ export class TermSession {
         this.backendId = await api.termOpenLocal(cols, rows, this.listener(gen));
       } else {
         const o = this.origin;
-        this.editToken = !o.container && settings.value.termEditInApp ? newToken() : null;
+        this.editToken = !o.container && !o.vm && settings.value.termEditInApp ? newToken() : null;
         const res = o.container
           ? await api.termOpenDockerExec(o.hostId, o.container.id, cols, rows, this.listener(gen))
-          : await api.termOpenSsh(o.hostId, cols, rows, this.editToken, this.listener(gen));
+          : o.vm
+            ? await api.termOpenVmConsole(o.hostId, o.vm.kind, o.vm.id, o.vm.asRoot, cols, rows, this.listener(gen))
+            : await api.termOpenSsh(o.hostId, cols, rows, this.editToken, this.listener(gen));
         if (gen !== this.generation) return;
         if (res.kind === "opened") {
           this.backendId = res.id;

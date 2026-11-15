@@ -11,6 +11,7 @@
   import UnitsPanel from "../components/system/UnitsPanel.svelte";
   import UpdatesPanel from "../components/system/UpdatesPanel.svelte";
   import BackupsPanel from "../components/system/BackupsPanel.svelte";
+  import VmsPanel from "../components/system/VmsPanel.svelte";
   import { hosts } from "../stores/hosts.svelte";
   import { actionVerb, system, UNIT_CONSEQUENCE, type SystemTab } from "../stores/system.svelte";
   import { ui } from "../stores/ui.svelte";
@@ -27,6 +28,7 @@
     { id: "security", label: "SECURITY" },
     { id: "updates", label: "UPDATES" },
     { id: "disks", label: "DISKS" },
+    { id: "vms", label: "VMS" },
     { id: "backups", label: "BACKUPS" },
   ];
 
@@ -104,6 +106,8 @@
       <SecurityPanel />
     {:else if system.tab === "updates"}
       <UpdatesPanel />
+    {:else if system.tab === "vms"}
+      <VmsPanel />
     {:else}
       <DisksPanel />
     {/if}

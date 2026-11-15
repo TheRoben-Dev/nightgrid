@@ -92,7 +92,10 @@ pub fn settings_set(
     let store = state.store();
     // The sync folder is only changed through the backup commands, so a stale
     // copy in the UI can't clear it.
-    settings.backup_folder = AppSettings::load(&store)?.backup_folder;
+    let current = AppSettings::load(&store)?;
+    settings.backup_folder = current.backup_folder;
+    // The status page restarts its server on change: only through its own command.
+    settings.status_page = current.status_page;
     settings.save(&store)?;
     drop(store);
     crate::tray::apply(&app);

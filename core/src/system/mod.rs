@@ -13,6 +13,7 @@ pub mod security;
 pub mod smart;
 pub mod sudo;
 pub mod systemd;
+pub mod vms;
 
 use serde::Serialize;
 

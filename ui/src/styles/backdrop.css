@@ -15,19 +15,108 @@
   opacity: 0.55;
 }
 
+/*
+ * CRT overlay. No mix-blend-mode or backdrop-filter: WKWebView (macOS) drops
+ * blended fixed layers over the app, and an overlay blend of faint white on a
+ * near-black UI is invisible anyway. Plain dark lines + a vignette work on
+ * every engine; motion is transform/opacity only (compositor, no repaints).
+ */
 .scanlines {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 1000;
-  background: repeating-linear-gradient(
+  overflow: hidden;
+  contain: strict;
+  /* Vignette: corners fall off like a curved tube. */
+  background: radial-gradient(ellipse 120% 100% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.32) 100%);
+}
+
+/* The lines, crawling down one period (3px) at a time: seamless loop. */
+.scanlines::before {
+  content: "";
+  position: absolute;
+  inset: -3px 0 0 0;
+  background: repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 0, rgba(0, 0, 0, 0.2) 1px, transparent 1px, transparent 3px);
+  animation:
+    ng-scan-crawl 1.6s linear infinite,
+    ng-scan-flicker 4.3s steps(1, end) infinite;
+  will-change: transform, opacity;
+}
+
+/* A faint bright band rolling down the screen, like a refresh sweep. */
+.scanlines::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 22vh;
+  background: linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0.025) 0,
-    rgba(255, 255, 255, 0.025) 1px,
-    transparent 1px,
-    transparent 3px
+    transparent,
+    color-mix(in srgb, var(--mint) 5%, transparent) 45%,
+    color-mix(in srgb, var(--cyan) 7%, transparent) 55%,
+    transparent
   );
-  mix-blend-mode: overlay;
+  transform: translateY(-30vh);
+  animation: ng-scan-roll 9s linear infinite;
+  will-change: transform;
+}
+
+@keyframes ng-scan-crawl {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(3px);
+  }
+}
+
+@keyframes ng-scan-roll {
+  from {
+    transform: translateY(-30vh);
+  }
+  to {
+    transform: translateY(130vh);
+  }
+}
+
+/* Mostly steady, with a few brief dips: reads as a live tube, not a strobe. */
+@keyframes ng-scan-flicker {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  31% {
+    opacity: 0.86;
+  }
+  32% {
+    opacity: 1;
+  }
+  67% {
+    opacity: 0.92;
+  }
+  68.5% {
+    opacity: 1;
+  }
+  89% {
+    opacity: 0.8;
+  }
+  89.8% {
+    opacity: 1;
+  }
+}
+
+/* Reduced motion keeps the static lines and vignette. */
+@media (prefers-reduced-motion: reduce) {
+  .scanlines::before,
+  .scanlines::after {
+    animation: none;
+  }
+  .scanlines::after {
+    display: none;
+  }
 }
 
 :root[data-effects="off"] .scanlines {

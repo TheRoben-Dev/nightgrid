@@ -53,6 +53,20 @@ export function buildCommands(): PaletteCommand[] {
       keywords: ["restore", "profile", "import", "backup", "migrate", "new computer"],
       run: () => void helper.point("settings-backup", "Import: choose the .age file and type its passphrase."),
     },
+    {
+      id: "status.page",
+      title: "Phone status page…",
+      group: "SETTINGS",
+      keywords: ["phone", "mobile", "status page", "read-only", "lan", "tailscale", "share"],
+      run: () => void helper.point("settings-status-page", "Turn it on, pick LAN or Tailscale, then copy the link to your phone."),
+    },
+    {
+      id: "dashboard.export",
+      title: "Save dashboard snapshot (HTML)…",
+      group: "SETTINGS",
+      keywords: ["export", "snapshot", "html", "static", "report", "dashboard"],
+      run: () => void helper.point("dashboard-export", "Saves a static HTML page of hosts, alerts and services."),
+    },
   ];
 
   const view: PaletteCommand[] = [
@@ -262,6 +276,7 @@ export function buildCommands(): PaletteCommand[] {
     ["journal", "journal (logs)", ["journalctl", "logs", "syslog"]],
     ["updates", "package updates", ["apt", "dnf", "pacman", "upgrade", "reboot"]],
     ["disks", "disk health (SMART)", ["smartctl", "smart", "drive"]],
+    ["vms", "virtual machines", ["vm", "kvm", "libvirt", "virsh", "proxmox", "qm", "lxc", "pct", "guest"]],
   ];
   const systemCmds: PaletteCommand[] = hosts.hosts.flatMap((h) =>
     systemTabs.map(([tab, label, keywords]) => ({
