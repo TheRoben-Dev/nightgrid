@@ -31,6 +31,8 @@ pub struct Note {
     pub host_id: Option<HostId>,
     pub tags: Vec<String>,
     pub pinned: bool,
+    /// Left out of DRIFT's search.
+    pub hide_from_drift: bool,
     /// Unix seconds.
     #[cfg_attr(feature = "specta", specta(type = u32))]
     pub updated_at: i64,
@@ -45,6 +47,8 @@ pub struct NoteInput {
     pub host_id: Option<HostId>,
     pub tags: Vec<String>,
     pub pinned: bool,
+    /// Keep this note out of DRIFT's search.
+    pub hide_from_drift: bool,
 }
 
 /// Trims and checks a note before it is stored.
@@ -86,10 +90,10 @@ pub fn normalize_note(i: &NoteInput) -> Result<NoteInput> {
             });
         }
     }
-    Ok(NoteInput { title, body, host_id: i.host_id, tags, pinned: i.pinned })
+    Ok(NoteInput { title, body, host_id: i.host_id, tags, pinned: i.pinned, hide_from_drift: i.hide_from_drift })
 }
 
-const COLS: &str = "id, title, body, host_id, tags, pinned, updated_at";
+const COLS: &str = "id, title, body, host_id, tags, pinned, updated_at, hide_from_drift";
 
 fn note_row(r: &Row<'_>) -> rusqlite::Result<Note> {
     let tags: String = r.get(4)?;
@@ -101,6 +105,7 @@ fn note_row(r: &Row<'_>) -> rusqlite::Result<Note> {
         tags: serde_json::from_str(&tags).unwrap_or_default(),
         pinned: r.get(5)?,
         updated_at: r.get(6)?,
+        hide_from_drift: r.get(7)?,
     })
 }
 
@@ -124,8 +129,8 @@ impl Store {
         let n = normalize_note(input)?;
         let tags = serde_json::to_string(&n.tags).unwrap_or_else(|_| "[]".into());
         self.conn().execute(
-            "INSERT INTO notes (title, body, host_id, tags, pinned) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![n.title, n.body, n.host_id, tags, n.pinned],
+            "INSERT INTO notes (title, body, host_id, tags, pinned, hide_from_drift) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![n.title, n.body, n.host_id, tags, n.pinned, n.hide_from_drift],
         )?;
         let id = self.conn().last_insert_rowid() as NoteId;
         self.get_note(id)
@@ -135,9 +140,9 @@ impl Store {
         let n = normalize_note(input)?;
         let tags = serde_json::to_string(&n.tags).unwrap_or_else(|_| "[]".into());
         let changed = self.conn().execute(
-            "UPDATE notes SET title = ?2, body = ?3, host_id = ?4, tags = ?5, pinned = ?6, updated_at = unixepoch()
-             WHERE id = ?1",
-            params![id, n.title, n.body, n.host_id, tags, n.pinned],
+            "UPDATE notes SET title = ?2, body = ?3, host_id = ?4, tags = ?5, pinned = ?6, hide_from_drift = ?7,
+             updated_at = unixepoch() WHERE id = ?1",
+            params![id, n.title, n.body, n.host_id, tags, n.pinned, n.hide_from_drift],
         )?;
         if changed == 0 {
             return Err(Error::NotFound("note"));
@@ -170,11 +175,13 @@ mod tests {
                 host_id: Some(h.id),
                 tags: vec!["#ZFS".into(), "zfs".into(), " ".into()],
                 pinned: false,
+                hide_from_drift: true,
             })
             .unwrap();
         assert_eq!(a.title, "Replace a disk");
         assert_eq!(a.body, "1. `zpool status`");
         assert_eq!(a.tags, vec!["zfs"]);
+        assert!(a.hide_from_drift);
         let b = s.create_note(&NoteInput { title: "Pinned".into(), pinned: true, ..Default::default() }).unwrap();
         let order: Vec<_> = s.list_notes().unwrap().into_iter().map(|n| n.id).collect();
         assert_eq!(order, vec![b.id, a.id]);

@@ -351,6 +351,12 @@ export const commands = {
 	 */
 	systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<VmReport_Serialize>("system_vms", { hostId, elevate, sudo }, options),
 	/**
+	 *  What `host_id` sees of its network (M10i): interfaces, gateway,
+	 *  neighbours, mDNS, Tailscale peers and what faces the internet. `sweep`
+	 *  also pings the host's own LAN subnet (/24 or smaller). Only on a click.
+	 */
+	netmapDiscover: (hostId: number, sweep: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover", { hostId, sweep }, options),
+	/**
 	 *  Starts, shuts down, reboots or stops a guest. Everything but start was
 	 *  confirmed in the UI with the guest and host named (security rule 5).
 	 */
@@ -390,6 +396,15 @@ export type ActionResult_Serialize = {
 	id: string,
 	error: string | null,
 };
+
+/**  What kind of address this is, for exposure. */
+export type AddrKind = "loopback" | 
+/**  RFC 1918, ULA (fc00::/7) or link-local. */
+"private" | 
+/**  Tailscale / CGNAT 100.64.0.0/10 or Tailscale's fd7a:115c:a1e0::/48. */
+"tailnet" | 
+/**  Anything else: routable on the internet. */
+"public";
 
 export type Alert = Alert_Serialize | Alert_Deserialize;
 
@@ -1283,6 +1298,58 @@ export type DeployInput_Serialize = {
 	overwrite: boolean,
 };
 
+export type Device = Device_Serialize | Device_Deserialize;
+
+export type Device_Deserialize = {
+	ip: string,
+	mac?: string | null,
+	/**  Names from mDNS or Tailscale. */
+	names: string[],
+	/**  mDNS service types (`_http._tcp`, `_smb._tcp`, …). */
+	services: string[],
+	seen: Seen[],
+	/**  Tailscale: OS and whether it's online. */
+	os?: string | null,
+	online?: boolean | null,
+};
+
+export type Device_Serialize = {
+	ip: string,
+	mac: string | null,
+	/**  Names from mDNS or Tailscale. */
+	names: string[],
+	/**  mDNS service types (`_http._tcp`, `_smb._tcp`, …). */
+	services: string[],
+	seen: Seen[],
+	/**  Tailscale: OS and whether it's online. */
+	os: string | null,
+	online: boolean | null,
+};
+
+export type Discovery = Discovery_Serialize | Discovery_Deserialize;
+
+export type Discovery_Deserialize = {
+	ifaces: Iface[],
+	gateway?: string | null,
+	devices: Device_Deserialize[],
+	exposures: Exposure_Deserialize[],
+	/**  The subnet that was swept, when asked. */
+	swept?: string | null,
+	/**  Tools that were missing or failed, in words. */
+	notes: string[],
+};
+
+export type Discovery_Serialize = {
+	ifaces: Iface[],
+	gateway: string | null,
+	devices: Device_Serialize[],
+	exposures: Exposure_Serialize[],
+	/**  The subnet that was swept, when asked. */
+	swept: string | null,
+	/**  Tools that were missing or failed, in words. */
+	notes: string[],
+};
+
 export type Disk = Disk_Serialize | Disk_Deserialize;
 
 export type Disk_Deserialize = {
@@ -1423,6 +1490,40 @@ export type Entry_Serialize = {
 	mode: number | null,
 	uid: number | null,
 	gid: number | null,
+};
+
+export type Exposure = Exposure_Serialize | Exposure_Deserialize;
+
+export type ExposureKind = 
+/**  The host has a public address on an interface. */
+"publicAddress" | 
+/**  The router forwards a port here (UPnP). */
+"upnp" | 
+/**  Tailscale Funnel publishes a port. */
+"funnel" | 
+/**  A cloudflared tunnel serves a hostname. */
+"tunnel";
+
+export type Exposure_Deserialize = {
+	kind: ExposureKind,
+	/**  Port on this host it lands on, when known. */
+	port?: number | null,
+	/**  Public side: an address, `external:port`, or a hostname. */
+	public: string,
+	/**  Internal side: `ip:port`, a URL or an interface. */
+	target: string,
+	detail: string,
+};
+
+export type Exposure_Serialize = {
+	kind: ExposureKind,
+	/**  Port on this host it lands on, when known. */
+	port: number | null,
+	/**  Public side: an address, `external:port`, or a hostname. */
+	public: string,
+	/**  Internal side: `ip:port`, a URL or an interface. */
+	target: string,
+	detail: string,
 };
 
 /**
@@ -1791,6 +1892,13 @@ export type Host_Serialize = {
 	rememberSecret: boolean,
 	sshAlias: string | null,
 	tags: string[],
+};
+
+export type Iface = {
+	name: string,
+	addr: string,
+	prefix: number,
+	kind: AddrKind,
 };
 
 /**  A service whose image changed during "update stack". */
@@ -2345,6 +2453,8 @@ export type NoteInput_Deserialize = {
 	hostId?: number | null,
 	tags?: string[],
 	pinned?: boolean,
+	/**  Keep this note out of DRIFT's search. */
+	hideFromDrift?: boolean,
 };
 
 export type NoteInput_Serialize = {
@@ -2353,6 +2463,8 @@ export type NoteInput_Serialize = {
 	hostId: number | null,
 	tags: string[],
 	pinned: boolean,
+	/**  Keep this note out of DRIFT's search. */
+	hideFromDrift: boolean,
 };
 
 export type Note_Deserialize = {
@@ -2364,6 +2476,8 @@ export type Note_Deserialize = {
 	hostId?: number | null,
 	tags: string[],
 	pinned: boolean,
+	/**  Left out of DRIFT's search. */
+	hideFromDrift: boolean,
 	/**  Unix seconds. */
 	updatedAt: number,
 };
@@ -2377,6 +2491,8 @@ export type Note_Serialize = {
 	hostId: number | null,
 	tags: string[],
 	pinned: boolean,
+	/**  Left out of DRIFT's search. */
+	hideFromDrift: boolean,
 	/**  Unix seconds. */
 	updatedAt: number,
 };
@@ -2911,6 +3027,18 @@ export type SecurityReport_Serialize = {
 	/**  Process names are only visible for our own processes without root. */
 	processesPartial: boolean,
 };
+
+export type Seen = 
+/**  In the neighbour table. */
+"neighbour" | 
+/**  Answered the ping sweep. */
+"ping" | 
+/**  Announced over mDNS. */
+"mdns" | 
+/**  A Tailscale peer. */
+"tailscale" | 
+/**  The default gateway. */
+"gateway";
 
 export type Service = Service_Serialize | Service_Deserialize;
 
