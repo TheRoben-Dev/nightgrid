@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-15
+
+### Changed
+- **Self-updates are on.** Releases are now signed, and Nightgrid checks GitHub Releases after start-up and offers **Install & restart** when a newer version is out (Settings → Updates). 0.9.2 is the first version that can update itself, so install it by hand once.
+
 ## [0.9.1] - 2026-11-15
 
 ### Added: handhelds and docs (M9)

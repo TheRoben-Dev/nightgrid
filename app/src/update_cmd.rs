@@ -13,7 +13,7 @@ use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
-/// Public half of the release signing key (empty until one is generated).
+/// Public half of the release signing key (minisign, base64 as Tauri expects).
 pub const PUBKEY: &str = include_str!("../updater.pub");
 
 pub fn configured() -> bool {
