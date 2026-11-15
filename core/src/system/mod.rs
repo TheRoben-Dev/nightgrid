@@ -8,6 +8,7 @@
 pub mod journal;
 pub mod packages;
 pub mod schedule;
+pub mod security;
 pub mod smart;
 pub mod sudo;
 pub mod systemd;

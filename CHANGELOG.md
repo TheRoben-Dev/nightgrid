@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-11-15
+
+### Added: security hygiene and port map (M10d)
+- **System → Security** grades a host from A to F with checks that need no root: root and password logins over SSH, an active firewall (ufw, firewalld or nftables), databases, caches or the Docker API listening on every interface, Docker-published ports that bypass ufw, brute-force protection, automatic security updates, a pending reboot and extra uid-0 accounts. Findings come with the fix and copy buttons for its commands; nothing is changed on the host. **✦ Explain** asks DRIFT what to fix first.
+- **Listening ports** per host: port, service, who can reach it (local, VPN, one address, all interfaces), and the process or Docker container behind it.
+- **Port map · all hosts** scans every host (three at a time, no prompts) and shows the ports each one exposes beyond localhost, with its grade.
+
 ## [0.10.2] - 2026-11-15
 
 ### Added: forecasts, GPUs and scheduled jobs (M10c)

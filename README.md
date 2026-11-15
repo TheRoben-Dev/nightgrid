@@ -2,7 +2,7 @@
 
 Agentless homelab command center: SSH terminals, SFTP, Docker, monitoring, services and tunnels in one native-feeling desktop app. Built with Tauri 2, Rust and Svelte 5.
 
-> Status: **M10 — DRIFT helper and backlog** (0.10.2: forecasts, GPUs, scheduled jobs). Hosts + terminals, SFTP + editor, Docker, monitoring, services, tunnels, system tasks, alerts, integrations, automation, encrypted backups, a handheld/controller layout and the local DRIFT helper are in. Next: more of the M10 backlog and the offline knowledge base (M11). How to use it: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md).
+> Status: **M10 — DRIFT helper and backlog** (0.10.3: security score and port map). Hosts + terminals, SFTP + editor, Docker, monitoring, services, tunnels, system tasks, alerts, integrations, automation, encrypted backups, a handheld/controller layout and the local DRIFT helper are in. Next: more of the M10 backlog and the offline knowledge base (M11). How to use it: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md).
 
 ## Repository layout
 
@@ -163,6 +163,12 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 2. Ask "How do I back up my setup?". The first question loads the model (a few seconds), then the reply streams in. **Show me** jumps to Settings and puts magenta brackets around the Backup panel; clicking anywhere clears them.
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
+
+### macOS: testing M10d (security, port map)
+
+1. **System → Security** on a Linux host: a grade and score appear with a list of checks; failures and warnings are on top with what to do and **Copy** buttons. Nothing asks for sudo.
+2. On a test host, `docker run -d -p 6379:6379 redis` and click **Re-check**: "Databases aren't open to the network" fails naming `redis on 6379 (container …)`, and with ufw on there's also a Docker/ufw warning. The port list shows 6379 as ALL INTERFACES with the container name. Remove the container afterwards.
+3. **Port map · all hosts**: every host gets a row with its grade and reachable ports (magenta = all interfaces, yellow = one address, mint = VPN). A host that needs a password says so instead of prompting.
 
 ### macOS: testing M10c (schedules, GPUs, forecasts)
 

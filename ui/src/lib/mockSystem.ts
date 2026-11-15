@@ -11,6 +11,7 @@ import type {
   Manager,
   RunEvent_Serialize as RunEvent,
   Schedules_Serialize as Schedules,
+  SecurityReport_Serialize as SecurityReport,
   SudoInput,
   SystemInfo,
   Unit_Serialize as Unit,
@@ -84,6 +85,73 @@ export const mockSystem = {
   },
   async units(_hostId: number): Promise<Unit[]> {
     return units.map((x) => ({ ...x }));
+  },
+  async security(hostId: number): Promise<SecurityReport> {
+    const tidy = hostId % 2 === 0;
+    const L = (port: number, scope: "local" | "vpn" | "address" | "all", service: string | null, process: string | null, container: string | null = null, proto = "tcp") => ({
+      proto,
+      addr: scope === "all" ? "0.0.0.0" : scope === "local" ? "127.0.0.1" : scope === "vpn" ? "100.101.7.3" : "192.168.1.20",
+      port,
+      scope,
+      process,
+      container,
+      service,
+    });
+    const checks: SecurityReport["checks"] = [
+      { id: "ssh-root", title: "Root can't log in over SSH", status: "pass", detail: "PermitRootLogin prohibit-password: root needs a key.", fix: null, weight: 20 },
+      tidy
+        ? { id: "ssh-password", title: "SSH needs keys, not passwords", status: "pass", detail: "Password and keyboard-interactive logins are off.", fix: null, weight: 15 }
+        : {
+            id: "ssh-password",
+            title: "SSH needs keys, not passwords",
+            status: "fail",
+            detail: "Password logins are allowed and SSH listens on every interface.",
+            fix: "Make sure your key works first, then set `PasswordAuthentication no` and `KbdInteractiveAuthentication no` under `/etc/ssh/sshd_config.d/`, run `sudo sshd -t` and `sudo systemctl reload ssh`.",
+            weight: 15,
+          },
+      { id: "firewall", title: "A firewall is on", status: "pass", detail: "ufw is active.", fix: null, weight: 15 },
+      tidy
+        ? { id: "exposed-services", title: "Databases aren't open to the network", status: "pass", detail: "No database, cache or Docker API port listens on every interface.", fix: null, weight: 20 }
+        : {
+            id: "exposed-services",
+            title: "Databases aren't open to the network",
+            status: "fail",
+            detail: "Listening on every interface: redis on 6379 (container cache).",
+            fix: 'Bind them to `127.0.0.1` (or a Docker network without a published port), e.g. `ports: ["127.0.0.1:6379:6379"]` in compose.',
+            weight: 20,
+          },
+      {
+        id: "docker-ufw",
+        title: "Docker ports respect the firewall",
+        status: "warn",
+        detail: "ufw is on, but Docker publishes 3000, 6379 on every interface; Docker's iptables rules bypass ufw.",
+        fix: "Publish only what must be reachable, bind the rest to `127.0.0.1:` in compose, or use the `DOCKER-USER` chain (e.g. ufw-docker).",
+        weight: 10,
+      },
+      { id: "intrusion", title: "Brute-force protection", status: "info", detail: "Neither fail2ban nor CrowdSec is running.", fix: "With key-only SSH this matters less. Otherwise `sudo apt install fail2ban`.", weight: 5 },
+      { id: "auto-updates", title: "Security updates install themselves", status: "pass", detail: "unattended-upgrades or dnf-automatic is set up.", fix: null, weight: 10 },
+      { id: "reboot", title: "No reboot pending", status: tidy ? "pass" : "warn", detail: tidy ? "Nothing is waiting for a reboot." : "Updates installed a new kernel or library; it isn't in use until a reboot.", fix: tidy ? null : "Reboot when it suits you (Updates tab → Reboot).", weight: 5 },
+      { id: "uid0", title: "Only root has uid 0", status: "pass", detail: "No other account has root's uid.", fix: null, weight: 20 },
+    ];
+    const lost = checks.reduce((a, c) => a + (c.status === "fail" ? c.weight : c.status === "warn" ? Math.floor(c.weight / 2) : 0), 0);
+    const score = 100 - lost;
+    return {
+      score,
+      grade: score >= 90 ? "A" : score >= 75 ? "B" : score >= 60 ? "C" : score >= 40 ? "D" : "F",
+      checks,
+      processesPartial: true,
+      listeners: [
+        L(22, "all", "ssh", null),
+        L(53, "local", "dns", null, null, "udp"),
+        L(80, "all", "http", null, "caddy"),
+        L(443, "all", "https", null, "caddy"),
+        L(3000, "all", "web app", "docker-proxy", "homepage"),
+        L(5432, "local", "postgres", null),
+        ...(tidy ? [] : [L(6379, "all", "redis", "docker-proxy", "cache")]),
+        L(9100, "vpn", "node-exporter", "node_exporter"),
+        L(32400, "address", "plex", null),
+      ],
+    };
   },
   async schedules(_hostId: number): Promise<Schedules> {
     const now = Math.floor(Date.now() / 1000);

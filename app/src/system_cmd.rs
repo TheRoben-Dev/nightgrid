@@ -15,6 +15,7 @@ use nightgrid_core::ssh::client::{ConnectError, Connection};
 use nightgrid_core::system::journal::{self, JournalEntry, JournalQuery};
 use nightgrid_core::system::packages::{self, Manager, UpdatesReport, UpgradeOp};
 use nightgrid_core::system::schedule::{self, Schedules};
+use nightgrid_core::system::security::{self, SecurityReport};
 use nightgrid_core::system::smart::{self, DisksReport};
 use nightgrid_core::system::sudo::{self, Stream, SudoAuth, SudoState};
 use nightgrid_core::system::systemd::{self, Unit, UnitAction};
@@ -171,6 +172,14 @@ pub fn system_sudo_forget(state: State<'_, AppState>, host_id: HostId) -> CmdRes
 pub async fn system_units(app: AppHandle, host_id: HostId) -> SysResult<Vec<Unit>> {
     let conn = connect_host(&app, host_id).await?;
     Ok(systemd::list(&conn).await?)
+}
+
+/// Security checks and listening ports (read-only, no sudo).
+#[tauri::command]
+#[specta::specta]
+pub async fn system_security(app: AppHandle, host_id: HostId) -> SysResult<SecurityReport> {
+    let conn = connect_host(&app, host_id).await?;
+    Ok(security::audit(&conn).await?)
 }
 
 /// Systemd timers and cron jobs (read-only).

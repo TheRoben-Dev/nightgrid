@@ -5,6 +5,7 @@ import {
   type ConnectError,
   type DisksReport,
   type Schedules,
+  type SecurityReport,
   type Health,
   type JournalEntry,
   type JournalEvent,
@@ -18,7 +19,7 @@ import {
 } from "../api";
 import { hosts } from "./hosts.svelte";
 
-export type SystemTab = "units" | "journal" | "schedules" | "updates" | "disks";
+export type SystemTab = "units" | "journal" | "schedules" | "security" | "updates" | "disks";
 export type UnitFilter = "all" | "running" | "failed" | "inactive";
 
 /** Journal rows kept in memory; older ones scroll off. */
@@ -149,6 +150,12 @@ class SystemStore {
   schedules = $state<Schedules | null>(null);
   schedulesLoading = $state(false);
 
+  security = $state<SecurityReport | null>(null);
+  securityLoading = $state(false);
+  /** Port map over every host: reports (or errors) by host id. */
+  portMap = $state<Record<number, SecurityReport | string>>({});
+  portMapLoading = $state(false);
+
   private seq = 0;
 
   get host() {
@@ -189,6 +196,7 @@ class SystemStore {
     this.run = null;
     this.disks = null;
     this.schedules = null;
+    this.security = null;
     void this.loadInfo();
     void this.openTab(this.tab);
   }
@@ -199,6 +207,7 @@ class SystemStore {
     if (tab === "units" && !this.unitsLoaded) await this.loadUnits();
     else if (tab === "journal" && this.journalRun === null && !this.journal.length) await this.startJournal();
     else if (tab === "schedules" && !this.schedules) await this.loadSchedules();
+    else if (tab === "security" && !this.security) await this.loadSecurity();
     else if (tab === "updates" && !this.updates) await this.checkUpdates();
     else if (tab === "disks" && !this.disks && !this.sudoNeedsPassword && this.info) await this.loadDisks();
   }
@@ -416,6 +425,53 @@ class SystemStore {
       if (seq === this.seq) this.fail("schedules", e);
     } finally {
       if (seq === this.seq) this.schedulesLoading = false;
+    }
+  }
+
+  // ---- security -----------------------------------------------------------
+
+  async loadSecurity() {
+    const id = this.hostId;
+    if (id === null) return;
+    const seq = this.seq;
+    this.securityLoading = true;
+    try {
+      const r = await api.systemSecurity(id);
+      if (seq !== this.seq) return;
+      this.security = r;
+      this.portMap = { ...this.portMap, [id]: r };
+      this.clearError("security");
+    } catch (e) {
+      if (seq === this.seq) this.fail("security", e);
+    } finally {
+      if (seq === this.seq) this.securityLoading = false;
+    }
+  }
+
+  /**
+   * Audits every host, a few at a time, for the cross-host port map. Hosts
+   * that would need a password or a host key decision are skipped with a
+   * note (no prompts from a bulk scan).
+   */
+  async scanAllPorts() {
+    if (this.portMapLoading) return;
+    this.portMapLoading = true;
+    const queue = hosts.hosts.map((h) => h.id);
+    const worker = async () => {
+      for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
+        try {
+          const r = await api.systemSecurity(id);
+          this.portMap = { ...this.portMap, [id]: r };
+        } catch (e) {
+          const { connect } = systemError(e);
+          this.portMap = { ...this.portMap, [id]: connect && connect.kind !== "network" && connect.kind !== "other" ? "Needs a login first (open a terminal on it)." : errorText(e) };
+        }
+      }
+    };
+    try {
+      await Promise.all([worker(), worker(), worker()]);
+    } finally {
+      this.portMapLoading = false;
     }
   }
 
