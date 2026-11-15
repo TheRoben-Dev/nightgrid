@@ -81,6 +81,11 @@ describe("prompt", () => {
     expect(last).toContain("error: boom");
     expect(last).not.toContain("abc");
   });
+  it("labels text a view attached", () => {
+    const b = contextBlock({ view: "system", selection: "Failed to start nginx", source: "journal: nginx.service" }, []);
+    expect(b).toContain("Attached (journal: nginx.service):\n```\nFailed to start nginx\n```");
+    expect(contextBlock({ view: "system", selection: "x" }, [])).toContain("Selected text:");
+  });
   it("cuts long selections from the start", () => {
     const b = contextBlock({ view: "overview", selection: "a".repeat(MAX_SELECTION) + "TAIL" }, []);
     expect(b).toContain("TAIL");

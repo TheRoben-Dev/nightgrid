@@ -1,12 +1,17 @@
 <script lang="ts">
   import { api, errorText, type LogEvent, type LogLine } from "../../api";
+  import ExplainButton from "../helper/ExplainButton.svelte";
 
   interface Props {
     hostId: number;
     containerId: string;
+    name?: string;
     running: boolean;
   }
-  let { hostId, containerId, running }: Props = $props();
+  let { hostId, containerId, name = "", running }: Props = $props();
+
+  /** Lines handed to DRIFT: the newest ones that match the filter. */
+  const EXPLAIN_LINES = 150;
 
   /** Lines kept in memory; older ones drop off the top. */
   const MAX_LINES = 20_000;
@@ -119,6 +124,12 @@
     const text = shown.map((l) => (timestamps && l.ts ? `${l.ts} ${l.text}` : l.text)).join("\n");
     void navigator.clipboard?.writeText(text);
   }
+
+  const explainText = () =>
+    shown
+      .slice(-EXPLAIN_LINES)
+      .map((l) => (l.stream === "err" ? `[stderr] ${l.text}` : l.text))
+      .join("\n");
 </script>
 
 <div class="logs">
@@ -142,6 +153,12 @@
       </select>
     </label>
     <button type="button" class="btn ghost tiny" onclick={copyVisible} title="Copy the lines shown">Copy</button>
+    <ExplainButton
+      source={`Docker logs${name ? `: ${name}` : ""}`}
+      text={explainText}
+      within={viewport}
+      question="Explain these container logs. Is anything wrong, and how do I fix it?"
+    />
   </div>
   <!-- svelte-ignore a11y_no_noninteractive_tabindex (focusable so the log scrolls with the keyboard) -->
   <div

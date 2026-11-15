@@ -1,6 +1,10 @@
 <script lang="ts">
   import { tick } from "svelte";
   import { PRIORITIES, prioLabel, prioTone, system } from "../../stores/system.svelte";
+  import ExplainButton from "../helper/ExplainButton.svelte";
+
+  /** Newest journal lines handed to DRIFT. */
+  const EXPLAIN_LINES = 150;
 
   const rows = $derived(system.visibleJournal);
   const f = $derived(system.journalForm);
@@ -37,6 +41,13 @@
     { v: "yesterday", label: "since yesterday" },
     { v: "-7d", label: "7 days" },
   ];
+  const explainText = () =>
+    rows
+      .slice(-EXPLAIN_LINES)
+      .map((e) => `${time(e.ts)} ${prioLabel(e.priority)} ${e.ident ?? e.unit ?? ""}${e.pid ? `[${e.pid}]` : ""}: ${e.message}`)
+      .join("\n");
+  const explainSource = $derived(`journal${f.unit.trim() ? `: ${f.unit.trim()}` : ""}`);
+
   let customSince = $state(!SINCE.some((s) => s.v === system.journalForm.since) || !!system.journalForm.until);
 </script>
 
@@ -119,6 +130,7 @@
     {#if system.journalRun !== null && f.follow}<span class="live">● FOLLOWING</span>{/if}
     {#if system.journalElevated}<span class="mint">SUDO</span>{/if}
     <span class="spacer"></span>
+    {#if rows.length}<ExplainButton source={explainSource} text={explainText} within={box} question="Explain these journal entries. Is anything wrong, and how do I fix it?" />{/if}
     {#if !pinned}
       <button
         type="button"

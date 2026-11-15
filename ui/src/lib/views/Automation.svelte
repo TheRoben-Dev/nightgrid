@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import ExplainButton from "../components/helper/ExplainButton.svelte";
   import Modal from "../components/Modal.svelte";
   import Panel from "../components/Panel.svelte";
   import { automation, fmtMs, scopeLabel, type HostRun } from "../stores/automation.svelte";
@@ -50,6 +51,16 @@
   const statusWord = (h: HostRun) =>
     h.status === "ok" ? "OK" : h.status === "failed" ? (h.code !== null ? `EXIT ${h.code}` : "FAILED") : h.status === "stopped" ? "STOPPED" : h.status === "running" ? "RUNNING" : "QUEUED";
   const hostName = (id: number) => hosts.byId(id)?.name ?? `host ${id}`;
+
+  /** What DRIFT gets for one host's result: the command, steps and the output tail. */
+  function explainText(h: HostRun): string {
+    if (!run) return "";
+    const out = [`Command: ${run.title}`, `Result: ${statusWord(h)}${h.error ? ` (${h.error})` : ""}`];
+    if (run.stepLabels.length > 1)
+      out.push(...h.steps.map((s, i) => `Step ${i + 1} ${s.label}: ${s.error ?? (s.code !== null ? `exit ${s.code}` : s.status)}`));
+    out.push("Output:", ...h.lines.slice(-200).map((l) => (l.stream === "err" ? `[stderr] ${l.text}` : l.text)));
+    return out.join("\n");
+  }
 
   function saveAsSnippet() {
     automation.snippetDraft = {
@@ -266,6 +277,16 @@
           <span class="muted small">{run.done ? (run.stopped ? "stopped" : "done") : `${finished}/${run.hostIds.length}`}</span>
           {#if run.done && failedCount}
             <button type="button" class="btn tiny" onclick={() => automation.retryFailed()}>Select {failedCount} failed</button>
+          {/if}
+          {#if shownHost && shownHost.status !== "queued" && shownHost.status !== "running"}
+            {@const h = shownHost}
+            <ExplainButton
+              source={`${h.status === "ok" ? "run result" : "failed run"}: ${hostName(h.hostId)}`}
+              text={() => explainText(h)}
+              within={outEl}
+              host={hostName(h.hostId)}
+              question={h.status === "ok" ? "Explain this command's output." : "This command failed on this host. What went wrong, and how do I fix it?"}
+            />
           {/if}
         {/snippet}
         <p class="rtitle"><code>{run.title}</code></p>

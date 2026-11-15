@@ -60,6 +60,28 @@ describe("helper store (browser mock)", () => {
     expect(helper.drift).toBe("error");
   });
 
+  it("explain attaches labelled text and asks once the model is ready", async () => {
+    await helper.setEnabled(true);
+    helper.draft = "";
+    await helper.explain({ source: "Docker logs: web", text: "error: boom", question: "What's wrong?", host: "nas" });
+    // No model yet: the panel opens with the text attached and the question waiting.
+    expect(helper.open).toBe(true);
+    expect(helper.messages).toEqual([]);
+    expect(helper.draft).toBe("What's wrong?");
+    expect(helper.context).toMatchObject({ host: "nas", selection: "error: boom", source: "Docker logs: web" });
+
+    mockHelper.reset(true);
+    await helper.explain({ source: "Docker logs: web", text: "error: boom\nTOKEN=abc123", question: "What's wrong?" });
+    const prompt = helper.messages[1].sent?.at(-1)?.content ?? "";
+    expect(prompt).toContain("Attached (Docker logs: web):");
+    expect(prompt).toContain("error: boom");
+    expect(prompt).not.toContain("abc123");
+    expect(helper.messages[0].attached).toBe("Docker logs: web · 2 lines");
+    // Used once.
+    expect(helper.context.selection).toBeNull();
+    expect(helper.context.source).toBeNull();
+  });
+
   it("turning off closes the panel", async () => {
     await helper.setEnabled(true);
     helper.toggle(true);

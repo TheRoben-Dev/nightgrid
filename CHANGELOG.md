@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-15
+
+### Added: DRIFT explains things where you are (M10b)
+- **Explain** buttons hand what you're looking at to DRIFT with a label saying what it is: container logs (Docker → a container → Logs), the journal (System → Journal), compose output after a stack operation, and each host's result in Automation. Select some lines first to send only those; otherwise the newest 150–200 lines go.
+- **Ask DRIFT** in the file editor explains the open file (or the selected part): what it does and anything that looks wrong or risky. Long files are cut to the first part.
+- The question is asked straight away when the model is ready; otherwise DRIFT opens with the text attached and the question waiting in the box. Each question shows what was attached under it, and the chip can still be removed before asking. Secret-looking values are masked as before.
+- The buttons only appear while DRIFT is turned on.
+
 ## [0.10.0] - 2026-11-15
 
 ### Added: DRIFT, the local helper (M10)

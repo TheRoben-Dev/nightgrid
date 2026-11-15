@@ -1,6 +1,8 @@
 <script lang="ts">
   import { formatSize } from "../../files/util";
   import type { EditorDoc } from "../../stores/files.svelte";
+  import { MAX_SELECTION } from "../../helper/prompt";
+  import ExplainButton from "../helper/ExplainButton.svelte";
   import Modal from "../Modal.svelte";
 
   interface Props {
@@ -31,6 +33,20 @@
     });
   });
 
+  /** The selected part of the file, or the file from the top (cut to what DRIFT takes). */
+  function explainText(): { text: string; source: string } {
+    const view = doc.editor?.view;
+    const sel = view?.state.selection.main;
+    const picked = view && sel && !sel.empty ? view.state.sliceDoc(sel.from, sel.to) : "";
+    const text = picked || (doc.editor?.text() ?? doc.content);
+    const room = MAX_SELECTION - 40;
+    const cut = text.length > room;
+    return {
+      text: cut ? `${text.slice(0, room)}\n[rest cut]` : text,
+      source: `file ${doc.path}${picked ? ", selected lines" : cut ? ", first part" : ""}`,
+    };
+  }
+
   const savedNote = $derived(
     doc.lastSave
       ? doc.lastSave.atomic
@@ -48,6 +64,15 @@
     <span class="lang">{doc.lang.toUpperCase()}</span>
     <span class="spacer"></span>
     {#if doc.dirty}<span class="dirty">● MODIFIED</span>{:else if savedNote}<span class="ok" title={savedNote}>✓ SAVED</span>{/if}
+    {#if !doc.loading && !doc.error}
+      <ExplainButton
+        label="Ask DRIFT"
+        source={`file ${doc.path}`}
+        text={explainText}
+        host={doc.where}
+        question="Explain this file: what it does, and anything that looks wrong or risky."
+      />
+    {/if}
     <button type="button" class="btn ghost tiny" disabled={doc.saving} onclick={() => doc.load()} title="Reload from disk (discards changes)"
       >Reload</button
     >

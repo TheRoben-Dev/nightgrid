@@ -18,6 +18,8 @@ export interface HelperContext {
   host?: string | null;
   /** Text the user selected (log lines, an error, a compose file). */
   selection?: string | null;
+  /** What the attached text is, when a view attached it ("Docker logs: web"). */
+  source?: string | null;
 }
 
 export type HelperAction = { kind: "show"; view: SectionId } | { kind: "point"; id: string; note: string };
@@ -74,7 +76,7 @@ export function contextBlock(ctx: HelperContext, docs: Chunk[]): string {
   if (ctx.selection?.trim()) {
     const sel = redact(ctx.selection.trim());
     const cut = sel.length > MAX_SELECTION ? `${sel.slice(-MAX_SELECTION)}\n[earlier lines cut]` : sel;
-    parts.push("Selected text:\n```\n" + cut + "\n```");
+    parts.push(`${ctx.source ? `Attached (${ctx.source})` : "Selected text"}:\n\`\`\`\n${cut}\n\`\`\``);
   }
   return parts.join("\n\n");
 }
