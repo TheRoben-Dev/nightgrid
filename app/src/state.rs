@@ -51,6 +51,8 @@ pub struct AppState {
     pub compose_runs: Mutex<HashMap<u32, tokio::sync::watch::Sender<bool>>>,
     /// Phone status page server.
     pub status_server: Arc<crate::status_cmd::StatusServer>,
+    /// Built-in Tailscale client (M10j).
+    pub tailnet: Arc<crate::tailnet_cmd::TailnetHub>,
     /// Backup file picked for import (opened and previewed, not yet imported).
     pub pending_backup: Mutex<Option<PathBuf>>,
     next_term: AtomicU32,
@@ -84,6 +86,7 @@ impl AppState {
             tunnels: Arc::default(),
             alerts: Arc::default(),
             status_server: Arc::default(),
+            tailnet: Arc::default(),
             next_term: AtomicU32::new(1),
         })
     }

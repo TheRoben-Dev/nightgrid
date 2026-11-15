@@ -24,6 +24,8 @@ export interface HelperContext {
   program?: { name: string; keys: string } | null;
   /** The user's labels for network devices that matter to the question (one line each). */
   devices?: string[] | null;
+  /** Live facts about the saved hosts the question names (one block each). */
+  hosts?: string[] | null;
 }
 
 export type HelperAction = { kind: "show"; view: SectionId } | { kind: "point"; id: string; note: string };
@@ -57,6 +59,7 @@ export function systemPrompt(): string {
 
 How to answer:
 - Be brief and practical: a few sentences or a short numbered list. Use markdown code blocks for commands and files.
+- When MY HOSTS facts are given, the question is about those saved hosts: answer from the facts (status, last seen, alerts, shell history) first, and say what they show and what they don't. Don't guess at events the facts don't contain.
 - For questions about Nightgrid, answer only from the GUIDE sections below. If they don't cover it, say you're not sure rather than guessing.
 - For server problems (logs, errors, Docker, compose files, systemd), explain the likely cause and suggest a fix. Mark commands that change or delete things as risky. You can't run commands; the user runs them, and Nightgrid asks before anything destructive.
 - Never ask for passwords, keys or tokens. Values shown as •••• were hidden on purpose.
@@ -75,6 +78,7 @@ export function contextBlock(ctx: HelperContext, docs: Chunk[]): string {
   const parts: string[] = [];
   parts.push(`Current view: ${viewLabel(ctx.view)}${ctx.host ? `, host "${ctx.host}"` : ""}.`);
   if (ctx.program) parts.push(`Running in the terminal: ${ctx.program.name}. Its keys: ${ctx.program.keys}.`);
+  if (ctx.hosts?.length) parts.push("MY HOSTS (live facts from Nightgrid, about the hosts this question names):\n" + ctx.hosts.map(redact).join("\n\n"));
   if (ctx.devices?.length) parts.push("NETWORK DEVICES (the user's own labels):\n" + ctx.devices.map((d) => `- ${d}`).join("\n"));
   const guide = docs.filter((d) => d.noteId === undefined);
   const mine = docs.filter((d) => d.noteId !== undefined);

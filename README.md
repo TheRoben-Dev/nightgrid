@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing M10j (built-in Tailscale, DRIFT knows your hosts)
+
+1. Quit the Tailscale app (or turn it off). **Settings → Tailnet → Built-in Tailscale** on: the state goes to **Needs a login**; **LOG IN** opens the browser. Log in: the state turns **Connected**, and **DEVICES** lists your tailnet.
+2. Add a host with a tailnet device's name or 100.x address and open a terminal: it connects through the built-in client. Files, Docker and the monitor tile work too.
+3. With **Use subnet routes** on and a device in your tailnet advertising your home subnet (approved in the admin console), go off your Wi-Fi (phone hotspot): a host saved with its LAN address still connects, after a short wait on the first try.
+4. Edit a host, set **Tailnet address** (the field suggests your tailnet devices), and go off your Wi-Fi: it connects through the tailnet address; back on the Wi-Fi it uses the LAN again. No host-key prompt either way.
+5. Quit and reopen Nightgrid: it reconnects without a new login. **LOG OUT** removes the device; turning the toggle off stops the client.
+6. Ask DRIFT "what happened to <one of your hosts>?": the reply talks about that host's status, last seen and alerts (**What I was given** shows a MY HOSTS block). Tick **DRIFT may read shell history** on the host and ask "check its history": the reply cites recent commands.
+
 ### macOS: testing 0.10.10 (terminal fixes, key hints, scan from this computer)
 
 1. Open an SSH terminal and run `htop`: the strip under the terminal shows htop's keys; quit and it clears. Try `vim`, `less /etc/hosts`, `journalctl -f`, `tmux`. In a local terminal (`Cmd+Shift+T`), run `top` or `vim`: the strip follows within a second or so.

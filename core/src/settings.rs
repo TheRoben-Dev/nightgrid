@@ -61,6 +61,14 @@ pub struct AppSettings {
     /// Paint terminals on a solid background instead of letting the app's
     /// backdrop show through.
     pub term_solid_bg: bool,
+    /// Built-in Tailscale client (M10j): off until the user turns it on.
+    pub tailnet_enabled: bool,
+    /// Use subnet routes other tailnet nodes advertise.
+    pub tailnet_accept_routes: bool,
+    /// This node's name in the tailnet.
+    pub tailnet_hostname: String,
+    /// A self-hosted control server (Headscale); empty = Tailscale's.
+    pub tailnet_control_url: String,
     /// Search the shell history (bash, zsh, fish) of hosts from the terminal.
     /// Off by default; lines that look like they hold a secret are dropped and
     /// nothing is stored.
@@ -199,6 +207,10 @@ impl Default for AppSettings {
             term_edit_in_app: false,
             term_key_hints: true,
             term_solid_bg: false,
+            tailnet_enabled: false,
+            tailnet_accept_routes: true,
+            tailnet_hostname: "nightgrid".into(),
+            tailnet_control_url: String::new(),
             history_search: false,
             metrics_enabled: true,
             metrics_interval_secs: 2,
@@ -225,6 +237,24 @@ impl Default for AppSettings {
 
 impl AppSettings {
     pub fn validate(&self) -> Result<()> {
+        let h = &self.tailnet_hostname;
+        if h.is_empty()
+            || h.len() > 63
+            || !h.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+            || h.starts_with('-')
+        {
+            return Err(Error::Invalid {
+                field: "tailnet_hostname",
+                reason: "letters, digits and dashes, at most 63".into(),
+            });
+        }
+        let u = self.tailnet_control_url.trim();
+        if !u.is_empty() && (!u.starts_with("https://") || u.len() > 300 || u.contains(char::is_whitespace)) {
+            return Err(Error::Invalid {
+                field: "tailnet_control_url",
+                reason: "an https:// address, or empty".into(),
+            });
+        }
         if !THEMES.contains(&self.theme.as_str()) {
             return Err(Error::Invalid { field: "theme", reason: format!("unknown theme {:?}", self.theme) });
         }

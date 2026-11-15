@@ -30,6 +30,8 @@ pub enum SecretKind {
     SudoPassword,
     /// API token for an integration (Plex, AMP, ...).
     IntegrationToken,
+    /// Key that encrypts the built-in Tailscale node's state file (M10j).
+    TailnetStateKey,
 }
 
 impl SecretKind {
@@ -42,11 +44,12 @@ impl SecretKind {
             Self::KeyPassphrase => "key-passphrase",
             Self::SudoPassword => "sudo-password",
             Self::IntegrationToken => "integration-token",
+            Self::TailnetStateKey => "tailnet-state-key",
         }
     }
 
     pub fn parse(s: &str) -> Option<Self> {
-        [Self::HostPassword, Self::KeyPassphrase, Self::SudoPassword, Self::IntegrationToken]
+        [Self::HostPassword, Self::KeyPassphrase, Self::SudoPassword, Self::IntegrationToken, Self::TailnetStateKey]
             .into_iter()
             .find(|k| k.as_str() == s)
     }

@@ -128,7 +128,19 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - **Show me**: when an answer says where something is, **Show me** switches to that view and outlines the control. It only points; it never clicks or runs anything.
 - **What I was given** under each reply shows the exact prompt and the guide sections used. Values that look like passwords or tokens are masked before DRIFT sees them.
 - **Stop** ends a reply early; **NEW** starts a fresh conversation. **Free memory** in Settings unloads the model; **Delete model** removes the file.
+- **Your hosts**: name a saved host in a question ("what happened to the garage pi?", or just one word of its name) and DRIFT gets what Nightgrid knows about it right now: whether it answers, the monitoring state and last error, when it was last seen and its uptime, and active and recent alerts. A follow-up like "check its history" stays on the same host.
+- **Shell history**: tick **DRIFT may read shell history** in a host's editor and DRIFT also reads that host's last 60 bash, zsh or fish commands when you ask about it. Lines that look like passwords or tokens are left out, and nothing is kept. Bash writes its history when a shell exits, so commands from a shell that is still open may be missing.
 - Answers can be wrong. Commands DRIFT suggests are yours to run, and Nightgrid still asks before anything destructive.
+
+## Built-in Tailscale
+
+- **Settings → Tailnet → Built-in Tailscale** joins your tailnet from Nightgrid itself, so hosts on it stay reachable away from home without the Tailscale app. It's off until you turn it on.
+- **LOG IN** opens Tailscale's login page in your browser; once you finish, the state says **Connected** with Nightgrid's own tailnet name and address. If your tailnet requires device approval, approve it in the admin console. **LOG OUT** removes the device.
+- Use a device's name (`server` or `server.tailXXXX.ts.net`) or its 100.x address as a host's address. **DEVICES** lists your tailnet; click an address to copy it.
+- **Use subnet routes** (on by default) reaches LAN addresses that another device in your tailnet advertises, for example a home server routing your home subnet. Nightgrid tries the LAN first and the tailnet when the LAN doesn't answer, so a host saved with its LAN address works at home and away. The route must be approved in the tailnet's admin console.
+- **Tailnet address** in a host's editor gives a host a second address (its 100.x address or MagicDNS name). It's tried when the main address doesn't answer, and Nightgrid remembers which one worked. The host key is always checked against the main address, so switching doesn't trigger a host-key warning.
+- **Advanced**: the device name Nightgrid uses in your tailnet, and a self-hosted control server (Headscale). Saving restarts the client.
+- With Built-in Tailscale off, tailnet addresses are reached through the Tailscale app if it's connected, as before.
 
 ## Alerts and the tray
 
@@ -191,7 +203,8 @@ There's no telemetry. Nightgrid only connects to:
 - your hosts;
 - the services and integrations you added;
 - GitHub Releases, for the update check;
-- your webhook, if you set one.
+- your webhook, if you set one;
+- Tailscale's control server and relays (or your Headscale), only while Built-in Tailscale is on. Its log upload is switched off.
 
 Secrets are kept only in the OS keychain (or inside an encrypted backup, if you ask for that) and never in the database, logs or config files.
 

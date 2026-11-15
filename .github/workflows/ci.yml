@@ -133,6 +133,24 @@ jobs:
           # Real-sshd tests: macOS ships sshd; Linux is covered by the checks job.
           NIGHTGRID_TEST_OPENSSH: ${{ matrix.name == 'macos-arm64' && '1' || '0' }}
 
+      # Built-in Tailscale (M10j): a Go sidecar bundled next to the app.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: tailnet/go.mod
+          cache-dependency-path: tailnet/go.sum
+      - name: Tailnet sidecar
+        shell: bash
+        working-directory: tailnet
+        run: |
+          go vet ./...
+          triple=$(rustc -vV | sed -n 's/^host: //p')
+          ext=""; if [ "$RUNNER_OS" = "Windows" ]; then ext=".exe"; fi
+          mkdir -p ../app/binaries
+          # Static on Windows/Linux; macOS keeps cgo for the system resolver.
+          if [ "$RUNNER_OS" != "macOS" ]; then export CGO_ENABLED=0; fi
+          go build -tags ts_omit_logtail -trimpath -ldflags "-s -w" -o "../app/binaries/nightgrid-tailnet-$triple$ext" .
+          ls -la ../app/binaries
+
       - name: Tauri build
         shell: bash
         env:
@@ -142,15 +160,15 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            pnpm tauri build --bundles ${{ matrix.bundles }} --config '{"bundle":{"createUpdaterArtifacts":true}}'
+            pnpm tauri build --bundles ${{ matrix.bundles }} --config '{"bundle":{"createUpdaterArtifacts":true,"externalBin":["binaries/nightgrid-tailnet"]}}'
           else
-            pnpm tauri build --bundles ${{ matrix.bundles }}
+            pnpm tauri build --bundles ${{ matrix.bundles }} --config '{"bundle":{"externalBin":["binaries/nightgrid-tailnet"]}}'
           fi
 
       - name: Portable zip (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path target/release/nightgrid.exe -DestinationPath target/release/bundle/nightgrid-portable-x64.zip
+        run: Compress-Archive -Path target/release/nightgrid.exe,target/release/nightgrid-tailnet.exe -DestinationPath target/release/bundle/nightgrid-portable-x64.zip
 
       - uses: actions/upload-artifact@v4
         with:

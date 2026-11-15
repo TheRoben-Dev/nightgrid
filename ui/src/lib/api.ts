@@ -150,6 +150,8 @@ import {
   type NoteInput_Serialize as NoteInput,
   type BackupJob,
   type DeviceLabel,
+  type TailnetStatus_Serialize as TailnetStatus,
+  type TailnetPeer_Serialize as TailnetPeer,
   type BackupJobInput,
   type BackupStatus_Serialize as BackupStatus,
   type BackupSuggestion,
@@ -191,6 +193,7 @@ import { mockAlerts } from "./mockAlerts";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
+import { mockTailnet } from "./mockTailnet";
 import { mockHelper } from "./mockHelper";
 import { mockBackup } from "./mockBackup";
 import { mockIntegrations } from "./mockIntegrations";
@@ -341,6 +344,8 @@ export type {
   BackupJob,
   BackupJobInput,
   DeviceLabel,
+  TailnetStatus,
+  TailnetPeer,
   BackupStatus,
   BackupSuggestion,
   BackupTool,
@@ -400,6 +405,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   termEditInApp: false,
   termKeyHints: true,
   termSolidBg: false,
+  tailnetEnabled: false,
+  tailnetAcceptRoutes: true,
+  tailnetHostname: "nightgrid",
+  tailnetControlUrl: "",
   metricsEnabled: true,
   metricsIntervalSecs: 2,
   metricsBackgroundSecs: 60,
@@ -445,7 +454,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.10-web",
+      version: "0.10.11-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -713,6 +722,12 @@ export const api = {
     T() ? commands.netmapDiscoverLocal(sweep) : mockOps.discover(0, sweep),
   deviceLabelsList: (): Promise<DeviceLabel[]> => (T() ? commands.deviceLabelsList() : mockOps.labelsList()),
   deviceLabelSave: (l: DeviceLabel): Promise<DeviceLabel | null> => (T() ? commands.deviceLabelSave(l) : mockOps.labelSave(l)),
+  tailnetStatus: (): Promise<TailnetStatus> => (T() ? commands.tailnetStatus() : mockTailnet.status()),
+  tailnetSetEnabled: (on: boolean): Promise<TailnetStatus> => (T() ? commands.tailnetSetEnabled(on) : mockTailnet.setEnabled(on)),
+  tailnetConfigure: (hostname: string, controlUrl: string, acceptRoutes: boolean): Promise<TailnetStatus> =>
+    T() ? commands.tailnetConfigure(hostname, controlUrl, acceptRoutes) : mockTailnet.configure(acceptRoutes),
+  tailnetLogin: (): Promise<null> => (T() ? commands.tailnetLogin() : mockTailnet.login()),
+  tailnetLogout: (): Promise<null> => (T() ? commands.tailnetLogout() : mockTailnet.logout()),
   deviceLabelDelete: (key: string): Promise<null> => (T() ? commands.deviceLabelDelete(key) : mockOps.labelDelete(key)),
   statusPageGet: (): Promise<StatusPageInfo> => (T() ? commands.statusPageGet() : mockOps.statusGet()),
   statusPageSet: (s: StatusPageSettings): Promise<StatusPageInfo> => (T() ? commands.statusPageSet(s) : mockOps.statusSet(s)),
@@ -783,6 +798,14 @@ export const api = {
     return commands.helperAsk(messages, ch as unknown as Parameters<typeof commands.helperAsk>[1]);
   },
   helperStop: (): Promise<void> => (T() ? commands.helperStop() : mockHelper.stop()),
+  helperHostHistory: (hostId: number): Promise<HistoryEntry[]> =>
+    T()
+      ? commands.helperHostHistory(hostId)
+      : Promise.resolve([
+          { command: "sudo systemctl status sshd", shell: "bash", when: null },
+          { command: "journalctl -b -1 -e", shell: "bash", when: null },
+          { command: "sudo systemctl suspend", shell: "bash", when: null },
+        ]),
   appRestart: (): Promise<void> => (T() ? commands.appRestart() : Promise.resolve(location.reload())),
   alertsSubscribe: (on: (s: AlertsSnapshot) => void): Promise<null> => {
     if (!T()) return mockAlerts.subscribe(on);

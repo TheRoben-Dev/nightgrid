@@ -31,6 +31,7 @@ pub mod stack_dirs;
 pub mod status_page;
 pub mod store;
 pub mod system;
+pub mod tailnet;
 pub mod term;
 pub mod tunnels;
 

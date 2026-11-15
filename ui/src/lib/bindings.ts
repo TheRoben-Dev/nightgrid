@@ -324,6 +324,13 @@ export const commands = {
 	helperAsk: (messages: ChatTurn[], onEvent: Channel<HelperEvent>, options?: InvokeOptions) => __TAURI_INVOKE<HelperReply>("helper_ask", { messages, onEvent }, options),
 	/**  Stops the reply being generated (what's there so far is kept). */
 	helperStop: (options?: InvokeOptions) => __TAURI_INVOKE<void>("helper_stop", undefined, options),
+	/**
+	 *  Recent shell history from a host for DRIFT, when the host allows it
+	 *  ("DRIFT may read shell history" in the host editor). Lines that look like
+	 *  they hold a secret are dropped before they leave this side (same filter
+	 *  as Tasks → History search).
+	 */
+	helperHostHistory: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<HistoryEntry_Serialize[]>("helper_host_history", { hostId }, options),
 	/**  Registers the UI channel and sends the current snapshot. */
 	alertsSubscribe: (onEvent: Channel<AlertsSnapshot_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_subscribe", { onEvent }, options),
 	/**  Re-evaluates now (after alert settings change). */
@@ -344,6 +351,21 @@ export const commands = {
 	alertsLogSamples: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<string[]>("alerts_log_samples", { key }, options),
 	backupJobsList: (options?: InvokeOptions) => __TAURI_INVOKE<BackupJob[]>("backup_jobs_list", undefined, options),
 	deviceLabelsList: (options?: InvokeOptions) => __TAURI_INVOKE<DeviceLabel[]>("device_labels_list", undefined, options),
+	tailnetStatus: (options?: InvokeOptions) => __TAURI_INVOKE<TailnetStatus_Serialize>("tailnet_status", undefined, options),
+	/**
+	 *  Turns the built-in client on (starts it) or off (stops it; the node
+	 *  stays logged in for next time).
+	 */
+	tailnetSetEnabled: (enabled: boolean, options?: InvokeOptions) => __TAURI_INVOKE<TailnetStatus_Serialize>("tailnet_set_enabled", { enabled }, options),
+	/**
+	 *  Saves the node name, control server and subnet-route choice. A running
+	 *  client picks up routes at once and restarts for the other two.
+	 */
+	tailnetConfigure: (hostname: string, controlUrl: string, acceptRoutes: boolean, options?: InvokeOptions) => __TAURI_INVOKE<TailnetStatus_Serialize>("tailnet_configure", { hostname, controlUrl, acceptRoutes }, options),
+	/**  Asks for a login link; it arrives in the status as `loginUrl`. */
+	tailnetLogin: (options?: InvokeOptions) => __TAURI_INVOKE<null>("tailnet_login", undefined, options),
+	/**  Logs this node out of the tailnet. */
+	tailnetLogout: (options?: InvokeOptions) => __TAURI_INVOKE<null>("tailnet_logout", undefined, options),
 	/**  Saves a label; returns null when every field was empty and it was removed. */
 	deviceLabelSave: (label: DeviceLabel, options?: InvokeOptions) => __TAURI_INVOKE<DeviceLabel | null>("device_label_save", { label }, options),
 	deviceLabelDelete: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("device_label_delete", { key }, options),
@@ -674,6 +696,14 @@ export type AppSettings_Deserialize = {
 	 *  backdrop show through.
 	 */
 	termSolidBg?: boolean,
+	/**  Built-in Tailscale client (M10j): off until the user turns it on. */
+	tailnetEnabled?: boolean,
+	/**  Use subnet routes other tailnet nodes advertise. */
+	tailnetAcceptRoutes?: boolean,
+	/**  This node's name in the tailnet. */
+	tailnetHostname?: string,
+	/**  A self-hosted control server (Headscale); empty = Tailscale's. */
+	tailnetControlUrl?: string,
 	/**
 	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
 	 *  Off by default; lines that look like they hold a secret are dropped and
@@ -767,6 +797,14 @@ export type AppSettings_Serialize = {
 	 *  backdrop show through.
 	 */
 	termSolidBg: boolean,
+	/**  Built-in Tailscale client (M10j): off until the user turns it on. */
+	tailnetEnabled: boolean,
+	/**  Use subnet routes other tailnet nodes advertise. */
+	tailnetAcceptRoutes: boolean,
+	/**  This node's name in the tailnet. */
+	tailnetHostname: string,
+	/**  A self-hosted control server (Headscale); empty = Tailscale's. */
+	tailnetControlUrl: string,
 	/**
 	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
 	 *  Off by default; lines that look like they hold a secret are dropped and
@@ -1846,6 +1884,10 @@ export type HostInput_Deserialize = {
 	rememberSecret?: boolean,
 	sshAlias?: string | null,
 	tags?: string[],
+	/**  Second address (100.x or MagicDNS name) tried when `hostname` doesn't answer. */
+	tailnetAddress?: string | null,
+	/**  DRIFT may read this host's recent shell history (opt-in). */
+	driftHistory?: boolean,
 };
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
@@ -1865,6 +1907,10 @@ export type HostInput_Serialize = {
 	rememberSecret: boolean,
 	sshAlias: string | null,
 	tags: string[],
+	/**  Second address (100.x or MagicDNS name) tried when `hostname` doesn't answer. */
+	tailnetAddress: string | null,
+	/**  DRIFT may read this host's recent shell history (opt-in). */
+	driftHistory: boolean,
 };
 
 /**  A host key as shown to the user. */
@@ -1920,6 +1966,10 @@ export type Host_Deserialize = {
 	rememberSecret: boolean,
 	sshAlias?: string | null,
 	tags: string[],
+	/**  Second address (100.x or MagicDNS name) tried when `hostname` doesn't answer. */
+	tailnetAddress?: string | null,
+	/**  DRIFT may read this host's recent shell history (opt-in). */
+	driftHistory: boolean,
 };
 
 export type Host_Serialize = {
@@ -1941,6 +1991,10 @@ export type Host_Serialize = {
 	rememberSecret: boolean,
 	sshAlias: string | null,
 	tags: string[],
+	/**  Second address (100.x or MagicDNS name) tried when `hostname` doesn't answer. */
+	tailnetAddress: string | null,
+	/**  DRIFT may read this host's recent shell history (opt-in). */
+	driftHistory: boolean,
 };
 
 export type Iface = {
@@ -3516,6 +3570,74 @@ export type SystemInfo = {
 	sudo: SudoState,
 	/**  A sudo password for this host is saved in the keychain. */
 	remembered: boolean,
+};
+
+/**  A node of the tailnet (this one or a peer). */
+export type TailnetPeer = TailnetPeer_Serialize | TailnetPeer_Deserialize;
+
+/**  A node of the tailnet (this one or a peer). */
+export type TailnetPeer_Deserialize = {
+	/**  Short MagicDNS name (`lumen`). */
+	name?: string,
+	/**  Full MagicDNS name (`lumen.tail1234.ts.net`). */
+	dnsName?: string,
+	ips?: string[],
+	os?: string,
+	online?: boolean,
+	/**  Subnet routes this peer serves (`192.168.1.0/24`). The sidecar always sends a list. */
+	routes?: string[],
+};
+
+/**  A node of the tailnet (this one or a peer). */
+export type TailnetPeer_Serialize = {
+	/**  Short MagicDNS name (`lumen`). */
+	name: string,
+	/**  Full MagicDNS name (`lumen.tail1234.ts.net`). */
+	dnsName: string,
+	ips: string[],
+	os: string,
+	online: boolean,
+	/**  Subnet routes this peer serves (`192.168.1.0/24`). The sidecar always sends a list. */
+	routes: string[],
+};
+
+/**  What the app shows about the built-in client. */
+export type TailnetStatus = TailnetStatus_Serialize | TailnetStatus_Deserialize;
+
+/**  What the app shows about the built-in client. */
+export type TailnetStatus_Deserialize = {
+	/**
+	 *  `off`, `unavailable` (no sidecar in this build), `starting`,
+	 *  `needsLogin`, `needsMachineAuth`, `running`, `stopped`, `failed`.
+	 */
+	state: string,
+	/**  Open this in the browser to log in (when `needsLogin`). */
+	loginUrl?: string | null,
+	tailnet?: string | null,
+	magicDnsSuffix?: string | null,
+	selfNode?: TailnetPeer_Deserialize | null,
+	peers: TailnetPeer_Deserialize[],
+	acceptRoutes: boolean,
+	/**  The last error the client reported, in words. */
+	error?: string | null,
+};
+
+/**  What the app shows about the built-in client. */
+export type TailnetStatus_Serialize = {
+	/**
+	 *  `off`, `unavailable` (no sidecar in this build), `starting`,
+	 *  `needsLogin`, `needsMachineAuth`, `running`, `stopped`, `failed`.
+	 */
+	state: string,
+	/**  Open this in the browser to log in (when `needsLogin`). */
+	loginUrl: string | null,
+	tailnet: string | null,
+	magicDnsSuffix: string | null,
+	selfNode: TailnetPeer_Serialize | null,
+	peers: TailnetPeer_Serialize[],
+	acceptRoutes: boolean,
+	/**  The last error the client reported, in words. */
+	error: string | null,
 };
 
 /**  One temperature sensor. */

@@ -30,6 +30,7 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         M::up(include_str!("migrations/0013_backup_jobs.sql")),
         M::up(include_str!("migrations/0014_note_drift.sql")),
         M::up(include_str!("migrations/0015_device_labels.sql")),
+        M::up(include_str!("migrations/0016_host_tailnet.sql")),
     ])
 });
 
@@ -112,7 +113,7 @@ impl Store {
 mod tests {
     use super::*;
 
-    const LATEST: i64 = 15;
+    const LATEST: i64 = 16;
 
     #[test]
     fn migrations_are_valid() {

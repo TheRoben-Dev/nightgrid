@@ -9,7 +9,11 @@ import { buildTurns, parseReply, streamingText, type HelperAction, type HelperCo
 import { sectionById } from "../sections";
 import { labelLines } from "../netmap/graph";
 import { keymap } from "../term/keyhints";
+import { hostFacts, mentionedHosts } from "../helper/hostFacts";
+import { alerts } from "./alerts.svelte";
 import { docker } from "./docker.svelte";
+import { hosts } from "./hosts.svelte";
+import { metrics } from "./metrics.svelte";
 import { netmap } from "./netmap.svelte";
 import { notes } from "./notes.svelte";
 import { settings } from "./settings.svelte";
@@ -211,6 +215,40 @@ class HelperStore {
     await this.refresh();
   }
 
+  /**
+   * Facts about the saved hosts the question names. A follow-up that names
+   * none ("check its history") uses the hosts the previous question named.
+   */
+  private async hostContext(q: string): Promise<string[]> {
+    if (!hosts.loaded) await hosts.refresh();
+    let found = mentionedHosts(hosts.hosts, q);
+    if (!found.length) {
+      const prev = this.messages.filter((m) => m.role === "user").slice(-2).reverse();
+      for (const m of prev) {
+        found = mentionedHosts(hosts.hosts, m.text);
+        if (found.length) break;
+      }
+    }
+    if (!found.length) return [];
+    const now = Math.floor(Date.now() / 1000);
+    const all = [...(alerts.snap?.active ?? []), ...(alerts.snap?.history ?? [])];
+    return Promise.all(
+      found.map(async (h) => {
+        let history = null;
+        let historyError = null;
+        if (h.driftHistory) {
+          try {
+            history = await api.helperHostHistory(h.id);
+          } catch (e) {
+            historyError = errMsg(e);
+          }
+        }
+        const mine = all.filter((a, i) => a.hostId === h.id && all.findIndex((b) => b.id === a.id) === i);
+        return hostFacts({ host: h, ping: hosts.pings[h.id], metrics: metrics.byHost[h.id], alerts: mine, history, historyError, now });
+      }),
+    );
+  }
+
   async ask(question: string) {
     const q = question.trim();
     if (!q || this.busy) return;
@@ -218,7 +256,10 @@ class HelperStore {
     if (!notes.loaded) await notes.load();
     if (!netmap.labelsLoaded) await netmap.loadLabels();
     ctx.devices = labelLines(netmap.labels, netmap.result?.devices ?? [], q, ctx.view === "network");
-    const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, 4), ...notesIndex(notes.notes).search(q, 2)];
+    ctx.hosts = await this.hostContext(q);
+    // Questions about the user's own hosts lean on the live facts, not the guide.
+    const guideN = ctx.hosts.length ? 2 : 4;
+    const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, guideN), ...notesIndex(notes.notes).search(q, 2)];
     const history: Turn[] = this.messages
       .filter((m) => !m.error && m.text)
       .map((m) => ({ role: m.role, content: m.text }));

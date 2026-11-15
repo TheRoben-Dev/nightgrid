@@ -18,6 +18,8 @@ const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   proxyJump: null,
   rememberSecret: false,
   sshAlias: null,
+  tailnetAddress: null,
+  driftHistory: false,
   tags: [],
   ...extra,
 });

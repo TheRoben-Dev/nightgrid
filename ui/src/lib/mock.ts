@@ -61,6 +61,8 @@ const toHost = (id: number, i: HostInput): Host => ({
   proxyJump: i.proxyJump,
   rememberSecret: i.rememberSecret,
   sshAlias: i.sshAlias,
+  tailnetAddress: i.tailnetAddress?.trim() || null,
+  driftHistory: i.driftHistory,
   tags: [...new Set(i.tags.map((t) => t.trim()).filter(Boolean))],
 });
 
@@ -161,6 +163,8 @@ export const mockBackend = {
             proxyJump: c.proxyJump,
             rememberSecret: false,
             sshAlias: c.alias,
+            tailnetAddress: null,
+            driftHistory: false,
             tags: ["ssh-config"],
           }),
         });
