@@ -29,6 +29,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "system-tab-units", view: "system", what: "systemd services tab" },
   { id: "system-tab-journal", view: "system", what: "journal (live logs) tab" },
   { id: "system-tab-schedules", view: "system", what: "scheduled jobs tab: systemd timers and cron, next and last runs" },
+  { id: "system-tab-security", view: "system", what: "security tab: hygiene score, checks with fixes, listening ports" },
+  { id: "system-port-map", view: "system", what: "port map: open ports on every host (in the Security tab)" },
   { id: "system-tab-updates", view: "system", what: "package updates tab" },
   { id: "system-tab-disks", view: "system", what: "disk SMART health tab" },
   { id: "automation-command", view: "automation", what: "command box for running on several hosts" },

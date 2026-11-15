@@ -136,6 +136,11 @@ import {
   type SystemInfo,
   type Unit_Serialize as Unit,
   type Schedules_Serialize as Schedules,
+  type SecurityReport_Serialize as SecurityReport,
+  type Check_Serialize as SecurityCheck,
+  type CheckStatus,
+  type Listener_Serialize as Listener,
+  type Scope as ListenScope,
   type Timer_Serialize as Timer,
   type CronJob_Serialize as CronJob,
   type Periodic,
@@ -280,6 +285,11 @@ export type {
   SystemInfo,
   Unit,
   Schedules,
+  SecurityReport,
+  SecurityCheck,
+  CheckStatus,
+  Listener,
+  ListenScope,
   Timer,
   CronJob,
   Periodic,
@@ -347,7 +357,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.2-web",
+      version: "0.10.3-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -546,6 +556,7 @@ export const api = {
   systemInfo: (hostId: number): Promise<SystemInfo> => (T() ? commands.systemInfo(hostId) : mockSystem.info(hostId)),
   systemSudoForget: (hostId: number): Promise<null> => (T() ? commands.systemSudoForget(hostId) : mockSystem.forget(hostId)),
   systemUnits: (hostId: number): Promise<Unit[]> => (T() ? commands.systemUnits(hostId) : mockSystem.units(hostId)),
+  systemSecurity: (hostId: number): Promise<SecurityReport> => (T() ? commands.systemSecurity(hostId) : mockSystem.security(hostId)),
   systemSchedules: (hostId: number): Promise<Schedules> => (T() ? commands.systemSchedules(hostId) : mockSystem.schedules(hostId)),
   systemUnitStatus: (hostId: number, unit: string): Promise<string> =>
     T() ? commands.systemUnitStatus(hostId, unit) : mockSystem.unitStatus(hostId, unit),

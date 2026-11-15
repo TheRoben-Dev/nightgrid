@@ -6,6 +6,7 @@
   import DisksPanel from "../components/system/DisksPanel.svelte";
   import JournalPanel from "../components/system/JournalPanel.svelte";
   import SchedulesPanel from "../components/system/SchedulesPanel.svelte";
+  import SecurityPanel from "../components/system/SecurityPanel.svelte";
   import SudoPrompt from "../components/system/SudoPrompt.svelte";
   import UnitsPanel from "../components/system/UnitsPanel.svelte";
   import UpdatesPanel from "../components/system/UpdatesPanel.svelte";
@@ -22,6 +23,7 @@
     { id: "units", label: "UNITS" },
     { id: "journal", label: "JOURNAL" },
     { id: "schedules", label: "SCHEDULES" },
+    { id: "security", label: "SECURITY" },
     { id: "updates", label: "UPDATES" },
     { id: "disks", label: "DISKS" },
   ];
@@ -48,7 +50,9 @@
     <div class="tabs" role="tablist" aria-label="System view">
       {#each TABS as t (t.id)}
         <button type="button" role="tab" data-guide="system-tab-{t.id}" class:on={system.tab === t.id} aria-selected={system.tab === t.id} onclick={() => system.openTab(t.id)}>
-          {t.label}{#if t.id === "updates" && upCount}<span class="badge">{upCount}</span>{/if}{#if t.id === "disks" && system.disks && (system.disks.health === "warn" || system.disks.health === "bad")}<span
+          {t.label}{#if t.id === "updates" && upCount}<span class="badge">{upCount}</span>{/if}{#if t.id === "security" && system.security && system.security.score < 75}<span class="badge {system.security.score < 60 ? 'bad' : 'warn'}"
+              >{system.security.grade}</span
+            >{/if}{#if t.id === "disks" && system.disks && (system.disks.health === "warn" || system.disks.health === "bad")}<span
               class="badge {system.disks.health}">!</span
             >{/if}
         </button>
@@ -92,6 +96,8 @@
       <JournalPanel />
     {:else if system.tab === "schedules"}
       <SchedulesPanel />
+    {:else if system.tab === "security"}
+      <SecurityPanel />
     {:else if system.tab === "updates"}
       <UpdatesPanel />
     {:else}

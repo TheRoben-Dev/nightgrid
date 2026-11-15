@@ -175,6 +175,8 @@ export const commands = {
 	systemUnits: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Unit_Serialize[]>("system_units", { hostId }, options),
 	/**  Systemd timers and cron jobs (read-only). */
 	systemSchedules: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Schedules_Serialize>("system_schedules", { hostId }, options),
+	/**  Security checks and listening ports (read-only, no sudo). */
+	systemSecurity: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<SecurityReport_Serialize>("system_security", { hostId }, options),
 	systemUnitStatus: (hostId: number, unit: string, options?: InvokeOptions) => __TAURI_INVOKE<string>("system_unit_status", { hostId, unit }, options),
 	/**
 	 *  Runs a unit action as root. Stop / restart / disable were confirmed in
@@ -737,6 +739,8 @@ export type ChatTurn = {
 	content: string,
 };
 
+export type Check = Check_Serialize | Check_Deserialize;
+
 /**  One stored check result (for uptime and the latency trend). */
 export type CheckPoint = CheckPoint_Serialize | CheckPoint_Deserialize;
 
@@ -776,6 +780,40 @@ export type CheckResult_Serialize = {
 	/**  Connection/TLS/protocol error, or why the status didn't count as up. */
 	error: string | null,
 	tls: TlsInfo_Serialize | null,
+};
+
+export type CheckStatus = "pass" | "warn" | "fail" | 
+/**  Couldn't tell (not readable without root, tool missing). */
+"unknown" | 
+/**  Shown for context; not scored. */
+"info";
+
+export type Check_Deserialize = {
+	id: string,
+	title: string,
+	status: CheckStatus,
+	detail: string,
+	/**
+	 *  What to do about it, in words, with commands in backticks. The user
+	 *  runs them; Nightgrid doesn't.
+	 */
+	fix?: string | null,
+	/**  Points this check can cost. */
+	weight: number,
+};
+
+export type Check_Serialize = {
+	id: string,
+	title: string,
+	status: CheckStatus,
+	detail: string,
+	/**
+	 *  What to do about it, in words, with commands in backticks. The user
+	 *  runs them; Nightgrid doesn't.
+	 */
+	fix: string | null,
+	/**  Points this check can cost. */
+	weight: number,
 };
 
 /**  Error returned to the frontend. Messages are user-safe and secret-free. */
@@ -1755,6 +1793,41 @@ export type KumaStatus_Serialize = {
 	down: number,
 };
 
+/**  One listening socket. */
+export type Listener = Listener_Serialize | Listener_Deserialize;
+
+/**  One listening socket. */
+export type Listener_Deserialize = {
+	/**  `tcp` or `udp`. */
+	proto: string,
+	/**  Bound address as reported (`0.0.0.0`, `::`, `127.0.0.1`, `192.168.1.5`). */
+	addr: string,
+	port: number,
+	scope: Scope,
+	/**  Process name, when visible to this user. */
+	process?: string | null,
+	/**  Container publishing it, for Docker ports. */
+	container?: string | null,
+	/**  Well-known service on this port (`ssh`, `postgres`), if any. */
+	service?: string | null,
+};
+
+/**  One listening socket. */
+export type Listener_Serialize = {
+	/**  `tcp` or `udp`. */
+	proto: string,
+	/**  Bound address as reported (`0.0.0.0`, `::`, `127.0.0.1`, `192.168.1.5`). */
+	addr: string,
+	port: number,
+	scope: Scope,
+	/**  Process name, when visible to this user. */
+	process: string | null,
+	/**  Container publishing it, for Docker ports. */
+	container: string | null,
+	/**  Well-known service on this port (`ssh`, `postgres`), if any. */
+	service: string | null,
+};
+
 export type Listing = Listing_Serialize | Listing_Deserialize;
 
 export type Listing_Deserialize = {
@@ -2275,6 +2348,41 @@ export type Schedules_Serialize = {
 	now: number,
 	/**  The host's UTC offset in minutes (cron runs in local time). */
 	utcOffsetMin: number,
+};
+
+/**  Who can reach a socket, judged from the bound address alone. */
+export type Scope = 
+/**  Loopback only. */
+"local" | 
+/**  A VPN address (Tailscale/CGNAT 100.64.0.0/10, or a `wg`/`tailscale` style range we can tell). */
+"vpn" | 
+/**  One specific address (often the LAN). */
+"address" | 
+/**  Every interface (`0.0.0.0`, `::`, `*`). */
+"all";
+
+export type SecurityReport = SecurityReport_Serialize | SecurityReport_Deserialize;
+
+export type SecurityReport_Deserialize = {
+	/**  0–100. */
+	score: number,
+	/**  `A` … `F`. */
+	grade: string,
+	checks: Check_Deserialize[],
+	listeners: Listener_Deserialize[],
+	/**  Process names are only visible for our own processes without root. */
+	processesPartial: boolean,
+};
+
+export type SecurityReport_Serialize = {
+	/**  0–100. */
+	score: number,
+	/**  `A` … `F`. */
+	grade: string,
+	checks: Check_Serialize[],
+	listeners: Listener_Serialize[],
+	/**  Process names are only visible for our own processes without root. */
+	processesPartial: boolean,
 };
 
 export type Service = Service_Serialize | Service_Deserialize;

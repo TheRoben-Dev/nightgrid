@@ -109,6 +109,7 @@ _Last updated: M2 (SFTP + editor)._
 - **packages** (`packages.rs`): one exec detects the manager, lists upgrades and reboot-required signals; `upgrade_command` per manager (D-049).
 - **smart** (`smart.rs`): scans and reads every disk in one root session and judges health; fixtures in `core/src/system/fixtures/`.
 - **schedule** (`schedule.rs`, M10c): one unprivileged script reads timers (`systemctl show --timestamp=unix`), their services' last result, crontabs and `cron.<period>` folders; `CronSpec` parses 5-field schedules and finds the next run in host time; `describe` words common schedules (D-066). Command: `system_schedules`; UI: `SchedulesPanel.svelte`.
+- **security** (`security.rs`, M10d): one unprivileged script → `parse_audit` → `SecurityReport` (checks with status, weight and fix text; listeners with scope, process and container; score and grade) (D-069). Command: `system_security`; UI: `SecurityPanel.svelte` (per host, and the port map that audits every host three at a time).
 - **App** (`app/src/system_cmd.rs`): `resolve_sudo` (probe → prompt input or keychain → `sudo true` check), commands for units, journal (stream with batching), updates, upgrade runs, reboot and disks. Streams share a stop switch map (`system_runs`).
 - **UI**: `stores/system.svelte.ts` (per-tab state, `withSudo` retry loop around the prompt), `views/System.svelte`, `components/system/*`; `mockSystem.ts` for browser dev.
 

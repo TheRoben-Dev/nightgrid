@@ -91,6 +91,17 @@ describe("system store (browser mock)", () => {
     await system.stopJournal();
   });
 
+  it("audits a host and fills the port map", async () => {
+    system.select(1);
+    await system.openTab("security");
+    const r = system.security!;
+    expect(r.score).toBe(100 - r.checks.reduce((a, c) => a + (c.status === "fail" ? c.weight : c.status === "warn" ? Math.floor(c.weight / 2) : 0), 0));
+    expect(r.listeners.some((l) => l.container && l.scope === "all")).toBe(true);
+    await system.scanAllPorts();
+    expect(Object.keys(system.portMap).length).toBeGreaterThan(0);
+    expect(system.portMapLoading).toBe(false);
+  });
+
   it("cancelling the prompt fails the action", async () => {
     system.request("ssh.service", "stop");
     expect(system.pendingUnit).toEqual({ unit: "ssh.service", action: "stop" });
