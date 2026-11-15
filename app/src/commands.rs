@@ -84,8 +84,14 @@ pub fn settings_get(state: State<'_, AppState>) -> CmdResult<AppSettings> {
 
 #[tauri::command]
 #[specta::specta]
-pub fn settings_set(state: State<'_, AppState>, settings: AppSettings) -> CmdResult<AppSettings> {
+pub fn settings_set(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    settings: AppSettings,
+) -> CmdResult<AppSettings> {
     settings.save(&state.store())?;
+    crate::tray::apply(&app);
+    state.alerts.wake();
     tracing::debug!(theme = %settings.theme, "settings saved");
     Ok(settings)
 }

@@ -93,7 +93,7 @@ fn sudo_ref(host_id: HostId) -> SecretRef {
 }
 
 /// How to become root on `host_id`, checking any password before use.
-async fn resolve_sudo(
+pub(crate) async fn resolve_sudo(
     app: &AppHandle,
     host_id: HostId,
     conn: &Connection,

@@ -110,6 +110,14 @@ _Last updated: M2 (SFTP + editor)._
 - **App** (`app/src/system_cmd.rs`): `resolve_sudo` (probe → prompt input or keychain → `sudo true` check), commands for units, journal (stream with batching), updates, upgrade runs, reboot and disks. Streams share a stop switch map (`system_runs`).
 - **UI**: `stores/system.svelte.ts` (per-tab state, `withSudo` retry loop around the prompt), `views/System.svelte`, `components/system/*`; `mockSystem.ts` for browser dev.
 
+## Alerts and tray (M7)
+
+- **Rules** (`core/src/alerts.rs`): `Tracker` (pending → active → resolved, grace and clear-hold per kind, scoped reports, 200-entry history), condition builders for host offline, disk usage, services/certificates, SMART and containers (`ContainerWatch`), quiet hours, and webhook request builders (ntfy, Discord, JSON) (D-050, D-051).
+- **HTTP** (`core/src/http.rs`): one-request HTTP/1.1 client on hyper + rustls with the OS verifier, bounded body, no redirects; shared TLS setup with the service checker. Used by webhooks now and integrations next.
+- **App** (`app/src/alerts_cmd.rs`): `AlertsHub` and its loop (15 s; Docker 60 s; SMART 6 h per host), delivery (notifications via `tauri-plugin-notification`, webhook URL from the keychain), commands for the snapshot channel, history, webhook URL and a test send. Reads `MetricsHub::poll_states/mounts` and `ServicesHub::latest`.
+- **Tray** (`app/src/tray.rs`): builds the menu from hosts, tunnels and alert counts, rebuilds on change, emits `tray://connect` / `tray://alerts` to the UI; close-to-tray in `lib.rs`'s window event handler, Dock reopen on macOS (D-052).
+- **UI**: `stores/alerts.svelte.ts`, `components/alerts/AlertsPanel.svelte` (opened from the status strip or the tray), `components/alerts/AlertSettings.svelte`; `mockAlerts.ts` for browser dev.
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.
@@ -124,7 +132,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Keyboard:** all shortcuts are defined in `DEFAULT_KEYMAP` (`ui/src/lib/keys.ts`) using `Mod` = Cmd on macOS / Ctrl elsewhere, so a rebinding UI can override them later.
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
-## Security posture (M6)
+## Security posture (M7)
 
 - CSP: `default-src 'self'`, no inline script/style, no remote origins; `connect-src` limited to Tauri IPC. Runtime `<style>` elements (xterm) are mirrored into constructable stylesheets instead of relaxing the CSP (D-013).
 - Capabilities: `core:default`, clipboard read/write text (terminal copy/paste) and `opener:allow-open-url` limited to `http(s)://` (links in terminal output) on the `main` window only. App commands are registered explicitly via tauri-specta.
@@ -136,6 +144,7 @@ _Last updated: M2 (SFTP + editor)._
 - Metrics: read-only commands only, no sudo, nothing written on the host. Background pollers never prompt for passwords or host keys; they wait for a connection the user made (D-038). History holds numbers only.
 - Services: checks are plain GETs to URLs the user entered or imported (rule 7: their own hosts); URLs with credentials are rejected; untrusted certificates count as down unless allowed per service; imported icons are never fetched. Homepage import only reads files.
 - sudo (M6): passwords go to sudo's stdin on the exec channel, never on a command line, in the environment or in logs; prompted per action by default; kept in the keychain only with the per-host "remember" (off by default) and deleted when it stops working; never cached in memory between actions. Root and NOPASSWD hosts skip the prompt. Unit stop/restart/disable confirm with the unit and host named, package upgrades list the packages, reboot needs the host name typed; all of these are logged with their targets. Unit names, journal filters and times are validated and shell-quoted.
+- Alerts (M7): background checks never open connections or prompt; SMART only runs where sudo needs no password. The webhook URL is kept in the keychain only and shown back as scheme + host; webhook requests verify certificates before sending and go only to the URL the user saved. Notifications are sent from Rust, so the webview has no notification permission. The tray only emits events; connecting still goes through the UI's normal prompts.
 - Tunnels: listeners default to loopback, other bind addresses are flagged as public; SOCKS has no auth for that reason. Auto-start never prompts; a host that needs a login fails with that reason. Remote-forward channels for ports nobody asked for are rejected.
 
 ## Platform notes

@@ -197,6 +197,19 @@ export const commands = {
 	systemReboot: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_reboot", { hostId, sudo }, options),
 	/**  SMART health of every disk (needs root). */
 	systemDisks: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<DisksReport_Serialize>("system_disks", { hostId, sudo }, options),
+	/**  Registers the UI channel and sends the current snapshot. */
+	alertsSubscribe: (onEvent: Channel<AlertsSnapshot_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_subscribe", { onEvent }, options),
+	/**  Re-evaluates now (after alert settings change). */
+	alertsRefresh: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_refresh", undefined, options),
+	alertsClearHistory: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_clear_history", undefined, options),
+	alertsWebhookGet: (options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_get", undefined, options),
+	/**  Saves the webhook URL in the keychain (`None` or empty removes it). */
+	alertsWebhookSet: (url: string | null, options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_set", { url }, options),
+	/**
+	 *  Sends a test notification (and webhook message, if one is set up).
+	 *  Ignores quiet hours. Returns a line per channel describing what happened.
+	 */
+	alertsTest: (options?: InvokeOptions) => __TAURI_INVOKE<TestResult_Serialize>("alerts_test", undefined, options),
 	updateCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateStatus_Serialize>("update_check", undefined, options),
 	/**
 	 *  Downloads, verifies and installs the update from the last check, then
@@ -218,6 +231,117 @@ export type ActionResult_Deserialize = {
 export type ActionResult_Serialize = {
 	id: string,
 	error: string | null,
+};
+
+export type Alert = Alert_Serialize | Alert_Deserialize;
+
+export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceDown" | "certExpiring" | "smartWarning";
+
+/**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
+export type AlertSettings = AlertSettings_Serialize | AlertSettings_Deserialize;
+
+/**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
+export type AlertSettings_Deserialize = {
+	enabled?: boolean,
+	hostOffline?: boolean,
+	containerDown?: boolean,
+	diskFull?: boolean,
+	/**  Percent used that counts as full, 50–99. */
+	diskPercent?: number,
+	serviceDown?: boolean,
+	certExpiring?: boolean,
+	/**  Alert when a certificate expires within this many days, 1–90. */
+	certDays?: number,
+	/**
+	 *  Background SMART reads (every 6 h, only on hosts where sudo needs no
+	 *  prompt: root, NOPASSWD or a remembered password).
+	 */
+	smartWarning?: boolean,
+	/**  Native desktop notifications. */
+	native?: boolean,
+	quietHours?: boolean,
+	/**  Minutes after local midnight. */
+	quietStart?: number,
+	quietEnd?: number,
+	/**  `none`, `ntfy`, `discord` or `json`. */
+	webhook?: string,
+	/**  Also send "resolved" messages to the webhook. */
+	webhookResolved?: boolean,
+};
+
+/**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
+export type AlertSettings_Serialize = {
+	enabled: boolean,
+	hostOffline: boolean,
+	containerDown: boolean,
+	diskFull: boolean,
+	/**  Percent used that counts as full, 50–99. */
+	diskPercent: number,
+	serviceDown: boolean,
+	certExpiring: boolean,
+	/**  Alert when a certificate expires within this many days, 1–90. */
+	certDays: number,
+	/**
+	 *  Background SMART reads (every 6 h, only on hosts where sudo needs no
+	 *  prompt: root, NOPASSWD or a remembered password).
+	 */
+	smartWarning: boolean,
+	/**  Native desktop notifications. */
+	native: boolean,
+	quietHours: boolean,
+	/**  Minutes after local midnight. */
+	quietStart: number,
+	quietEnd: number,
+	/**  `none`, `ntfy`, `discord` or `json`. */
+	webhook: string,
+	/**  Also send "resolved" messages to the webhook. */
+	webhookResolved: boolean,
+};
+
+export type Alert_Deserialize = {
+	id: number,
+	key: string,
+	kind: AlertKind,
+	severity: Severity,
+	title: string,
+	detail: string,
+	hostId?: number | null,
+	/**  When the condition was first seen (unix seconds). */
+	since: number,
+	/**  When it resolved (unix seconds); `None` while active. */
+	resolved?: number | null,
+};
+
+export type Alert_Serialize = {
+	id: number,
+	key: string,
+	kind: AlertKind,
+	severity: Severity,
+	title: string,
+	detail: string,
+	hostId: number | null,
+	/**  When the condition was first seen (unix seconds). */
+	since: number,
+	/**  When it resolved (unix seconds); `None` while active. */
+	resolved: number | null,
+};
+
+export type AlertsSnapshot = AlertsSnapshot_Serialize | AlertsSnapshot_Deserialize;
+
+export type AlertsSnapshot_Deserialize = {
+	active: Alert_Deserialize[],
+	history: Alert_Deserialize[],
+	/**  Quiet hours are on right now (no notifications or webhooks). */
+	quiet: boolean,
+	enabled: boolean,
+};
+
+export type AlertsSnapshot_Serialize = {
+	active: Alert_Serialize[],
+	history: Alert_Serialize[],
+	/**  Quiet hours are on right now (no notifications or webhooks). */
+	quiet: boolean,
+	enabled: boolean,
 };
 
 export type AppInfo = AppInfo_Serialize | AppInfo_Deserialize;
@@ -301,6 +425,12 @@ export type AppSettings_Deserialize = {
 	updateCheck?: boolean,
 	/**  A version the user chose to skip (no launch prompt for it). */
 	updateSkipVersion?: string | null,
+	/**  Alert rules and delivery. */
+	alerts?: AlertSettings_Deserialize,
+	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
+	trayEnabled?: boolean,
+	/**  Closing the window hides it to the tray instead of quitting. */
+	closeToTray?: boolean,
 };
 
 /**
@@ -348,6 +478,12 @@ export type AppSettings_Serialize = {
 	updateCheck: boolean,
 	/**  A version the user chose to skip (no launch prompt for it). */
 	updateSkipVersion: string | null,
+	/**  Alert rules and delivery. */
+	alerts: AlertSettings_Serialize,
+	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
+	trayEnabled: boolean,
+	/**  Closing the window hides it to the tray instead of quitting. */
+	closeToTray: boolean,
 };
 
 export type AuthMethod = 
@@ -1567,6 +1703,8 @@ export type Service_Serialize = {
 	source: string,
 };
 
+export type Severity = "warn" | "critical";
+
 /**  Which filesystem a path is on. */
 export type Side = { kind: "local" } | { kind: "host"; id: number };
 
@@ -1776,6 +1914,18 @@ export type TermOpen = { kind: "opened"; id: number } | { kind: "needsUser"; err
 export type TermState = "connecting" | "connected" | "reconnecting" | 
 /**  Gave up or needs the user (e.g. host key changed). Can be retried. */
 "disconnected";
+
+export type TestResult = TestResult_Serialize | TestResult_Deserialize;
+
+export type TestResult_Deserialize = {
+	native?: string | null,
+	webhook?: string | null,
+};
+
+export type TestResult_Serialize = {
+	native: string | null,
+	webhook: string | null,
+};
 
 export type TextFile = TextFile_Serialize | TextFile_Deserialize;
 
@@ -2012,3 +2162,17 @@ export type UpgradeOp =
 "refresh" | 
 /**  Install all available upgrades. */
 "upgrade";
+
+export type WebhookInfo = WebhookInfo_Serialize | WebhookInfo_Deserialize;
+
+export type WebhookInfo_Deserialize = {
+	configured: boolean,
+	/**  Scheme and host only (the path usually holds the token). */
+	host?: string | null,
+};
+
+export type WebhookInfo_Serialize = {
+	configured: boolean,
+	/**  Scheme and host only (the path usually holds the token). */
+	host: string | null,
+};

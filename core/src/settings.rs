@@ -59,6 +59,66 @@ pub struct AppSettings {
     pub update_check: bool,
     /// A version the user chose to skip (no launch prompt for it).
     pub update_skip_version: Option<String>,
+    /// Alert rules and delivery.
+    pub alerts: AlertSettings,
+    /// Show a tray / menu bar icon with host status, tunnels and alerts.
+    pub tray_enabled: bool,
+    /// Closing the window hides it to the tray instead of quitting.
+    pub close_to_tray: bool,
+}
+
+pub const WEBHOOK_KINDS: &[&str] = &["none", "ntfy", "discord", "json"];
+
+/// Which alerts fire and where they go. Webhook URLs live in the keychain.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(default, rename_all = "camelCase")]
+pub struct AlertSettings {
+    pub enabled: bool,
+    pub host_offline: bool,
+    pub container_down: bool,
+    pub disk_full: bool,
+    /// Percent used that counts as full, 50–99.
+    pub disk_percent: u8,
+    pub service_down: bool,
+    pub cert_expiring: bool,
+    /// Alert when a certificate expires within this many days, 1–90.
+    pub cert_days: u16,
+    /// Background SMART reads (every 6 h, only on hosts where sudo needs no
+    /// prompt: root, NOPASSWD or a remembered password).
+    pub smart_warning: bool,
+    /// Native desktop notifications.
+    pub native: bool,
+    pub quiet_hours: bool,
+    /// Minutes after local midnight.
+    pub quiet_start: u16,
+    pub quiet_end: u16,
+    /// `none`, `ntfy`, `discord` or `json`.
+    pub webhook: String,
+    /// Also send "resolved" messages to the webhook.
+    pub webhook_resolved: bool,
+}
+
+impl Default for AlertSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            host_offline: true,
+            container_down: true,
+            disk_full: true,
+            disk_percent: 90,
+            service_down: true,
+            cert_expiring: true,
+            cert_days: 14,
+            smart_warning: true,
+            native: true,
+            quiet_hours: false,
+            quiet_start: 22 * 60,
+            quiet_end: 7 * 60,
+            webhook: "none".into(),
+            webhook_resolved: true,
+        }
+    }
 }
 
 impl Default for AppSettings {
@@ -83,6 +143,9 @@ impl Default for AppSettings {
             services_interval_secs: 60,
             update_check: true,
             update_skip_version: None,
+            alerts: AlertSettings::default(),
+            tray_enabled: true,
+            close_to_tray: false,
         }
     }
 }
@@ -115,6 +178,14 @@ impl AppSettings {
         range("metricsBackgroundSecs", self.metrics_background_secs, 10, 600)?;
         range("metricsRetentionDays", self.metrics_retention_days, 1, 90)?;
         range("servicesIntervalSecs", self.services_interval_secs, 15, 3600)?;
+        let a = &self.alerts;
+        range("alerts.diskPercent", u16::from(a.disk_percent), 50, 99)?;
+        range("alerts.certDays", a.cert_days, 1, 90)?;
+        range("alerts.quietStart", a.quiet_start, 0, 24 * 60 - 1)?;
+        range("alerts.quietEnd", a.quiet_end, 0, 24 * 60 - 1)?;
+        if !WEBHOOK_KINDS.contains(&a.webhook.as_str()) {
+            return Err(Error::Invalid { field: "alerts.webhook", reason: format!("unknown webhook {:?}", a.webhook) });
+        }
         if self.term_scrollback > TERM_SCROLLBACK_MAX {
             return Err(Error::Invalid { field: "termScrollback", reason: format!("at most {TERM_SCROLLBACK_MAX}") });
         }
@@ -162,6 +233,14 @@ mod tests {
         for ui_scale in [0, 89, 151, 300] {
             assert!(AppSettings { ui_scale, ..Default::default() }.save(&store).is_err());
         }
+        for alerts in [
+            AlertSettings { disk_percent: 100, ..Default::default() },
+            AlertSettings { cert_days: 0, ..Default::default() },
+            AlertSettings { quiet_end: 1440, ..Default::default() },
+            AlertSettings { webhook: "slack".into(), ..Default::default() },
+        ] {
+            assert!(AppSettings { alerts, ..Default::default() }.save(&store).is_err());
+        }
     }
 
     #[test]
@@ -171,6 +250,10 @@ mod tests {
         let s = AppSettings::load(&store).unwrap();
         assert_eq!(s.theme, "plain");
         assert_eq!(s.ui_scale, 100);
+
+        store.set_setting(KEY, &serde_json::json!({ "alerts": { "diskPercent": 80 } })).unwrap();
+        let s = AppSettings::load(&store).unwrap();
+        assert_eq!((s.alerts.disk_percent, s.alerts.cert_days), (80, 14));
 
         store.set_setting(KEY, &serde_json::json!("garbage")).unwrap();
         assert_eq!(AppSettings::load(&store).unwrap(), AppSettings::default());

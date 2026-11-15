@@ -6,6 +6,13 @@
 import { Channel, isTauri } from "@tauri-apps/api/core";
 import {
   commands,
+  type Alert_Serialize as Alert,
+  type AlertKind,
+  type AlertSettings_Serialize as AlertSettings,
+  type AlertsSnapshot_Serialize as AlertsSnapshot,
+  type Severity,
+  type TestResult_Serialize as AlertTestResult,
+  type WebhookInfo_Serialize as WebhookInfo,
   type AppInfo_Serialize as AppInfo,
   type AppSettings_Serialize as AppSettings,
   type AuthMethod,
@@ -98,6 +105,7 @@ import {
   type UpdatesReport_Serialize as UpdatesReport,
   type UpgradeOp,
 } from "./bindings";
+import { mockAlerts } from "./mockAlerts";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
 import { mockFiles } from "./mockFiles";
@@ -107,6 +115,13 @@ import { mockTunnels } from "./mockTunnels";
 import { mockSystem } from "./mockSystem";
 
 export type {
+  Alert,
+  AlertKind,
+  AlertSettings,
+  AlertsSnapshot,
+  AlertTestResult,
+  Severity,
+  WebhookInfo,
   AppInfo,
   AppSettings,
   AuthMethod,
@@ -220,6 +235,25 @@ export const DEFAULT_SETTINGS: AppSettings = {
   servicesIntervalSecs: 60,
   updateCheck: true,
   updateSkipVersion: null,
+  alerts: {
+    enabled: true,
+    hostOffline: true,
+    containerDown: true,
+    diskFull: true,
+    diskPercent: 90,
+    serviceDown: true,
+    certExpiring: true,
+    certDays: 14,
+    smartWarning: true,
+    native: true,
+    quietHours: false,
+    quietStart: 22 * 60,
+    quietEnd: 7 * 60,
+    webhook: "none",
+    webhookResolved: true,
+  },
+  trayEnabled: true,
+  closeToTray: false,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -227,7 +261,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.6.0-web",
+      version: "0.7.0-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -454,6 +488,18 @@ export const api = {
     T() ? commands.systemReboot(hostId, sudo) : mockSystem.reboot(hostId, sudo),
   systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
     T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
+  alertsSubscribe: (on: (s: AlertsSnapshot) => void): Promise<null> => {
+    if (!T()) return mockAlerts.subscribe(on);
+    const ch = new Channel<AlertsSnapshot>();
+    ch.onmessage = on;
+    return commands.alertsSubscribe(ch as unknown as Parameters<typeof commands.alertsSubscribe>[0]);
+  },
+  alertsRefresh: (): Promise<null> => (T() ? commands.alertsRefresh() : mockAlerts.refresh()),
+  alertsClearHistory: (): Promise<null> => (T() ? commands.alertsClearHistory() : mockAlerts.clearHistory()),
+  alertsWebhookGet: (): Promise<WebhookInfo> => (T() ? commands.alertsWebhookGet() : mockAlerts.webhookGet()),
+  alertsWebhookSet: (url: string | null): Promise<WebhookInfo> =>
+    T() ? commands.alertsWebhookSet(url) : mockAlerts.webhookSet(url),
+  alertsTest: (): Promise<AlertTestResult> => (T() ? commands.alertsTest() : mockAlerts.test()),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));

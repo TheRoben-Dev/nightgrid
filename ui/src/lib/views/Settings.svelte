@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api, type AppInfo } from "../api";
+  import AlertSettings from "../components/alerts/AlertSettings.svelte";
   import Barcode from "../components/Barcode.svelte";
   import Panel from "../components/Panel.svelte";
   import SegmentSlider from "../components/SegmentSlider.svelte";
@@ -197,6 +198,26 @@
         hint="One GET request per service per interval, straight from this computer to the service URL. History is kept 30 days."
         checked={settings.value.servicesChecks}
         onchange={(v) => settings.update({ servicesChecks: v }).then(() => api.servicesCheckAll())}
+      />
+    </div>
+  </Panel>
+
+  <AlertSettings />
+
+  <Panel title="DESKTOP">
+    <div class="toggles">
+      <Toggle
+        label={info?.os === "macos" ? "Menu bar icon" : "Tray icon"}
+        hint="Host status with quick connect, saved tunnels (click to start or stop), the alert count, Show and Quit."
+        checked={settings.value.trayEnabled}
+        onchange={(v) => settings.update({ trayEnabled: v })}
+      />
+      <Toggle
+        label="Keep running when the window is closed"
+        hint="Closing hides the window; alerts, tunnels and checks keep running. Quit from the {info?.os === 'macos' ? 'menu bar' : 'tray'} icon."
+        checked={settings.value.closeToTray}
+        disabled={!settings.value.trayEnabled}
+        onchange={(v) => settings.update({ closeToTray: v })}
       />
     </div>
   </Panel>

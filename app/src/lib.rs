@@ -1,6 +1,7 @@
 //! Tauri shell for NIGHTGRID. Commands here are thin adapters over
 //! `nightgrid-core`; anything with real logic belongs in the core crate.
 
+mod alerts_cmd;
 mod commands;
 mod docker_cmd;
 mod files_cmd;
@@ -12,6 +13,7 @@ mod services_cmd;
 mod state;
 mod system_cmd;
 mod term_cmd;
+mod tray;
 mod tunnels_cmd;
 mod update_cmd;
 
@@ -115,6 +117,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::system_upgrade_run,
         system_cmd::system_reboot,
         system_cmd::system_disks,
+        alerts_cmd::alerts_subscribe,
+        alerts_cmd::alerts_refresh,
+        alerts_cmd::alerts_clear_history,
+        alerts_cmd::alerts_webhook_get,
+        alerts_cmd::alerts_webhook_set,
+        alerts_cmd::alerts_test,
         update_cmd::update_check,
         update_cmd::update_install,
     ])
@@ -142,6 +150,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_updater::Builder::new().pubkey(update_cmd::PUBKEY.trim()).build())
         .manage(update_cmd::PendingUpdate::default())
         .invoke_handler(builder.invoke_handler())
@@ -156,10 +165,33 @@ pub fn run() {
             tracing::info!(version = env!("CARGO_PKG_VERSION"), ?data_dir, "starting NIGHTGRID");
             let state = state::AppState::open(&data_dir, log_dir)?;
             app.manage(state);
+            tray::apply(app.handle());
+            alerts_cmd::start(app.handle());
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running NIGHTGRID");
+        .on_window_event(|window, event| {
+            // Close to tray: hide instead of quitting while a tray icon exists.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let app = window.app_handle();
+                let to_tray = app.try_state::<state::AppState>().is_some_and(|s| {
+                    nightgrid_core::settings::AppSettings::load(&s.store()).map(|c| c.close_to_tray).unwrap_or(false)
+                });
+                if to_tray && tray::exists(app) {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building NIGHTGRID")
+        .run(|app, event| {
+            // macOS: clicking the Dock icon brings a hidden window back.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                tray::show_main(app);
+            }
+            let _ = (app, event);
+        });
 }
 
 #[cfg(test)]

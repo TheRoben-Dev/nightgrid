@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import type { AppInfo } from "../api";
+  import { alerts } from "../stores/alerts.svelte";
   import { files } from "../stores/files.svelte";
   import { terms } from "../stores/terms.svelte";
   import Barcode from "./Barcode.svelte";
@@ -26,7 +27,16 @@
   <span class="cell" class:warn={files.conflicts > 0} title="Active file transfers"
     ><span class="k">XFER</span> {files.activeTransfers}{files.conflicts ? ` · ${files.conflicts}!` : ""}</span
   >
-  <span class="cell"><span class="k">ALERTS</span> 0</span>
+  <button
+    type="button"
+    class="cell alerts {alerts.tone}"
+    title={alerts.active.length ? `${alerts.active.length} active alert(s): open the list` : "No active alerts: open the list"}
+    onclick={() => (alerts.open = true)}
+  >
+    <span aria-hidden="true">{alerts.tone === "ok" ? "●" : "▲"}</span>
+    <span class="k">ALERTS</span>
+    {alerts.active.length}{#if alerts.snap?.quiet}<span class="k">· QUIET</span>{/if}
+  </button>
   <span class="cell" class:ok={keychainOk} class:warn={!keychainOk} title={info?.keychain.detail ?? "OS keychain reachable"}>
     <span aria-hidden="true">{keychainOk ? "●" : "▲"}</span>
     <span class="k">KEYCHAIN</span>
@@ -64,6 +74,26 @@
   }
   .k {
     color: var(--text-1);
+  }
+  button.cell {
+    border: 0;
+    border-right: 1px solid var(--line);
+    background: transparent;
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+  }
+  button.cell:hover {
+    background: var(--bg-1);
+  }
+  .alerts.ok > span:first-child {
+    color: var(--ok);
+  }
+  .alerts.warn {
+    color: var(--warn);
+  }
+  .alerts.bad {
+    color: var(--danger);
   }
   .ok > span:first-child {
     color: var(--ok);

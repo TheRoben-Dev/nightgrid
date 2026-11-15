@@ -61,6 +61,11 @@ pub struct ServicesHub {
 }
 
 impl ServicesHub {
+    /// Latest check result per service.
+    pub fn latest(&self) -> HashMap<ServiceId, ServiceStatus> {
+        self.last.lock().expect("poisoned").clone()
+    }
+
     fn send(&self, ev: ServiceEvent) {
         match &ev {
             ServiceEvent::Status(s) => {

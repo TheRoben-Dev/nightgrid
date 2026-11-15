@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::metrics::history::{MinuteAverager, Point};
-use nightgrid_core::metrics::{parse, Collector, Sample, COLLECT};
+use nightgrid_core::metrics::{parse, Collector, MountUsage, Sample, COLLECT};
 use nightgrid_core::settings::AppSettings;
 use nightgrid_core::ssh::client::ConnectError;
 use serde::Serialize;
@@ -62,16 +62,40 @@ pub struct MetricsHub {
     /// Last state per host, re-sent to a new subscriber.
     states: Mutex<HashMap<HostId, MetricsEvent>>,
     pruner: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
+    /// Latest mount usage per host, for disk alerts.
+    mounts: Mutex<HashMap<HostId, Vec<MountUsage>>>,
 }
 
 impl MetricsHub {
     fn send(&self, ev: MetricsEvent) {
-        if let MetricsEvent::State { host_id, .. } = &ev {
-            self.states.lock().expect("poisoned").insert(*host_id, ev.clone());
+        match &ev {
+            MetricsEvent::State { host_id, .. } => {
+                self.states.lock().expect("poisoned").insert(*host_id, ev.clone());
+            }
+            MetricsEvent::Sample { host_id, sample } => {
+                self.mounts.lock().expect("poisoned").insert(*host_id, sample.mounts.clone());
+            }
         }
         if let Some(ch) = self.channel.lock().expect("poisoned").as_ref() {
             let _ = ch.send(ev);
         }
+    }
+
+    /// Poll state (and its message) per host that has a poller.
+    pub fn poll_states(&self) -> HashMap<HostId, (PollState, Option<String>)> {
+        self.states
+            .lock()
+            .expect("poisoned")
+            .iter()
+            .filter_map(|(id, ev)| match ev {
+                MetricsEvent::State { state, message, .. } => Some((*id, (state.clone(), message.clone()))),
+                MetricsEvent::Sample { .. } => None,
+            })
+            .collect()
+    }
+
+    pub fn mounts(&self, id: HostId) -> Option<Vec<MountUsage>> {
+        self.mounts.lock().expect("poisoned").get(&id).cloned()
     }
 
     fn is_visible(&self, id: HostId) -> bool {
@@ -207,6 +231,7 @@ fn sync_pollers(app: &AppHandle) -> CmdResult<()> {
         if !keep {
             p.task.abort();
             hub.states.lock().expect("poisoned").remove(id);
+            hub.mounts.lock().expect("poisoned").remove(id);
             if let Some(ch) = hub.channel.lock().expect("poisoned").as_ref() {
                 let _ = ch.send(MetricsEvent::State {
                     host_id: *id,

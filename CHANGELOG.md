@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-15
+
+### Added: alerts and notifications (M7)
+- Nightgrid now raises **alerts** from what it already watches: a host unreachable for 2 minutes, a disk over 90 % full, a container that was running and exits with an error (or restarts in a loop, or turns unhealthy), a service failing its check for about 90 seconds, a certificate expiring within 14 days, and a disk with a SMART warning.
+- **Desktop notifications** for new alerts (a burst becomes one summary). Alerts resolve on their own when the problem goes away.
+- The status strip's **ALERTS** counter is live (yellow for warnings, red for critical); click it for the list of active and resolved alerts. Each alert has a button that jumps to the right place: the host monitor, Docker, Services or the host's Disks tab.
+- **Settings → Alerts**: turn each rule on or off, set the disk threshold and certificate warning window. **Settings → Notifications**: desktop notifications, **quiet hours** (alerts still show in the app, nothing pings you), and an optional **webhook** to ntfy, Discord or any URL that takes JSON, with "resolved" messages and a **Send test** button. The webhook URL is kept in the OS keychain.
+- Docker and SMART are only read on hosts that are already connected. SMART runs every 6 hours, and only where sudo needs no prompt (root, passwordless sudo or a remembered sudo password): a background check never asks for a password.
+
+### Added: tray / menu bar icon (M7)
+- A tray icon (menu bar on macOS) with the alert count, **Connect** (every host with its status; click to open a terminal), **Tunnels** (click to start or stop a saved tunnel), **Show** and **Quit**. Turn it off in **Settings → Desktop**.
+- **Keep running when the window is closed** (off by default): closing hides the window while alerts, tunnels and checks keep running. Click the Dock icon or **Show** to bring it back.
+
 ## [0.6.0] - 2026-11-15
 
 ### Added: system management (M6)

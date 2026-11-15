@@ -155,7 +155,7 @@ pub async fn check(url: &str, expect_status: &str, allow_untrusted: bool, timeou
     result
 }
 
-fn connect_error(e: &std::io::Error) -> String {
+pub(crate) fn connect_error(e: &std::io::Error) -> String {
     match e.kind() {
         std::io::ErrorKind::ConnectionRefused => "connection refused".into(),
         _ => e.to_string(),
@@ -214,14 +214,14 @@ where
 // ---- TLS capture ----
 
 #[derive(Default)]
-struct Captured {
+pub(crate) struct Captured {
     leaf: Option<Vec<u8>>,
-    problem: Option<String>,
-    verified: bool,
+    pub(crate) problem: Option<String>,
+    pub(crate) verified: bool,
 }
 
 impl Captured {
-    fn info(&self) -> Option<TlsInfo> {
+    pub(crate) fn info(&self) -> Option<TlsInfo> {
         let leaf = self.leaf.as_ref()?;
         let (expires, subject, issuer) = match x509_parser::parse_x509_certificate(leaf) {
             Ok((_, cert)) => (
@@ -310,7 +310,7 @@ fn provider() -> Arc<rustls::crypto::CryptoProvider> {
     Arc::new(rustls::crypto::ring::default_provider())
 }
 
-fn tls_connector(captured: Arc<Mutex<Captured>>) -> Result<tokio_rustls::TlsConnector, rustls::Error> {
+pub(crate) fn tls_connector(captured: Arc<Mutex<Captured>>) -> Result<tokio_rustls::TlsConnector, rustls::Error> {
     let provider = provider();
     let inner: Arc<dyn ServerCertVerifier> = Arc::new(rustls_platform_verifier::Verifier::new(provider.clone())?);
     let config = rustls::ClientConfig::builder_with_provider(provider)
