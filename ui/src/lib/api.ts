@@ -147,6 +147,10 @@ import {
   type HistoryEntry_Serialize as HistoryEntry,
   type PowerAction,
   type WakeSent_Serialize as WakeSent,
+  type SshKey_Serialize as SshKey,
+  type KeyList_Serialize as KeyList,
+  type AuthorizedKey_Serialize as AuthorizedKey,
+  type PushOutcome,
   type HistoryResult_Serialize as HistoryResult,
   type Note_Serialize as Note,
   type NoteInput_Serialize as NoteInput,
@@ -196,6 +200,7 @@ import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
 import { mockTailnet } from "./mockTailnet";
+import { mockKeys } from "./mockKeys";
 import { mockHelper } from "./mockHelper";
 import { mockBackup } from "./mockBackup";
 import { mockIntegrations } from "./mockIntegrations";
@@ -343,6 +348,10 @@ export type {
   HistoryResult,
   PowerAction,
   WakeSent,
+  SshKey,
+  KeyList,
+  AuthorizedKey,
+  PushOutcome,
   Note,
   NoteInput,
   BackupJob,
@@ -458,7 +467,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.13-web",
+      version: "0.10.14-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -718,6 +727,16 @@ export const api = {
     T() ? commands.systemPower(hostId, action, sudo) : mockSystem.reboot(hostId, sudo),
   hostWake: (hostId: number): Promise<WakeSent> =>
     T() ? commands.hostWake(hostId) : Promise.resolve({ via: null, mac: "00:11:22:33:44:55" }),
+  keysList: (): Promise<KeyList> => (T() ? commands.keysList() : mockKeys.list()),
+  keysGenerate: (name: string, comment: string, passphrase: string | null): Promise<SshKey> =>
+    T() ? commands.keysGenerate(name, comment, passphrase) : mockKeys.generate(name, comment, passphrase),
+  keysAuthorized: (hostId: number): Promise<AuthorizedKey[]> => (T() ? commands.keysAuthorized(hostId) : mockKeys.authorized(hostId)),
+  keysPush: (hostId: number, fingerprint: string): Promise<PushOutcome> =>
+    T() ? commands.keysPush(hostId, fingerprint) : mockKeys.push(hostId, fingerprint),
+  keysRemove: (hostId: number, fingerprint: string): Promise<number> =>
+    T() ? commands.keysRemove(hostId, fingerprint) : mockKeys.remove(hostId, fingerprint),
+  keysVerify: (hostId: number, file: string, passphrase: string | null): Promise<null> =>
+    T() ? commands.keysVerify(hostId, file, passphrase) : mockKeys.verify(),
   systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
     T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
   systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null): Promise<VmReport> =>

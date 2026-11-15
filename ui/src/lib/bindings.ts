@@ -257,6 +257,26 @@ export const commands = {
 	 *  from this computer.
 	 */
 	hostWake: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<WakeSent_Serialize>("host_wake", { hostId }, options),
+	keysList: (options?: InvokeOptions) => __TAURI_INVOKE<KeyList_Serialize>("keys_list", undefined, options),
+	/**
+	 *  Generates an ed25519 key in `~/.ssh`. The passphrase is used once to
+	 *  encrypt the file and is not stored.
+	 */
+	keysGenerate: (name: string, comment: string, passphrase: string | null, options?: InvokeOptions) => __TAURI_INVOKE<SshKey_Serialize>("keys_generate", { name, comment, passphrase }, options),
+	/**  The keys in a host's `~/.ssh/authorized_keys`. */
+	keysAuthorized: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<AuthorizedKey_Serialize[]>("keys_authorized", { hostId }, options),
+	/**  Adds a key to a host's `authorized_keys` (no-op when it's there). */
+	keysPush: (hostId: number, fingerprint: string, options?: InvokeOptions) => __TAURI_INVOKE<PushOutcome>("keys_push", { hostId, fingerprint }, options),
+	/**
+	 *  Removes a key from a host's `authorized_keys`. The UI confirms first,
+	 *  naming the host and the key. Returns how many lines were removed.
+	 */
+	keysRemove: (hostId: number, fingerprint: string, options?: InvokeOptions) => __TAURI_INVOKE<number>("keys_remove", { hostId, fingerprint }, options),
+	/**
+	 *  Logs in to the host with only this key file (same jump hosts), then
+	 *  disconnects. Proves the key works before the old one is removed.
+	 */
+	keysVerify: (hostId: number, file: string, passphrase: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("keys_verify", { hostId, file, passphrase }, options),
 	/**  SMART health of every disk (needs root). */
 	systemDisks: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<DisksReport_Serialize>("system_disks", { hostId, sudo }, options),
 	integrationsList: (options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize[]>("integrations_list", undefined, options),
@@ -870,6 +890,31 @@ export type AuthMethod =
 "key" | 
 /**  Password, from the keychain (opt-in) or a prompt. */
 "password";
+
+/**  One line of a host's `~/.ssh/authorized_keys`. */
+export type AuthorizedKey = AuthorizedKey_Serialize | AuthorizedKey_Deserialize;
+
+/**  One line of a host's `~/.ssh/authorized_keys`. */
+export type AuthorizedKey_Deserialize = {
+	/**  1-based line number in the file. */
+	line: number,
+	fingerprint: string,
+	algorithm: string,
+	comment: string,
+	/**  Options before the key (`from="…",no-pty`), when any. */
+	options?: string | null,
+};
+
+/**  One line of a host's `~/.ssh/authorized_keys`. */
+export type AuthorizedKey_Serialize = {
+	/**  1-based line number in the file. */
+	line: number,
+	fingerprint: string,
+	algorithm: string,
+	comment: string,
+	/**  Options before the key (`from="…",no-pty`), when any. */
+	options: string | null,
+};
 
 /**  What a run's channel carries. */
 export type AutomationEvent = AutomationEvent_Serialize | AutomationEvent_Deserialize;
@@ -2369,6 +2414,27 @@ export type JournalQuery_Serialize = {
 	follow: boolean,
 };
 
+/**  The user's keys and where they were looked for. */
+export type KeyList = KeyList_Serialize | KeyList_Deserialize;
+
+/**  The user's keys and where they were looked for. */
+export type KeyList_Deserialize = {
+	/**  The `.ssh` directory that was scanned (and where new keys go). */
+	dir: string,
+	keys: SshKey_Deserialize[],
+	/**  Why agent keys are missing, when the agent couldn't be reached. */
+	agentError?: string | null,
+};
+
+/**  The user's keys and where they were looked for. */
+export type KeyList_Serialize = {
+	/**  The `.ssh` directory that was scanned (and where new keys go). */
+	dir: string,
+	keys: SshKey_Serialize[],
+	/**  Why agent keys are missing, when the agent couldn't be reached. */
+	agentError: string | null,
+};
+
 export type KeyValue = {
 	key: string,
 	value: string,
@@ -2959,6 +3025,9 @@ export type ProxyRoute_Serialize = {
 	origin: string,
 };
 
+/**  What pushing a key to a host did. */
+export type PushOutcome = "added" | "alreadyThere";
+
 /**  Throughput of one network interface or block device, in bytes/s. */
 export type Rate = {
 	name: string,
@@ -3460,6 +3529,43 @@ export type SshConfigHost_Serialize = {
 	port: number | null,
 	identityFile: string | null,
 	proxyJump: string | null,
+};
+
+/**  One key the user has: a file pair in `~/.ssh`, an agent identity, or both. */
+export type SshKey = SshKey_Serialize | SshKey_Deserialize;
+
+/**  One key the user has: a file pair in `~/.ssh`, an agent identity, or both. */
+export type SshKey_Deserialize = {
+	/**  `SHA256:…`, the same text `ssh-keygen -l` prints. */
+	fingerprint: string,
+	/**  `ssh-ed25519`, `ssh-rsa`, `ecdsa-sha2-nistp256`, … */
+	algorithm: string,
+	comment: string,
+	/**  The public key line (`algorithm base64 comment`). */
+	public: string,
+	/**  Private key path, when the pair is on disk. */
+	file?: string | null,
+	/**  The private key file is passphrase protected. */
+	encrypted: boolean,
+	/**  The SSH agent holds this key. */
+	inAgent: boolean,
+};
+
+/**  One key the user has: a file pair in `~/.ssh`, an agent identity, or both. */
+export type SshKey_Serialize = {
+	/**  `SHA256:…`, the same text `ssh-keygen -l` prints. */
+	fingerprint: string,
+	/**  `ssh-ed25519`, `ssh-rsa`, `ecdsa-sha2-nistp256`, … */
+	algorithm: string,
+	comment: string,
+	/**  The public key line (`algorithm base64 comment`). */
+	public: string,
+	/**  Private key path, when the pair is on disk. */
+	file: string | null,
+	/**  The private key file is passphrase protected. */
+	encrypted: boolean,
+	/**  The SSH agent holds this key. */
+	inAgent: boolean,
 };
 
 export type Stack = {

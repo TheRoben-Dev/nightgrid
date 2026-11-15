@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.14 (SSH key manager)
+
+1. **Settings → SSH keys**: your keys from `~/.ssh` and the agent are listed with fingerprints (compare with `ssh-keygen -lf ~/.ssh/id_ed25519.pub`). **Copy public key** copies the `.pub` line.
+2. **NEW KEY…**, keep the suggested name, add a passphrase, **MAKE ED25519 KEY**: `ls -l ~/.ssh` shows the pair with `-rw-------` on the private file. Making it again with the same name is refused.
+3. **CHECK HOSTS**: the table shows which keys each host accepts; the key a host is set to use has a ring. Click **+** under the new key on a test host: it turns **●** and `~/.ssh/authorized_keys` on the host has one new line (click again on another host to see it's added once).
+4. **●** on the new key → type the host's name → **Remove**: the line is gone, and the file keeps its mode (`ls -l ~/.ssh/authorized_keys`).
+5. **ROTATE A KEY**: replace your current key with the new one on one test host, enter the new key's passphrase, type the old key's name. Steps tick through; the host editor now shows the new key file, and a new terminal connects with it. Try it on a host you can't reach: that host stops at the first step and keeps its old key.
+
 ### macOS: testing 0.10.12 (power states, Wake-on-LAN, network map fixes)
 
 1. **System**, pick a Linux host, **SUSPEND…**, type its name: its overview tile turns **SUSPENDED** (not OFFLINE) with "suspended from Nightgrid" and when it was last seen; no offline alert. Wake it: it turns UP again.

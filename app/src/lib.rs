@@ -11,6 +11,7 @@ mod files_cmd;
 mod helper_cmd;
 mod hosts_cmd;
 mod integrations_cmd;
+mod keys_cmd;
 mod logging;
 mod metrics_cmd;
 mod notes_cmd;
@@ -138,6 +139,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::system_reboot,
         system_cmd::system_power,
         system_cmd::host_wake,
+        keys_cmd::keys_list,
+        keys_cmd::keys_generate,
+        keys_cmd::keys_authorized,
+        keys_cmd::keys_push,
+        keys_cmd::keys_remove,
+        keys_cmd::keys_verify,
         system_cmd::system_disks,
         integrations_cmd::integrations_list,
         integrations_cmd::integration_create,
