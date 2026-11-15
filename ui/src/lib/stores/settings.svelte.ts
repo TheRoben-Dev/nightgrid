@@ -55,6 +55,16 @@ class SettingsStore {
     applyTheme(root, this.themeId);
     root.dataset.effects = this.effects ? "on" : "off";
     root.style.setProperty("--ui-scale", String(this.value.uiScale / 100));
+    root.dataset.handheld = this.value.handheld ? "on" : "off";
+  }
+
+  /** The handheld preset: big targets, larger scale, icon-only sidebar. */
+  setHandheld(on: boolean) {
+    return this.update(
+      on
+        ? { handheld: true, railCollapsed: true, uiScale: Math.max(this.value.uiScale, 130) }
+        : { handheld: false, uiScale: this.value.uiScale >= 130 ? 100 : this.value.uiScale },
+    );
   }
 
   watchReducedMotion() {

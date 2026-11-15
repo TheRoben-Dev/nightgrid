@@ -15,6 +15,7 @@
   import StatusStrip from "./lib/components/StatusStrip.svelte";
   import TopBar from "./lib/components/TopBar.svelte";
   import { actionFor, type ActionId } from "./lib/keys";
+  import { startGamepad } from "./lib/gamepad";
   import { buildCommands } from "./lib/palette/commands";
   import { scramble } from "./lib/scramble";
   import { SECTIONS, sectionById } from "./lib/sections";
@@ -54,6 +55,15 @@
   onMount(() => {
     const stop = settings.watchReducedMotion();
     const stopHosts = hosts.start();
+    const stopPad = startGamepad({
+      enabled: () => settings.value.controllerNav,
+      view: (step) => {
+        const i = SECTIONS.findIndex((s) => s.id === ui.section);
+        ui.go(SECTIONS[(i + step + SECTIONS.length) % SECTIONS.length].id);
+      },
+      palette: () => (ui.paletteOpen = !ui.paletteOpen),
+      rail: () => settings.update({ railCollapsed: !settings.value.railCollapsed }),
+    });
     settings.load().then(() => {
       booted = true;
       metrics.start();
@@ -79,6 +89,7 @@
     return () => {
       stop();
       stopHosts();
+      stopPad();
       for (const u of unlisten) void u.then((f) => f());
     };
   });
@@ -138,7 +149,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.9.0"} />
+  <LeftRail version={info?.version ?? "0.9.1"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system"} aria-label={section.label}>

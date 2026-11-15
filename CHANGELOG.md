@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-15
+
+### Added: handhelds and docs (M9)
+- **Settings → Display → Handheld layout** for the ROG Ally, Steam Deck and touch screens: finger-sized buttons and fields, 130 % scale and an icon-only sidebar in one switch.
+- **Controller navigation**: with a gamepad connected, the D-pad or left stick moves focus (hold to repeat), A selects, B closes dialogs, LB/RB switch views, Start opens the command palette and Select toggles the sidebar. The focused item gets a clear outline while you use the controller.
+- A **user guide** (`docs/USER_GUIDE.md`) covering every view.
+
 ## [0.9.0] - 2026-11-15
 
 ### Added: encrypted backups (M9)

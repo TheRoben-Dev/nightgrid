@@ -316,6 +316,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   trayEnabled: true,
   closeToTray: false,
   backupFolder: null,
+  handheld: false,
+  controllerNav: true,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -323,7 +325,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.9.0-web",
+      version: "0.9.1-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
