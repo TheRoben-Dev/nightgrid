@@ -8,6 +8,7 @@
 pub mod history;
 pub mod journal;
 pub mod packages;
+pub mod pools;
 pub mod schedule;
 pub mod security;
 pub mod smart;

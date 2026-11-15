@@ -1,6 +1,27 @@
 import { describe, expect, it } from "vitest";
-import type { Host, UpdatesReport } from "./api";
-import { agoText, confirmPhrase, pendingImages, rowTone, securityCount, totals, updateRows, updatesText, type HostUpdates, type ImageRow } from "./fleet";
+import type { Host, MountForecast, UpdatesReport } from "./api";
+import {
+  agoText,
+  confirmPhrase,
+  diskRows,
+  disksText,
+  diskTone,
+  fillText,
+  fillTone,
+  pendingImages,
+  rateText,
+  rowTone,
+  securityCount,
+  size,
+  sparkPath,
+  totals,
+  updateRows,
+  updatesText,
+  usedPct,
+  type HostDisks,
+  type HostUpdates,
+  type ImageRow,
+} from "./fleet";
 
 const host = (id: number, name: string, groupId: number | null = null) => ({ id, name, groupId }) as unknown as Host;
 const rep = (n: number, o: Partial<UpdatesReport> = {}): UpdatesReport => ({
@@ -62,5 +83,48 @@ describe("fleet updates", () => {
     expect(agoText(0, 10_000)).toBe("just now");
     expect(agoText(0, 5 * 60_000)).toBe("5 min ago");
     expect(agoText(0, 3 * 3600_000)).toBe("3 h ago");
+  });
+});
+
+describe("fleet disks", () => {
+  const f = (o: Partial<MountForecast>): MountForecast => ({ mount: "/", size: 100e9, used: 50e9, at: 0, perDay: null, daysLeft: null, spanDays: 0, daily: [], ...o });
+
+  it("words the forecast", () => {
+    expect(fillText(f({}))).toBe("learning (needs a day of history)");
+    expect(fillText(f({ perDay: 0, spanDays: 3 }))).toBe("not growing");
+    expect(fillText(f({ perDay: 1e9, daysLeft: 12.7, spanDays: 3 }))).toBe("full in about 12 days");
+    expect(fillText(f({ perDay: 1e9, daysLeft: 0.25, spanDays: 3 }))).toBe("full in about 6 hours");
+    expect(rateText(31e9)).toBe("+31.0 GB/day");
+    expect(rateText(-1.2e9)).toBe("−1.2 GB/day");
+    expect(rateText(1e6)).toBe("flat");
+    expect(size(3_710e9)).toBe("3.7 TB");
+    expect(fillTone(f({ perDay: 1e9, daysLeft: 2 }), 14)).toBe("bad");
+    expect(fillTone(f({ perDay: 1e9, daysLeft: 9 }), 14)).toBe("warn");
+    expect(fillTone(f({ perDay: 1e9, daysLeft: 40 }), 14)).toBe("ok");
+    expect(usedPct(f({}))).toBe(50);
+  });
+
+  it("draws a sparkline and ranks hosts", () => {
+    expect(sparkPath([{ ts: 0, used: 1 }], 10, 10)).toBe("");
+    expect(sparkPath([{ ts: 0, used: 0 }, { ts: 10, used: 10 }], 100, 20)).toBe("M0.0,19.0 L100.0,1.0");
+    // A tiny wobble on a big range stays near the middle.
+    expect(sparkPath([{ ts: 0, used: 0 }, { ts: 10, used: 10 }], 100, 20, 1000)).toBe("M0.0,10.1 L100.0,9.9");
+    const d = (o: Partial<HostDisks>): HostDisks => ({ status: "ok", error: null, pools: null, smart: null, smartNote: null, forecasts: [], checkedAt: 1, ...o });
+    const rows = diskRows(
+      [host(1, "a"), host(2, "b"), host(3, "c")],
+      {
+        1: d({}),
+        2: d({ pools: { health: "bad", pools: [] } }),
+        3: d({ forecasts: [f({ perDay: 1e9, daysLeft: 9 })] }),
+      },
+      14,
+    );
+    expect(rows.map((r) => [r.host.name, r.tone])).toEqual([
+      ["b", "bad"],
+      ["c", "warn"],
+      ["a", "ok"],
+    ]);
+    expect(diskTone(undefined, 14)).toBe("unknown");
+    expect(disksText(rows)).toContain("c:\n  - /: 50.0 GB of 100 GB (50%), +1.0 GB/day, full in about 9 days");
   });
 });

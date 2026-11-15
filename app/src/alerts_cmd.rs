@@ -36,6 +36,7 @@ const TICK: Duration = Duration::from_secs(15);
 const DOCKER_EVERY: i64 = 60;
 const SMART_EVERY: i64 = 6 * 3600;
 const BACKUP_EVERY: i64 = 30 * 60;
+const POOL_EVERY: i64 = 30 * 60;
 const LOGS_EVERY: i64 = 10 * 60;
 /// The first log read on a host learns from this far back.
 const LOGS_LEARN: i64 = 3600;
@@ -67,6 +68,7 @@ pub struct AlertsHub {
     docker_skip: Mutex<HashMap<HostId, i64>>,
     smart_last: Mutex<HashMap<HostId, i64>>,
     backup_last: Mutex<i64>,
+    pool_last: Mutex<HashMap<HostId, i64>>,
     logs_last: Mutex<HashMap<HostId, i64>>,
     logs: Mutex<Detector>,
 }
@@ -328,6 +330,62 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
             conds,
             now,
         ));
+    }
+
+    // Disk fill-up forecasts, from usage recorded while monitoring.
+    {
+        let mut conds = Vec::new();
+        if rules.disk_forecast {
+            for id in hosts.keys() {
+                let list = state.store().disk_forecasts(*id, now).unwrap_or_default();
+                conds.extend(nightgrid_core::diskforecast::conditions(
+                    *id,
+                    &name(*id),
+                    &list,
+                    rules.forecast_days,
+                    now,
+                ));
+            }
+        }
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "fill", hosts: None },
+            conds,
+            now,
+        ));
+    }
+
+    // Storage pools on connected hosts, every 30 minutes each (no root).
+    if !rules.pool_degraded {
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "pool", hosts: None },
+            vec![],
+            now,
+        ));
+    } else {
+        let due: Vec<HostId> = {
+            let last = hub.pool_last.lock().expect("poisoned");
+            connected.iter().copied().filter(|id| !matches!(last.get(id), Some(t) if now - t < POOL_EVERY)).collect()
+        };
+        if !due.is_empty() {
+            let mut covered = HashSet::new();
+            let mut conds = Vec::new();
+            for id in due {
+                hub.pool_last.lock().expect("poisoned").insert(id, now);
+                let scan = async {
+                    let conn = crate::term_cmd::connect_host(app, id).await.ok()?;
+                    nightgrid_core::system::pools::scan(&conn).await.ok()
+                };
+                if let Ok(Some(report)) = tokio::time::timeout(Duration::from_secs(30), scan).await {
+                    covered.insert(id);
+                    conds.extend(nightgrid_core::system::pools::conditions(id, &name(id), &report));
+                }
+            }
+            changes.extend(hub.tracker.lock().expect("poisoned").report(
+                &Scope { source: "pool", hosts: Some(&covered) },
+                conds,
+                now,
+            ));
+        }
     }
 
     // Backup jobs on connected hosts, every 30 minutes.

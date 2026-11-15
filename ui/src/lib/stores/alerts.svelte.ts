@@ -1,5 +1,6 @@
 import { api, type Alert, type AlertKind, type AlertsSnapshot } from "../api";
 import { docker } from "./docker.svelte";
+import { fleet } from "./fleet.svelte";
 import { metrics } from "./metrics.svelte";
 import { system } from "./system.svelte";
 import { ui } from "./ui.svelte";
@@ -16,6 +17,8 @@ export const KIND_LABEL: Record<AlertKind, string> = {
   logBurst: "ERROR BURST",
   logNewError: "NEW ERROR",
   expirySoon: "EXPIRING",
+  diskFilling: "FILLING UP",
+  poolDegraded: "POOL DEGRADED",
 };
 
 /** Log alerts can be explained from their recent error lines. */
@@ -41,6 +44,9 @@ export function targetLabel(a: Alert): string {
       return "Services";
     case "smartWarning":
       return "Disks";
+    case "diskFilling":
+    case "poolDegraded":
+      return "Fleet disks";
     case "backupFailed":
     case "backupStale":
       return "Backups";
@@ -122,6 +128,11 @@ class AlertsStore {
         if (host != null) system.select(host);
         void system.openTab("disks");
         ui.go("system");
+        break;
+      case "diskFilling":
+      case "poolDegraded":
+        fleet.tab = "disks";
+        ui.go("fleet");
         break;
       case "backupFailed":
       case "backupStale":

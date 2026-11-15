@@ -209,6 +209,8 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
     };
     set_state(&mut state, PollState::Connecting, None, None);
     let mut watcher: Option<tauri::async_runtime::JoinHandle<()>> = None;
+    // Disk usage for the forecast: at most every ten minutes (one row per hour is kept).
+    let mut usage_at = 0i64;
     loop {
         let cfg = settings(&app);
         let pause = if hub().is_visible(host_id) { cfg.metrics_interval_secs } else { cfg.metrics_background_secs };
@@ -263,6 +265,13 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
                 if let Some(done) = avg.push(&Point::from_sample(&sample)) {
                     if let Err(e) = app.state::<AppState>().store().insert_metric_point(host_id, &done) {
                         tracing::warn!(host = %host_id, "metric history: {e}");
+                    }
+                }
+                let now = now_secs();
+                if now - usage_at >= 600 && !sample.mounts.is_empty() {
+                    usage_at = now;
+                    if let Err(e) = app.state::<AppState>().store().disk_usage_record(host_id, &sample.mounts, now) {
+                        tracing::warn!(host = %host_id, "disk usage history: {e}");
                     }
                 }
                 hub().send(MetricsEvent::Sample { host_id, sample: Box::new(sample) });

@@ -129,6 +129,12 @@ import {
   type TunnelKind,
   type StatsView as TunnelTraffic,
   type DisksReport_Serialize as DisksReport,
+  type PoolsReport_Serialize as PoolsReport,
+  type Pool_Serialize as Pool,
+  type PoolKind,
+  type PoolDevice_Serialize as PoolDevice,
+  type MountForecast_Serialize as MountForecast,
+  type UsagePoint,
   type Disk_Serialize as Disk,
   type Health,
   type JournalEntry_Serialize as JournalEntry,
@@ -344,6 +350,12 @@ export type {
   TunnelKind,
   TunnelTraffic,
   DisksReport,
+  PoolsReport,
+  Pool,
+  PoolKind,
+  PoolDevice,
+  MountForecast,
+  UsagePoint,
   Disk,
   Health,
   JournalEntry,
@@ -473,6 +485,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     certDays: 14,
     smartWarning: true,
     backupStale: true,
+    diskForecast: true,
+    forecastDays: 14,
+    poolDegraded: true,
     logAnomaly: false,
     native: true,
     quietHours: false,
@@ -499,7 +514,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.18-web",
+      version: "0.10.19-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -787,6 +802,8 @@ export const api = {
     T() ? commands.keysRemove(hostId, fingerprint) : mockKeys.remove(hostId, fingerprint),
   keysVerify: (hostId: number, file: string, passphrase: string | null): Promise<null> =>
     T() ? commands.keysVerify(hostId, file, passphrase) : mockKeys.verify(),
+  systemPools: (hostId: number): Promise<PoolsReport> => (T() ? commands.systemPools(hostId) : mockSystem.pools(hostId)),
+  diskForecasts: (hostId: number): Promise<MountForecast[]> => (T() ? commands.diskForecasts(hostId) : mockSystem.forecasts(hostId)),
   systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
     T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
   systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null): Promise<VmReport> =>

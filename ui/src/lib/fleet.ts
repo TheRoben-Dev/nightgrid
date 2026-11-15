@@ -1,5 +1,5 @@
 /** Fleet health (M10m): the update center's rows, counts and wording. */
-import type { Host, ImageUpdate, PackageManager, Stack, UpdatesReport } from "./api";
+import type { DisksReport, Health, Host, ImageUpdate, MountForecast, PackageManager, PoolKind, PoolsReport, Stack, UpdatesReport, UsagePoint } from "./api";
 
 export type FleetTab = "updates" | "disks" | "backups";
 
@@ -141,6 +141,132 @@ export function updatesText(rows: UpdateRow[], images: ImageRow[]): string {
   if (pend.length) {
     lines.push("Container images with a newer version:");
     for (const i of pend) lines.push(`  - stack ${i.stack.name}: ${i.update.image} ${i.update.current.version ?? ""} → ${i.update.latest?.version ?? "newer"}`);
+  }
+  return lines.join("\n");
+}
+
+// ---- disks -------------------------------------------------------------
+
+export interface HostDisks {
+  status: "checking" | "ok" | "error";
+  /** Couldn't connect at all. */
+  error: string | null;
+  pools: PoolsReport | null;
+  smart: DisksReport | null;
+  /** Why SMART wasn't read (sudo needs a password, no smartctl, ...). */
+  smartNote: string | null;
+  forecasts: MountForecast[];
+  checkedAt: number | null;
+}
+
+const GB = 1_000_000_000;
+
+/** "1.2 TB", "640 GB" (decimal, like df -H). */
+export function size(n: number | null | undefined): string {
+  if (n == null) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  let v = Math.abs(n);
+  let i = 0;
+  while (v >= 1000 && i < units.length - 1) {
+    v /= 1000;
+    i++;
+  }
+  return `${n < 0 ? "−" : ""}${v >= 100 || i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+}
+
+/** "+31 GB/day", "−1.2 GB/day", "flat". */
+export function rateText(perDay: number | null): string {
+  if (perDay == null) return "";
+  if (Math.abs(perDay) < 0.05 * GB) return "flat";
+  return `${perDay > 0 ? "+" : "−"}${size(Math.abs(perDay))}/day`;
+}
+
+/** "full in about 12 days", "not growing", "learning…". */
+export function fillText(f: MountForecast): string {
+  if (f.perDay == null) return (f.spanDays ?? 0) < 1 ? "learning (needs a day of history)" : "not enough history";
+  if (f.daysLeft == null) return "not growing";
+  const d = f.daysLeft;
+  if (d < 1) return `full in about ${Math.max(1, Math.round(d * 24))} hours`;
+  if (d >= 365) return "full in over a year";
+  return `full in about ${Math.floor(d)} day${Math.floor(d) === 1 ? "" : "s"}`;
+}
+
+export function fillTone(f: MountForecast, within: number): RowTone {
+  if (f.daysLeft == null) return f.perDay == null ? "unknown" : "ok";
+  if (f.daysLeft < 3) return "bad";
+  return f.daysLeft < within ? "warn" : "ok";
+}
+
+/** Percent used, 0–100. */
+export const usedPct = (f: MountForecast): number => (f.size ? Math.min(100, (f.used / f.size) * 100) : 0);
+
+/**
+ * SVG path for a sparkline of daily usage, scaled to its own range but at
+ * least `minRange` tall (so noise on a flat mount stays flat).
+ */
+export function sparkPath(points: UsagePoint[], w: number, h: number, minRange = 0): string {
+  if (points.length < 2) return "";
+  let lo = Math.min(...points.map((p) => p.used));
+  let hi = Math.max(...points.map((p) => p.used));
+  if (hi - lo < minRange) {
+    const mid = (hi + lo) / 2;
+    lo = mid - minRange / 2;
+    hi = mid + minRange / 2;
+  }
+  const t0 = points[0].ts;
+  const span = points[points.length - 1].ts - t0 || 1;
+  const range = hi - lo || 1;
+  return points
+    .map((p, i) => {
+      const x = ((p.ts - t0) / span) * w;
+      const y = h - 1 - ((p.used - lo) / range) * (h - 2);
+      return `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+const HEALTH_TONE: Record<Health, RowTone> = { ok: "ok", unknown: "unknown", warn: "warn", bad: "bad" };
+
+/** The worst of a host's pools, SMART and forecasts. */
+export function diskTone(d: HostDisks | undefined, within: number): RowTone {
+  if (!d) return "unknown";
+  if (d.status === "checking" && !d.checkedAt) return "busy";
+  if (d.status === "error") return "unknown";
+  const tones: RowTone[] = [
+    d.pools ? HEALTH_TONE[d.pools.health] : "ok",
+    d.smart ? HEALTH_TONE[d.smart.health] : "ok",
+    ...d.forecasts.map((f) => fillTone(f, within)),
+  ];
+  for (const t of ["bad", "warn"] as const) if (tones.includes(t)) return t;
+  return "ok";
+}
+
+export function diskRows(hosts: Host[], state: Record<number, HostDisks>, within: number): { host: Host; state: HostDisks | undefined; tone: RowTone }[] {
+  return hosts
+    .map((host) => ({ host, state: state[host.id], tone: diskTone(state[host.id], within) }))
+    .sort((a, b) => ORDER[a.tone] - ORDER[b.tone] || a.host.name.localeCompare(b.host.name));
+}
+
+export const POOL_WORD: Record<PoolKind, string> = { zfs: "ZFS", mdraid: "RAID", btrfs: "BTRFS" };
+
+/** Plain text for DRIFT. */
+export function disksText(rows: { host: Host; state: HostDisks | undefined }[]): string {
+  const lines: string[] = [];
+  for (const { host, state: d } of rows) {
+    if (!d || d.status === "checking") continue;
+    if (d.status === "error") {
+      lines.push(`${host.name}: couldn't read (${d.error ?? "error"})`);
+      continue;
+    }
+    lines.push(`${host.name}:`);
+    for (const p of d.pools?.pools ?? []) {
+      lines.push(
+        `  - ${POOL_WORD[p.kind]} ${p.name}${p.detail ? ` (${p.detail})` : ""}: ${p.state}, ${p.health}${p.issues.length ? `; ${p.issues.join("; ")}` : ""}${p.activity ? `; ${p.activity}` : ""}`,
+      );
+    }
+    if (d.smart) for (const k of d.smart.disks) lines.push(`  - disk ${k.name} ${k.model ?? ""}: SMART ${k.health}${k.issues.length ? `; ${k.issues.join("; ")}` : ""}`);
+    else if (d.smartNote) lines.push(`  - SMART not read: ${d.smartNote}`);
+    for (const f of d.forecasts) lines.push(`  - ${f.mount}: ${size(f.used)} of ${size(f.size)} (${usedPct(f).toFixed(0)}%), ${rateText(f.perDay) || "trend unknown"}, ${fillText(f)}`);
   }
   return lines.join("\n");
 }
