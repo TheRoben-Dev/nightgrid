@@ -9,6 +9,7 @@
   import { redact } from "../../helper/prompt";
   import { system } from "../../stores/system.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
+  import PowerSchedules from "./PowerSchedules.svelte";
 
   const s = $derived(system.schedules);
   let query = $state("");
@@ -77,10 +78,11 @@
     <span class="spacer"></span>
     <input class="input filter" type="search" placeholder="Filter jobs" bind:value={query} aria-label="Filter jobs" />
     {#if s}<ExplainButton source="scheduled jobs" text={explainText} question="Summarise what these scheduled jobs do. Do any look wrong, risky or failing, and what should I check?" />{/if}
-    <button type="button" class="btn ghost tiny" onclick={() => system.loadSchedules()} disabled={system.schedulesLoading}>{system.schedulesLoading ? "…" : "Refresh"}</button>
+    <button type="button" class="btn ghost tiny" onclick={() => Promise.all([system.loadSchedules(), system.loadPowerSchedules()])} disabled={system.schedulesLoading}>{system.schedulesLoading ? "…" : "Refresh"}</button>
   </div>
 
   <div class="scroll" data-guide="system-schedules">
+    <PowerSchedules />
     {#if system.errors.schedules}
       <p class="error-text pad">{system.errors.schedules}</p>
     {:else if !s}

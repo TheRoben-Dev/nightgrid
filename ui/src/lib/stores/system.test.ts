@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { JournalEntry, Unit } from "../api";
+import { hosts } from "./hosts.svelte";
 import { filterJournal, filterUnits, formatHours, isDestructiveUnit, prioLabel, prioTone, system, unitCounts, unitTone } from "./system.svelte";
 
 const unit = (name: string, active: string, sub = "running", description = ""): Unit => ({
@@ -111,5 +112,31 @@ describe("system store (browser mock)", () => {
     await done;
     expect(system.notice?.tone).toBe("err");
     expect(system.units.find((u) => u.name === "ssh.service")?.active).toBe("active");
+  });
+
+  it("adds and removes a power schedule", async () => {
+    system.select(1);
+    await system.openTab("schedules");
+    expect(system.powerSchedules).toEqual([]);
+    expect(await system.addPowerSchedule({ action: "shutdown", time: "23:00", days: ["mon"], mac: null })).toBe(true);
+    expect(system.powerSchedules?.map((s) => s.unit)).toEqual(["nightgrid-power-shutdown"]);
+    await system.removePowerSchedule(system.powerSchedules![0]);
+    expect(system.powerSchedules).toEqual([]);
+  });
+
+  it("runs a group power action host by host and reports sudo problems", async () => {
+    const base = { port: 22, tags: [], favorite: false, authMethod: "agent", rememberSecret: false, driftHistory: false } as const;
+    hosts.hosts = [
+      { ...base, id: 11, name: "a", hostname: "a.lan", groupId: 5 },
+      { ...base, id: 12, name: "b", hostname: "b.lan", groupId: 5 },
+      { ...base, id: 13, name: "c", hostname: "c.lan", groupId: 6 },
+    ] as never;
+    await system.groupPower(5, "shutdown");
+    expect(system.confirmGroupPower).toBeNull();
+    expect(system.groupRun?.map((r) => r.name)).toEqual(["a", "b"]);
+    // The mock wants a sudo password, which a group run never prompts for.
+    expect(system.groupRun?.map((r) => r.state)).toEqual(["failed", "failed"]);
+    expect(system.groupRun?.[0].error).toMatch(/sudo password/);
+    hosts.hosts = [];
   });
 });

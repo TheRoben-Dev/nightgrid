@@ -15,6 +15,7 @@
   import { hosts } from "../stores/hosts.svelte";
   import { actionVerb, system, UNIT_CONSEQUENCE, type SystemTab } from "../stores/system.svelte";
   import { ui } from "../stores/ui.svelte";
+  import type { PowerAction } from "../api";
 
   // Pick a host once the host list has loaded.
   $effect(() => {
@@ -41,6 +42,16 @@
   $effect(() => {
     if (!system.confirmPower) typed = "";
   });
+  let groupTyped = $state("");
+  const GR_MARK = { pending: "○", running: "◐", done: "✓", failed: "✕" } as const;
+  const groupMembers = $derived(system.confirmGroupPower ? hosts.hosts.filter((h) => h.groupId === system.confirmGroupPower?.groupId) : []);
+  const groupName = $derived(hosts.groups.find((g) => g.id === system.confirmGroupPower?.groupId)?.name ?? "");
+  function openGroup() {
+    const g = hosts.byId(system.hostId ?? -1)?.groupId ?? hosts.groups[0]?.id;
+    if (g == null) return;
+    groupTyped = "";
+    system.confirmGroupPower = { groupId: g, action: "shutdown" };
+  }
   const POWER_TITLE = { reboot: "REBOOT HOST", shutdown: "SHUT DOWN HOST", suspend: "SUSPEND HOST" } as const;
   const POWER_LABEL = { reboot: "Reboot", shutdown: "Shut down", suspend: "Suspend" } as const;
   const POWER_TEXT = {
@@ -85,9 +96,23 @@
         <button type="button" class="btn ghost tiny" onclick={() => (system.confirmPower = "suspend")}>SUSPEND…</button>
         <button type="button" class="btn ghost tiny" onclick={() => (system.confirmPower = "shutdown")}>SHUT DOWN…</button>
         <button type="button" class="btn ghost tiny danger-text" onclick={() => (system.confirmPower = "reboot")}>REBOOT…</button>
+        {#if hosts.groups.length}
+          <button type="button" class="btn ghost tiny" data-guide="system-group-power" title="Suspend, shut down or reboot every host in a group" onclick={openGroup}>GROUP…</button>
+        {/if}
       </span>
     {/if}
   </div>
+
+  {#if system.groupRun}
+    <div class="grouprun" role="status">
+      {#each system.groupRun as r (r.hostId)}
+        <span class="gr {r.state}" title={r.error ?? ""}>{GR_MARK[r.state]} {r.name}{r.error ? `: ${r.error}` : ""}</span>
+      {/each}
+      {#if !system.groupRun.some((r) => r.state === "pending" || r.state === "running")}
+        <button type="button" class="x" aria-label="Dismiss" onclick={() => (system.groupRun = null)}>×</button>
+      {/if}
+    </div>
+  {/if}
 
   {#if system.notice}
     <p class="notice {system.notice.tone}" role="status">
@@ -188,7 +213,75 @@
   {/snippet}
 </Modal>
 
+<Modal
+  open={system.confirmGroupPower !== null}
+  title="GROUP POWER"
+  tone="danger"
+  width={520}
+  onclose={() => (system.confirmGroupPower = null)}
+>
+  {#if system.confirmGroupPower}
+    {@const g = system.confirmGroupPower}
+    <div class="gform">
+      <label class="field"
+        ><span>Group</span>
+        <select class="input" value={g.groupId} onchange={(e) => (system.confirmGroupPower = { ...g, groupId: Number(e.currentTarget.value) })}>
+          {#each hosts.groups as gr (gr.id)}<option value={gr.id}>{gr.name}</option>{/each}
+        </select>
+      </label>
+      <label class="field"
+        ><span>Action</span>
+        <select class="input" value={g.action} onchange={(e) => (system.confirmGroupPower = { ...g, action: e.currentTarget.value as PowerAction })}>
+          <option value="suspend">Suspend</option>
+          <option value="shutdown">Shut down</option>
+          <option value="reboot">Reboot</option>
+        </select>
+      </label>
+    </div>
+    <p>{POWER_LABEL[g.action]} these hosts, one after another:</p>
+    <ul class="targets">
+      {#each groupMembers as h (h.id)}<li>{h.name}</li>{:else}<li class="muted">No hosts in this group.</li>{/each}
+    </ul>
+    <p class="muted">{POWER_TEXT[g.action]} Hosts whose sudo needs a password that Nightgrid doesn't remember are skipped and listed.</p>
+    <label class="field">
+      <span>Type <strong>{groupName}</strong> to confirm</span>
+      <input class="input" bind:value={groupTyped} autocomplete="off" spellcheck="false" />
+    </label>
+  {/if}
+  {#snippet footer()}
+    <button type="button" class="btn ghost" onclick={() => (system.confirmGroupPower = null)}>Cancel</button>
+    <button
+      type="button"
+      class="btn danger"
+      disabled={!groupMembers.length || groupTyped.trim() !== groupName}
+      onclick={() => system.confirmGroupPower && system.groupPower(system.confirmGroupPower.groupId, system.confirmGroupPower.action)}
+      >{system.confirmGroupPower ? POWER_LABEL[system.confirmGroupPower.action] : ""} {groupMembers.length} host{groupMembers.length === 1 ? "" : "s"}</button
+    >
+  {/snippet}
+</Modal>
+
 <style>
+  .grouprun {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: var(--fs-xs);
+  }
+  .gr.done {
+    color: var(--ok);
+  }
+  .gr.running {
+    color: var(--warn);
+  }
+  .gr.failed {
+    color: var(--danger);
+  }
+  .gform {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
   .power {
     display: flex;
     gap: 4px;

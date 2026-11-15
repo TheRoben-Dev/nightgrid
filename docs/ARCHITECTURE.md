@@ -192,6 +192,8 @@ _Last updated: M2 (SFTP + editor)._
 - **UI**: System toolbar power buttons and the typed-name confirmation (`system.confirmPower`, `system.power`, `system.wake`); `HostTile` and `HostList` show planned states; host editor fields.
 - **Discovery additions** (D-096): `netmap::{is_container_bridge, mac_vendor, parse_mounts, parse_conns, parse_link_local}`, `PROBE_PORTS`; sections `probe`, `mounts`, `conns`; `Device.vendor` / `Device.also`; `Seen::{Probe, Mount, Connection}`. Vendor data: `core/data/oui.tsv` (regenerate with `scripts/gen_oui.py`).
 
+- **Schedules and groups** (D-098): `core/src/power_schedule.rs` (`ScheduleSpec` with `normalized` / `on_calendar` / `unit`, `unit_files`, `install_command`, `remove_command`, `LIST_COMMAND` / `parse_list`); commands `power_schedules`, `power_schedule_set`, `power_schedule_remove` in `system_cmd.rs`; UI `components/system/PowerSchedules.svelte` (Schedules tab) and `system.groupPower` with the GROUP… confirmation in `views/System.svelte`.
+
 ## SSH key manager (M10k)
 
 - **Core** (`core/src/ssh/keys.rs`, D-097): `SshKey`, `scan_dir`, `agent_keys`, `merge_agent`, `generate` (ed25519, optional passphrase, never overwrites), `AuthorizedKey` / `parse_authorized` / `find_authorized`, and the shell commands `READ_AUTHORIZED`, `add_command`, `remove_command` (+ `parse_removed`).

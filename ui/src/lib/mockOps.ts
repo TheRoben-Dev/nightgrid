@@ -3,6 +3,8 @@
  * (M10g), for `pnpm dev`, tests and screenshots.
  */
 import type {
+  HostSchedule_Serialize as HostSchedule,
+  ScheduleSpec_Deserialize as ScheduleSpec,
   BackupJob,
   BackupJobInput,
   BackupStatus_Serialize as BackupStatus,
@@ -87,7 +89,28 @@ const statusInfo = (): StatusPageInfo => ({
   error: null,
 });
 
+let schedules: HostSchedule[] = [];
+const unitFor = (sp: ScheduleSpec) => (sp.action === "wake" ? `nightgrid-wake-${(sp.mac ?? "aabbcc001122").replace(/:/g, "")}` : `nightgrid-power-${sp.action}`);
+
 export const mockOps = {
+  powerSchedules: (hostId: number): Promise<HostSchedule[]> => Promise.resolve(schedules.filter((s) => s.onHostId === hostId || s.spec.action === "wake")),
+  powerScheduleSet(hostId: number, spec: ScheduleSpec): Promise<HostSchedule> {
+    const unit = unitFor(spec);
+    const days = spec.days ?? [];
+    const s: HostSchedule = {
+      onHostId: hostId,
+      onHostName: spec.action === "wake" ? "relay" : `host ${hostId}`,
+      unit,
+      spec: { action: spec.action, time: spec.time, days, mac: spec.mac ?? null },
+      next: `Mon 2026-11-16 ${spec.time}:00 UTC`,
+    };
+    schedules = [...schedules.filter((x) => x.unit !== unit), s];
+    return new Promise((r) => setTimeout(() => r(s), 300));
+  },
+  powerScheduleRemove(unit: string): Promise<null> {
+    schedules = schedules.filter((x) => x.unit !== unit);
+    return Promise.resolve(null);
+  },
   labelsList: async (): Promise<DeviceLabel[]> => labels.map((l) => ({ ...l, tags: [...l.tags] })),
   labelSave: async (l: DeviceLabel): Promise<DeviceLabel | null> => {
     const key = l.key.trim().toLowerCase();
