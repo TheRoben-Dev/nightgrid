@@ -152,7 +152,7 @@
     <div class="sweep">
       <Toggle
         label="Ping sweep"
-        hint="Pings each address in the subnet (/24 at most)."
+        hint="Pings each address in the subnet (/24 at most), and tries a few TCP ports (SSH, SMB, web, NFS) on each, for devices that ignore ping. Takes about half a minute."
         checked={netmap.sweep}
         onchange={(v) => (netmap.sweep = v)}
       />
@@ -259,7 +259,7 @@
             {/each}
           </ul>
         {:else if n.kind === "gateway"}
-          {#if n.device?.mac}<p class="mono muted">MAC {n.device.mac}</p>{/if}
+          {#if n.device?.mac}<p class="mono muted">MAC {n.device.mac}{n.device.vendor ? ` · ${n.device.vendor}` : ""}</p>{/if}
           {#if n.device}{@render labelForm()}{/if}
           <p>The default route of the scanned host. Router port forwards (UPnP) are listed under <strong>Internet</strong> and on the host they land on.</p>
         {:else if n.kind === "tailnet"}
@@ -328,7 +328,8 @@
           {@const d = n.device}
           <dl>
             <dt>ADDRESS</dt><dd class="mono">{d.ip}</dd>
-            {#if d.mac}<dt>MAC</dt><dd class="mono">{d.mac}</dd>{/if}
+            {#if d.mac}<dt>MAC</dt><dd class="mono">{d.mac}{d.vendor ? ` · ${d.vendor}` : ""}</dd>{/if}
+            {#if d.also.length}<dt>ALSO</dt><dd class="mono">{d.also.join(", ")}</dd>{/if}
             {#if d.names.length}<dt>NAMES</dt><dd>{d.names.join(", ")}</dd>{/if}
             {#if d.services.length}<dt>SERVICES</dt><dd>{[...new Set(d.services.map(serviceLabel))].join(", ")}</dd>{/if}
             {#if d.os}<dt>OS</dt><dd>{d.os}{d.online === false ? " (offline)" : ""}</dd>{/if}

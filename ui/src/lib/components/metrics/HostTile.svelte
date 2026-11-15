@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Host, HostPing } from "../../api";
+  import { api, errorText, type Host, type HostPing } from "../../api";
   import { formatSize } from "../../files/util";
   import { formatRate, formatUptime, metrics } from "../../stores/metrics.svelte";
   import { terms } from "../../stores/terms.svelte";
@@ -23,12 +23,26 @@
       return !best || pct > best.pct ? { mount: x.mount, pct } : best;
     }, null) ?? null,
   );
+  const PLANNED: Record<string, string> = { suspended: "SUSPENDED", rebooting: "REBOOTING", shuttingDown: "SHUT DOWN", asleep: "ASLEEP" };
+  const planned = $derived(PLANNED[m.state] ?? null);
+  const lastSeen = $derived(s ? Math.max(0, Math.round((Date.now() - s.ts) / 60000)) : null);
+  let wakeNote = $state<string | null>(null);
+  async function wake() {
+    try {
+      const w = await api.hostWake(host.id);
+      wakeNote = `Wake-up sent${w.via ? ` via ${w.via}` : ""}`;
+    } catch (e) {
+      wakeNote = errorText(e);
+    }
+    setTimeout(() => (wakeNote = null), 4000);
+  }
   const st = $derived(
-    m.state === "ok" ? "linked" : m.state === "needsLogin" ? "login" : m.state === "offline" ? "offline" : m.state === "error" ? "error" : (ping?.state ?? "unknown"),
+    planned ? "asleep" : m.state === "ok" ? "linked" : m.state === "needsLogin" ? "login" : m.state === "offline" ? "offline" : m.state === "error" ? "error" : (ping?.state ?? "unknown"),
   );
   // The state word decodes in when it changes; live numbers stay plain.
   const stateWord = $derived(
-    m.state === "ok"
+    planned ??
+    (m.state === "ok"
       ? "UP"
       : m.state === "needsLogin"
         ? "LOGIN NEEDED"
@@ -38,7 +52,7 @@
             ? "NO METRICS"
             : m.state === "off"
               ? "METRICS OFF"
-              : "CONNECTING",
+              : "CONNECTING"),
   );
   const stateExtra = $derived(
     m.state === "ok" && s ? formatUptime(s.uptimeSecs) : m.state === "offline" && m.retrySecs ? `· RETRY ${m.retrySecs}S` : "",
@@ -57,7 +71,11 @@
       </span>
       {#if s?.cpuTemp != null}<span class="temp" class:hot={s.cpuTemp >= 80}>{Math.round(s.cpuTemp)}°C</span>{/if}
     </span>
-    {#if s}
+    {#if planned}
+      <span class="note" title={m.message ?? ""}
+        >{m.message ? `${m.message[0].toUpperCase()}${m.message.slice(1)}.` : ""}{lastSeen !== null ? ` Last seen ${lastSeen < 1 ? "just now" : `${lastSeen} min ago`}.` : ""}</span
+      >
+    {:else if s}
       <span class="rows">
         <span class="row">
           <span class="k">CPU</span><span class="v data">{pct(s.cpu)}</span>
@@ -84,7 +102,10 @@
     <span class="hstate"><i aria-hidden="true"></i><span use:scramble={stateWord}></span>{#if stateExtra}<span>{stateExtra}</span>{/if}</span>
   </button>
   <span class="tools">
-    {#if m.state === "offline" || m.state === "error"}
+    {#if host.macAddress && (planned || m.state === "offline")}
+      <button type="button" class="act" title={wakeNote ?? "Wake (Wake-on-LAN)"} aria-label="Wake {host.name}" onclick={wake}>⏻</button>
+    {/if}
+    {#if m.state === "offline" || m.state === "error" || planned}
       <button type="button" class="act" title="Retry now" aria-label="Retry {host.name}" onclick={() => metrics.retry(host.id)}>↻</button>
     {/if}
     <button type="button" class="act" title="Shell" aria-label="Open a shell on {host.name}" onclick={() => terms.openHost(host.id)}>›_</button>
@@ -232,6 +253,16 @@
   }
   .login .hstate i {
     background: var(--accent);
+  }
+  .asleep .hstate {
+    color: var(--cyan);
+  }
+  .asleep .hstate i {
+    background: transparent;
+    border: 1px solid var(--cyan);
+  }
+  .asleep .main {
+    opacity: 0.75;
   }
   .offline .hstate,
   .error .hstate {

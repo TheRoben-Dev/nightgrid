@@ -22,6 +22,7 @@ pub mod logwatch;
 pub mod metrics;
 pub mod netmap;
 pub mod notes;
+pub mod power;
 pub mod redact;
 pub mod secrets;
 pub mod services;

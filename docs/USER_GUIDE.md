@@ -118,6 +118,10 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - Select another device to see its address, MAC, names, services and how it was found. **Add as host** opens the host editor with the address filled in.
 - **Label** devices that aren't hosts (a TV, a phone, a printer): a name, a type, `#tags` and a note. The label follows the device by its MAC address (or its address when the scan saw no MAC), shows on the map and in **Labelled devices** (with nothing selected), is included in profile exports, and DRIFT can read it ("what is 192.168.1.44?"). The router can be labelled too. **Clear** removes a label.
 
+- Each device shows its maker from its MAC address (looked up offline); phones and VMs with private random MACs say "Random MAC". A device's IPv6 address is listed with its IPv4 entry.
+- Docker containers aren't listed as devices; they're in the Docker view.
+- Network shares the host mounts and machines it has open connections to are found even when they don't answer ping; shares show their mount point. **Ping sweep** also tries a few TCP ports on each address.
+
 ## DRIFT helper
 
 - DRIFT is a small assistant in a side panel. Open it with `Mod+J`, the **DRIFT** button in the top bar, or **Ask DRIFT** in the command palette.
@@ -131,6 +135,13 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - **Your hosts**: name a saved host in a question ("what happened to the garage pi?", or just one word of its name) and DRIFT gets what Nightgrid knows about it right now: whether it answers, the monitoring state and last error, when it was last seen and its uptime, and active and recent alerts. A follow-up like "check its history" stays on the same host.
 - **Shell history**: tick **DRIFT may read shell history** in a host's editor and DRIFT also reads that host's last 60 bash, zsh or fish commands when you ask about it. Lines that look like passwords or tokens are left out, and nothing is kept. Bash writes its history when a shell exits, so commands from a shell that is still open may be missing.
 - Answers can be wrong. Commands DRIFT suggests are yours to run, and Nightgrid still asks before anything destructive.
+
+## Power
+
+- **System → SUSPEND… / SHUT DOWN… / REBOOT…** act on the selected host after you type its name. They use sudo like other system actions.
+- While a host is suspended, shut down or rebooting, it shows that instead of **OFFLINE**, with why and when it was last seen, and no offline alert fires. Nightgrid also notices when a Linux host goes to sleep or shuts down by itself (it listens for systemd-logind's announcement while it monitors the host). It goes back to normal as soon as the host answers; a reboot that takes over 15 minutes counts as an outage.
+- **Sleep window** in the host editor (`23:00-07:00`, this computer's time): inside it, a host that doesn't answer shows **ASLEEP**.
+- **Wake-on-LAN**: put the host's **MAC address** in the host editor (the network map shows MACs), then **WAKE** in the System toolbar or ⏻ on its overview tile. **Wake from** sends the packet from another of your hosts on the same LAN, so you can wake a machine at home from anywhere you can reach that host. Wake-on-LAN must be enabled in the sleeping machine's firmware and network settings.
 
 ## Built-in Tailscale
 

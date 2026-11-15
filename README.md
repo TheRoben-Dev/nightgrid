@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.12 (power states, Wake-on-LAN, network map fixes)
+
+1. **System**, pick a Linux host, **SUSPEND…**, type its name: its overview tile turns **SUSPENDED** (not OFFLINE) with "suspended from Nightgrid" and when it was last seen; no offline alert. Wake it: it turns UP again.
+2. Suspend a host from its own power menu or `systemctl suspend` in its terminal: it also shows **SUSPENDED** ("the host announced it was going to sleep").
+3. Put a MAC address on a host (host editor), suspend it, then **WAKE** (or ⏻ on the tile). Set **Wake from** to another host and try again.
+4. Set a host's **Sleep window** to include the current time and stop it: it shows **ASLEEP**.
+5. **Network → Scan** from a Docker host: no 172.x container addresses; devices show their maker; the router appears; a NAS you mount shows "NFS share → /mnt/…" even if it ignores ping.
+
 ### macOS: testing M10j (built-in Tailscale, DRIFT knows your hosts)
 
 1. Quit the Tailscale app (or turn it off). **Settings → Tailnet → Built-in Tailscale** on: the state goes to **Needs a login**; **LOG IN** opens the browser. Log in: the state turns **Connected**, and **DEVICES** lists your tailnet.

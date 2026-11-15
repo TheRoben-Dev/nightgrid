@@ -68,6 +68,10 @@ impl Content {
                     Some(PollState::Offline) => "OFFLINE",
                     Some(PollState::NeedsLogin) => "needs login",
                     Some(PollState::Error) => "error",
+                    Some(PollState::Suspended) => "suspended",
+                    Some(PollState::Rebooting) => "rebooting",
+                    Some(PollState::ShuttingDown) => "shutting down",
+                    Some(PollState::Asleep) => "asleep",
                     _ if connected.contains(&h.id) => "connected",
                     _ => "",
                 };

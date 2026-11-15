@@ -9,6 +9,7 @@ import {
   type Health,
   type JournalEntry,
   type JournalEvent,
+  type PowerAction,
   type PromptKind,
   type SudoInput,
   type SystemInfo,
@@ -107,6 +108,8 @@ export interface PackageRun {
   error: string | null;
 }
 
+export const POWER_VERB: Record<PowerAction, string> = { reboot: "reboot", shutdown: "shut down", suspend: "suspend" };
+
 class SystemStore {
   hostId = $state<number | null>(null);
   tab = $state<SystemTab>("units");
@@ -144,7 +147,8 @@ class SystemStore {
   updatesLoading = $state(false);
   run = $state<PackageRun | null>(null);
   confirmUpgrade = $state(false);
-  confirmReboot = $state(false);
+  /** Power action waiting for the typed-name confirmation. */
+  confirmPower = $state<PowerAction | null>(null);
 
   disks = $state<DisksReport | null>(null);
   disksLoading = $state(false);
@@ -522,18 +526,38 @@ class SystemStore {
     }
   }
 
-  async reboot() {
+  async power(action: PowerAction) {
     const id = this.hostId;
     if (id === null) return;
-    this.confirmReboot = false;
+    this.confirmPower = null;
+    const name = this.host?.name ?? "Host";
     try {
-      await this.withSudo("reboot the host", (sudo) => api.systemReboot(id, sudo));
-      this.notice = { text: `${this.host?.name ?? "Host"} is rebooting. Reconnect in a minute or two.`, tone: "ok" };
+      await this.withSudo(`${POWER_VERB[action]} the host`, (sudo) => api.systemPower(id, action, sudo));
+      this.notice = {
+        text:
+          action === "reboot"
+            ? `${name} is rebooting. Reconnect in a minute or two.`
+            : action === "shutdown"
+              ? `${name} is shutting down. It shows as shut down, not offline, until it's back.`
+              : `${name} is suspended. It shows as suspended, not offline${hosts.byId(id)?.macAddress ? "; Wake brings it back" : ""}.`,
+        tone: "ok",
+      };
       this.updates = null;
       this.unitsLoaded = false;
       await this.stopJournal();
     } catch (e) {
-      this.notice = { text: `Reboot: ${errorText(e)}`, tone: "err" };
+      this.notice = { text: `${POWER_VERB[action][0].toUpperCase()}${POWER_VERB[action].slice(1)}: ${errorText(e)}`, tone: "err" };
+    }
+  }
+
+  async wake() {
+    const id = this.hostId;
+    if (id === null) return;
+    try {
+      const w = await api.hostWake(id);
+      this.notice = { text: `Wake-up sent to ${w.mac}${w.via ? ` from ${w.via}` : " from this computer"}.`, tone: "ok" };
+    } catch (e) {
+      this.notice = { text: `Wake: ${errorText(e)}`, tone: "err" };
     }
   }
 

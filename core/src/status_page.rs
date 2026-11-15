@@ -18,7 +18,8 @@ pub struct HostStatus {
     pub name: String,
     /// Shown only when the export asks for addresses.
     pub address: Option<String>,
-    /// "ok", "offline", "auth" (waiting for a login), "off" (not monitored).
+    /// "ok", "offline", "auth" (waiting for a login), "sleep" (suspended,
+    /// rebooting or in its sleep window), "off" (not monitored).
     pub state: String,
     pub cpu: Option<f32>,
     pub mem: Option<f32>,
@@ -201,6 +202,7 @@ pub fn render_html(s: &StatusSnapshot, o: &RenderOpts) -> String {
             "ok" => "ONLINE",
             "offline" => "OFFLINE",
             "auth" => "NEEDS LOGIN",
+            "sleep" => "ASLEEP",
             _ => "NOT MONITORED",
         };
         h.push_str(&format!(

@@ -40,6 +40,68 @@ pub enum PollState {
     Error,
     /// Metrics are turned off in settings.
     Off,
+    /// Doesn't answer, but it was suspended (from Nightgrid, or the host
+    /// announced sleep). No offline alert. The message says why.
+    Suspended,
+    /// Doesn't answer while it reboots (gives up after 15 minutes).
+    Rebooting,
+    /// Doesn't answer after a shutdown.
+    ShuttingDown,
+    /// Doesn't answer inside its expected sleep window.
+    Asleep,
+}
+
+impl PollState {
+    fn planned(s: nightgrid_core::power::PowerState) -> Self {
+        use nightgrid_core::power::PowerState as P;
+        match s {
+            P::Suspended => Self::Suspended,
+            P::Rebooting => Self::Rebooting,
+            P::ShuttingDown => Self::ShuttingDown,
+            P::Asleep => Self::Asleep,
+        }
+    }
+}
+
+pub(crate) fn local_minutes() -> u16 {
+    use chrono::Timelike;
+    let now = chrono::Local::now();
+    (now.hour() * 60 + now.minute()) as u16
+}
+
+fn now_secs() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
+}
+
+/// Follows logind's sleep/shutdown signals on the host's pooled connection,
+/// so a host that goes to sleep shows "Suspended", not "Offline".
+fn watch_power(app: AppHandle, host_id: HostId) -> tauri::async_runtime::JoinHandle<()> {
+    use nightgrid_core::power::{self, Watch};
+    tauri::async_runtime::spawn(async move {
+        let Ok(conn) = connect_host(&app, host_id).await else { return };
+        power::watch(&conn, |w| match w {
+            Watch::Sleep => {
+                tracing::info!(host = %host_id, "host announced sleep");
+                power::note(
+                    host_id,
+                    power::PowerState::Suspended,
+                    "the host announced it was going to sleep",
+                    now_secs(),
+                );
+            }
+            Watch::Shutdown => {
+                tracing::info!(host = %host_id, "host announced shutdown");
+                power::note(
+                    host_id,
+                    power::PowerState::ShuttingDown,
+                    "the host announced it was shutting down or rebooting",
+                    now_secs(),
+                );
+            }
+            Watch::Resumed => power::clear(host_id),
+        })
+        .await;
+    })
 }
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -146,6 +208,7 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
         }
     };
     set_state(&mut state, PollState::Connecting, None, None);
+    let mut watcher: Option<tauri::async_runtime::JoinHandle<()>> = None;
     loop {
         let cfg = settings(&app);
         let pause = if hub().is_visible(host_id) { cfg.metrics_interval_secs } else { cfg.metrics_background_secs };
@@ -191,6 +254,10 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
                     continue;
                 }
                 backoff = 0;
+                nightgrid_core::power::clear(host_id);
+                if watcher.as_ref().map_or(true, |w| w.inner().is_finished()) {
+                    watcher = Some(watch_power(app.clone(), host_id));
+                }
                 let sample = collector.sample(raw, now_ms());
                 set_state(&mut state, PollState::Ok, None, None);
                 if let Some(done) = avg.push(&Point::from_sample(&sample)) {
@@ -207,7 +274,21 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
             Err(e) => {
                 backoff = (backoff * 2).clamp(5, 300);
                 collector = Collector::new();
-                set_state(&mut state, PollState::Offline, Some(e.to_string()), Some(backoff));
+                if let Some(w) = watcher.take() {
+                    w.abort();
+                }
+                let window = app
+                    .state::<AppState>()
+                    .store()
+                    .get_host(host_id)
+                    .ok()
+                    .flatten()
+                    .and_then(|h| h.sleep_window)
+                    .and_then(|w| nightgrid_core::power::SleepWindow::parse(&w).ok());
+                match nightgrid_core::power::current(host_id, window.as_ref(), local_minutes(), now_secs()) {
+                    Some(n) => set_state(&mut state, PollState::planned(n.state), Some(n.reason), Some(backoff)),
+                    None => set_state(&mut state, PollState::Offline, Some(e.to_string()), Some(backoff)),
+                }
                 continue;
             }
         }

@@ -66,6 +66,12 @@ pub struct Host {
     pub tailnet_address: Option<String>,
     /// DRIFT may read this host's recent shell history (opt-in).
     pub drift_history: bool,
+    /// For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`).
+    pub mac_address: Option<String>,
+    /// Another saved host on this host's LAN that sends the magic packet.
+    pub wake_relay_id: Option<HostId>,
+    /// Local hours the host is expected to be asleep (`23:00-07:00`).
+    pub sleep_window: Option<String>,
 }
 
 /// Fields the user edits. Missing optional fields mean "unset".
@@ -92,6 +98,12 @@ pub struct HostInput {
     pub tailnet_address: Option<String>,
     /// DRIFT may read this host's recent shell history (opt-in).
     pub drift_history: bool,
+    /// For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`).
+    pub mac_address: Option<String>,
+    /// Another saved host on this host's LAN that sends the magic packet.
+    pub wake_relay_id: Option<HostId>,
+    /// Local hours the host is expected to be asleep (`23:00-07:00`).
+    pub sleep_window: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -199,6 +211,14 @@ impl HostInput {
         if h.tailnet_address.as_deref().is_some_and(|a| a.chars().any(char::is_whitespace) || a.contains('/')) {
             return Err(Error::Invalid { field: "tailnetAddress", reason: "a host name or address, no spaces".into() });
         }
+        h.mac_address = match blank_to_none(&h.mac_address) {
+            Some(m) => Some(crate::power::format_mac(&crate::power::parse_mac(&m)?)),
+            None => None,
+        };
+        h.sleep_window = match blank_to_none(&h.sleep_window) {
+            Some(w) => Some(crate::power::SleepWindow::parse(&w)?.to_string()),
+            None => None,
+        };
         valid_color(&h.color)?;
         if h.auth_method == AuthMethod::Key && h.identity_file.is_none() {
             return Err(Error::Invalid { field: "identityFile", reason: "required for key authentication".into() });
@@ -212,7 +232,7 @@ impl HostInput {
 }
 
 const HOST_COLS: &str = "id, name, hostname, port, username, group_id, color, icon, favorite, notes, \
-     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history";
+     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window";
 
 fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
     Ok(Host {
@@ -234,6 +254,9 @@ fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
         tags: Vec::new(),
         tailnet_address: r.get(15)?,
         drift_history: r.get(16)?,
+        mac_address: r.get(17)?,
+        wake_relay_id: r.get(18)?,
+        sleep_window: r.get(19)?,
     })
 }
 
@@ -300,8 +323,9 @@ impl Store {
         let id = self.tx(|tx| {
             tx.execute(
                 "INSERT INTO hosts (name, hostname, port, username, group_id, color, icon, favorite, notes,
-                    auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                    auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history,
+                    mac_address, wake_relay_id, sleep_window)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
                 params![
                     h.name,
                     h.hostname,
@@ -318,7 +342,10 @@ impl Store {
                     h.remember_secret,
                     h.ssh_alias,
                     h.tailnet_address,
-                    h.drift_history
+                    h.drift_history,
+                    h.mac_address,
+                    h.wake_relay_id,
+                    h.sleep_window
                 ],
             )?;
             let id = tx.last_insert_rowid() as HostId;
@@ -335,7 +362,8 @@ impl Store {
                 "UPDATE hosts SET name = ?2, hostname = ?3, port = ?4, username = ?5, group_id = ?6, color = ?7,
                     icon = ?8, favorite = ?9, notes = ?10, auth_method = ?11, identity_file = ?12,
                     proxy_jump = ?13, remember_secret = ?14, ssh_alias = ?15,
-                    tailnet_address = ?16, drift_history = ?17, updated_at = unixepoch()
+                    tailnet_address = ?16, drift_history = ?17, mac_address = ?18,
+                    wake_relay_id = ?19, sleep_window = ?20, updated_at = unixepoch()
                  WHERE id = ?1",
                 params![
                     id,
@@ -354,7 +382,10 @@ impl Store {
                     h.remember_secret,
                     h.ssh_alias,
                     h.tailnet_address,
-                    h.drift_history
+                    h.drift_history,
+                    h.mac_address,
+                    h.wake_relay_id,
+                    h.sleep_window
                 ],
             )?;
             if n > 0 {

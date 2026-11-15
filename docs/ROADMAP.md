@@ -4,7 +4,7 @@ What's planned after the shipped milestones (see `CHANGELOG.md` for what's done)
 
 | Batch | Scope |
 | --- | --- |
-| **M10k** · Keys & power | SSH key manager (generate, push to hosts, rotate, which key works where); Wake-on-LAN, reboot and shutdown per host or group, with schedules; host status tells a planned sleep or power action apart from an outage: "Suspended" / "Shutting down" / "Rebooting" (from Nightgrid's own power actions, the logind sleep/shutdown signal seen over an open SSH session, or an optional expected-sleep window per host) instead of "Offline", with no offline alert, "last seen" plus the reason, cleared when the host returns. |
+| **M10k** · Keys & power (rest) | SSH key manager (generate, push to hosts, rotate, which key works where); power actions for a group (typing the group name) and on a schedule. (Power states, sleep windows and Wake-on-LAN shipped in 0.10.12.) |
 | **M10l** · Watch & history | Expiry watch for certificates, domains and tokens; config drift diff (`/etc`, compose files, packages) between hosts or against a saved baseline; per-host incident timeline (alerts, restarts, deploys, rollbacks) with a DRIFT summary. |
 | **M10m** · VM desktops | Graphical guest consoles in a tab: embedded noVNC streamed over the existing SSH connection (`qm vncproxy`, libvirt's local VNC), no API token or open ports; one-click RDP for Windows guests through an SSH tunnel and the system RDP client. |
 | **M10n** · Layout customization | Dashboard edit mode (drag, resize, add, remove widgets, reset); per-workspace layouts and named presets; layouts included in profile export. |

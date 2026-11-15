@@ -145,6 +145,8 @@ import {
   type Unit_Serialize as Unit,
   type Schedules_Serialize as Schedules,
   type HistoryEntry_Serialize as HistoryEntry,
+  type PowerAction,
+  type WakeSent_Serialize as WakeSent,
   type HistoryResult_Serialize as HistoryResult,
   type Note_Serialize as Note,
   type NoteInput_Serialize as NoteInput,
@@ -339,6 +341,8 @@ export type {
   SecurityReport,
   HistoryEntry,
   HistoryResult,
+  PowerAction,
+  WakeSent,
   Note,
   NoteInput,
   BackupJob,
@@ -454,7 +458,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.11-web",
+      version: "0.10.12-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -710,6 +714,10 @@ export const api = {
   },
   systemReboot: (hostId: number, sudo: SudoInput | null): Promise<null> =>
     T() ? commands.systemReboot(hostId, sudo) : mockSystem.reboot(hostId, sudo),
+  systemPower: (hostId: number, action: PowerAction, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.systemPower(hostId, action, sudo) : mockSystem.reboot(hostId, sudo),
+  hostWake: (hostId: number): Promise<WakeSent> =>
+    T() ? commands.hostWake(hostId) : Promise.resolve({ via: null, mac: "00:11:22:33:44:55" }),
   systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
     T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
   systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null): Promise<VmReport> =>
