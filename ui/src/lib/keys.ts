@@ -97,6 +97,7 @@ export const DEFAULT_KEYMAP = {
   "term.find": "Mod+Shift+F",
   "term.nextTab": "Ctrl+Tab",
   "term.prevTab": "Ctrl+Shift+Tab",
+  "helper.toggle": "Mod+J",
 } as const;
 
 export type ActionId = keyof typeof DEFAULT_KEYMAP;

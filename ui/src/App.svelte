@@ -43,6 +43,9 @@
   import System from "./lib/views/System.svelte";
   import TunnelEditor from "./lib/components/tunnels/TunnelEditor.svelte";
   import { tunnels } from "./lib/stores/tunnels.svelte";
+  import HelperPanel from "./lib/components/helper/HelperPanel.svelte";
+  import Spotlight from "./lib/components/helper/Spotlight.svelte";
+  import { helper } from "./lib/stores/helper.svelte";
 
   let info = $state<AppInfo | null>(null);
   /** Files stays mounted after the first visit so open editors survive section switches. */
@@ -127,6 +130,7 @@
     "term.prevTab": () => ui.section === "terminal" && terms.cycle(-1),
     "rail.toggle": () => settings.update({ railCollapsed: !settings.value.railCollapsed }),
     "effects.toggle": () => settings.update({ reduceEffects: !settings.value.reduceEffects }),
+    "helper.toggle": () => helper.toggle(),
   };
   for (const s of SECTIONS) handlers[s.action] = () => ui.go(s.id);
 
@@ -149,7 +153,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.9.2"} />
+  <LeftRail version={info?.version ?? "0.10.0"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system"} aria-label={section.label}>
@@ -191,7 +195,9 @@
     </main>
     <StatusStrip {info} />
   </div>
+  {#if helper.open}<HelperPanel />{/if}
 </div>
+<Spotlight />
 
 <CommandPalette open={ui.paletteOpen} {commands} onclose={() => (ui.paletteOpen = false)} />
 <HostEditor />

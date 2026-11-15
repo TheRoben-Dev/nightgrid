@@ -4,6 +4,8 @@
   import { sectionById } from "../sections";
   import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
+  import { helper } from "../stores/helper.svelte";
+  import Drift from "./helper/Drift.svelte";
 
   const node = $derived.by(() => {
     const o = ui.section === "terminal" ? terms.currentSession?.origin : undefined;
@@ -23,7 +25,7 @@
     {/each}
   </ol>
 
-  <button type="button" class="search" onclick={() => (ui.paletteOpen = true)} aria-haspopup="dialog">
+  <button type="button" class="search" data-guide="palette" onclick={() => (ui.paletteOpen = true)} aria-haspopup="dialog">
     <span class="prompt" aria-hidden="true">&gt;_</span>
     <span class="placeholder">Search or run a command</span>
     <kbd>{formatChord(DEFAULT_KEYMAP["palette.open"])}</kbd>
@@ -32,10 +34,32 @@
   <div class="indicators" aria-label="Connections">
     <span class="ind" title="Active SSH sessions"><span class="glyph" aria-hidden="true">◇</span> SSH <b>{terms.stats.ssh}</b></span>
     <button type="button" class="ind tun" class:on={tunnels.activeCount > 0} title="Active tunnels" onclick={() => ui.go("tunnels")}><span class="glyph" aria-hidden="true">⇄</span> TUN <b>{tunnels.activeCount}</b></button>
+    <button
+      type="button"
+      class="ind drift"
+      class:on={helper.open}
+      data-guide="helper"
+      title="DRIFT helper ({formatChord(DEFAULT_KEYMAP['helper.toggle'])})"
+      aria-pressed={helper.open}
+      onclick={() => helper.toggle()}><Drift mood={helper.drift} icon scale={1} /> DRIFT</button
+    >
   </div>
 </header>
 
 <style>
+  .drift {
+    all: unset;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .drift.on {
+    color: var(--magenta);
+  }
+  .drift:focus-visible {
+    outline: 1px solid var(--accent);
+  }
   .tun {
     all: unset;
     cursor: pointer;

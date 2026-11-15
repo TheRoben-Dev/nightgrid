@@ -69,7 +69,7 @@
   }
 </script>
 
-<Panel title="ALERTS">
+<Panel title="ALERTS" guide="settings-alerts">
   <div class="toggles">
     <Toggle
       label="Alerts"
@@ -94,7 +94,7 @@
   </div>
 </Panel>
 
-<Panel title="NOTIFICATIONS">
+<Panel title="NOTIFICATIONS" guide="settings-notifications">
   <div class="toggles">
     <Toggle label="Desktop notifications" hint="One per new alert; a burst becomes one summary." checked={a.native} onchange={(v) => set({ native: v })} />
     <Toggle label="Quiet hours" hint="Alerts still show in the app, but no notifications or webhooks." checked={a.quietHours} onchange={(v) => set({ quietHours: v })} />

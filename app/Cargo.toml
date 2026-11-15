@@ -19,6 +19,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 futures-util = "0.3"
 nightgrid-core = { path = "../core", features = ["specta"] }
+nightgrid-llm = { path = "../llm" }
 tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-specta = { version = "=2.0.0-rc.29", features = ["derive", "typescript"] }
 specta = { version = "=2.0.0-rc.28", features = ["derive"] }

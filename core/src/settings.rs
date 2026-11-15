@@ -35,6 +35,8 @@ pub struct AppSettings {
     pub handheld: bool,
     /// Move focus and act with a game controller when one is connected.
     pub controller_nav: bool,
+    /// The DRIFT helper (local model). Off until the user turns it on.
+    pub helper_enabled: bool,
     /// Terminal font size in px.
     pub term_font_size: u16,
     /// Terminal scrollback lines.
@@ -156,6 +158,7 @@ impl Default for AppSettings {
             backup_folder: None,
             handheld: false,
             controller_nav: true,
+            helper_enabled: false,
         }
     }
 }

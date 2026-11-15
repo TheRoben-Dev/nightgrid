@@ -114,7 +114,7 @@
   }
 </script>
 
-<Panel title="BACKUP">
+<Panel title="BACKUP" guide="settings-backup">
   <p class="muted lead">
     Moves your setup between machines: hosts, groups, tags, snippets, playbooks, services, tunnels, integrations,
     bookmarks and settings, in one file encrypted with a passphrase (age). Metric and check history stay here.

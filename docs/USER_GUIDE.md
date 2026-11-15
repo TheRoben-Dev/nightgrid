@@ -9,6 +9,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - **Sidebar**: your hosts (with favorites and groups) at the top, the views below. `Mod+B` collapses it to icons.
 - **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Settings `Mod+,`.
 - **Command palette** `Mod+K` (also `Ctrl+Shift+K` inside a terminal): jump to any host, view, snippet, playbook or action by typing.
+- **DRIFT helper** `Mod+J`: ask a question in the side panel (see below).
 - **Settings → Keybindings** lists every shortcut.
 
 ## Hosts
@@ -86,6 +87,17 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - Values are quoted safely, so don't wrap placeholders in quotes yourself.
 - **Playbooks** run steps in order: commands, file uploads, wait for a port, and Docker start, stop, restart or pull.
 - Anything destructive (`rm`, `prune`, `kill`, `compose down`, `reboot`, `upgrade`, `> file`, ...) is confirmed with the targets named. On several hosts you also type the group name or the number of hosts.
+
+## DRIFT helper
+
+- DRIFT is a small assistant in a side panel. Open it with `Mod+J`, the **DRIFT** button in the top bar, or **Ask DRIFT** in the command palette.
+- **Turn it on** under **Settings → Helper**, then **Download** the model once (about 2.5 GB). The download can be paused and resumed and is checked against a fixed SHA-256.
+- It runs entirely on this computer: the GPU on macOS, the CPU on Windows and Linux. Nothing you ask is sent anywhere.
+- **Explain something**: select log lines, an error or a file in the terminal or a log view, then open DRIFT. The selection and the current view and host are attached as chips; click a chip to leave it out.
+- **Show me**: when an answer says where something is, **Show me** switches to that view and outlines the control. It only points; it never clicks or runs anything.
+- **What I was given** under each reply shows the exact prompt and the guide sections used. Values that look like passwords or tokens are masked before DRIFT sees them.
+- **Stop** ends a reply early; **NEW** starts a fresh conversation. **Free memory** in Settings unloads the model; **Delete model** removes the file.
+- Answers can be wrong. Commands DRIFT suggests are yours to run, and Nightgrid still asks before anything destructive.
 
 ## Alerts and the tray
 

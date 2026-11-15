@@ -5,6 +5,11 @@
  */
 import { Channel, isTauri } from "@tauri-apps/api/core";
 import {
+  type ChatTurn,
+  type DownloadProgress,
+  type HelperEvent,
+  type HelperReply,
+  type HelperStatus,
   commands,
   type BackupFolder_Serialize as BackupFolder,
   type BackupImported,
@@ -136,6 +141,7 @@ import {
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockAutomation } from "./mockAutomation";
+import { mockHelper } from "./mockHelper";
 import { mockBackup } from "./mockBackup";
 import { mockIntegrations } from "./mockIntegrations";
 import { mockBackend } from "./mock";
@@ -147,6 +153,11 @@ import { mockTunnels } from "./mockTunnels";
 import { mockSystem } from "./mockSystem";
 
 export type {
+  ChatTurn,
+  DownloadProgress,
+  HelperEvent,
+  HelperReply,
+  HelperStatus,
   BackupFolder,
   BackupImported,
   BackupPreview,
@@ -318,6 +329,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   backupFolder: null,
   handheld: false,
   controllerNav: true,
+  helperEnabled: false,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -325,7 +337,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.9.2-web",
+      version: "0.10.0-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -599,6 +611,23 @@ export const api = {
   backupPickFolder: (): Promise<BackupFolder | null> => (T() ? commands.backupPickFolder() : mockBackup.pickFolder()),
   backupFolder: (): Promise<BackupFolder | null> => (T() ? commands.backupFolder() : mockBackup.folder()),
   backupClearFolder: (): Promise<null> => (T() ? commands.backupClearFolder() : mockBackup.clearFolder()),
+  helperStatus: (): Promise<HelperStatus> => (T() ? commands.helperStatus() : mockHelper.status()),
+  helperDownload: (on: (p: DownloadProgress) => void): Promise<boolean> => {
+    if (!T()) return mockHelper.download(on);
+    const ch = new Channel<DownloadProgress>();
+    ch.onmessage = on;
+    return commands.helperDownload(ch as unknown as Parameters<typeof commands.helperDownload>[0]);
+  },
+  helperCancelDownload: (): Promise<void> => (T() ? commands.helperCancelDownload() : mockHelper.cancelDownload()),
+  helperDeleteModel: (): Promise<null> => (T() ? commands.helperDeleteModel() : mockHelper.deleteModel()),
+  helperUnload: (): Promise<void> => (T() ? commands.helperUnload() : mockHelper.unload()),
+  helperAsk: (messages: ChatTurn[], on: (e: HelperEvent) => void): Promise<HelperReply> => {
+    if (!T()) return mockHelper.ask(messages, on);
+    const ch = new Channel<HelperEvent>();
+    ch.onmessage = on;
+    return commands.helperAsk(messages, ch as unknown as Parameters<typeof commands.helperAsk>[1]);
+  },
+  helperStop: (): Promise<void> => (T() ? commands.helperStop() : mockHelper.stop()),
   appRestart: (): Promise<void> => (T() ? commands.appRestart() : Promise.resolve(location.reload())),
   alertsSubscribe: (on: (s: AlertsSnapshot) => void): Promise<null> => {
     if (!T()) return mockAlerts.subscribe(on);

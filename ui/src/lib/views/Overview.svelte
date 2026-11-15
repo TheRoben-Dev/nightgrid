@@ -29,7 +29,9 @@
     ["M6", "systemd, journal, updates, SMART", "done"],
     ["M7", "Integrations, alerts, tray", "done"],
     ["M8", "Automation", "done"],
-    ["M9", "Polish + ship", "next"],
+    ["M9", "Backups, handhelds, docs", "done"],
+    ["M10", "DRIFT helper + backlog", "next"],
+    ["M11", "Offline knowledge base", "later"],
   ] as const;
 </script>
 

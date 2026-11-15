@@ -2,6 +2,7 @@
   import { api, type AppInfo } from "../api";
   import AlertSettings from "../components/alerts/AlertSettings.svelte";
   import BackupPanel from "../components/backup/BackupPanel.svelte";
+  import HelperSettings from "../components/helper/HelperSettings.svelte";
   import Barcode from "../components/Barcode.svelte";
   import Panel from "../components/Panel.svelte";
   import SegmentSlider from "../components/SegmentSlider.svelte";
@@ -44,6 +45,7 @@
     "term.find": "Find in terminal",
     "term.nextTab": "Next terminal tab",
     "term.prevTab": "Previous terminal tab",
+    "helper.toggle": "Open or close the DRIFT helper",
   };
   const bindings = Object.entries(DEFAULT_KEYMAP) as [ActionId, string][];
   const plain = $derived(!THEMES[settings.themeId].effects);
@@ -51,7 +53,7 @@
 
 <div class="grid">
   <div class="wide">
-    <Panel title="THEME" prefix=">" count={THEME_IDS.length} reveal>
+    <Panel title="THEME" guide="settings-theme" prefix=">" count={THEME_IDS.length} reveal>
       <div class="themes" role="radiogroup" aria-label="Theme">
         {#each THEME_IDS as id (id)}
           {@const t = THEMES[id]}
@@ -78,7 +80,7 @@
     </Panel>
   </div>
 
-  <Panel title="DISPLAY">
+  <Panel title="DISPLAY" guide="settings-display">
     <SegmentSlider
       label="UI SCALE"
       steps={UI_SCALE_STEPS}
@@ -123,7 +125,7 @@
     {#if settings.error}<p class="error" role="alert"><span aria-hidden="true">▲</span> {settings.error}</p>{/if}
   </Panel>
 
-  <Panel title="TERMINAL">
+  <Panel title="TERMINAL" guide="settings-terminal">
     <SegmentSlider
       label="FONT SIZE"
       steps={TERM_FONT_STEPS}
@@ -164,7 +166,7 @@
     </div>
   </Panel>
 
-  <Panel title="MONITORING">
+  <Panel title="MONITORING" guide="settings-monitoring">
     <SegmentSlider
       label="SAMPLE EVERY"
       steps={METRICS_INTERVAL_STEPS}
@@ -197,7 +199,7 @@
     <p class="muted note">Minute detail is kept for the chosen days; 15-minute averages are kept for at least 90 days.</p>
   </Panel>
 
-  <Panel title="SERVICES">
+  <Panel title="SERVICES" guide="settings-services">
     <SegmentSlider
       label="CHECK EVERY"
       steps={SERVICES_INTERVAL_STEPS}
@@ -217,7 +219,7 @@
 
   <AlertSettings />
 
-  <Panel title="DESKTOP">
+  <Panel title="DESKTOP" guide="settings-desktop">
     <div class="toggles">
       <Toggle
         label={info?.os === "macos" ? "Menu bar icon" : "Tray icon"}
@@ -235,7 +237,7 @@
     </div>
   </Panel>
 
-  <Panel title="UPDATES">
+  <Panel title="UPDATES" guide="settings-updates">
     <div class="update-row">
       <span class="muted">Installed</span>
       <span class="data">v{info?.version ?? "…"}</span>
@@ -261,9 +263,10 @@
     </div>
   </Panel>
 
+  <HelperSettings />
   <BackupPanel />
 
-  <Panel title="KEYBINDINGS" prefix=">" count={bindings.length}>
+  <Panel title="KEYBINDINGS" guide="settings-keybindings" prefix=">" count={bindings.length}>
     <table>
       <tbody>
         {#each bindings as [action, spec] (action)}
@@ -281,7 +284,7 @@
   </Panel>
 
   <div class="wide">
-    <Panel title="DIAGNOSTICS">
+    <Panel title="DIAGNOSTICS" guide="settings-diagnostics">
       <dl>
         <dt>DATA</dt>
         <dd>{info?.dataDir ?? "…"}</dd>

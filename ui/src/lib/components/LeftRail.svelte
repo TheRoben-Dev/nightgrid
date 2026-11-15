@@ -51,6 +51,7 @@
           <button
             type="button"
             class="item"
+            data-guide="rail-{s.id}"
             class:active={ui.section === s.id}
             aria-current={ui.section === s.id ? "page" : undefined}
             title={collapsed ? `${s.label} (${formatChord(DEFAULT_KEYMAP[s.action])})` : undefined}
@@ -72,6 +73,7 @@
     <button
       type="button"
       class="collapse"
+      data-guide="rail-collapse"
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       title={formatChord(DEFAULT_KEYMAP["rail.toggle"])}
       onclick={() => settings.update({ railCollapsed: !collapsed })}

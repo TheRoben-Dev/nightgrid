@@ -1,0 +1,273 @@
+/**
+ * DRIFT helper state: the side panel, the conversation, the attached view
+ * context, the model download and the "show me" spotlight.
+ */
+import { api, type HelperStatus } from "../api";
+import { guideTarget } from "../helper/guide";
+import { guideIndex } from "../helper/knowledge";
+import { buildTurns, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
+import { sectionById } from "../sections";
+import { docker } from "./docker.svelte";
+import { settings } from "./settings.svelte";
+import { system } from "./system.svelte";
+import { terms } from "./terms.svelte";
+import { ui } from "./ui.svelte";
+
+export type DriftState = "idle" | "blink" | "think" | "talk" | "point" | "listen" | "success" | "error" | "confused" | "sleep";
+
+export interface ChatMessage {
+  id: number;
+  role: "user" | "assistant";
+  /** What the user typed, or the reply without action lines. */
+  text: string;
+  actions: HelperAction[];
+  streaming?: boolean;
+  error?: string;
+  /** Exactly what the model was given for this reply. */
+  sent?: Turn[];
+  sources?: string[];
+  stats?: string;
+}
+
+export interface Spotlight {
+  id: string;
+  note: string;
+}
+
+const errMsg = (e: unknown) => (e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String(e.message) : String(e));
+
+/** Text selected in the page or the focused terminal, if any. */
+export function currentSelection(): string {
+  const dom = typeof window !== "undefined" ? (window.getSelection()?.toString() ?? "") : "";
+  if (dom.trim()) return dom;
+  try {
+    return terms.currentSession?.term.getSelection() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** The host the current view is about, if it has one. */
+export function currentHost(): string | null {
+  try {
+    switch (ui.section) {
+      case "terminal": {
+        const o = terms.currentSession?.origin;
+        return o && o.kind === "ssh" ? o.name : null;
+      }
+      case "docker":
+        return docker.host?.name ?? null;
+      case "system":
+        return system.host?.name ?? null;
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+class HelperStore {
+  open = $state(false);
+  messages = $state<ChatMessage[]>([]);
+  busy = $state(false);
+  /** The model is loading for the first question. */
+  loading = $state(false);
+  status = $state<HelperStatus | null>(null);
+  progress = $state<{ done: number; total: number } | null>(null);
+  downloadError = $state<string | null>(null);
+  /** Context attached to the next question (the user can drop parts). */
+  context = $state<HelperContext>({ view: "overview" });
+  spotlight = $state<Spotlight | null>(null);
+  /** A brief mood after something happened (success / confused). */
+  mood = $state<DriftState | null>(null);
+  typing = $state(false);
+  private seq = 0;
+  private spotTimer: ReturnType<typeof setTimeout> | undefined;
+
+  get enabled(): boolean {
+    return settings.value.helperEnabled;
+  }
+
+  get ready(): boolean {
+    return this.status?.state === "ready";
+  }
+
+  get drift(): DriftState {
+    if (!this.enabled) return "sleep";
+    const last = this.messages[this.messages.length - 1];
+    if (last?.error) return "error";
+    if (this.busy) return last?.role === "assistant" && last.text ? "talk" : "think";
+    if (this.spotlight) return "point";
+    if (this.mood) return this.mood;
+    if (this.typing) return "listen";
+    return "idle";
+  }
+
+  async refresh() {
+    try {
+      this.status = await api.helperStatus();
+    } catch {
+      /* keep the last status */
+    }
+  }
+
+  /** Re-reads what the current view offers as context. */
+  captureContext() {
+    const selection = currentSelection();
+    this.context = { view: ui.section, host: currentHost(), selection: selection.trim() ? selection : null };
+  }
+
+  toggle(force?: boolean) {
+    const next = force ?? !this.open;
+    if (next && !this.open) {
+      this.captureContext();
+      void this.refresh();
+    }
+    this.open = next;
+  }
+
+  dropContext(part: "host" | "selection") {
+    this.context = { ...this.context, [part]: null };
+  }
+
+  clear() {
+    if (this.busy) return;
+    this.messages = [];
+    this.clearSpotlight();
+  }
+
+  async download() {
+    this.downloadError = null;
+    this.progress = { done: this.status?.have ?? 0, total: this.status?.bytes ?? 0 };
+    try {
+      await api.helperDownload((p) => (this.progress = { done: p.done ?? 0, total: p.total ?? 0 }));
+    } catch (e) {
+      this.downloadError = errMsg(e);
+    } finally {
+      this.progress = null;
+      await this.refresh();
+    }
+  }
+
+  cancelDownload() {
+    void api.helperCancelDownload();
+  }
+
+  async deleteModel() {
+    try {
+      await api.helperDeleteModel();
+    } catch (e) {
+      this.downloadError = errMsg(e);
+    }
+    await this.refresh();
+  }
+
+  async setEnabled(on: boolean) {
+    await settings.update({ helperEnabled: on });
+    if (!on) {
+      this.open = false;
+      this.clearSpotlight();
+      void api.helperUnload();
+    }
+    await this.refresh();
+  }
+
+  /** Frees the model's memory; it loads again on the next question. */
+  async unload() {
+    await api.helperUnload();
+    await this.refresh();
+  }
+
+  async ask(question: string) {
+    const q = question.trim();
+    if (!q || this.busy) return;
+    const ctx = { ...this.context, view: this.context.view ?? ui.section };
+    const docs = guideIndex().search(`${q} ${sectionById(ctx.view).label}`, 4);
+    const history: Turn[] = this.messages
+      .filter((m) => !m.error && m.text)
+      .map((m) => ({ role: m.role, content: m.text }));
+    const sent = buildTurns(history, q, ctx, docs);
+    this.messages.push({ id: ++this.seq, role: "user", text: q, actions: [] });
+    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title) });
+    const msg = this.messages[this.messages.length - 1];
+    // Selection is used once; the view context stays.
+    this.context = { ...this.context, selection: null };
+    this.busy = true;
+    this.mood = null;
+    this.clearSpotlight();
+    let raw = "";
+    try {
+      const reply = await api.helperAsk(sent, (e) => {
+        if (e.kind === "loading") this.loading = true;
+        else if (e.kind === "thinking") this.loading = false;
+        else if (e.kind === "text") {
+          raw += e.text;
+          msg.text = streamingText(raw);
+        }
+      });
+      const parsed = parseReply(reply.text || raw);
+      msg.text = parsed.text;
+      msg.actions = parsed.actions;
+      const secs = reply.seconds ?? 0;
+      const tps = secs > 0 ? ` · ${(reply.tokens / secs).toFixed(1)} tok/s` : "";
+      msg.stats = `${reply.promptTokens} in · ${reply.tokens} out${tps}${reply.finish === "length" ? " · cut at the length limit" : reply.finish === "stopped" ? " · stopped" : ""}`;
+      if (!parsed.text && !parsed.actions.length) {
+        msg.text = "I don't have an answer for that.";
+        this.flash("confused");
+      }
+    } catch (e) {
+      msg.error = errMsg(e);
+      if (raw) msg.text = parseReply(raw).text;
+    } finally {
+      msg.streaming = false;
+      this.busy = false;
+      this.loading = false;
+      void this.refresh();
+    }
+  }
+
+  stop() {
+    void api.helperStop();
+  }
+
+  private flash(m: DriftState, ms = 1500) {
+    this.mood = m;
+    setTimeout(() => {
+      if (this.mood === m) this.mood = null;
+    }, ms);
+  }
+
+  /** Runs a reply's actions in order: switch view, then spotlight targets one after another. */
+  async run(actions: HelperAction[]) {
+    const show = actions.find((a) => a.kind === "show");
+    if (show && show.kind === "show") ui.go(show.view);
+    const points = actions.filter((a): a is Extract<HelperAction, { kind: "point" }> => a.kind === "point");
+    if (points.length) await this.point(points[0].id, points[0].note);
+  }
+
+  /** Spotlights a control (switching to its view first). Never clicks it. */
+  async point(id: string, note: string) {
+    const t = guideTarget(id);
+    if (!t) return;
+    if (t.view && ui.section !== t.view) ui.go(t.view);
+    // Let the view render before looking for the control.
+    await new Promise((r) => setTimeout(r, 60));
+    const el = document.querySelector<HTMLElement>(`[data-guide="${id}"]`);
+    if (!el) {
+      this.flash("confused");
+      return;
+    }
+    el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    this.spotlight = { id, note: note || t.what };
+    clearTimeout(this.spotTimer);
+    this.spotTimer = setTimeout(() => this.clearSpotlight(), 8000);
+  }
+
+  clearSpotlight() {
+    clearTimeout(this.spotTimer);
+    this.spotlight = null;
+  }
+}
+
+export const helper = new HelperStore();
