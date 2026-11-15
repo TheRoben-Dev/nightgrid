@@ -4,7 +4,9 @@
   import type { ComposeOp, Stack } from "../../api";
   import { docker } from "../../stores/docker.svelte";
   import { files } from "../../stores/files.svelte";
-  import { composeFile, envFile, opConsequence, opLabel, stacks } from "../../stores/stacks.svelte";
+  import { availableCount, composeFile, envFile, opConsequence, opLabel, runLabel, stackKey, stacks } from "../../stores/stacks.svelte";
+  import DeployWizard from "./DeployWizard.svelte";
+  import StackTools from "./StackTools.svelte";
   import { layout } from "../../stores/layout.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
   import Modal from "../Modal.svelte";
@@ -60,6 +62,8 @@
     {:else}
       {#if !stacks.dirsOpen}<span class="muted">only stacks with containers are listed; add a folder to find the rest</span>{/if}
     {/each}
+    <span class="spacer"></span>
+    <button type="button" class="btn tiny" data-guide="docker-new-stack" onclick={() => (stacks.wizardOpen = true)}>+ New stack</button>
     {#if stacks.dirsOpen}
       <form class="adddir" onsubmit={addDir}>
         <input class="input" bind:value={newDir} placeholder="/opt/stacks or ~/stacks" spellcheck="false" aria-label="Stack folder" />
@@ -90,6 +94,7 @@
       </div>
       {#each stacks.visible as s (s.name + s.dir)}
         {@const active = run?.stack.name === s.name && run.stack.dir === s.dir}
+        {@const uc = stacks.updates[stackKey(s)]}
         <div class="row" class:active role="row">
           <span class="name" role="cell"><span class="dot" class:on={s.running > 0} aria-hidden="true"></span>{s.name}</span>
           <span class="dir muted" role="cell" title={s.dir}>{s.dir}</span>
@@ -103,6 +108,17 @@
             >
           </span>
           <span class="ops" role="cell">
+            <button
+              type="button"
+              class="btn ghost tiny"
+              class:hasup={availableCount(uc) > 0}
+              title="Ask the registries whether newer images exist, with what changed (nothing is pulled)"
+              onclick={() => {
+                stacks.updatesFor = s;
+                if (!uc || (!uc.loading && Date.now() - uc.at > 60_000)) void stacks.checkUpdates(s);
+              }}>{uc?.loading ? "Checking…" : availableCount(uc) ? `${availableCount(uc)} update${availableCount(uc) > 1 ? "s" : ""}` : "Updates"}</button
+            >
+            <button type="button" class="btn ghost tiny" title="Snapshots and rollback" onclick={() => void stacks.openSnapshots(s)}>Snapshots</button>
             {#each ops as op (op)}
               <button
                 type="button"
@@ -125,7 +141,7 @@
     <Resizer key="stacksConsole" axis="y" invert label="Resize compose output" />
     <section class="console" aria-label="Compose output" style:flex-basis="{layout.get('stacksConsole')}%">
       <header>
-        <span class="label">// {opLabel[run.op].toUpperCase()} {run.stack.name}</span>
+        <span class="label">// {runLabel(run.op).toUpperCase()} {run.stack.name}</span>
         <span class="muted">on {hostName}</span>
         <span class="state" class:ok={runState === "DONE"} class:bad={runState === "FAILED" || runState.startsWith("EXIT")} class:live={run.running}
           >{runState}</span
@@ -183,6 +199,9 @@
     </button>
   {/snippet}
 </Modal>
+
+<StackTools />
+<DeployWizard />
 
 <style>
   .stacks {
@@ -353,6 +372,10 @@
   }
   .spacer {
     flex: 1;
+  }
+  .hasup {
+    color: var(--warn, var(--yellow));
+    border-color: var(--warn, var(--yellow));
   }
   .changes {
     display: flex;

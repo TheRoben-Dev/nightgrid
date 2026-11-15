@@ -3,11 +3,17 @@
 
 use std::sync::Arc;
 
+use nightgrid_core::docker::compose::DeployInput;
 use nightgrid_core::docker::compose::{ComposeOp, ImageChange, Stack};
+use nightgrid_core::docker::registry::{self, ImageUpdate, RemoteImage};
+use nightgrid_core::docker::snapshot::{Snapshot, SnapshotId};
 use nightgrid_core::docker::{
     valid_container_ref, Action, ContainerDetail, ContainerStats, ContainerView, DockerError, DockerHost, EngineInfo,
     LogLine, LogQuery,
 };
+use nightgrid_core::files::path::shell_quote;
+use nightgrid_core::files::text::save_text;
+use nightgrid_core::files::Fs;
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::ssh::client::ConnectError;
 use nightgrid_core::stack_dirs::{valid_stack_dir, StackDir, StackDirId};
@@ -276,6 +282,16 @@ pub async fn docker_compose_run(
         let mut sink = move |lines: Vec<String>| {
             let _ = ch.send(ComposeEvent::Lines { lines });
         };
+        if op == ComposeOp::Update {
+            match take_snapshot(&app2, host_id, &d, &stack, "before update").await {
+                Ok(s) => sink(vec![format!(
+                    "Snapshot saved ({} services, {} files) — roll back from Snapshots.",
+                    s.services.len(),
+                    s.files.len()
+                )]),
+                Err(e) => sink(vec![format!("Couldn't save a snapshot first: {}", e.message)]),
+            }
+        }
         let done = match d.compose(&stack, op, rx, &mut sink).await {
             Ok((code, changes)) => ComposeEvent::Done { code: Some(code), changes, error: None },
             Err(e) => ComposeEvent::Done { code: None, changes: None, error: Some(e.to_string()) },
@@ -284,6 +300,182 @@ pub async fn docker_compose_run(
         app2.state::<AppState>().compose_runs.lock().expect("poisoned").remove(&run_id);
     });
     Ok(run_id)
+}
+
+async fn take_snapshot(
+    app: &AppHandle,
+    host_id: HostId,
+    d: &DockerHost,
+    stack: &Stack,
+    reason: &str,
+) -> DockerResult<Snapshot> {
+    let services = d.capture(&stack.name).await?;
+    let stamp =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|t| t.as_secs() as i64).unwrap_or(0);
+    let (files, _skipped) = d.save_files(stack, stamp).await?;
+    let state = app.state::<AppState>();
+    let snap = state
+        .store()
+        .save_snapshot(host_id, &stack.name, reason, &services, &files)
+        .map_err(|e| DockerCmdError::msg(e.to_string()))?;
+    Ok(snap)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn docker_snapshots(state: State<'_, AppState>, host_id: HostId, project: String) -> CmdResult<Vec<Snapshot>> {
+    Ok(state.store().list_snapshots(host_id, &project)?)
+}
+
+/// Saves a snapshot of the stack now: images in the local database, compose
+/// files and `.env` copied on the host.
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_snapshot_take(app: AppHandle, host_id: HostId, stack: Stack) -> DockerResult<Snapshot> {
+    nightgrid_core::docker::compose::check_stack(&stack)?;
+    let d = docker_for(&app, host_id).await?;
+    take_snapshot(&app, host_id, &d, &stack, "manual").await
+}
+
+/// Forgets a snapshot (the copies on the host age out with newer snapshots).
+#[tauri::command]
+#[specta::specta]
+pub fn docker_snapshot_delete(state: State<'_, AppState>, id: SnapshotId) -> CmdResult<()> {
+    Ok(state.store().delete_snapshot(id)?)
+}
+
+/// Rolls a stack back to a snapshot, output on the same channel as compose
+/// runs. Confirmed in the UI with the stack, host, services and files named
+/// (rule 5); a "before rollback" snapshot is taken first.
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_stack_rollback(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    host_id: HostId,
+    stack: Stack,
+    snapshot: SnapshotId,
+    on_event: Channel<ComposeEvent>,
+) -> DockerResult<ComposeRunId> {
+    nightgrid_core::docker::compose::check_stack(&stack)?;
+    let snap = state.store().get_snapshot(snapshot).map_err(|e| DockerCmdError::msg(e.to_string()))?;
+    if snap.host_id != host_id || snap.project != stack.name {
+        return Err(DockerCmdError::msg("that snapshot belongs to another stack"));
+    }
+    let d = docker_for(&app, host_id).await?;
+    tracing::info!(host = %host_id, stack = %stack.name, snapshot = snap.id, "stack rollback");
+    let run_id = state.next_term_id();
+    let (tx, rx) = tokio::sync::watch::channel(false);
+    state.compose_runs.lock().expect("poisoned").insert(run_id, tx);
+    let app2 = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let ch = on_event.clone();
+        let mut sink = move |lines: Vec<String>| {
+            let _ = ch.send(ComposeEvent::Lines { lines });
+        };
+        let done = match take_snapshot(&app2, host_id, &d, &stack, "before rollback").await {
+            Err(e) => ComposeEvent::Done {
+                code: None,
+                changes: None,
+                error: Some(format!("couldn't save the current state first, nothing was changed: {}", e.message)),
+            },
+            Ok(_) => {
+                sink(vec!["Saved the current state as a snapshot first.".into()]);
+                match d.rollback(&stack, &snap, rx, &mut sink).await {
+                    Ok(code) => ComposeEvent::Done { code: Some(code), changes: None, error: None },
+                    Err(e) => ComposeEvent::Done { code: None, changes: None, error: Some(e.to_string()) },
+                }
+            }
+        };
+        let _ = on_event.send(done);
+        app2.state::<AppState>().compose_runs.lock().expect("poisoned").remove(&run_id);
+    });
+    Ok(run_id)
+}
+
+/// Asks each image's registry whether its tag moved, with version and
+/// release-notes hints. Only on request (rule 7: registries).
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_stack_check_updates(
+    app: AppHandle,
+    host_id: HostId,
+    stack: Stack,
+) -> DockerResult<Vec<ImageUpdate>> {
+    nightgrid_core::docker::compose::check_stack(&stack)?;
+    let d = docker_for(&app, host_id).await?;
+    let locals = d.local_images(&stack.name).await?;
+    let checks = locals.iter().map(registry::check);
+    Ok(futures_util::future::join_all(checks).await)
+}
+
+/// An image's declared ports, volumes and env names from its registry, for
+/// the deploy wizard (rule 7: registries). Nothing is pulled.
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_image_lookup(app: AppHandle, host_id: HostId, image: String) -> DockerResult<RemoteImage> {
+    let d = docker_for(&app, host_id).await?;
+    let (os, arch) = d.platform().await?;
+    registry::inspect(image.trim(), &os, &arch).await.map_err(DockerCmdError::msg)
+}
+
+/// Deploy wizard: creates `<parent>/<name>/`, writes compose.yaml (and .env,
+/// mode 600) and checks it with `docker compose config -q`. Existing files
+/// are only replaced with `overwrite`, which the UI confirms naming them
+/// (rule 5). Starting the stack is the normal "Up" afterwards.
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_stack_deploy(app: AppHandle, host_id: HostId, input: DeployInput) -> DockerResult<Stack> {
+    let stack = input.stack()?;
+    let d = docker_for(&app, host_id).await?;
+    let conn = connect_host(&app, host_id).await?;
+    let fs = Fs::Remote(
+        app.state::<AppState>().sftp.get(host_id, conn).await.map_err(|e| DockerCmdError::msg(e.to_string()))?,
+    );
+    let compose_path = format!("{}/compose.yaml", stack.dir);
+    let env_path = format!("{}/.env", stack.dir);
+    if !input.overwrite {
+        let mut existing = Vec::new();
+        for p in [compose_path.as_str(), env_path.as_str()] {
+            if (p == compose_path || input.env.is_some()) && fs.stat(p).await.ok().flatten().is_some() {
+                existing.push(p.to_owned());
+            }
+        }
+        for f in nightgrid_core::docker::compose::COMPOSE_FILES {
+            let p = format!("{}/{f}", stack.dir);
+            if p != compose_path && fs.stat(&p).await.ok().flatten().is_some() {
+                existing.push(p);
+            }
+        }
+        if !existing.is_empty() {
+            return Err(DockerCmdError::msg(format!("already exists: {}", existing.join(", "))));
+        }
+    }
+    let (code, _, err) = d
+        .conn
+        .exec(&format!("mkdir -p -- {}", shell_quote(&stack.dir)))
+        .await
+        .map_err(|e| DockerCmdError::msg(e.to_string()))?;
+    if code != 0 {
+        return Err(DockerCmdError::msg(format!(
+            "couldn't create {}: {}",
+            stack.dir,
+            String::from_utf8_lossy(&err).trim()
+        )));
+    }
+    if input.overwrite {
+        tracing::info!(host = %host_id, dir = %stack.dir, "deploy overwrites stack files");
+    }
+    save_text(&fs, &compose_path, &input.compose, None).await.map_err(|e| DockerCmdError::msg(e.to_string()))?;
+    if let Some(env) = &input.env {
+        // Create it private before any secret goes in.
+        let _ = d.conn.exec(&format!("umask 077; : >> {p}; chmod 600 {p}", p = shell_quote(&env_path))).await;
+        save_text(&fs, &env_path, env, None).await.map_err(|e| DockerCmdError::msg(e.to_string()))?;
+    }
+    if let Err(msg) = d.validate_stack(&stack).await? {
+        return Err(DockerCmdError::msg(format!("compose.yaml was saved, but docker compose rejects it:\n{msg}")));
+    }
+    Ok(stack)
 }
 
 /// Sends Ctrl-C to a running compose command.

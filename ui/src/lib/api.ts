@@ -90,6 +90,14 @@ import {
   type ComposeEvent_Serialize as ComposeEvent,
   type ComposeOp,
   type ImageChange_Serialize as ImageChange,
+  type ImageUpdate_Serialize as ImageUpdate,
+  type ImageStatus,
+  type VersionInfo_Serialize as VersionInfo,
+  type RemoteImage_Serialize as RemoteImage,
+  type DeployInput,
+  type Snapshot_Serialize as Snapshot,
+  type SnapshotService,
+  type SnapshotFile,
   type Stack,
   type StackDir,
   type MetricsEvent_Serialize as MetricsEvent,
@@ -252,6 +260,14 @@ export type {
   ComposeEvent,
   ComposeOp,
   ImageChange,
+  ImageUpdate,
+  ImageStatus,
+  VersionInfo,
+  RemoteImage,
+  DeployInput,
+  Snapshot,
+  SnapshotService,
+  SnapshotFile,
   Stack,
   StackDir,
   MetricsEvent,
@@ -367,7 +383,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.4-web",
+      version: "0.10.5-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -509,6 +525,23 @@ export const api = {
     ch.onmessage = on;
     return commands.dockerComposeRun(hostId, stack, op, ch as unknown as Parameters<typeof commands.dockerComposeRun>[3]);
   },
+  dockerSnapshots: (hostId: number, project: string): Promise<Snapshot[]> =>
+    T() ? commands.dockerSnapshots(hostId, project) : mockDocker.snapshots(hostId, project),
+  dockerSnapshotTake: (hostId: number, stack: Stack): Promise<Snapshot> =>
+    T() ? commands.dockerSnapshotTake(hostId, stack) : mockDocker.snapshotTake(hostId, stack),
+  dockerSnapshotDelete: (id: number): Promise<null> => (T() ? commands.dockerSnapshotDelete(id) : mockDocker.snapshotDelete(id)),
+  dockerStackRollback: (hostId: number, stack: Stack, snapshot: number, on: (e: ComposeEvent) => void): Promise<number> => {
+    if (!T()) return mockDocker.rollback(hostId, stack, snapshot, on);
+    const ch = new Channel<ComposeEvent>();
+    ch.onmessage = on;
+    return commands.dockerStackRollback(hostId, stack, snapshot, ch as unknown as Parameters<typeof commands.dockerStackRollback>[3]);
+  },
+  dockerStackCheckUpdates: (hostId: number, stack: Stack): Promise<ImageUpdate[]> =>
+    T() ? commands.dockerStackCheckUpdates(hostId, stack) : mockDocker.checkUpdates(hostId, stack),
+  dockerImageLookup: (hostId: number, image: string): Promise<RemoteImage> =>
+    T() ? commands.dockerImageLookup(hostId, image) : mockDocker.imageLookup(hostId, image),
+  dockerStackDeploy: (hostId: number, input: DeployInput): Promise<Stack> =>
+    T() ? commands.dockerStackDeploy(hostId, input) : mockDocker.deploy(hostId, input),
   dockerComposeCancel: (run: number): Promise<null> =>
     T() ? commands.dockerComposeCancel(run) : mockDocker.composeCancel(run),
   stackDirsList: (hostId: number): Promise<StackDir[]> =>
