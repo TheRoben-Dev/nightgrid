@@ -18,12 +18,18 @@ class SettingsStore {
   osReducedMotion = $state(false);
 
   get themeId(): ThemeId {
+    if (this.value.theme === "plain") return "custom";
     return isThemeId(this.value.theme) ? this.value.theme : "nightgrid";
+  }
+
+  /** "plain" was the old 4th scheme; it keeps effects off until another scheme is picked. */
+  get legacyPlain(): boolean {
+    return this.value.theme === "plain";
   }
 
   /** Effects are on only if the theme allows them and neither the user nor the OS reduced them. */
   get effects(): boolean {
-    return THEMES[this.themeId].effects && !this.value.reduceEffects && !this.osReducedMotion;
+    return THEMES[this.themeId].effects && !this.legacyPlain && !this.value.reduceEffects && !this.osReducedMotion;
   }
 
   async load() {
@@ -52,7 +58,7 @@ class SettingsStore {
 
   /** Push current settings onto the document root. */
   apply(root: HTMLElement = document.documentElement) {
-    applyTheme(root, this.themeId);
+    applyTheme(root, this.themeId, this.value.customTheme);
     root.dataset.effects = this.effects ? "on" : "off";
     root.style.setProperty("--ui-scale", String(this.value.uiScale / 100));
     root.dataset.handheld = this.value.handheld ? "on" : "off";

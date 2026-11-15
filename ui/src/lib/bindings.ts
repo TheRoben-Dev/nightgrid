@@ -618,8 +618,13 @@ export type AppSettings = AppSettings_Serialize | AppSettings_Deserialize;
  *  older databases keep loading as fields are added.
  */
 export type AppSettings_Deserialize = {
-	/**  Theme id: `nightgrid`, `ice`, `bloodline` or `plain`. */
+	/**  Theme id: `nightgrid`, `ice`, `bloodline` or `custom`. */
 	theme?: string,
+	/**
+	 *  The custom theme's colours, by token (`bg-0`, `accent`, …) as `#RRGGBB`.
+	 *  Tokens left out use the custom theme's defaults.
+	 */
+	customTheme?: { [key in string]: string },
 	/**  Disables glitch text, scanlines, glow and animations. */
 	reduceEffects?: boolean,
 	/**  Low-opacity scanline overlay (ignored when effects are reduced). */
@@ -699,8 +704,13 @@ export type AppSettings_Deserialize = {
  *  older databases keep loading as fields are added.
  */
 export type AppSettings_Serialize = {
-	/**  Theme id: `nightgrid`, `ice`, `bloodline` or `plain`. */
+	/**  Theme id: `nightgrid`, `ice`, `bloodline` or `custom`. */
 	theme: string,
+	/**
+	 *  The custom theme's colours, by token (`bg-0`, `accent`, …) as `#RRGGBB`.
+	 *  Tokens left out use the custom theme's defaults.
+	 */
+	customTheme: { [key in string]: string },
 	/**  Disables glitch text, scanlines, glow and animations. */
 	reduceEffects: boolean,
 	/**  Low-opacity scanline overlay (ignored when effects are reduced). */

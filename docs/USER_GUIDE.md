@@ -164,7 +164,7 @@ In text fields and terminals, left and right are left to the field; up and down 
 
 ## Look and feel
 
-- Four themes: NIGHTGRID, ICE, BLOODLINE and PLAIN DARK. PLAIN DARK has no effects at all.
+- Four themes: NIGHTGRID, ICE, BLOODLINE and CUSTOM. CUSTOM lets you pick each palette slot (surfaces, text, accent, info, active, danger, OK, warning, neutral highlight) from a set of curated swatches that are all pre-checked for contrast. **Start from** copies a built-in scheme as the starting point; **Reset** goes back to the default custom palette. The palette is saved with your settings and travels in profile exports. (If you used the old PLAIN DARK scheme, it becomes CUSTOM with effects off until you pick a scheme.)
 - **Reduce effects** turns off the glitch text, scanlines and glow. Your OS's reduced-motion setting does the same.
 - **UI scale** goes from 90 to 150 %.
 

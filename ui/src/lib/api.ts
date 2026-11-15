@@ -371,6 +371,7 @@ export type {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "nightgrid",
+  customTheme: {},
   reduceEffects: false,
   scanlines: true,
   uiScale: 100,
