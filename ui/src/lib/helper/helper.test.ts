@@ -12,7 +12,8 @@ describe("guide targets", () => {
       const literal = markup.includes(`guide="${t.id}"`);
       const rail = t.id.startsWith("rail-") && markup.includes('data-guide="rail-{s.id}"');
       const sysTab = t.id.startsWith("system-tab-") && markup.includes('data-guide="system-tab-{t.id}"');
-      expect(literal || rail || sysTab, t.id).toBe(true);
+      const fleetTab = t.id.startsWith("fleet-tab-") && markup.includes('data-guide="fleet-tab-{t.id}"');
+      expect(literal || rail || sysTab || fleetTab, t.id).toBe(true);
     }
   });
   it("ids are unique", () => {

@@ -265,8 +265,20 @@ export const mockSystem = {
     streams.delete(run);
     return null;
   },
-  async updates(_hostId: number): Promise<UpdatesReport> {
-    await new Promise((r) => setTimeout(r, 400));
+  async updates(hostId: number): Promise<UpdatesReport> {
+    await new Promise((r) => setTimeout(r, 400 + (hostId % 3) * 300));
+    if (hostId % 4 === 2) return { manager: "dnf", updates: [], rebootRequired: false, rebootReasons: [], note: null };
+    if (hostId % 4 === 3)
+      return {
+        manager: "dnf",
+        updates: [
+          { name: "kernel", current: null, available: "6.11.6-200.fc40", repo: "updates" },
+          { name: "podman", current: null, available: "5:5.2.5-1.fc40", repo: "updates" },
+        ],
+        rebootRequired: false,
+        rebootReasons: [],
+        note: null,
+      };
     return {
       manager: "apt",
       updates: [

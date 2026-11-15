@@ -7,7 +7,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 ## Getting around
 
 - **Sidebar**: your hosts (with favorites and groups) at the top, the views below. `Mod+B` collapses it to icons.
-- **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Notes `Mod+9`, Network `Mod+0`, Settings `Mod+,`.
+- **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Notes `Mod+9`, Network `Mod+0`, Fleet `Mod+Shift+U`, Settings `Mod+,`.
 - **Command palette** `Mod+K` (also `Ctrl+Shift+K` inside a terminal): jump to any host, view, snippet, playbook or action by typing.
 - **DRIFT helper** `Mod+J`: ask a question in the side panel (see below).
 - **Settings → Keybindings** lists every shortcut.
@@ -92,11 +92,18 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **timeline**: what happened on the host, newest first, for the last 24 hours, 7, 30 or 90 days. Nightgrid records alerts firing and clearing, power actions, compose runs, deploys and rollbacks, container and unit actions, upgrades and automation runs (marked **NG**, kept 90 days). The host's own history is read when you open the tab (marked **HOST**): boots and how long it was down, failed units, out-of-memory kills, apt/pacman/dnf transactions and Docker container crashes, restarts and health changes. Filter by kind or to **Problems only**; **✦ Summarize** has DRIFT explain the period. Failed units and OOM kills need a login that can read the system journal (the `systemd-journal` or `adm` group); Docker only remembers recent events. **Clear recorded history…** forgets Nightgrid's entries for that host;
   - **config**: config drift. **Save baseline** records the host's `/etc`, the compose files in its stack folders and its package list on the host itself (`~/.nightgrid/baselines/default`, readable only by that login). **Compare** then shows which files changed, appeared or went away and which packages were upgraded, downgraded, added or removed; click a changed file for a line diff (secret-looking values are masked until **Reveal secrets**). Pick another host under **Compare with** to compare two hosts live; files meant to differ (hostname, machine-id, SSH host keys, network config) are hidden unless you turn that off. Only files the login can read are compared, and `.env` files only by checksum;
   - **security**: a hygiene score (A–F) from checks that need no root: SSH root and password logins, an active firewall, databases or the Docker API listening on every interface, Docker ports that bypass ufw, fail2ban/CrowdSec, automatic security updates, a pending reboot and extra uid-0 accounts. Each finding says how to fix it, with copy buttons for the commands; Nightgrid never changes anything itself. Below the checks, every listening port shows who can reach it (local, VPN, one address, all interfaces) and which process or container owns it. **Port map · all hosts** scans every host and lays their reachable ports side by side;
-  - **updates**: apt, dnf or pacman, with a reboot-needed flag;
+  - **updates**: apt, dnf, pacman or rpm-ostree, with a reboot-needed flag (on rpm-ostree, **Upgrade** stages the new image for the next reboot);
   - **disks**: SMART health;
   - **VMs**: libvirt/KVM and Proxmox VE guests (VMs and LXC containers) with state, vCPUs and memory. **Start**, **Shut down**, **Reboot** and **Force stop** (asks first and names the guest; force stop needs its name typed). **Console** opens a guest's serial console and **Shell** enters a Proxmox container, in a terminal tab. **Read as root** appears when this login can't use `virsh`, `qm` or `pct`;
   - **backups**: a board for every host's restic, borg, rsync and rclone jobs with last run, size, result and a stale flag. A job reads a systemd timer (last run, exit status and the totals the tool printed) or a path such as a repository or rsync target (newest file and size). **Find jobs** suggests the ones in the host's timers and cron tables. Nightgrid never opens a repository or runs a backup.
 - **sudo**: asked each time by default. Tick "remember for this host" to keep it in the keychain. The password is sent on sudo's input, never on a command line.
+
+## Fleet
+
+Health across every host at once.
+
+- **Updates**: **Check all** reads pending packages on every host (apt, dnf, pacman, rpm-ostree), three at a time. Hosts with security packages or a pending reboot come first. Click a host for its package list. Tick hosts and choose **Upgrade selected…**. To confirm, type the host's name, the group's name (when you picked exactly one whole group) or `upgrade N hosts`. Hosts are upgraded three at a time, and the output shows under each row. Hosts whose sudo needs a password that isn't remembered are skipped with a note: upgrade those from System → UPDATES and tick remember. Nothing reboots on its own, and **Reboot…** opens the host's usual confirmation.
+- **Check images** asks the registries whether any stack's image has a newer version, only when you click it. **Open stack** takes you to Docker → STACKS, where updating takes a snapshot first.
 
 ## Automation
 

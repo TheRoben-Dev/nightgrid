@@ -14,8 +14,8 @@ pub enum Manager {
     Apt,
     Dnf,
     Pacman,
-    /// Image-based OS (Fedora Atomic, Bazzite, ...): updated with
-    /// rpm-ostree/bootc, not package by package. Listed, not upgraded here.
+    /// Image-based OS (Fedora Atomic, Bazzite, ...): updated as one image
+    /// with rpm-ostree, which stages it for the next boot.
     Ostree,
 }
 
@@ -61,6 +61,10 @@ pub struct UpdatesReport {
 pub fn check_command() -> String {
     sh(&format!(
         "if [ -e /run/ostree-booted ]; then echo '@mgr ostree'; \
+           if command -v rpm-ostree >/dev/null 2>&1; then \
+             LANG=C rpm-ostree upgrade --check 2>&1 | sed 's/^/@os /'; \
+             printf '@json '; rpm-ostree status --json 2>/dev/null | tr -d '\\n'; echo; \
+           else echo '@os-missing'; fi; \
          elif command -v apt-get >/dev/null 2>&1; then echo '@mgr apt'; \
            s=$(stat -c %Y /var/cache/apt/pkgcache.bin 2>/dev/null || stat -c %Y /var/lib/apt/lists 2>/dev/null || echo 0); echo \"@age $(( $(date +%s) - s ))\"; \
            LANG=C apt list --upgradable 2>/dev/null; \
@@ -144,6 +148,60 @@ fn parse_pacman(text: &str) -> Vec<PackageUpdate> {
         .collect()
 }
 
+/// What `rpm-ostree upgrade --check` and `rpm-ostree status --json` say:
+/// the new image (as one update row), whether one is already staged, and
+/// a note when the check failed.
+fn parse_ostree(list: &str) -> (Vec<PackageUpdate>, bool, Option<String>) {
+    if list.lines().any(|l| l == "@os-missing") {
+        return (Vec::new(), false, Some("Image-based system without rpm-ostree: update it with bootc.".into()));
+    }
+    let check: Vec<&str> = list.lines().filter_map(|l| l.strip_prefix("@os ")).map(str::trim).collect();
+    let status: serde_json::Value = list
+        .lines()
+        .find_map(|l| l.strip_prefix("@json "))
+        .and_then(|j| serde_json::from_str(j).ok())
+        .unwrap_or_default();
+    let deployments = status["deployments"].as_array().cloned().unwrap_or_default();
+    let version = |d: &serde_json::Value| {
+        d["version"].as_str().or_else(|| d["checksum"].as_str().map(|c| &c[..c.len().min(12)])).map(str::to_owned)
+    };
+    let booted = deployments.iter().find(|d| d["booted"].as_bool() == Some(true));
+    // The first deployment is the one the next boot uses.
+    let staged = deployments.first().is_some_and(|d| d["booted"].as_bool() == Some(false));
+    let mut updates = Vec::new();
+    let mut note = None;
+    if let Some(i) = check.iter().position(|l| l.starts_with("AvailableUpdate")) {
+        let field = |k: &str| check[i + 1..].iter().find_map(|l| l.strip_prefix(k)).map(|v| v.trim().to_owned());
+        let available = field("Version:")
+            .map(|v| v.split(" (").next().unwrap_or(&v).to_owned())
+            .or_else(|| {
+                field("Digest:")
+                    .or_else(|| field("Commit:"))
+                    .map(|c| c.trim_start_matches("sha256:").chars().take(12).collect())
+            })
+            .unwrap_or_else(|| "newer image".into());
+        // `ostree-image-signed:docker://ghcr.io/org/image:tag` → `ghcr.io/org/image:tag`.
+        let repo = booted
+            .and_then(|d| d["container-image-reference"].as_str().or_else(|| d["origin"].as_str()))
+            .map(|r| r.rsplit("//").next().unwrap_or(r).to_owned());
+        updates.push(PackageUpdate { name: "system image".into(), current: booted.and_then(version), available, repo });
+    } else if !check.iter().any(|l| l.contains("No updates available") || l.contains("No upgrade available")) {
+        let why = check.iter().rev().find(|l| l.starts_with("error") || l.contains("rror:")).or(check.last());
+        note = Some(match why {
+            Some(w) => format!("Couldn't check for a new image: {w}"),
+            None => "Couldn't check for a new image.".into(),
+        });
+    }
+    if note.is_none() {
+        note = Some(if staged {
+            "A new image is staged: it applies on the next reboot.".into()
+        } else {
+            "Image-based system: Upgrade stages the new image for the next reboot.".into()
+        });
+    }
+    (updates, staged, note)
+}
+
 /// Package lists older than this get a "refresh first" note (apt).
 const STALE_SECS: i64 = 2 * 24 * 3600;
 
@@ -160,11 +218,14 @@ pub fn parse_check(out: &str) -> UpdatesReport {
         _ => None,
     };
     let body: String = list.lines().filter(|l| !l.starts_with('@')).collect::<Vec<_>>().join("\n");
+    let (ostree_updates, staged, ostree_note) =
+        if manager == Some(Manager::Ostree) { parse_ostree(list) } else { (Vec::new(), false, None) };
     let updates = match manager {
         Some(Manager::Apt) => parse_apt(&body),
         Some(Manager::Dnf) => parse_dnf(&body),
         Some(Manager::Pacman) => parse_pacman(&body),
-        _ => Vec::new(),
+        Some(Manager::Ostree) => ostree_updates,
+        None => Vec::new(),
     };
     let note = match manager {
         Some(Manager::Apt) => list
@@ -176,11 +237,14 @@ pub fn parse_check(out: &str) -> UpdatesReport {
         Some(Manager::Pacman) if list.lines().any(|l| l == "@stale") => {
             Some("checkupdates (pacman-contrib) isn't installed, so this uses the last synced database.".into())
         }
-        Some(Manager::Ostree) => Some("Image-based system: update it with rpm-ostree or bootc.".into()),
+        Some(Manager::Ostree) => ostree_note,
         None => Some("No supported package manager (apt, dnf, pacman) found.".into()),
         _ => None,
     };
     let mut reasons = Vec::new();
+    if staged {
+        reasons.push("a new system image is staged".to_owned());
+    }
     let mut lines = reboot.lines().map(str::trim).filter(|l| !l.is_empty()).peekable();
     while let Some(l) = lines.next() {
         match l {
@@ -229,9 +293,7 @@ pub fn upgrade_command(manager: Manager, op: UpgradeOp) -> SystemResult<String> 
         ),
         (Manager::Dnf, UpgradeOp::Upgrade) => "LANG=C dnf -y upgrade --refresh 2>&1".to_owned(),
         (Manager::Pacman, UpgradeOp::Upgrade) => "LANG=C pacman -Syu --noconfirm 2>&1".to_owned(),
-        (Manager::Ostree, _) => {
-            return Err(SystemError::other("image-based systems are updated with rpm-ostree or bootc, not from here"))
-        }
+        (Manager::Ostree, UpgradeOp::Upgrade) => "LANG=C rpm-ostree upgrade 2>&1".to_owned(),
         (m, UpgradeOp::Refresh) => {
             return Err(SystemError::other(format!(
                 "{} refreshes its lists while checking; no separate refresh needed",
@@ -318,10 +380,42 @@ mod tests {
         let r = report("@mgr none\n", "");
         assert_eq!(r.manager, None);
         assert!(r.note.is_some());
-        let r = report("@mgr ostree\n", "@flag\n");
+        let r = report("@mgr ostree\n@os-missing\n", "@flag\n");
         assert_eq!(r.manager, Some(Manager::Ostree));
         assert_eq!(r.reboot_reasons, ["the system asks for a reboot"]);
-        assert!(upgrade_command(Manager::Ostree, UpgradeOp::Upgrade).is_err());
+        assert!(r.note.unwrap().contains("bootc"));
+        assert!(upgrade_command(Manager::Ostree, UpgradeOp::Refresh).is_err());
+    }
+
+    #[test]
+    fn ostree() {
+        let json = r#"{"deployments":[{"booted":true,"version":"41.20241101.0","container-image-reference":"ostree-image-signed:docker://ghcr.io/example/os:stable"}]}"#;
+        let r = report(
+            &format!(
+                "@mgr ostree\n@os 1 metadata, 0 images\n@os AvailableUpdate:\n@os         Version: 41.20241110.0 (2024-11-10T04:00:00Z)\n@os          Digest: sha256:abcdef0123456789\n@json {json}\n"
+            ),
+            "",
+        );
+        assert_eq!(
+            r.updates,
+            [PackageUpdate {
+                name: "system image".into(),
+                current: Some("41.20241101.0".into()),
+                available: "41.20241110.0".into(),
+                repo: Some("ghcr.io/example/os:stable".into()),
+            }]
+        );
+        assert!(!r.reboot_required);
+        assert!(r.note.unwrap().contains("next reboot"));
+        // Staged: the first deployment isn't the booted one.
+        let json = r#"{"deployments":[{"booted":false,"version":"41.2"},{"booted":true,"version":"41.1"}]}"#;
+        let r = report(&format!("@mgr ostree\n@os No updates available.\n@json {json}\n"), "");
+        assert!(r.updates.is_empty());
+        assert_eq!(r.reboot_reasons, ["a new system image is staged"]);
+        // Check refused (polkit): the reason is kept.
+        let r = report("@mgr ostree\n@os error: Authorization required\n@json {}\n", "");
+        assert_eq!(r.note.as_deref(), Some("Couldn't check for a new image: error: Authorization required"));
+        assert_eq!(upgrade_command(Manager::Ostree, UpgradeOp::Upgrade).unwrap(), "LANG=C rpm-ostree upgrade 2>&1");
     }
 
     #[test]

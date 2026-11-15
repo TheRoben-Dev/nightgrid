@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.18] - 2026-11-15
+
+### Added: update center (M10m, part 1)
+- New **Fleet** view (`Mod+Shift+U`) for health across every host. Its **UPDATES** tab checks all hosts at once (three at a time) and lists pending packages per host, with security packages and **reboot required** flags first. Click a host for its package list and the reason a reboot is needed. Opening the view re-checks when the last check is older than 30 minutes.
+- **Upgrade selected…** installs every pending update on the hosts you tick, three at a time, with each host's output streaming under its row. You type the host's name, the group's name when you picked exactly one group, or `upgrade N hosts`. Hosts whose sudo needs a password that Nightgrid doesn't remember are skipped and listed, not prompted one by one. Nothing reboots by itself: **Reboot…** on a flagged host opens its usual typed confirmation.
+- **Check images** asks each Docker stack's registry whether an image tag moved, on request only, and lists the newer versions with release notes and **Open stack**. Updating still goes through Docker → STACKS, so a snapshot is taken first.
+- **rpm-ostree** systems (Fedora Atomic, Bazzite and similar) now show a pending system image with its version, and **Upgrade** stages it for the next reboot (`rpm-ostree upgrade`). A staged image counts as reboot required. This works both in Fleet and in System → UPDATES.
+- **✦ Explain** asks DRIFT which updates matter most and which hosts to do first.
+
 ## [0.10.17] - 2026-11-15
 
 ### Added: expiry watch and config drift (completes M10l)
