@@ -53,3 +53,26 @@ describe("stacks store", () => {
     expect(stacks.run?.changes?.length).toBe(1);
   });
 });
+
+describe("stack snapshots and updates (M10f)", () => {
+  it("checks updates, snapshots and rolls back", async () => {
+    const { stacks: st, stackKey, availableCount } = await import("./stacks.svelte");
+    const { docker: dk } = await import("./docker.svelte");
+    dk.hostId = 1;
+    await st.load();
+    const s = st.stacks[0];
+    await st.checkUpdates(s);
+    const c = st.updates[stackKey(s)];
+    expect(c.loading).toBe(false);
+    expect(availableCount(c)).toBeGreaterThan(0);
+    await st.openSnapshots(s);
+    await st.takeSnapshot();
+    expect(st.snapshots.length).toBe(1);
+    const snap = st.snapshots[0];
+    await st.rollback(s, snap);
+    expect(st.run?.op).toBe("rollback");
+    await new Promise((r) => setTimeout(r, 3000));
+    expect(st.run?.running).toBe(false);
+    expect(st.run?.lines.some((l) => l.startsWith("restored"))).toBe(true);
+  }, 10000);
+});

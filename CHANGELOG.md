@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-11-15
+
+### Added: stack snapshots, image changelogs and a deploy wizard (M10f)
+- **Updates** on each Compose stack asks every image's registry (anonymously, only when you click) whether its tag moved, and shows the version you run, the new version and when it was built. When the image says where its source lives, **What changed** opens the GitHub compare page between the two versions (or the release notes), and **Project** opens the repository. Images pinned by digest, built locally or behind a login are labelled instead of guessed.
+- **Snapshots** record each service's exact image and copy the stack's compose files and `.env` on the host (`~/.local/state/nightgrid/snapshots`, mode 700). One is saved automatically before every **Update** and **Rollback**; **Snapshot now** saves one by hand; the newest 10 per stack are kept.
+- **Roll back…** restores the saved files and images (pulled again by digest if they were removed) and recreates the services that changed. The confirmation names the stack, the host, every file it overwrites and every service's target image; the state before the rollback is saved first, so it can be undone.
+- **+ New stack** deploys from an image or from pasted compose YAML. From an image it reads the image's declared ports, volumes and environment variables to pre-fill a form, then shows the generated `compose.yaml` to edit before writing it. Environment values go into the stack's `.env` (mode 600), never into `compose.yaml`, and are masked until you click **Show values**. Existing files are never replaced without a second click under a warning that names them. The file is checked with `docker compose config` and the stack can be started from the last step.
+
 ## [0.10.4] - 2026-11-15
 
 ### Added: notes, runbooks and history search (M10e)

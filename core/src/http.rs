@@ -77,10 +77,17 @@ impl Request {
 #[derive(Debug, Clone)]
 pub struct Response {
     pub status: u16,
+    /// Response headers, names lower-cased.
+    pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
 }
 
 impl Response {
+    /// First header with this (lower-case) name.
+    pub fn header(&self, name: &str) -> Option<&str> {
+        self.headers.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str())
+    }
+
     pub fn ok(&self) -> bool {
         (200..300).contains(&self.status)
     }
@@ -125,6 +132,35 @@ pub async fn send(req: Request) -> Result<Response, String> {
     exchange(stream, &target, &req, left(req.timeout)).await
 }
 
+/// Like [`send`], following up to `max` redirects to HTTPS URLs only (used
+/// for registry blobs, which redirect to a CDN). Headers are dropped when a
+/// redirect leaves the original host, so a token never follows it.
+pub async fn send_following(mut req: Request, max: usize) -> Result<Response, String> {
+    let origin = parse_target(&req.url)?.host;
+    for _ in 0..=max {
+        let res = send(req.clone()).await?;
+        if !matches!(res.status, 301 | 302 | 303 | 307 | 308) {
+            return Ok(res);
+        }
+        let to = res.header("location").ok_or("redirect without a location")?;
+        let next = if to.starts_with("https://") {
+            to.to_owned()
+        } else if to.starts_with('/') {
+            let t = parse_target(&req.url)?;
+            format!("https://{}{to}", t.authority)
+        } else {
+            return Err("refused a redirect to a non-HTTPS URL".into());
+        };
+        if parse_target(&next)?.host != origin {
+            req.headers.clear();
+        }
+        req.url = next;
+        req.method = Method::Get;
+        req.body.clear();
+    }
+    Err("too many redirects".into())
+}
+
 async fn exchange<S>(io: S, target: &Target, req: &Request, timeout: Duration) -> Result<Response, String>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -162,10 +198,15 @@ where
             }
         };
         let status = res.status().as_u16();
+        let headers = res
+            .headers()
+            .iter()
+            .filter_map(|(k, v)| Some((k.as_str().to_ascii_lowercase(), v.to_str().ok()?.to_owned())))
+            .collect();
         let body = Limited::new(res.into_body(), MAX_BODY).collect().await;
         driver.abort();
         let body = body.map_err(|e| format!("reading the response failed: {e}"))?.to_bytes().to_vec();
-        Ok::<_, String>(Response { status, body })
+        Ok::<_, String>(Response { status, headers, body })
     };
     tokio::time::timeout(timeout, work).await.map_err(|_| "timed out waiting for a response".to_owned())?
 }

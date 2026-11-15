@@ -4,6 +4,8 @@
 //! See [`transport`] for how API requests reach the daemon.
 
 pub mod compose;
+pub mod registry;
+pub mod snapshot;
 pub mod transport;
 
 use std::collections::HashMap;

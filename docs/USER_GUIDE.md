@@ -46,6 +46,9 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - Containers per host with live CPU and memory, logs (follow and search), inspect, and a shell inside a container.
 - Start, stop, restart and remove are available. Stop, restart and remove confirm the containers by name.
 - **Stacks**: Compose projects, plus folders you add, with up, down, pull and restart.
+- **Updates** asks each image's registry whether its tag moved (only when you click). It shows the version you run and the new one, and **What changed** opens the project's compare page or release notes in your browser.
+- **Snapshots** save each service's exact image plus copies of the compose files and `.env` on the host. One is taken before every Update and Rollback, and the newest 10 are kept. **Roll back…** names every file and service it changes and saves the current state first.
+- **+ New stack** builds a `compose.yaml` from an image (ports, volumes and variables pre-filled from what the image declares) or from pasted YAML. Variable values go into `.env` with mode 600, never into `compose.yaml`.
 - Environment values are masked until you click them.
 
 ## Overview and monitoring

@@ -160,6 +160,12 @@ pub fn merge_stacks(containers: &[ContainerView], found: &[String]) -> Vec<Stack
 /// The shell command for one compose operation on a stack. Output of both
 /// streams is merged so it reads in order.
 pub fn compose_command(stack: &Stack, op: ComposeOp, route: &Route) -> String {
+    compose_shell(stack, op.args(), route)
+}
+
+/// `docker compose -p NAME [-f …] ARGS` in the stack folder. `args` is a
+/// fixed string from this crate, never user input.
+pub fn compose_shell(stack: &Stack, args: &str, route: &Route) -> String {
     let host = match route {
         Route::Socket(s) | Route::DialStdio(Some(s)) if s != "/var/run/docker.sock" => {
             format!("export DOCKER_HOST={}; ", shell_quote(&format!("unix://{s}")))
@@ -174,7 +180,7 @@ pub fn compose_command(stack: &Stack, op: ComposeOp, route: &Route) -> String {
          cd {} && $dc -p {}{files} {}",
         shell_quote(&stack.dir),
         shell_quote(&stack.name),
-        op.args()
+        args
     )
 }
 
@@ -190,7 +196,68 @@ pub fn check_stack(stack: &Stack) -> DockerResult<()> {
     Ok(())
 }
 
+/// A new stack's compose file (and optional `.env`) for the deploy wizard.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct DeployInput {
+    /// Folder the stack's own folder is created in (a stack folder, usually).
+    pub parent: String,
+    /// Project name, also the folder name.
+    pub name: String,
+    pub compose: String,
+    /// `.env` content (written with mode 600), if any.
+    pub env: Option<String>,
+    /// Replace an existing compose.yaml / .env there (confirmed in the UI).
+    pub overwrite: bool,
+}
+
+pub const MAX_DEPLOY_FILE: usize = 256 * 1024;
+
+impl DeployInput {
+    /// Checks names and sizes; returns the stack it will create.
+    pub fn stack(&self) -> DockerResult<Stack> {
+        if !valid_project(&self.name) {
+            return Err(DockerError::other(
+                "name: lowercase letters, digits, - and _, starting with a letter or digit",
+            ));
+        }
+        if self.compose.trim().is_empty()
+            || self.compose.len() > MAX_DEPLOY_FILE
+            || self.env.as_ref().is_some_and(|e| e.len() > MAX_DEPLOY_FILE)
+        {
+            return Err(DockerError::other("the compose file is empty or too large"));
+        }
+        let parent = self.parent.trim_end_matches('/');
+        let stack = Stack {
+            name: self.name.clone(),
+            dir: format!("{}/{}", if parent.is_empty() { "" } else { parent }, self.name),
+            files: Vec::new(),
+            running: 0,
+            total: 0,
+            in_folder: true,
+        };
+        check_stack(&stack)?;
+        Ok(stack)
+    }
+}
+
 impl DockerHost {
+    /// Validates a stack's compose file on the host (`docker compose config -q`).
+    /// Returns compose's complaint on failure.
+    pub async fn validate_stack(&self, stack: &Stack) -> DockerResult<Result<(), String>> {
+        check_stack(stack)?;
+        let (code, out, _) =
+            self.conn.exec(&compose_shell(stack, "config -q", &self.route)).await.map_err(DockerError::other)?;
+        Ok(if code == 0 { Ok(()) } else { Err(clean(&out)) })
+    }
+
+    /// The engine's platform, e.g. ("linux", "arm64").
+    pub async fn platform(&self) -> DockerResult<(String, String)> {
+        let v = self.docker.version().await.map_err(|e| DockerError::from_bollard(e, None))?;
+        Ok((v.os.unwrap_or_else(|| "linux".into()), v.arch.unwrap_or_else(|| "amd64".into())))
+    }
+
     /// Stacks from container labels plus compose files in `dirs`.
     pub async fn stacks(&self, dirs: &[String]) -> DockerResult<Vec<Stack>> {
         let containers = self.containers().await?;
@@ -254,7 +321,7 @@ impl DockerHost {
         Ok((code, Some(changes)))
     }
 
-    async fn run_streaming(
+    pub(crate) async fn run_streaming(
         &self,
         command: &str,
         cancel: &mut watch::Receiver<bool>,

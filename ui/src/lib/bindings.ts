@@ -104,6 +104,37 @@ export const commands = {
 	dockerComposeRun: (hostId: number, stack: Stack, op: ComposeOp, onEvent: Channel<ComposeEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("docker_compose_run", { hostId, stack, op, onEvent }, options),
 	/**  Sends Ctrl-C to a running compose command. */
 	dockerComposeCancel: (run: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_compose_cancel", { run }, options),
+	dockerSnapshots: (hostId: number, project: string, options?: InvokeOptions) => __TAURI_INVOKE<Snapshot_Serialize[]>("docker_snapshots", { hostId, project }, options),
+	/**
+	 *  Saves a snapshot of the stack now: images in the local database, compose
+	 *  files and `.env` copied on the host.
+	 */
+	dockerSnapshotTake: (hostId: number, stack: Stack, options?: InvokeOptions) => __TAURI_INVOKE<Snapshot_Serialize>("docker_snapshot_take", { hostId, stack }, options),
+	/**  Forgets a snapshot (the copies on the host age out with newer snapshots). */
+	dockerSnapshotDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_snapshot_delete", { id }, options),
+	/**
+	 *  Rolls a stack back to a snapshot, output on the same channel as compose
+	 *  runs. Confirmed in the UI with the stack, host, services and files named
+	 *  (rule 5); a "before rollback" snapshot is taken first.
+	 */
+	dockerStackRollback: (hostId: number, stack: Stack, snapshot: number, onEvent: Channel<ComposeEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("docker_stack_rollback", { hostId, stack, snapshot, onEvent }, options),
+	/**
+	 *  Asks each image's registry whether its tag moved, with version and
+	 *  release-notes hints. Only on request (rule 7: registries).
+	 */
+	dockerStackCheckUpdates: (hostId: number, stack: Stack, options?: InvokeOptions) => __TAURI_INVOKE<ImageUpdate_Serialize[]>("docker_stack_check_updates", { hostId, stack }, options),
+	/**
+	 *  An image's declared ports, volumes and env names from its registry, for
+	 *  the deploy wizard (rule 7: registries). Nothing is pulled.
+	 */
+	dockerImageLookup: (hostId: number, image: string, options?: InvokeOptions) => __TAURI_INVOKE<RemoteImage_Serialize>("docker_image_lookup", { hostId, image }, options),
+	/**
+	 *  Deploy wizard: creates `<parent>/<name>/`, writes compose.yaml (and .env,
+	 *  mode 600) and checks it with `docker compose config -q`. Existing files
+	 *  are only replaced with `overwrite`, which the UI confirms naming them
+	 *  (rule 5). Starting the stack is the normal "Up" afterwards.
+	 */
+	dockerStackDeploy: (hostId: number, input: DeployInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Stack>("docker_stack_deploy", { hostId, input }, options),
 	stackDirsList: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<StackDir[]>("stack_dirs_list", { hostId }, options),
 	stackDirsAdd: (hostId: number, path: string, options?: InvokeOptions) => __TAURI_INVOKE<StackDir>("stack_dirs_add", { hostId, path }, options),
 	stackDirsDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("stack_dirs_delete", { id }, options),
@@ -1046,6 +1077,35 @@ export type CronJob_Serialize = {
 	next: number | null,
 };
 
+/**  A new stack's compose file (and optional `.env`) for the deploy wizard. */
+export type DeployInput = DeployInput_Serialize | DeployInput_Deserialize;
+
+/**  A new stack's compose file (and optional `.env`) for the deploy wizard. */
+export type DeployInput_Deserialize = {
+	/**  Folder the stack's own folder is created in (a stack folder, usually). */
+	parent: string,
+	/**  Project name, also the folder name. */
+	name: string,
+	compose: string,
+	/**  `.env` content (written with mode 600), if any. */
+	env?: string | null,
+	/**  Replace an existing compose.yaml / .env there (confirmed in the UI). */
+	overwrite: boolean,
+};
+
+/**  A new stack's compose file (and optional `.env`) for the deploy wizard. */
+export type DeployInput_Serialize = {
+	/**  Folder the stack's own folder is created in (a stack folder, usually). */
+	parent: string,
+	/**  Project name, also the folder name. */
+	name: string,
+	compose: string,
+	/**  `.env` content (written with mode 600), if any. */
+	env: string | null,
+	/**  Replace an existing compose.yaml / .env there (confirmed in the UI). */
+	overwrite: boolean,
+};
+
 export type Disk = Disk_Serialize | Disk_Deserialize;
 
 export type Disk_Deserialize = {
@@ -1575,6 +1635,50 @@ export type ImageChange_Serialize = {
 	/**  Short image ids (12 hex chars); `None` before = service was not running. */
 	before: string | null,
 	after: string,
+};
+
+export type ImageStatus = 
+/**  The registry's tag points at the image the host has. */
+"current" | 
+/**  The tag moved: pulling would change the image. */
+"available" | 
+/**  Pinned by digest. */
+"pinned" | 
+/**  Built locally or never pulled from a registry. */
+"local" | 
+/**  The registry wants a login (not attempted). */
+"needsLogin" | 
+/**  The check failed (see `error`). */
+"unknown";
+
+export type ImageUpdate = ImageUpdate_Serialize | ImageUpdate_Deserialize;
+
+export type ImageUpdate_Deserialize = {
+	image: string,
+	/**  Services of the stack that use it. */
+	services: string[],
+	status: ImageStatus,
+	error?: string | null,
+	current: VersionInfo_Deserialize,
+	latest?: VersionInfo_Deserialize | null,
+	/**  Project page (https), from the image's labels. */
+	source?: string | null,
+	/**  Release notes or a commit comparison (https), when it can be worked out. */
+	notes?: string | null,
+};
+
+export type ImageUpdate_Serialize = {
+	image: string,
+	/**  Services of the stack that use it. */
+	services: string[],
+	status: ImageStatus,
+	error: string | null,
+	current: VersionInfo_Serialize,
+	latest: VersionInfo_Serialize | null,
+	/**  Project page (https), from the image's labels. */
+	source: string | null,
+	/**  Release notes or a commit comparison (https), when it can be worked out. */
+	notes: string | null,
 };
 
 export type ImportMode = 
@@ -2334,6 +2438,43 @@ export type Rate = {
 	tx: number,
 };
 
+/**  What an image declares, for the deploy wizard's suggestions. */
+export type RemoteImage = RemoteImage_Serialize | RemoteImage_Deserialize;
+
+/**  What an image declares, for the deploy wizard's suggestions. */
+export type RemoteImage_Deserialize = {
+	image: string,
+	version: VersionInfo_Deserialize,
+	/**  `8080/tcp`, … */
+	ports: string[],
+	/**  Container paths declared as volumes. */
+	volumes: string[],
+	/**
+	 *  Env names the image sets (values left out: defaults like PATH are noise,
+	 *  and a value could be sensitive).
+	 */
+	env: string[],
+	source?: string | null,
+	description?: string | null,
+};
+
+/**  What an image declares, for the deploy wizard's suggestions. */
+export type RemoteImage_Serialize = {
+	image: string,
+	version: VersionInfo_Serialize,
+	/**  `8080/tcp`, … */
+	ports: string[],
+	/**  Container paths declared as volumes. */
+	volumes: string[],
+	/**
+	 *  Env names the image sets (values left out: defaults like PATH are noise,
+	 *  and a value could be sensitive).
+	 */
+	env: string[],
+	source: string | null,
+	description: string | null,
+};
+
 /**  What an upgrade run's channel carries. */
 export type RunEvent = RunEvent_Serialize | RunEvent_Deserialize;
 
@@ -2649,6 +2790,62 @@ export type SmartAttr_Serialize = {
 	/**  `now` / `past` when the attribute crossed its threshold. */
 	failed: string | null,
 	health: Health,
+};
+
+export type Snapshot = Snapshot_Serialize | Snapshot_Deserialize;
+
+/**  A stack file copied on the host. */
+export type SnapshotFile = {
+	/**  Where the file lives in the stack. */
+	path: string,
+	/**  The copy on the host. */
+	saved: string,
+};
+
+export type SnapshotService = SnapshotService_Serialize | SnapshotService_Deserialize;
+
+export type SnapshotService_Deserialize = {
+	service: string,
+	/**  The image reference the container was created from (`nginx:1.27`). */
+	image: string,
+	/**  Full image id (`sha256:…`). */
+	imageId: string,
+	/**  `repo@sha256:…` it was pulled as, if any (to re-pull a pruned image). */
+	repoDigest?: string | null,
+};
+
+export type SnapshotService_Serialize = {
+	service: string,
+	/**  The image reference the container was created from (`nginx:1.27`). */
+	image: string,
+	/**  Full image id (`sha256:…`). */
+	imageId: string,
+	/**  `repo@sha256:…` it was pulled as, if any (to re-pull a pruned image). */
+	repoDigest: string | null,
+};
+
+export type Snapshot_Deserialize = {
+	id: number,
+	hostId: number,
+	project: string,
+	/**  `manual`, `before update` or `before rollback`. */
+	reason: string,
+	services: SnapshotService_Deserialize[],
+	files: SnapshotFile[],
+	/**  Unix seconds. */
+	createdAt: number,
+};
+
+export type Snapshot_Serialize = {
+	id: number,
+	hostId: number,
+	project: string,
+	/**  `manual`, `before update` or `before rollback`. */
+	reason: string,
+	services: SnapshotService_Serialize[],
+	files: SnapshotFile[],
+	/**  Unix seconds. */
+	createdAt: number,
 };
 
 export type Snippet = {
@@ -3195,6 +3392,25 @@ export type Variable_Serialize = {
 	name: string,
 	/**  From `{{name=default}}`, if any. */
 	default: string | null,
+};
+
+/**  What is known about one image version. */
+export type VersionInfo = VersionInfo_Serialize | VersionInfo_Deserialize;
+
+/**  What is known about one image version. */
+export type VersionInfo_Deserialize = {
+	version?: string | null,
+	revision?: string | null,
+	/**  RFC 3339 build time. */
+	created?: string | null,
+};
+
+/**  What is known about one image version. */
+export type VersionInfo_Serialize = {
+	version: string | null,
+	revision: string | null,
+	/**  RFC 3339 build time. */
+	created: string | null,
 };
 
 export type WebhookInfo = WebhookInfo_Serialize | WebhookInfo_Deserialize;

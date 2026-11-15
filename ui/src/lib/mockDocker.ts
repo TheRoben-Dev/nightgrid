@@ -15,9 +15,17 @@ import type {
   LogQuery_Deserialize as LogQuery,
   ComposeEvent_Serialize as ComposeEvent,
   ComposeOp,
+  DeployInput,
+  ImageUpdate_Serialize as ImageUpdate,
+  RemoteImage_Serialize as RemoteImage,
+  Snapshot_Serialize as Snapshot,
   Stack,
   StackDir,
 } from "./bindings";
+
+let snaps: Snapshot[] = [];
+let nextSnap = 1;
+const deployed: Stack[] = [];
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -264,7 +272,7 @@ export const mockDocker = {
     logStreams.delete(sid);
     return delay(null, 0);
   },
-  stacks: (hostId: number): Promise<Stack[]> => delay(stacksOf(hostId), 200),
+  stacks: (hostId: number): Promise<Stack[]> => delay([...stacksOf(hostId), ...deployed.filter((d) => !stacksOf(hostId).some((s) => s.name === d.name))], 200),
   stackDirs: (hostId: number): Promise<StackDir[]> => delay(stackDirs.filter((d) => d.hostId === hostId)),
   stackDirAdd: (hostId: number, path: string): Promise<StackDir> => {
     const d = { id: nextDir++, hostId, path };
@@ -304,6 +312,104 @@ export const mockDocker = {
       }, 250),
     );
     return delay(run, 30);
+  },
+  snapshots: (hostId: number, project: string): Promise<Snapshot[]> =>
+    delay(snaps.filter((s) => s.hostId === hostId && s.project === project).sort((a, b) => b.createdAt - a.createdAt || b.id - a.id)),
+  snapshotTake: (hostId: number, stack: Stack, reason = "manual"): Promise<Snapshot> => {
+    const svcs = list(hostId).filter((c) => c.view.project === stack.name);
+    const s: Snapshot = {
+      id: nextSnap++,
+      hostId,
+      project: stack.name,
+      reason,
+      services: svcs.map((c, i) => ({
+        service: c.view.service ?? c.view.name,
+        image: c.view.image,
+        imageId: `sha256:${(nextSnap * 7919 + i).toString(16).padStart(12, "0")}${"0".repeat(52)}`,
+        repoDigest: `${c.view.image.split(":")[0]}@sha256:${"ab".repeat(32)}`,
+      })),
+      files: [
+        { path: `${stack.dir}/compose.yaml`, saved: `/home/admin/.local/state/nightgrid/snapshots/${stack.name}/${Date.now()}/1-compose.yaml` },
+        { path: `${stack.dir}/.env`, saved: `/home/admin/.local/state/nightgrid/snapshots/${stack.name}/${Date.now()}/2-.env` },
+      ],
+      createdAt: Math.floor(Date.now() / 1000) - (reason === "seed" ? 86400 * 2 : 0),
+    };
+    snaps = [...snaps, s];
+    return delay(s);
+  },
+  snapshotDelete: (id: number): Promise<null> => {
+    snaps = snaps.filter((s) => s.id !== id);
+    return delay(null);
+  },
+  rollback: (hostId: number, stack: Stack, snapshot: number, on: (e: ComposeEvent) => void): Promise<number> => {
+    const snap = snaps.find((s) => s.id === snapshot);
+    void mockDocker.snapshotTake(hostId, stack, "before rollback");
+    const lines = [
+      "Saved the current state as a snapshot first.",
+      ...(snap?.files ?? []).map((f) => `restored ${f.path}`),
+      ...(snap?.services ?? []).map((s) => `${s.service}: ${s.image} → ${s.imageId.slice(7, 19)}`),
+      "",
+      "── recreating changed services (up -d) ──",
+      ...(snap?.services ?? []).map((s) => ` Container ${stack.name}-${s.service}-1  Started`),
+    ];
+    const run = nextRun++;
+    let i = 0;
+    composeRuns.set(
+      run,
+      setInterval(() => {
+        if (i < lines.length) return on({ kind: "lines", lines: [lines[i++]] });
+        clearInterval(composeRuns.get(run));
+        composeRuns.delete(run);
+        on({ kind: "done", code: 0, changes: null, error: null });
+      }, 200),
+    );
+    return delay(run, 30);
+  },
+  checkUpdates: (hostId: number, stack: Stack): Promise<ImageUpdate[]> => {
+    const images = [...new Map(list(hostId).filter((c) => c.view.project === stack.name).map((c) => [c.view.image, c.view.service ?? c.view.name])).entries()];
+    return delay(
+      images.map(([image, service], i): ImageUpdate => {
+        const src = "https://github.com/example/" + image.split(/[/:]/).slice(-2, -1)[0];
+        if (i % 3 === 0)
+          return {
+            image,
+            services: [service],
+            status: "available",
+            error: null,
+            current: { version: "1.4.2", revision: "a1b2c3d4", created: "2026-09-02T10:00:00Z" },
+            latest: { version: "1.5.0", revision: "e5f6a7b8", created: "2026-11-10T08:30:00Z" },
+            source: src,
+            notes: `${src}/compare/a1b2c3d4...e5f6a7b8`,
+          };
+        if (i % 3 === 1)
+          return { image, services: [service], status: "current", error: null, current: { version: "2.0.1", revision: null, created: "2026-10-20T00:00:00Z" }, latest: null, source: src, notes: `${src}/releases` };
+        return { image, services: [service], status: "needsLogin", error: null, current: { version: null, revision: null, created: null }, latest: null, source: null, notes: null };
+      }),
+      700,
+    );
+  },
+  imageLookup: (_hostId: number, image: string): Promise<RemoteImage> => {
+    if (!image.trim() || /\s/.test(image)) return Promise.reject(new Error("not a valid image reference"));
+    return delay(
+      {
+        image,
+        version: { version: "3.2.0", revision: null, created: "2026-11-01T00:00:00Z" },
+        ports: ["8080/tcp"],
+        volumes: ["/config", "/data"],
+        env: ["TZ", "PUID", "PGID", "ADMIN_TOKEN"],
+        source: "https://github.com/example/app",
+        description: "An example self-hosted web app.",
+      },
+      500,
+    );
+  },
+  deploy: (_hostId: number, input: DeployInput): Promise<Stack> => {
+    const dir = `${input.parent.replace(/\/+$/, "")}/${input.name}`;
+    if (!/^[a-z0-9][a-z0-9_-]*$/.test(input.name)) return Promise.reject(new Error("name: lowercase letters, digits, - and _, starting with a letter or digit"));
+    if (!input.overwrite && deployed.some((s) => s.dir === dir)) return Promise.reject(new Error(`already exists: ${dir}/compose.yaml`));
+    const s: Stack = { name: input.name, dir, files: [], running: 0, total: 0, inFolder: true };
+    if (!deployed.some((d) => d.dir === dir)) deployed.push(s);
+    return delay(s, 600);
   },
   composeCancel: (run: number): Promise<null> => {
     clearInterval(composeRuns.get(run));

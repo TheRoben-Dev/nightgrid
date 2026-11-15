@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing M10f (snapshots, updates, deploy wizard)
+
+1. **Docker → Stacks**, on a stack that uses a `:latest` image: **Updates** lists each image with a badge. If one says UPDATE, it shows the old → new version, and **What changed** opens GitHub in your browser.
+2. **Snapshots → Snapshot now**: a MANUAL entry appears with each service's image id and the files saved. On the host, `ls ~/.local/state/nightgrid/snapshots/<stack>/` shows the copies (`ls -ld` shows `drwx------`).
+3. Edit the stack's `compose.yaml` (e.g. change an image tag), run **Up**, then **Snapshots → Roll back…** on the earlier snapshot. The dialog names the compose file and each service; confirm and the output shows the files restored and the services recreated. The list now also has a BEFORE ROLLBACK snapshot.
+4. **+ New stack**, image `ghcr.io/linuxserver/syncthing` (or any image), **Next**: ports, volumes and variables are pre-filled. Add a variable `ADMIN_TOKEN` with a value; it stays masked. **Review**: `compose.yaml` has `ADMIN_TOKEN: ${ADMIN_TOKEN}` and the `.env` preview is masked. **Create stack** in a test folder, then **Start it**. On the host `stat -c %a .env` prints `600`. Create it again in the same folder: a red box names the existing files, and nothing is replaced unless you click **Replace them in …**.
+
 ### macOS: testing M10e (notes, history search)
 
 1. `Cmd+9` → **New**. Title "Restart stack", host = a test host, body with a ```` ```sh ```` block containing `docker ps`. **Save**: the note renders with **Send to terminal** under the block; clicking it opens (or reuses) a terminal on that host with `docker ps` typed at the prompt, not run.
