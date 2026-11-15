@@ -39,7 +39,7 @@
       </button>
     {/if}
     {#if r?.rebootRequired}
-      <button type="button" class="btn danger tiny" disabled={run?.running} onclick={() => (system.confirmReboot = true)}>Reboot…</button>
+      <button type="button" class="btn danger tiny" disabled={run?.running} onclick={() => (system.confirmPower = "reboot")}>Reboot…</button>
     {/if}
   </div>
 

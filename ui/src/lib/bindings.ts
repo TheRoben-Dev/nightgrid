@@ -245,6 +245,18 @@ export const commands = {
 	systemUpgradeRun: (hostId: number, manager: Manager, op: UpgradeOp, sudo: SudoInput | null, onEvent: Channel<RunEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("system_upgrade_run", { hostId, manager, op, sudo, onEvent }, options),
 	/**  Reboots the host. Confirmed in the UI by typing the host name. */
 	systemReboot: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_reboot", { hostId, sudo }, options),
+	/**
+	 *  Reboots, shuts down or suspends the host (as root). Confirmed in the UI by
+	 *  typing the host name. The host then shows "Rebooting", "Shutting down"
+	 *  or "Suspended" instead of "Offline", with no offline alert.
+	 */
+	systemPower: (hostId: number, action: PowerAction, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_power", { hostId, action, sudo }, options),
+	/**
+	 *  Sends a Wake-on-LAN magic packet to the host's MAC address: from its relay
+	 *  host over SSH when one is set (works away from home), else as a broadcast
+	 *  from this computer.
+	 */
+	hostWake: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<WakeSent_Serialize>("host_wake", { hostId }, options),
 	/**  SMART health of every disk (needs root). */
 	systemDisks: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<DisksReport_Serialize>("system_disks", { hostId, sudo }, options),
 	integrationsList: (options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize[]>("integrations_list", undefined, options),
@@ -1398,6 +1410,13 @@ export type Device_Deserialize = {
 	/**  Tailscale: OS and whether it's online. */
 	os?: string | null,
 	online?: boolean | null,
+	/**
+	 *  Maker from the MAC address (bundled IEEE list), or "Random MAC" for a
+	 *  locally administered address (phones' private Wi-Fi addresses, VMs).
+	 */
+	vendor?: string | null,
+	/**  Other addresses of the same device (same MAC), e.g. its IPv6 address. */
+	also: string[],
 };
 
 export type Device_Serialize = {
@@ -1411,6 +1430,13 @@ export type Device_Serialize = {
 	/**  Tailscale: OS and whether it's online. */
 	os: string | null,
 	online: boolean | null,
+	/**
+	 *  Maker from the MAC address (bundled IEEE list), or "Random MAC" for a
+	 *  locally administered address (phones' private Wi-Fi addresses, VMs).
+	 */
+	vendor: string | null,
+	/**  Other addresses of the same device (same MAC), e.g. its IPv6 address. */
+	also: string[],
 };
 
 export type Discovery = Discovery_Serialize | Discovery_Deserialize;
@@ -1888,6 +1914,12 @@ export type HostInput_Deserialize = {
 	tailnetAddress?: string | null,
 	/**  DRIFT may read this host's recent shell history (opt-in). */
 	driftHistory?: boolean,
+	/**  For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`). */
+	macAddress?: string | null,
+	/**  Another saved host on this host's LAN that sends the magic packet. */
+	wakeRelayId?: number | null,
+	/**  Local hours the host is expected to be asleep (`23:00-07:00`). */
+	sleepWindow?: string | null,
 };
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
@@ -1911,6 +1943,12 @@ export type HostInput_Serialize = {
 	tailnetAddress: string | null,
 	/**  DRIFT may read this host's recent shell history (opt-in). */
 	driftHistory: boolean,
+	/**  For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`). */
+	macAddress: string | null,
+	/**  Another saved host on this host's LAN that sends the magic packet. */
+	wakeRelayId: number | null,
+	/**  Local hours the host is expected to be asleep (`23:00-07:00`). */
+	sleepWindow: string | null,
 };
 
 /**  A host key as shown to the user. */
@@ -1970,6 +2008,12 @@ export type Host_Deserialize = {
 	tailnetAddress?: string | null,
 	/**  DRIFT may read this host's recent shell history (opt-in). */
 	driftHistory: boolean,
+	/**  For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`). */
+	macAddress?: string | null,
+	/**  Another saved host on this host's LAN that sends the magic packet. */
+	wakeRelayId?: number | null,
+	/**  Local hours the host is expected to be asleep (`23:00-07:00`). */
+	sleepWindow?: string | null,
 };
 
 export type Host_Serialize = {
@@ -1995,6 +2039,12 @@ export type Host_Serialize = {
 	tailnetAddress: string | null,
 	/**  DRIFT may read this host's recent shell history (opt-in). */
 	driftHistory: boolean,
+	/**  For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`). */
+	macAddress: string | null,
+	/**  Another saved host on this host's LAN that sends the magic packet. */
+	wakeRelayId: number | null,
+	/**  Local hours the host is expected to be asleep (`23:00-07:00`). */
+	sleepWindow: string | null,
 };
 
 export type Iface = {
@@ -2795,7 +2845,18 @@ export type PollState =
 /**  Connected, but the collect script failed (not Linux, no /proc, ...). */
 "error" | 
 /**  Metrics are turned off in settings. */
-"off";
+"off" | 
+/**
+ *  Doesn't answer, but it was suspended (from Nightgrid, or the host
+ *  announced sleep). No offline alert. The message says why.
+ */
+"suspended" | 
+/**  Doesn't answer while it reboots (gives up after 15 minutes). */
+"rebooting" | 
+/**  Doesn't answer after a shutdown. */
+"shuttingDown" | 
+/**  Doesn't answer inside its expected sleep window. */
+"asleep";
 
 export type PortView = PortView_Serialize | PortView_Deserialize;
 
@@ -2822,6 +2883,9 @@ export type PortainerStatus_Deserialize = {
 export type PortainerStatus_Serialize = {
 	version: string | null,
 };
+
+/**  A power action the user starts from Nightgrid. */
+export type PowerAction = "reboot" | "shutdown" | "suspend";
 
 export type PromptKind = "password" | "passphrase";
 
@@ -3141,7 +3205,13 @@ export type Seen =
 /**  A Tailscale peer. */
 "tailscale" | 
 /**  The default gateway. */
-"gateway";
+"gateway" | 
+/**  Answered a TCP connect during the sweep. */
+"probe" | 
+/**  The scanned host mounts a network share from it (NFS, SMB). */
+"mount" | 
+/**  The scanned host has an open TCP connection to it. */
+"connection";
 
 export type Service = Service_Serialize | Service_Deserialize;
 
@@ -4062,6 +4132,23 @@ export type Vm_Serialize = {
 	vcpus: number | null,
 	memoryMb: number | null,
 	autostart: boolean | null,
+};
+
+/**  How a wake-up was sent. */
+export type WakeSent = WakeSent_Serialize | WakeSent_Deserialize;
+
+/**  How a wake-up was sent. */
+export type WakeSent_Deserialize = {
+	/**  The relay host's name, or `None` when sent from this computer. */
+	via?: string | null,
+	mac: string,
+};
+
+/**  How a wake-up was sent. */
+export type WakeSent_Serialize = {
+	/**  The relay host's name, or `None` when sent from this computer. */
+	via: string | null,
+	mac: string,
 };
 
 export type WebhookInfo = WebhookInfo_Serialize | WebhookInfo_Deserialize;

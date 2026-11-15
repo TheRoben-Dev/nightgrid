@@ -38,6 +38,9 @@
     sshAlias: null,
     tailnetAddress: null,
     driftHistory: false,
+    macAddress: null,
+    wakeRelayId: null,
+    sleepWindow: null,
     tags: [],
   });
 
@@ -92,6 +95,8 @@
         identityFile: form.authMethod === "password" ? null : nullable(form.identityFile),
         proxyJump: nullable(form.proxyJump),
         tailnetAddress: nullable(form.tailnetAddress),
+        macAddress: nullable(form.macAddress),
+        sleepWindow: nullable(form.sleepWindow),
         notes: nullable(form.notes),
         icon: iconArt,
         tags: tagsText
@@ -221,6 +226,26 @@
         </datalist>
         <span class="field-hint">Optional. Tried when the address above doesn't answer (away from home), and the other way round when you're back. The host key is checked against the main address.</span>
       </label>
+
+      <label class="field span2" data-guide="host-wake">
+        <span>MAC address (Wake-on-LAN)</span>
+        <input class="input mono" bind:value={form.macAddress} placeholder="aa:bb:cc:dd:ee:ff" autocomplete="off" spellcheck="false" />
+      </label>
+      <label class="field span2">
+        <span>Wake from</span>
+        <select class="input" value={form.wakeRelayId ?? ""} onchange={(e) => (form.wakeRelayId = e.currentTarget.value ? Number(e.currentTarget.value) : null)}>
+          <option value="">This computer</option>
+          {#each hosts.hosts.filter((x) => x.id !== existing?.id) as x (x.id)}<option value={x.id}>{x.name}</option>{/each}
+        </select>
+      </label>
+      <label class="field span2">
+        <span>Sleep window</span>
+        <input class="input mono" bind:value={form.sleepWindow} placeholder="23:00-07:00" autocomplete="off" spellcheck="false" />
+      </label>
+      <p class="span6 field-hint">
+        Wake from another host on the same LAN to wake this one when you're away. Inside the sleep window (this computer's time), a host that doesn't
+        answer shows as asleep, without an offline alert.
+      </p>
 
       <label class="field span3">
         <span>Group</span>

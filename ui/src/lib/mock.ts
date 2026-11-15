@@ -63,6 +63,9 @@ const toHost = (id: number, i: HostInput): Host => ({
   sshAlias: i.sshAlias,
   tailnetAddress: i.tailnetAddress?.trim() || null,
   driftHistory: i.driftHistory,
+  macAddress: i.macAddress?.trim() || null,
+  wakeRelayId: i.wakeRelayId,
+  sleepWindow: i.sleepWindow?.trim() || null,
   tags: [...new Set(i.tags.map((t) => t.trim()).filter(Boolean))],
 });
 
@@ -165,6 +168,9 @@ export const mockBackend = {
             sshAlias: c.alias,
             tailnetAddress: null,
             driftHistory: false,
+            macAddress: null,
+            wakeRelayId: null,
+            sleepWindow: null,
             tags: ["ssh-config"],
           }),
         });

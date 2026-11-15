@@ -60,7 +60,9 @@ const TABLES: &[Table] = &[
     Table {
         name: "hosts",
         id: true,
-        fks: &[("group_id", "host_groups", Missing::Null)],
+        // `wake_relay_id` points at another host, which may come later; it is
+        // cleared here and restored once every host has its new id.
+        fks: &[("group_id", "host_groups", Missing::Null), ("wake_relay_id", "hosts", Missing::Null)],
         keys: &[&["ssh_alias"], &["name", "hostname", "port"]],
     },
     Table {
@@ -472,6 +474,21 @@ pub fn import(store: &mut Store, bundle: &Bundle, mode: ImportMode) -> Result<Im
                 *out.added.entry(t.name).or_default() += 1;
             }
             maps.insert(t.name, map);
+        }
+        // Wake relays refer to hosts by id: restore them with the new ids.
+        if let (Some(rows), Some(map)) = (bundle.tables.get("hosts"), maps.get("hosts")) {
+            for r in rows {
+                let (Some(old), Some(relay)) =
+                    (r.get("id").and_then(Value::as_i64), r.get("wake_relay_id").and_then(Value::as_i64))
+                else {
+                    continue;
+                };
+                if let (Some(new), Some(new_relay)) = (map.get(&old), map.get(&relay)) {
+                    if out.hosts.contains_key(&old) {
+                        tx.execute("UPDATE hosts SET wake_relay_id = ?2 WHERE id = ?1", [new, new_relay])?;
+                    }
+                }
+            }
         }
         Ok(())
     })?;

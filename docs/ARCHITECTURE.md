@@ -185,6 +185,13 @@ _Last updated: M2 (SFTP + editor)._
 - **UI**: `stores/tailnet.svelte.ts`, `components/tailnet/TailnetPanel.svelte` (Settings), the host editor's **Tailnet address** with peer suggestions; browser preview uses `mockTailnet.ts`.
 - **DRIFT host facts** (D-093): `helper/hostFacts.ts` (`mentionedHosts`, `hostFacts`) → `HelperContext.hosts`, first block in `contextBlock`. History: `helper_host_history` (`app/src/helper_cmd.rs`) checks `hosts.drift_history` (migration 0016) and reuses `system::history::read_command` / `parse` / `filter`.
 
+## Power states and Wake-on-LAN (M10k)
+
+- **Core** (`core/src/power.rs`, D-094/D-095): `PowerAction` (commands), `PowerState`, process-wide notes (`note`, `clear`, `current` with `SleepWindow`), `WATCH_COMMAND` / `parse_watch_line` / `watch` for logind signals, `parse_mac`, `magic_packet`, `wake_local`, `wake_relay_command`. Host columns `mac_address`, `wake_relay_id`, `sleep_window` (migration 0017).
+- **App**: the metrics poller (`metrics_cmd.rs`) starts a watcher per connected host, clears notes on a good sample and reports `PollState::{Suspended, Rebooting, ShuttingDown, Asleep}` instead of `Offline`; commands `system_power` and `host_wake` (`system_cmd.rs`).
+- **UI**: System toolbar power buttons and the typed-name confirmation (`system.confirmPower`, `system.power`, `system.wake`); `HostTile` and `HostList` show planned states; host editor fields.
+- **Discovery additions** (D-096): `netmap::{is_container_bridge, mac_vendor, parse_mounts, parse_conns, parse_link_local}`, `PROBE_PORTS`; sections `probe`, `mounts`, `conns`; `Device.vendor` / `Device.also`; `Seen::{Probe, Mount, Connection}`. Vendor data: `core/data/oui.tsv` (regenerate with `scripts/gen_oui.py`).
+
 ## Backups (M9)
 
 - **Core** (`core/src/backup.rs`): `snapshot` copies the config tables into a JSON `Bundle` (history tables left out), `collect_secrets` adds keychain entries on request, `encrypt`/`decrypt` wrap it in an age scrypt passphrase file, `import` merges (natural keys, id remapping) or replaces in one transaction, and `restore_secrets` moves keychain entries to the new ids (D-057, D-058).

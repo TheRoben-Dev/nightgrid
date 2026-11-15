@@ -1,24 +1,31 @@
 <script lang="ts">
   import type { Host } from "../api";
   import { hosts } from "../stores/hosts.svelte";
+  import { metrics } from "../stores/metrics.svelte";
+
+  const PLANNED: Record<string, string> = { suspended: "suspended", rebooting: "rebooting", shuttingDown: "shut down", asleep: "asleep (sleep window)" };
   import { terms } from "../stores/terms.svelte";
 
   let collapsedGroups = $state<Record<string, boolean>>({});
   const groups = $derived(hosts.grouped);
   const total = $derived(hosts.hosts.length);
 
-  function status(h: Host): "online" | "offline" | "unknown" | "connected" {
+  function status(h: Host): "online" | "offline" | "unknown" | "connected" | "asleep" {
     const p = hosts.pings[h.id];
     if (!p) return "unknown";
     if (p.connected) return "connected";
+    if (p.state !== "online" && PLANNED[metrics.get(h.id).state]) return "asleep";
     return p.state === "online" ? "online" : p.state === "offline" ? "offline" : "unknown";
   }
 
   function title(h: Host): string {
     const p = hosts.pings[h.id];
     const target = `${h.username ? `${h.username}@` : ""}${h.hostname}${h.port !== 22 ? `:${h.port}` : ""}`;
+    const planned = PLANNED[metrics.get(h.id).state];
     const state = !p
       ? "not checked yet"
+      : planned && !p.connected && p.state !== "online"
+        ? planned
       : p.connected
         ? "connected"
         : p.state === "online"
@@ -244,6 +251,11 @@
   }
   .dot.offline {
     border-color: var(--danger);
+    background: transparent;
+  }
+  .dot.asleep {
+    border-color: var(--cyan);
+    border-style: dashed;
     background: transparent;
   }
   .name {

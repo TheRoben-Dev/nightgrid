@@ -111,6 +111,10 @@ const STATE: Record<string, string> = {
   needsLogin: "needs a password, passphrase or host-key decision before Nightgrid can connect",
   error: "connected, but the metrics script failed",
   off: "metrics turned off",
+  suspended: "suspended (planned, not an outage)",
+  rebooting: "rebooting (planned)",
+  shuttingDown: "shut down (planned, not an outage)",
+  asleep: "inside its expected sleep window (not an outage)",
 };
 
 export interface HostFactsInput {
@@ -132,13 +136,16 @@ export function hostFacts(i: HostFactsInput): string {
   const lines: string[] = [];
   lines.push(`### ${h.name} (saved host; address ${h.hostname}${h.port !== 22 ? `:${h.port}` : ""}${h.tailnetAddress ? `, tailnet fallback ${h.tailnetAddress}` : ""})`);
   if (h.tags.length) lines.push(`Tags: ${h.tags.join(", ")}`);
+  if (h.sleepWindow) lines.push(`Expected sleep window: ${h.sleepWindow} (local time)`);
+  if (h.macAddress) lines.push("Wake-on-LAN: set up (System → WAKE, or the ⏻ button on its tile)");
   if (ping) {
     lines.push(
       `Reachability check: ${ping.state}${ping.latencyMs != null ? ` (${ping.latencyMs} ms)` : ""}${ping.connected ? ", SSH session open" : ""}`,
     );
   }
   if (m) {
-    lines.push(`Monitoring: ${STATE[m.state] ?? m.state}${m.message ? `. Last error: ${m.message}` : ""}`);
+    const why = ["suspended", "rebooting", "shuttingDown", "asleep"].includes(m.state) ? "Why" : "Last error";
+    lines.push(`Monitoring: ${STATE[m.state] ?? m.state}${m.message ? `. ${why}: ${m.message}` : ""}`);
     if (m.sample) {
       const s = m.sample;
       const ts = Math.floor(s.ts / 1000);

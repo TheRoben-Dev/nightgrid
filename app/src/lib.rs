@@ -136,6 +136,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::system_updates,
         system_cmd::system_upgrade_run,
         system_cmd::system_reboot,
+        system_cmd::system_power,
+        system_cmd::host_wake,
         system_cmd::system_disks,
         integrations_cmd::integrations_list,
         integrations_cmd::integration_create,

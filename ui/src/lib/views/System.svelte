@@ -39,8 +39,15 @@
   const upCount = $derived(system.updates?.updates.length ?? 0);
   let typed = $state("");
   $effect(() => {
-    if (!system.confirmReboot) typed = "";
+    if (!system.confirmPower) typed = "";
   });
+  const POWER_TITLE = { reboot: "REBOOT HOST", shutdown: "SHUT DOWN HOST", suspend: "SUSPEND HOST" } as const;
+  const POWER_LABEL = { reboot: "Reboot", shutdown: "Shut down", suspend: "Suspend" } as const;
+  const POWER_TEXT = {
+    reboot: "Everything on it stops: containers, services, terminals and tunnels through it drop until it's back.",
+    shutdown: "It stays off until someone powers it on (or Wake-on-LAN wakes it). Everything on it stops.",
+    suspend: "It goes to sleep: services stop answering until it wakes (Wake-on-LAN, a key press, or its own timer).",
+  } as const;
 </script>
 
 <div class="system">
@@ -69,6 +76,16 @@
           Forget sudo password
         </button>
       {/if}
+    {/if}
+    {#if system.hostId !== null}
+      <span class="power" data-guide="system-power">
+        {#if hosts.byId(system.hostId)?.macAddress}
+          <button type="button" class="btn ghost tiny" title="Send a Wake-on-LAN packet" onclick={() => system.wake()}>WAKE</button>
+        {/if}
+        <button type="button" class="btn ghost tiny" onclick={() => (system.confirmPower = "suspend")}>SUSPEND…</button>
+        <button type="button" class="btn ghost tiny" onclick={() => (system.confirmPower = "shutdown")}>SHUT DOWN…</button>
+        <button type="button" class="btn ghost tiny danger-text" onclick={() => (system.confirmPower = "reboot")}>REBOOT…</button>
+      </span>
     {/if}
   </div>
 
@@ -147,20 +164,39 @@
   {/snippet}
 </Modal>
 
-<Modal open={system.confirmReboot} title="REBOOT HOST" tone="danger" width={500} onclose={() => (system.confirmReboot = false)}>
-  <p>Reboot <strong>{hostName}</strong> now?</p>
-  <p class="muted">Everything on it stops: containers, services, terminals and tunnels through it drop until it's back.</p>
+<Modal
+  open={system.confirmPower !== null}
+  title={system.confirmPower ? POWER_TITLE[system.confirmPower] : ""}
+  tone="danger"
+  width={500}
+  onclose={() => (system.confirmPower = null)}
+>
+  <p>{system.confirmPower ? POWER_LABEL[system.confirmPower] : ""} <strong>{hostName}</strong> now?</p>
+  <p class="muted">{system.confirmPower ? POWER_TEXT[system.confirmPower] : ""} Nightgrid shows it as {system.confirmPower === "suspend" ? "suspended" : system.confirmPower === "shutdown" ? "shut down" : "rebooting"}, not offline, and raises no offline alert.</p>
   <label class="field">
     <span>Type <strong>{hostName}</strong> to confirm</span>
     <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
   </label>
   {#snippet footer()}
-    <button type="button" class="btn ghost" onclick={() => (system.confirmReboot = false)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={typed.trim() !== hostName} onclick={() => system.reboot()}>Reboot {hostName}</button>
+    <button type="button" class="btn ghost" onclick={() => (system.confirmPower = null)}>Cancel</button>
+    <button
+      type="button"
+      class="btn danger"
+      disabled={typed.trim() !== hostName}
+      onclick={() => system.confirmPower && system.power(system.confirmPower)}>{system.confirmPower ? POWER_LABEL[system.confirmPower] : ""} {hostName}</button
+    >
   {/snippet}
 </Modal>
 
 <style>
+  .power {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .danger-text {
+    color: var(--danger);
+  }
   .system {
     height: 100%;
     display: flex;

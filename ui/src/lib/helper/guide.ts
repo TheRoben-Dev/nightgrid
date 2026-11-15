@@ -66,6 +66,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "settings-backup", view: "settings", what: "encrypted backup export and import, sync folder" },
   { id: "settings-status-page", view: "settings", what: "phone status page: read-only page with hosts, alerts and services on the LAN or Tailscale, secret link" },
   { id: "dashboard-export", view: "settings", what: "save a static HTML snapshot of the dashboard (hosts, alerts, services)" },
+  { id: "system-power", view: "system", what: "power buttons for the selected host: Wake (Wake-on-LAN), Suspend, Shut down, Reboot" },
   { id: "settings-tailnet", view: "settings", what: "built-in Tailscale: turn on, log in, use subnet routes, list tailnet devices, device name and control server" },
   { id: "tailnet-login", view: "settings", what: "LOG IN button for the built-in Tailscale (shown when it needs a login)" },
   { id: "settings-helper", view: "settings", what: "DRIFT helper settings and model download" },

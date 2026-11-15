@@ -201,6 +201,7 @@ export function buildGraph(
         g.named = labels.get(labelKey(d.mac, d.ip));
         if (g.named?.name) g.label = g.named.name;
         if (d.names[0]) g.sub = `${gw} · ${d.names[0]}`;
+        else if (d.vendor && d.vendor !== "Random MAC") g.sub = `${gw} · ${d.vendor}`;
       }
       continue;
     }
@@ -226,9 +227,11 @@ export function buildGraph(
           ? `${KIND_LABEL[named.kind] ?? named.kind} · ${d.ip}`
           : named?.name || d.names[0]
             ? d.ip
-            : d.mac
-              ? d.mac
-              : seenText(d),
+            : d.vendor && d.mac
+              ? `${d.vendor} · ${d.mac}`
+              : d.mac
+                ? d.mac
+                : seenText(d),
       col: 3,
       row: row++,
       ip: d.ip,
@@ -264,7 +267,7 @@ export function buildGraph(
 }
 
 export function seenText(d: Device): string {
-  const by: Record<string, string> = { neighbour: "neighbour table", ping: "ping", mdns: "mDNS", tailscale: "Tailscale", gateway: "gateway" };
+  const by: Record<string, string> = { neighbour: "neighbour table", ping: "ping", mdns: "mDNS", tailscale: "Tailscale", gateway: "gateway", probe: "TCP probe", mount: "mounted share", connection: "open connection" };
   return d.seen.map((s) => by[s] ?? s).join(", ");
 }
 

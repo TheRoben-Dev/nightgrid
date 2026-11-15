@@ -12,8 +12,9 @@
 //! The UI joins this with the saved hosts, their listening ports (security
 //! audit) and reverse-proxy routes to draw the map.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::net::{IpAddr, Ipv4Addr};
+use std::sync::LazyLock;
 
 use serde::Serialize;
 
@@ -61,6 +62,12 @@ pub enum Seen {
     Tailscale,
     /// The default gateway.
     Gateway,
+    /// Answered a TCP connect during the sweep.
+    Probe,
+    /// The scanned host mounts a network share from it (NFS, SMB).
+    Mount,
+    /// The scanned host has an open TCP connection to it.
+    Connection,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -77,6 +84,11 @@ pub struct Device {
     /// Tailscale: OS and whether it's online.
     pub os: Option<String>,
     pub online: Option<bool>,
+    /// Maker from the MAC address (bundled IEEE list), or "Random MAC" for a
+    /// locally administered address (phones' private Wi-Fi addresses, VMs).
+    pub vendor: Option<String>,
+    /// Other addresses of the same device (same MAC), e.g. its IPv6 address.
+    pub also: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -170,6 +182,9 @@ pub fn sweep_range(iface: &Iface) -> Option<(Ipv4Addr, u32)> {
 
 /// The discovery script. `sweep` is the subnet to ping (from [`sweep_range`]
 /// of an earlier run), or none.
+/// Ports tried, in order, on addresses of a sweep (SSH, web, SMB, NFS, rpcbind).
+pub const PROBE_PORTS: &str = "22 445 80 443 2049 111 139";
+
 pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
     // `t N cmd`: `timeout` where it exists (macOS and BSDs don't ship it).
     let mut s = String::from(
@@ -183,7 +198,8 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
     sec(
         &mut s,
         "route",
-        "ip route show default 2>/dev/null || netstat -rn 2>/dev/null | awk '$1==\"default\"||$1==\"0.0.0.0\"'",
+        "{ ip -4 route show default 2>/dev/null; ip -4 route show table all 2>/dev/null | grep '^default'; ip -6 route show default 2>/dev/null; } | grep . \
+         || netstat -rn 2>/dev/null | awk '$1==\"default\"||$1==\"0.0.0.0\"'",
     );
     if let Some((net, n)) = sweep {
         let o = net.octets();
@@ -208,8 +224,38 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
                 o[3]
             ),
         );
+        // Devices that drop ping still answer (or refuse) a TCP connect, and
+        // the attempt puts them in the neighbour table either way.
+        sec(
+            &mut s,
+            "probe",
+            &format!(
+                "pr() {{ if command -v nc >/dev/null 2>&1; then nc -z -w 1 \"$1\" \"$2\" 2>/dev/null; \
+                 elif command -v bash >/dev/null 2>&1; then t 2 bash -c \"</dev/tcp/$1/$2\" 2>/dev/null; else return 1; fi; }}; \
+                 i=1; while [ $i -le {n} ]; do ip=\"{}.{}.{}.$(( {} + i ))\"; \
+                 (for p in {PROBE_PORTS}; do if pr \"$ip\" $p; then echo \"$ip $p\"; break; fi; done) & \
+                 i=$((i+1)); if [ $((i % 64)) -eq 0 ]; then wait; fi; done; wait",
+                o[0],
+                o[1],
+                o[2],
+                o[3]
+            ),
+        );
     }
     sec(&mut s, "neigh", "ip neigh show 2>/dev/null || arp -an 2>/dev/null");
+    // Network shares this host mounts, and LAN peers it talks to right now.
+    sec(
+        &mut s,
+        "mounts",
+        "awk '$3 ~ /^(nfs|nfs4|cifs|smb3|smbfs)$/ {print $1, $2, $3}' /proc/mounts 2>/dev/null; \
+         mount 2>/dev/null | awk '/ (nfs|smbfs|cifs)/ && $2==\"on\" {print $1, $3, \"mnt\"}' | head -n 50",
+    );
+    sec(
+        &mut s,
+        "conns",
+        "if command -v ss >/dev/null 2>&1; then ss -tnH state established 2>/dev/null | awk '{print $NF}' | head -n 500; \
+         else netstat -tn 2>/dev/null | awk '$NF ~ /ESTAB/ {print $5}' | head -n 500; fi",
+    );
     sec(
         &mut s,
         "mdns",
@@ -298,12 +344,62 @@ pub fn parse_addrs(lines: &[&str]) -> Vec<Iface> {
 }
 
 /// `default via 192.168.1.1 dev eth0` or `default 192.168.1.1 UGScg en0`.
+/// IPv4 gateways win over IPv6 ones (often link-local `fe80::…`).
 pub fn parse_gateway(lines: &[&str]) -> Option<String> {
-    lines.iter().find_map(|l| {
-        let w: Vec<&str> = l.split_whitespace().collect();
-        let i = w.iter().position(|x| *x == "via").map(|i| i + 1).unwrap_or(1);
-        w.get(i).filter(|a| a.parse::<IpAddr>().is_ok()).map(|a| (*a).to_owned())
-    })
+    let all: Vec<IpAddr> = lines
+        .iter()
+        .filter_map(|l| {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let i = w.iter().position(|x| *x == "via").map(|i| i + 1).unwrap_or(1);
+            w.get(i).and_then(|a| a.split('%').next()?.parse::<IpAddr>().ok())
+        })
+        .collect();
+    all.iter().find(|a| a.is_ipv4()).or(all.first()).map(IpAddr::to_string)
+}
+
+/// Docker, Podman and Kubernetes bridges: their neighbours are containers,
+/// which the Docker view already lists.
+pub fn is_container_bridge(name: &str) -> bool {
+    name == "docker0"
+        || name == "podman0"
+        || name == "cni0"
+        || name == "flannel.1"
+        || name.starts_with("br-")
+        || name.starts_with("veth")
+        || name.starts_with("cali")
+}
+
+fn in_v4_subnet(ip: &str, net: &str, prefix: u8) -> bool {
+    match (ip.parse::<Ipv4Addr>(), net.parse::<Ipv4Addr>()) {
+        (Ok(a), Ok(n)) if prefix <= 32 => {
+            let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - u32::from(prefix)) };
+            u32::from(a) & mask == u32::from(n) & mask
+        }
+        _ => false,
+    }
+}
+
+static OUI: LazyLock<HashMap<u32, &'static str>> = LazyLock::new(|| {
+    include_str!("../data/oui.tsv")
+        .lines()
+        .filter_map(|l| {
+            let (k, v) = l.split_once('\t')?;
+            Some((u32::from_str_radix(k, 16).ok()?, v))
+        })
+        .collect()
+});
+
+/// The maker of a network card from its MAC address (offline, bundled list).
+pub fn mac_vendor(mac: &str) -> Option<String> {
+    let hex: String = mac.chars().filter(char::is_ascii_hexdigit).collect();
+    if hex.len() != 12 {
+        return None;
+    }
+    let first = u8::from_str_radix(&hex[..2], 16).ok()?;
+    if first & 0x02 != 0 {
+        return Some("Random MAC".into());
+    }
+    OUI.get(&u32::from_str_radix(&hex[..6], 16).ok()?).map(|v| (*v).to_owned())
 }
 
 /// `192.168.1.20 dev eth0 lladdr aa:bb:… REACHABLE` or BSD
@@ -328,6 +424,72 @@ pub fn parse_neigh(lines: &[&str]) -> Vec<(String, Option<String>)> {
                 return None;
             }
             Some((ip, mac.map(|m| m.to_ascii_lowercase())))
+        })
+        .collect()
+}
+
+/// `192.168.1.5:/export /mnt/media nfs` or `//nas/share /mnt/x cifs` (and
+/// macOS `mount` lines) → (server, mount point, "NFS" | "SMB"). Names that
+/// aren't addresses are kept as they are.
+pub fn parse_mounts(lines: &[&str]) -> Vec<(String, String, &'static str)> {
+    let mut out: Vec<(String, String, &'static str)> = Vec::new();
+    for l in lines {
+        let w: Vec<&str> = l.split_whitespace().collect();
+        let (Some(src), Some(path)) = (w.first(), w.get(1)) else { continue };
+        let (server, fs) = if let Some(rest) = src.strip_prefix("//") {
+            let host = rest.split('/').next().unwrap_or("");
+            (host.rsplit('@').next().unwrap_or(host), "SMB")
+        } else if let Some((host, _)) = src.split_once(":/") {
+            (host.trim_matches(['[', ']']), "NFS")
+        } else {
+            continue;
+        };
+        if server.is_empty() || out.iter().any(|(s, p, _)| s == server && p == path) {
+            continue;
+        }
+        out.push((server.to_owned(), (*path).to_owned(), fs));
+    }
+    out
+}
+
+/// Peer addresses of established TCP connections (`ss`: `10.0.0.5:2049`,
+/// `[fd00::5]:22`; `netstat`: `10.0.0.5.2049` on BSD).
+pub fn parse_conns(lines: &[&str]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for l in lines {
+        let a = l.trim();
+        let a = a.strip_prefix("::ffff:").unwrap_or(a);
+        let host = if let Some(r) = a.strip_prefix('[') {
+            r.split(']').next().unwrap_or("")
+        } else if a.matches(':').count() == 1 {
+            a.split(':').next().unwrap_or("")
+        } else if a.matches('.').count() == 4 {
+            a.rsplit_once('.').map_or("", |(h, _)| h)
+        } else {
+            a
+        };
+        let host = host.strip_prefix("::ffff:").unwrap_or(host);
+        if host.parse::<IpAddr>().is_ok() && !out.iter().any(|x| x == host) {
+            out.push(host.to_owned());
+        }
+    }
+    out
+}
+
+/// Link-local IPv6 neighbours (`fe80::…`) and their MACs, to tell which
+/// device an IPv6 gateway is.
+pub fn parse_link_local(lines: &[&str]) -> HashMap<String, String> {
+    lines
+        .iter()
+        .filter_map(|l| {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            let ip: IpAddr = w.first()?.split('%').next()?.parse().ok()?;
+            let IpAddr::V6(v) = ip else { return None };
+            if v.segments()[0] & 0xffc0 != 0xfe80 {
+                return None;
+            }
+            let mac = w.iter().position(|x| *x == "lladdr").and_then(|i| w.get(i + 1))?;
+            Some((v.to_string(), mac.to_ascii_lowercase()))
         })
         .collect()
 }
@@ -482,6 +644,8 @@ pub fn parse_discovery(out: &str) -> Discovery {
         notes: Vec::new(),
     };
     let mut devs: BTreeMap<String, Device> = BTreeMap::new();
+    let mut link_local: HashMap<String, String> = HashMap::new();
+    let mut conns: Vec<String> = Vec::new();
     for (name, body) in sections(out) {
         let head = name.split_whitespace().next().unwrap_or("");
         match head {
@@ -496,7 +660,32 @@ pub fn parse_discovery(out: &str) -> Discovery {
                     }
                 }
             }
+            "probe" => {
+                for l in &body {
+                    let mut w = l.split_whitespace();
+                    if let (Some(ip), Some(port)) = (w.next(), w.next()) {
+                        if ip.parse::<IpAddr>().is_ok() {
+                            let e = add(&mut devs, ip, Seen::Probe);
+                            let svc = format!("tcp/{port}");
+                            if !e.services.contains(&svc) {
+                                e.services.push(svc);
+                            }
+                        }
+                    }
+                }
+            }
+            "mounts" => {
+                for (server, path, fs) in parse_mounts(&body) {
+                    let e = add(&mut devs, &server, Seen::Mount);
+                    let svc = format!("{fs} share → {path}");
+                    if !e.services.contains(&svc) {
+                        e.services.push(svc);
+                    }
+                }
+            }
+            "conns" => conns = parse_conns(&body),
             "neigh" => {
+                link_local = parse_link_local(&body);
                 for (ip, mac) in parse_neigh(&body) {
                     let e = add(&mut devs, &ip, Seen::Neighbour);
                     if e.mac.is_none() {
@@ -565,8 +754,83 @@ pub fn parse_discovery(out: &str) -> Discovery {
             _ => {}
         }
     }
+    // Open connections count only for peers on the host's own LAN subnets
+    // (not the internet, not container bridges, not the tailnet).
+    let lans: Vec<(String, u8)> = d
+        .ifaces
+        .iter()
+        .filter(|i| i.kind == AddrKind::Private && !i.addr.contains(':') && !is_container_bridge(&i.name))
+        .map(|i| (i.addr.clone(), i.prefix))
+        .collect();
+    for ip in conns {
+        if lans.iter().any(|(net, p)| in_v4_subnet(&ip, net, *p)) {
+            add(&mut devs, &ip, Seen::Connection);
+        }
+    }
+    // An IPv6 link-local gateway: name it by the device with the same MAC.
+    if let Some(g) = d.gateway.clone().filter(|g| g.starts_with("fe80")) {
+        let mac = link_local.get(&g).cloned();
+        let same = |v4: bool| {
+            devs.values()
+                .filter(|x| x.mac.is_some() && x.mac == mac && x.ip.contains('.') == v4)
+                .map(|x| x.ip.clone())
+                .next()
+        };
+        if let Some(ip) = same(true).or_else(|| same(false)) {
+            d.gateway = Some(ip);
+        } else if let Some(m) = mac {
+            add(&mut devs, &g, Seen::Gateway).mac = Some(m);
+        }
+    }
     if let Some(g) = &d.gateway {
         add(&mut devs, g, Seen::Gateway);
+    }
+    // Containers on Docker/Podman bridges aren't LAN devices.
+    let bridges: Vec<(String, u8)> = d
+        .ifaces
+        .iter()
+        .filter(|i| is_container_bridge(&i.name) && !i.addr.contains(':'))
+        .map(|i| (i.addr.clone(), i.prefix))
+        .collect();
+    let before = devs.len();
+    devs.retain(|ip, _| !bridges.iter().any(|(net, p)| in_v4_subnet(ip, net, *p)));
+    let hidden = before - devs.len();
+    if hidden > 0 {
+        d.notes.push(format!(
+            "Left out {hidden} container address{} on Docker bridges; containers are listed in the Docker view.",
+            if hidden == 1 { "" } else { "es" }
+        ));
+    }
+    // One device per MAC: an IPv6 address joins the IPv4 entry of the same card.
+    let v6_with_mac: Vec<String> =
+        devs.values().filter(|x| x.ip.contains(':') && x.mac.is_some()).map(|x| x.ip.clone()).collect();
+    for ip6 in v6_with_mac {
+        let mac = devs[&ip6].mac.clone();
+        let target = devs.values().find(|x| !x.ip.contains(':') && x.mac == mac).map(|x| x.ip.clone());
+        if let Some(t) = target {
+            let gone = devs.remove(&ip6).expect("present");
+            let e = devs.get_mut(&t).expect("present");
+            e.also.push(gone.ip);
+            for n in gone.names {
+                if !e.names.contains(&n) {
+                    e.names.push(n);
+                }
+            }
+            for sv in gone.seen {
+                if !e.seen.contains(&sv) {
+                    e.seen.push(sv);
+                }
+            }
+            if d.gateway.as_deref() == Some(ip6.as_str()) {
+                d.gateway = Some(t.clone());
+                if !e.seen.contains(&Seen::Gateway) {
+                    e.seen.push(Seen::Gateway);
+                }
+            }
+        }
+    }
+    for x in devs.values_mut() {
+        x.vendor = x.mac.as_deref().and_then(mac_vendor);
     }
     for i in &d.ifaces {
         if i.kind == AddrKind::Public {
@@ -599,6 +863,8 @@ fn add<'a>(devs: &'a mut BTreeMap<String, Device>, ip: &str, seen: Seen) -> &'a 
         seen: Vec::new(),
         os: None,
         online: None,
+        vendor: None,
+        also: Vec::new(),
     });
     if !e.seen.contains(&seen) {
         e.seen.push(seen);
@@ -679,6 +945,70 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn docker_peers_left_out_ipv6_merged_gateway_from_link_local() {
+        let m = MARK;
+        let out = format!(
+            "{m} addr\n2: eth0    inet 192.168.1.10/24 brd 192.168.1.255 scope global eth0\n\
+             3: docker0    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0\n\
+             4: br-1a2b3c    inet 172.18.0.1/16 scope global br-1a2b3c\n\
+             {m} route\ndefault via fe80::1 dev eth0 proto ra metric 1024\n\
+             {m} neigh\n172.17.0.2 dev docker0 lladdr a2:a3:7b:00:00:01 REACHABLE\n\
+             172.18.0.2 dev br-1a2b3c lladdr 26:54:c0:00:00:02 STALE\n\
+             192.168.1.1 dev eth0 lladdr b8:27:eb:00:00:01 REACHABLE\n\
+             192.168.1.40 dev eth0 lladdr 3c:22:fb:00:00:02 STALE\n\
+             fd00:1:2::1 dev eth0 lladdr b8:27:eb:00:00:01 router STALE\n\
+             fe80::1 dev eth0 lladdr b8:27:eb:00:00:01 router REACHABLE\n\
+             {m} end\n"
+        );
+        let d = parse_discovery(&out);
+        let ips: Vec<&str> = d.devices.iter().map(|x| x.ip.as_str()).collect();
+        assert_eq!(ips, ["192.168.1.1", "192.168.1.40"]);
+        assert_eq!(d.gateway.as_deref(), Some("192.168.1.1"));
+        let gw = &d.devices[0];
+        assert!(gw.seen.contains(&Seen::Gateway));
+        assert_eq!(gw.also, ["fd00:1:2::1"]);
+        assert_eq!(gw.vendor.as_deref(), Some("Raspberry Pi Foundation"));
+        assert_eq!(d.devices[1].vendor.as_deref(), Some("Apple"));
+        assert!(d.notes.iter().any(|n| n.contains("2 container addresses")));
+    }
+
+    #[test]
+    fn mounts_conns_and_probes_find_quiet_devices() {
+        let m = MARK;
+        let out = format!(
+            "{m} addr\n2: eth0    inet 192.168.1.10/24 brd 192.168.1.255 scope global eth0\n\
+             3: tailscale0    inet 100.64.0.5/32 scope global tailscale0\n\
+             {m} route\ndefault via 192.168.1.1 dev eth0\n\
+             {m} probe\n192.168.1.77 445\n\
+             {m} mounts\n192.168.1.50:/export/media /mnt/media nfs4\n//192.168.1.51/share /mnt/smb cifs\n\
+             {m} conns\n192.168.1.60:22\n140.82.112.3:443\n[fd7a:115c:a1e0::1]:22\n100.64.0.9:443\n\
+             {m} neigh\n{m} end\n"
+        );
+        let d = parse_discovery(&out);
+        let ips: Vec<&str> = d.devices.iter().map(|x| x.ip.as_str()).collect();
+        assert_eq!(ips, ["192.168.1.1", "192.168.1.50", "192.168.1.51", "192.168.1.60", "192.168.1.77"]);
+        let nfs = &d.devices[1];
+        assert_eq!(nfs.seen, [Seen::Mount]);
+        assert_eq!(nfs.services, ["NFS share → /mnt/media"]);
+        assert_eq!(d.devices[2].services, ["SMB share → /mnt/smb"]);
+        assert_eq!(d.devices[3].seen, [Seen::Connection]);
+        assert_eq!(d.devices[4].services, ["tcp/445"]);
+        assert_eq!(parse_conns(&["10.0.0.5.2049", "::ffff:10.0.0.6:22"]), ["10.0.0.5", "10.0.0.6"]);
+        assert!(discover_command(Some(("192.168.1.0".parse().unwrap(), 254))).contains("probe"));
+    }
+
+    #[test]
+    fn vendors() {
+        assert_eq!(mac_vendor("b8:27:eb:12:34:56").as_deref(), Some("Raspberry Pi Foundation"));
+        assert_eq!(mac_vendor("02:42:ac:11:00:02").as_deref(), Some("Random MAC"));
+        assert_eq!(mac_vendor("nope"), None);
+        assert_eq!(
+            parse_gateway(&["default via fe80::1 dev eth0", "default via 10.0.0.1 dev eth0"]).as_deref(),
+            Some("10.0.0.1")
+        );
+    }
 
     #[test]
     fn kinds() {

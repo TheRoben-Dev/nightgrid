@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use nightgrid_core::hosts::HostId;
+use nightgrid_core::power::{self, PowerAction};
 use nightgrid_core::secrets::{Secret, SecretKind, SecretRef, SecretStore};
 use nightgrid_core::ssh::client::{ConnectError, Connection};
 use nightgrid_core::system::history::{self, HistoryResult};
@@ -437,21 +438,96 @@ pub async fn system_upgrade_run(
 #[tauri::command]
 #[specta::specta]
 pub async fn system_reboot(app: AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<()> {
+    system_power(app, host_id, PowerAction::Reboot, sudo).await
+}
+
+/// Reboots, shuts down or suspends the host (as root). Confirmed in the UI by
+/// typing the host name. The host then shows "Rebooting", "Shutting down"
+/// or "Suspended" instead of "Offline", with no offline alert.
+#[tauri::command]
+#[specta::specta]
+pub async fn system_power(
+    app: AppHandle,
+    host_id: HostId,
+    action: PowerAction,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
     let conn = connect_host(&app, host_id).await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
-    tracing::info!(host = %host_id, "reboot");
+    tracing::info!(host = %host_id, ?action, "power action");
+    let now =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
+    // Noted first: the host may stop answering before the command returns.
+    power::note(host_id, action.state(), format!("{} from Nightgrid", past(action)), now);
     // The connection usually drops before an answer comes back.
-    let r =
-        tokio::time::timeout(std::time::Duration::from_secs(5), sudo::run(&conn, &auth, packages::reboot_command()))
-            .await;
+    let r = tokio::time::timeout(std::time::Duration::from_secs(5), sudo::run(&conn, &auth, action.command())).await;
     if let Ok(Ok(o)) = &r {
         if o.code != 0 && !o.stderr.is_empty() {
-            return Err(SystemError::other(format!("reboot failed: {}", o.stderr.trim())).into());
+            power::clear(host_id);
+            return Err(SystemError::other(format!("{} failed: {}", action.verb(), o.stderr.trim())).into());
         }
     }
     let state = app.state::<AppState>();
     state.pool.disconnect(host_id).await;
     Ok(())
+}
+
+fn past(a: PowerAction) -> &'static str {
+    match a {
+        PowerAction::Reboot => "rebooted",
+        PowerAction::Shutdown => "shut down",
+        PowerAction::Suspend => "suspended",
+    }
+}
+
+/// How a wake-up was sent.
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct WakeSent {
+    /// The relay host's name, or `None` when sent from this computer.
+    pub via: Option<String>,
+    pub mac: String,
+}
+
+/// Sends a Wake-on-LAN magic packet to the host's MAC address: from its relay
+/// host over SSH when one is set (works away from home), else as a broadcast
+/// from this computer.
+#[tauri::command]
+#[specta::specta]
+pub async fn host_wake(app: AppHandle, host_id: HostId) -> SysResult<WakeSent> {
+    let (host, relay) = {
+        let state = app.state::<AppState>();
+        let store = state.store();
+        let h =
+            store.get_host(host_id).map_err(SystemError::other)?.ok_or_else(|| SystemError::other("host not found"))?;
+        let relay = match h.wake_relay_id {
+            Some(r) => store.get_host(r).map_err(SystemError::other)?,
+            None => None,
+        };
+        (h, relay)
+    };
+    let mac = host.mac_address.as_deref().ok_or_else(|| SystemError::other("set the host's MAC address first"))?;
+    let mac = power::parse_mac(mac).map_err(SystemError::other)?;
+    tracing::info!(host = %host_id, relay = relay.as_ref().map(|r| r.id), "wake-on-lan");
+    match relay {
+        Some(r) => {
+            let conn = connect_host(&app, r.id).await?;
+            let (code, _, err) =
+                tokio::time::timeout(std::time::Duration::from_secs(10), conn.exec(&power::wake_relay_command(&mac)))
+                    .await
+                    .map_err(|_| SystemError::other(format!("{} took too long to answer", r.name)))?
+                    .map_err(SystemError::other)?;
+            if code != 0 {
+                let e = String::from_utf8_lossy(&err);
+                return Err(SystemError::other(format!("{}: {}", r.name, e.trim())).into());
+            }
+            Ok(WakeSent { via: Some(r.name), mac: power::format_mac(&mac) })
+        }
+        None => {
+            power::wake_local(&mac, None).await.map_err(SystemError::other)?;
+            Ok(WakeSent { via: None, mac: power::format_mac(&mac) })
+        }
+    }
 }
 
 /// SMART health of every disk (needs root).

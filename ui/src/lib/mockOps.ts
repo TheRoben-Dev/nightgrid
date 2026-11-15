@@ -45,16 +45,16 @@ let guests: Vm[] = [
   { kind: "lxc", id: "200", name: "pihole", state: "running", vcpus: 1, memoryMb: 512, autostart: true },
   { kind: "libvirt", id: "debian-lab", name: "debian-lab", state: "paused", vcpus: 2, memoryMb: 2048, autostart: false },
 ];
-const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, ...d });
+const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, vendor: null, also: [], ...d });
 
 /** A made-up home LAN for the network map. Addresses are documentation-style examples. */
 function discovery(sweep: boolean): Discovery {
   const devices: Device[] = [
     dev("192.168.1.1", { mac: "a4:2b:b0:11:22:33", names: ["router.lan"], seen: ["gateway", "neighbour"] }),
-    dev("192.168.1.20", { mac: "00:11:32:aa:bb:cc", names: ["nas.local"], services: ["_smb._tcp", "_http._tcp"], seen: ["neighbour", "mdns"] }),
+    dev("192.168.1.20", { mac: "00:11:32:aa:bb:cc", vendor: "Synology", names: ["nas.local"], services: ["_smb._tcp", "_http._tcp", "NFS share → /mnt/media"], seen: ["neighbour", "mdns", "mount"] }),
     dev("192.168.1.31", { mac: "b8:27:eb:12:34:56", names: ["octoprint.local"], services: ["_octoprint._tcp", "_http._tcp"], seen: ["mdns"] }),
     dev("192.168.1.44", { mac: "f0:18:98:de:ad:01", names: ["Living Room TV"], services: ["_airplay._tcp"], seen: ["neighbour", "mdns"] }),
-    dev("192.168.1.52", { mac: "3c:22:fb:00:00:52", seen: ["neighbour"] }),
+    dev("192.168.1.52", { mac: "3c:22:fb:00:00:52", vendor: "Apple", seen: ["neighbour"] }),
     dev("100.101.7.12", { names: ["macbook"], seen: ["tailscale"], os: "macOS", online: true }),
     dev("100.88.1.9", { names: ["phone"], seen: ["tailscale"], os: "iOS", online: false }),
   ];

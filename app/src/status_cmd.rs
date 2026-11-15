@@ -310,6 +310,9 @@ pub fn snapshot(app: &AppHandle, with_addresses: bool) -> StatusSnapshot {
                 Some(PollState::Connecting) if sample.is_some() => "ok",
                 Some(PollState::Offline) => "offline",
                 Some(PollState::NeedsLogin) => "auth",
+                Some(PollState::Suspended | PollState::Rebooting | PollState::ShuttingDown | PollState::Asleep) => {
+                    "sleep"
+                }
                 _ => "off",
             };
             let mut hs = HostStatus {

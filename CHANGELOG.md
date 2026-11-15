@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.12] - 2026-11-15
+
+### Added: power states and Wake-on-LAN (M10k, part 1)
+- **Suspended isn't offline**: a host that stops answering after Nightgrid suspended, shut down or rebooted it, or after the host itself announced sleep or shutdown (systemd-logind, followed over the monitoring connection), shows **SUSPENDED**, **SHUT DOWN** or **REBOOTING** with the reason and when it was last seen, in a calm colour, and raises no offline alert. It clears as soon as the host answers again; a reboot that takes longer than 15 minutes turns into a real outage. The sidebar, tray, phone status page and DRIFT say the same.
+- **Sleep window** per host (host editor, e.g. `23:00-07:00`): inside it, a host that doesn't answer shows **ASLEEP**, not offline.
+- **System → SUSPEND / SHUT DOWN / REBOOT**, each confirmed by typing the host name, with sudo as for other system actions.
+- **Wake-on-LAN**: set a host's MAC address and **WAKE** (System toolbar, or ⏻ on its overview tile) sends the magic packet from this computer, or from another saved host on the same LAN (**Wake from**), which also works away from home.
+
+### Fixed: network map
+- Containers on Docker and Podman bridges (`docker0`, `br-…`) are no longer listed as network devices; the scan notes how many were left out.
+- Devices show their maker from the MAC address (an offline copy of the IEEE list is bundled); private random MACs say so.
+- A device's IPv6 address joins its IPv4 entry (same MAC) instead of appearing as a second device.
+- The router is found from an IPv6 default route too (matched to its IPv4 address by MAC), and from routing tables other than the main one.
+- Network shares the scanned host mounts (NFS, SMB) and LAN peers it has open connections to are listed even when they ignore ping, with the share and mount point. **Ping sweep** also tries a few TCP ports on each address for devices that drop ping.
+
 ## [0.10.11] - 2026-11-15
 
 ### Added: built-in Tailscale and DRIFT knows your hosts (M10j)
