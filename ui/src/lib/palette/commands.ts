@@ -1,9 +1,12 @@
+import { openExternal } from "../clipboard";
 import { SECTIONS } from "../sections";
 import { docker } from "../stores/docker.svelte";
 import { files } from "../stores/files.svelte";
 import { hosts } from "../stores/hosts.svelte";
 import { layout } from "../stores/layout.svelte";
 import { metrics } from "../stores/metrics.svelte";
+import { services } from "../stores/services.svelte";
+import { isActive, tunnels } from "../stores/tunnels.svelte";
 import { settings } from "../stores/settings.svelte";
 import { terms } from "../stores/terms.svelte";
 import { ui } from "../stores/ui.svelte";
@@ -169,6 +172,63 @@ export function buildCommands(): PaletteCommand[] {
     })),
   ];
 
-  return [...connect, ...browse, ...dockerHosts,
-    ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...nav, ...view, ...themes];
+  const serviceCmds: PaletteCommand[] = [
+    {
+      id: "services.add",
+      title: "Add service",
+      group: "SERVICES",
+      keywords: ["web app", "url", "health check", "uptime"],
+      run: () => {
+        ui.go("services");
+        services.editing = 0;
+      },
+    },
+    {
+      id: "services.import",
+      title: "Import Homepage services.yaml",
+      group: "SERVICES",
+      keywords: ["gethomepage", "dashboard", "yaml", "sync"],
+      run: () => {
+        ui.go("services");
+        services.importOpen = true;
+      },
+    },
+    ...services.services.map((s) => ({
+      id: `services.open.${s.id}`,
+      title: `Open ${s.name}`,
+      group: "SERVICES",
+      keywords: [s.url, s.group],
+      run: () => void openExternal(s.url),
+    })),
+  ];
+
+  const tunnelCmds: PaletteCommand[] = [
+    ...(hosts.hosts.length
+      ? [
+          {
+            id: "tunnels.add",
+            title: "Add tunnel (port forward)",
+            group: "TUNNELS",
+            keywords: ["ssh -L", "-R", "-D", "socks", "forward", "port"],
+            run: () => {
+              ui.go("tunnels");
+              tunnels.openNew(hosts.hosts[0].id);
+            },
+          },
+        ]
+      : []),
+    ...tunnels.tunnels.map((t) => {
+      const on = isActive(tunnels.stateOf(t.id));
+      return {
+        id: `tunnels.toggle.${t.id}`,
+        title: `${on ? "Stop" : "Start"} tunnel ${t.name || t.spec}`,
+        group: "TUNNELS",
+        keywords: [t.spec, hosts.byId(t.hostId)?.name ?? ""],
+        run: () => void tunnels.toggle(t.id),
+      };
+    }),
+  ];
+
+  return [...connect, ...browse, ...dockerHosts, ...tunnelCmds,
+    ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...themes];
 }

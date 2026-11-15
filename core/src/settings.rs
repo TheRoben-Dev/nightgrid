@@ -51,6 +51,10 @@ pub struct AppSettings {
     pub metrics_background_secs: u16,
     /// Days of 1-minute history to keep (15-minute rollups are kept 90 days).
     pub metrics_retention_days: u16,
+    /// Run service health checks in the background.
+    pub services_checks: bool,
+    /// Seconds between service health checks.
+    pub services_interval_secs: u16,
     /// Check GitHub Releases for a newer Nightgrid on launch.
     pub update_check: bool,
     /// A version the user chose to skip (no launch prompt for it).
@@ -75,6 +79,8 @@ impl Default for AppSettings {
             metrics_interval_secs: 2,
             metrics_background_secs: 60,
             metrics_retention_days: 7,
+            services_checks: true,
+            services_interval_secs: 60,
             update_check: true,
             update_skip_version: None,
         }
@@ -108,6 +114,7 @@ impl AppSettings {
         range("metricsIntervalSecs", self.metrics_interval_secs, 1, 60)?;
         range("metricsBackgroundSecs", self.metrics_background_secs, 10, 600)?;
         range("metricsRetentionDays", self.metrics_retention_days, 1, 90)?;
+        range("servicesIntervalSecs", self.services_interval_secs, 15, 3600)?;
         if self.term_scrollback > TERM_SCROLLBACK_MAX {
             return Err(Error::Invalid { field: "termScrollback", reason: format!("at most {TERM_SCROLLBACK_MAX}") });
         }

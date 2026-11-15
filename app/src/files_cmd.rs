@@ -48,7 +48,7 @@ impl From<nightgrid_core::Error> for FilesError {
     }
 }
 
-type FilesResult<T> = Result<T, FilesError>;
+pub(crate) type FilesResult<T> = Result<T, FilesError>;
 
 /// Opens the filesystem for a side, connecting to the host if needed.
 pub(crate) async fn fs_for(app: &AppHandle, side: Side) -> FilesResult<Fs> {

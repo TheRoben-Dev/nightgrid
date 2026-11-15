@@ -61,11 +61,31 @@ import {
   type UpdateInfo,
   type UpdateProgress_Serialize as UpdateProgress,
   type UpdateStatus_Serialize as UpdateStatus,
+  type Service_Serialize as Service,
+  type ServiceInput_Deserialize as ServiceInput,
+  type ServiceStatus_Serialize as ServiceStatus,
+  type ServiceEvent_Serialize as ServiceEvent,
+  type CheckPoint_Serialize as CheckPoint,
+  type CheckResult_Serialize as CheckResult,
+  type TlsInfo_Serialize as TlsInfo,
+  type HomepageCandidate,
+  type HomepageEntry_Serialize as HomepageEntry,
+  type HomepagePreview_Serialize as HomepagePreview,
+  type ImportSummary,
+  type Tunnel,
+  type TunnelInput_Deserialize as TunnelInput,
+  type TunnelView,
+  type TunnelEvent,
+  type TunnelState,
+  type TunnelKind,
+  type StatsView as TunnelTraffic,
 } from "./bindings";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
 import { mockFiles } from "./mockFiles";
 import { mockMetrics } from "./mockMetrics";
+import { mockServices } from "./mockServices";
+import { mockTunnels } from "./mockTunnels";
 
 export type {
   AppInfo,
@@ -115,6 +135,24 @@ export type {
   StackDir,
   MetricsEvent,
   UpdateInfo,
+  Service,
+  ServiceInput,
+  ServiceStatus,
+  ServiceEvent,
+  CheckPoint,
+  CheckResult,
+  TlsInfo,
+  HomepageCandidate,
+  HomepageEntry,
+  HomepagePreview,
+  ImportSummary,
+  Tunnel,
+  TunnelInput,
+  TunnelView,
+  TunnelEvent,
+  TunnelState,
+  TunnelKind,
+  TunnelTraffic,
   UpdateProgress,
   UpdateStatus,
   MountUsage,
@@ -141,6 +179,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   metricsIntervalSecs: 2,
   metricsBackgroundSecs: 60,
   metricsRetentionDays: 7,
+  servicesChecks: true,
+  servicesIntervalSecs: 60,
   updateCheck: true,
   updateSkipVersion: null,
 };
@@ -150,7 +190,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.4.2-web",
+      version: "0.5.0-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -310,6 +350,42 @@ export const api = {
   metricsRetry: (hostId: number): Promise<null> => (T() ? commands.metricsRetry(hostId) : Promise.resolve(null)),
   metricsHistory: (hostId: number, from: number, to: number): Promise<MetricPoint[]> =>
     T() ? commands.metricsHistory(hostId, from, to) : mockMetrics.history(hostId, from, to),
+  servicesSubscribe: (on: (e: ServiceEvent) => void): Promise<null> => {
+    if (!T()) return mockServices.subscribe(on);
+    const ch = new Channel<ServiceEvent>();
+    ch.onmessage = on;
+    return commands.servicesSubscribe(ch as unknown as Parameters<typeof commands.servicesSubscribe>[0]);
+  },
+  servicesCheckAll: (): Promise<null> => (T() ? commands.servicesCheckAll() : mockServices.checkAll()),
+  servicesList: (): Promise<Service[]> => (T() ? commands.servicesList() : mockServices.list()),
+  serviceCreate: (i: ServiceInput): Promise<Service> => (T() ? commands.serviceCreate(i) : mockServices.create(i)),
+  serviceUpdate: (id: number, i: ServiceInput): Promise<Service> =>
+    T() ? commands.serviceUpdate(id, i) : mockServices.update(id, i),
+  serviceDelete: (id: number): Promise<null> => (T() ? commands.serviceDelete(id) : mockServices.remove(id)),
+  serviceCheck: (id: number): Promise<ServiceStatus> => (T() ? commands.serviceCheck(id) : mockServices.check(id)),
+  serviceHistory: (id: number, from: number): Promise<CheckPoint[]> =>
+    T() ? commands.serviceHistory(id, from) : mockServices.history(id, from),
+  homepageDetect: (hostId: number): Promise<HomepageCandidate[]> =>
+    T() ? commands.homepageDetect(hostId) : mockServices.detect(hostId),
+  homepagePreview: (side: Side, dir: string): Promise<HomepagePreview> =>
+    T() ? commands.homepagePreview(side, dir) : mockServices.preview(side, dir),
+  homepageImport: (side: Side, dir: string, linkHost: boolean, prune: boolean): Promise<ImportSummary> =>
+    T() ? commands.homepageImport(side, dir, linkHost, prune) : mockServices.importHomepage(side, dir, linkHost, prune),
+  tunnelsSubscribe: (on: (e: TunnelEvent) => void): Promise<null> => {
+    if (!T()) return mockTunnels.subscribe(on);
+    const ch = new Channel<TunnelEvent>();
+    ch.onmessage = on;
+    return commands.tunnelsSubscribe(ch as unknown as Parameters<typeof commands.tunnelsSubscribe>[0]);
+  },
+  tunnelsList: (): Promise<TunnelView[]> => (T() ? commands.tunnelsList() : mockTunnels.list()),
+  tunnelCreate: (i: TunnelInput, startNow: boolean): Promise<Tunnel> =>
+    T() ? commands.tunnelCreate(i, startNow) : mockTunnels.create(i, startNow),
+  tunnelUpdate: (id: number, i: TunnelInput): Promise<Tunnel> => (T() ? commands.tunnelUpdate(id, i) : mockTunnels.update(id, i)),
+  tunnelDelete: (id: number): Promise<null> => (T() ? commands.tunnelDelete(id) : mockTunnels.remove(id)),
+  tunnelStart: (id: number): Promise<null> => (T() ? commands.tunnelStart(id) : mockTunnels.start(id)),
+  tunnelStop: (id: number): Promise<null> => (T() ? commands.tunnelStop(id) : mockTunnels.stop(id)),
+  tunnelOpenTemporary: (hostId: number, destHost: string, destPort: number): Promise<number> =>
+    T() ? commands.tunnelOpenTemporary(hostId, destHost, destPort) : mockTunnels.openTemporary(hostId, destHost, destPort),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));

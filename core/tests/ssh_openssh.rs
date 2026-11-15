@@ -578,3 +578,98 @@ async fn openssh_metrics_sample() {
     assert!(!sample.mounts.is_empty(), "no mounts parsed");
     assert!(!sample.kernel.is_empty() && !sample.hostname.is_empty());
 }
+
+/// Echo server on 127.0.0.1; returns its port.
+async fn echo_server() -> u16 {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = l.local_addr().unwrap().port();
+    tokio::spawn(async move {
+        loop {
+            let (mut s, _) = l.accept().await.unwrap();
+            tokio::spawn(async move {
+                let mut buf = [0u8; 1024];
+                while let Ok(n) = s.read(&mut buf).await {
+                    if n == 0 || s.write_all(&buf[..n]).await.is_err() {
+                        break;
+                    }
+                }
+            });
+        }
+    });
+    port
+}
+
+async fn roundtrip(s: &mut tokio::net::TcpStream, msg: &[u8]) -> Vec<u8> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    s.write_all(msg).await.unwrap();
+    let mut out = vec![0u8; msg.len()];
+    tokio::time::timeout(Duration::from_secs(5), s.read_exact(&mut out)).await.expect("echo timed out").unwrap();
+    out
+}
+
+#[tokio::test]
+async fn openssh_tunnels_local_dynamic_remote() {
+    use nightgrid_core::tunnels::forward::{listen, request_remote, serve_dynamic, serve_local, serve_remote, Stats};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    if !enabled() {
+        return;
+    }
+    let _serial = SERIAL.lock().await;
+    let sshd = start_sshd("host_ed25519", None, None);
+    let o = opts(sshd.dir.path());
+    let conn = Arc::new(connect_trusting(&key_target(&sshd), &[], &o).await);
+    let echo = echo_server().await;
+
+    // -L
+    let stats = Arc::new(Stats::default());
+    let l = listen("127.0.0.1", 0).await.unwrap();
+    let lport = l.local_addr().unwrap().port();
+    let local = tokio::spawn(serve_local(conn.clone(), l, "127.0.0.1".into(), echo, stats.clone()));
+    let mut s = tokio::net::TcpStream::connect(("127.0.0.1", lport)).await.unwrap();
+    assert_eq!(roundtrip(&mut s, b"over -L").await, b"over -L");
+    let v = stats.view();
+    assert_eq!((v.tx, v.rx, v.total), (7, 7, 1));
+    assert!(listen("127.0.0.1", lport).await.unwrap_err().contains("in use"));
+    drop(s);
+    local.abort();
+
+    // -D (SOCKS5, domain name target)
+    let stats = Arc::new(Stats::default());
+    let l = listen("127.0.0.1", 0).await.unwrap();
+    let dport = l.local_addr().unwrap().port();
+    let dynamic = tokio::spawn(serve_dynamic(conn.clone(), l, stats.clone()));
+    let mut s = tokio::net::TcpStream::connect(("127.0.0.1", dport)).await.unwrap();
+    s.write_all(&[5, 1, 0]).await.unwrap();
+    let mut greet = [0u8; 2];
+    s.read_exact(&mut greet).await.unwrap();
+    assert_eq!(greet, [5, 0]);
+    let mut req = vec![5, 1, 0, 3, 9];
+    req.extend_from_slice(b"localhost");
+    req.extend_from_slice(&echo.to_be_bytes());
+    s.write_all(&req).await.unwrap();
+    let mut rep = [0u8; 10];
+    s.read_exact(&mut rep).await.unwrap();
+    assert_eq!(rep[1], 0, "socks reply {rep:?}");
+    assert_eq!(roundtrip(&mut s, b"over -D").await, b"over -D");
+    drop(s);
+    dynamic.abort();
+
+    // -R (server picks the port)
+    let stats = Arc::new(Stats::default());
+    let fwd = request_remote(conn.clone(), "127.0.0.1", 0).await.unwrap();
+    let rport = u16::try_from(fwd.port).unwrap();
+    assert!(rport > 0);
+    let remote = tokio::spawn(serve_remote(fwd, "127.0.0.1".into(), echo, stats.clone()));
+    let mut s = tokio::net::TcpStream::connect(("127.0.0.1", rport)).await.unwrap();
+    assert_eq!(roundtrip(&mut s, b"over -R").await, b"over -R");
+    assert_eq!(stats.view().total, 1);
+    drop(s);
+    remote.abort();
+    // Stopping cancels the server-side listener.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while tokio::net::TcpStream::connect(("127.0.0.1", rport)).await.is_ok() {
+        assert!(Instant::now() < deadline, "remote listener still open after stop");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}

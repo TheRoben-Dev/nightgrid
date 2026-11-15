@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AppInfo } from "../api";
+  import { api, type AppInfo } from "../api";
   import Barcode from "../components/Barcode.svelte";
   import Panel from "../components/Panel.svelte";
   import SegmentSlider from "../components/SegmentSlider.svelte";
@@ -11,6 +11,7 @@
     METRICS_BACKGROUND_STEPS,
     METRICS_INTERVAL_STEPS,
     METRICS_RETENTION_STEPS,
+    SERVICES_INTERVAL_STEPS,
     settings,
     TERM_FONT_STEPS, TERM_SCROLLBACK_STEPS, UI_SCALE_STEPS } from "../stores/settings.svelte";
   import { THEME_IDS, THEMES } from "../theme/themes";
@@ -179,6 +180,24 @@
       />
     </div>
     <p class="muted note">Minute detail is kept for the chosen days; 15-minute averages are kept for at least 90 days.</p>
+  </Panel>
+
+  <Panel title="SERVICES">
+    <SegmentSlider
+      label="CHECK EVERY"
+      steps={SERVICES_INTERVAL_STEPS}
+      value={settings.value.servicesIntervalSecs}
+      format={(v) => (v >= 60 ? `${v / 60}m` : `${v}s`)}
+      onchange={(v) => settings.update({ servicesIntervalSecs: v }).then(() => api.servicesCheckAll())}
+    />
+    <div class="toggles">
+      <Toggle
+        label="Background health checks"
+        hint="One GET request per service per interval, straight from this computer to the service URL. History is kept 30 days."
+        checked={settings.value.servicesChecks}
+        onchange={(v) => settings.update({ servicesChecks: v }).then(() => api.servicesCheckAll())}
+      />
+    </div>
   </Panel>
 
   <Panel title="UPDATES">

@@ -98,7 +98,9 @@ pub(crate) async fn connect_host(app: &AppHandle, host_id: HostId) -> Result<Arc
     };
     let opts = state.connect_options();
     let jump_targets: Vec<_> = jumps.into_iter().map(|h| h.target).collect();
-    state.pool.get(host_id, || client::connect(&hop.target, &jump_targets, &opts)).await
+    let conn = state.pool.get(host_id, || client::connect(&hop.target, &jump_targets, &opts)).await?;
+    crate::tunnels_cmd::host_connected(app, host_id, &conn);
+    Ok(conn)
 }
 
 /// Builds the reconnect-capable connector for a stored host.

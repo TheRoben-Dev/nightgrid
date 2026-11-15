@@ -8,8 +8,10 @@ mod hosts_cmd;
 mod logging;
 mod metrics_cmd;
 mod platform;
+mod services_cmd;
 mod state;
 mod term_cmd;
+mod tunnels_cmd;
 mod update_cmd;
 
 use tauri::Manager;
@@ -82,6 +84,25 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         metrics_cmd::metrics_retry,
         metrics_cmd::metrics_history,
         term_cmd::term_open_docker_exec,
+        services_cmd::services_subscribe,
+        services_cmd::services_check_all,
+        services_cmd::services_list,
+        services_cmd::service_create,
+        services_cmd::service_update,
+        services_cmd::service_delete,
+        services_cmd::service_check,
+        services_cmd::service_history,
+        services_cmd::homepage_detect,
+        services_cmd::homepage_preview,
+        services_cmd::homepage_import,
+        tunnels_cmd::tunnels_subscribe,
+        tunnels_cmd::tunnels_list,
+        tunnels_cmd::tunnel_create,
+        tunnels_cmd::tunnel_update,
+        tunnels_cmd::tunnel_delete,
+        tunnels_cmd::tunnel_start,
+        tunnels_cmd::tunnel_stop,
+        tunnels_cmd::tunnel_open_temporary,
         update_cmd::update_check,
         update_cmd::update_install,
     ])

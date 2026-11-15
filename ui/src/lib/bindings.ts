@@ -128,6 +128,47 @@ export const commands = {
 	 *  (`docker exec -it`, bash if present, else sh). Reconnects re-run it.
 	 */
 	termOpenDockerExec: (hostId: number, container: string, cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_docker_exec", { hostId, container, cols, rows, onEvent }, options),
+	/**
+	 *  Registers the UI channel (replacing any earlier one), re-sends the latest
+	 *  statuses and starts the background checker.
+	 */
+	servicesSubscribe: (onEvent: Channel<ServiceEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("services_subscribe", { onEvent }, options),
+	/**  Wakes the checker (after settings change, or "check all now"). */
+	servicesCheckAll: (options?: InvokeOptions) => __TAURI_INVOKE<null>("services_check_all", undefined, options),
+	servicesList: (options?: InvokeOptions) => __TAURI_INVOKE<Service_Serialize[]>("services_list", undefined, options),
+	serviceCreate: (input: ServiceInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Service_Serialize>("service_create", { input }, options),
+	serviceUpdate: (id: number, input: ServiceInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Service_Serialize>("service_update", { id, input }, options),
+	serviceDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("service_delete", { id }, options),
+	/**  Checks one service now (also stored and pushed to the channel). */
+	serviceCheck: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<ServiceStatus_Serialize>("service_check", { id }, options),
+	serviceHistory: (id: number, from: number | null, options?: InvokeOptions) => __TAURI_INVOKE<CheckPoint_Serialize[]>("service_history", { id, from }, options),
+	/**
+	 *  Finds Homepage containers on a host and where their config lives.
+	 *  Best effort: no Docker (or no access) just means no suggestions.
+	 */
+	homepageDetect: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<HomepageCandidate[]>("homepage_detect", { hostId }, options),
+	/**  Reads and parses a Homepage config without changing anything. */
+	homepagePreview: (side: Side, dir: string, options?: InvokeOptions) => __TAURI_INVOKE<HomepagePreview_Serialize>("homepage_preview", { side, dir }, options),
+	/**
+	 *  Re-reads the config and creates/updates services from it. `link_host`
+	 *  ties new services to the host the file was read from.
+	 */
+	homepageImport: (side: Side, dir: string, linkHost: boolean, prune: boolean, options?: InvokeOptions) => __TAURI_INVOKE<ImportSummary>("homepage_import", { side, dir, linkHost, prune }, options),
+	tunnelsSubscribe: (onEvent: Channel<TunnelEvent>, options?: InvokeOptions) => __TAURI_INVOKE<null>("tunnels_subscribe", { onEvent }, options),
+	tunnelsList: (options?: InvokeOptions) => __TAURI_INVOKE<TunnelView[]>("tunnels_list", undefined, options),
+	tunnelCreate: (input: TunnelInput_Deserialize, startNow: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Tunnel>("tunnel_create", { input, startNow }, options),
+	/**  Saves changes; a running tunnel restarts with them. */
+	tunnelUpdate: (id: number, input: TunnelInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Tunnel>("tunnel_update", { id, input }, options),
+	tunnelDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("tunnel_delete", { id }, options),
+	tunnelStart: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("tunnel_start", { id }, options),
+	/**  Stops a tunnel. Temporary ones are removed. */
+	tunnelStop: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("tunnel_stop", { id }, options),
+	/**
+	 *  "Open through tunnel": forwards `dest_host:dest_port` (as the host sees
+	 *  it) to a free local port and returns that port once it's listening. An
+	 *  existing temporary tunnel to the same place is reused.
+	 */
+	tunnelOpenTemporary: (hostId: number, destHost: string, destPort: number, options?: InvokeOptions) => __TAURI_INVOKE<number>("tunnel_open_temporary", { hostId, destHost, destPort }, options),
 	updateCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateStatus_Serialize>("update_check", undefined, options),
 	/**
 	 *  Downloads, verifies and installs the update from the last check, then
@@ -224,6 +265,10 @@ export type AppSettings_Deserialize = {
 	metricsBackgroundSecs?: number,
 	/**  Days of 1-minute history to keep (15-minute rollups are kept 90 days). */
 	metricsRetentionDays?: number,
+	/**  Run service health checks in the background. */
+	servicesChecks?: boolean,
+	/**  Seconds between service health checks. */
+	servicesIntervalSecs?: number,
 	/**  Check GitHub Releases for a newer Nightgrid on launch. */
 	updateCheck?: boolean,
 	/**  A version the user chose to skip (no launch prompt for it). */
@@ -267,6 +312,10 @@ export type AppSettings_Serialize = {
 	metricsBackgroundSecs: number,
 	/**  Days of 1-minute history to keep (15-minute rollups are kept 90 days). */
 	metricsRetentionDays: number,
+	/**  Run service health checks in the background. */
+	servicesChecks: boolean,
+	/**  Seconds between service health checks. */
+	servicesIntervalSecs: number,
 	/**  Check GitHub Releases for a newer Nightgrid on launch. */
 	updateCheck: boolean,
 	/**  A version the user chose to skip (no launch prompt for it). */
@@ -297,6 +346,47 @@ export type Bookmark_Serialize = {
 	hostId: number | null,
 	path: string,
 	label: string,
+};
+
+/**  One stored check result (for uptime and the latency trend). */
+export type CheckPoint = CheckPoint_Serialize | CheckPoint_Deserialize;
+
+/**  One stored check result (for uptime and the latency trend). */
+export type CheckPoint_Deserialize = {
+	/**  Unix seconds. */
+	ts: number,
+	up: boolean,
+	status?: number | null,
+	latencyMs?: number | null,
+};
+
+/**  One stored check result (for uptime and the latency trend). */
+export type CheckPoint_Serialize = {
+	/**  Unix seconds. */
+	ts: number,
+	up: boolean,
+	status: number | null,
+	latencyMs: number | null,
+};
+
+export type CheckResult = CheckResult_Serialize | CheckResult_Deserialize;
+
+export type CheckResult_Deserialize = {
+	up: boolean,
+	status?: number | null,
+	latencyMs?: number | null,
+	/**  Connection/TLS/protocol error, or why the status didn't count as up. */
+	error?: string | null,
+	tls?: TlsInfo_Deserialize | null,
+};
+
+export type CheckResult_Serialize = {
+	up: boolean,
+	status: number | null,
+	latencyMs: number | null,
+	/**  Connection/TLS/protocol error, or why the status didn't count as up. */
+	error: string | null,
+	tls: TlsInfo_Serialize | null,
 };
 
 /**  Error returned to the frontend. Messages are user-safe and secret-free. */
@@ -591,6 +681,62 @@ export type Group_Serialize = {
 	sortOrder: number,
 };
 
+export type HomepageCandidate = {
+	container: string,
+	/**  Host directory mounted at the container's `/app/config`. */
+	dir: string,
+};
+
+export type HomepageEntry = HomepageEntry_Serialize | HomepageEntry_Deserialize;
+
+export type HomepageEntry_Deserialize = {
+	group: string,
+	name: string,
+	url: string,
+	description: string,
+	icon?: string | null,
+};
+
+export type HomepageEntry_Serialize = {
+	group: string,
+	name: string,
+	url: string,
+	description: string,
+	icon: string | null,
+};
+
+export type HomepageParse = HomepageParse_Serialize | HomepageParse_Deserialize;
+
+export type HomepageParse_Deserialize = {
+	entries: HomepageEntry_Deserialize[],
+	/**  Entries that were skipped and why (no URL, template variables…). */
+	skipped: string[],
+};
+
+export type HomepageParse_Serialize = {
+	entries: HomepageEntry_Serialize[],
+	/**  Entries that were skipped and why (no URL, template variables…). */
+	skipped: string[],
+};
+
+export type HomepagePreview = HomepagePreview_Serialize | HomepagePreview_Deserialize;
+
+export type HomepagePreview_Deserialize = {
+	/**  The services.yaml that was read. */
+	path: string,
+	/**  Whether settings.yaml was found next to it (for group order). */
+	layout: boolean,
+	parse: HomepageParse_Deserialize,
+};
+
+export type HomepagePreview_Serialize = {
+	/**  The services.yaml that was read. */
+	path: string,
+	/**  Whether settings.yaml was found next to it (for group order). */
+	layout: boolean,
+	parse: HomepageParse_Serialize,
+};
+
 export type Host = Host_Serialize | Host_Deserialize;
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
@@ -727,6 +873,15 @@ export type ImageChange_Serialize = {
 export type ImportResult = {
 	created: number,
 	updated: number,
+};
+
+export type ImportSummary = {
+	added: number,
+	updated: number,
+	unchanged: number,
+	/**  Previously imported entries no longer in the file. */
+	removed: number,
+	stale: string[],
 };
 
 export type JobState = "queued" | "running" | "paused" | 
@@ -1097,6 +1252,100 @@ export type SaveResult_Serialize = {
 	atomic: boolean,
 };
 
+export type Service = Service_Serialize | Service_Deserialize;
+
+export type ServiceEvent = ServiceEvent_Serialize | ServiceEvent_Deserialize;
+
+export type ServiceEvent_Deserialize = {
+	kind: "status",
+} & ServiceStatus_Deserialize | 
+/**  The service was deleted or its checks were turned off. */
+{ kind: "cleared"; serviceId: number };
+
+export type ServiceEvent_Serialize = {
+	kind: "status",
+} & ServiceStatus_Serialize | 
+/**  The service was deleted or its checks were turned off. */
+{ kind: "cleared"; serviceId: number };
+
+export type ServiceInput = ServiceInput_Serialize | ServiceInput_Deserialize;
+
+export type ServiceInput_Deserialize = {
+	name?: string,
+	url?: string,
+	hostId?: number | null,
+	group?: string,
+	description?: string,
+	icon?: string | null,
+	checkEnabled?: boolean,
+	expectStatus?: string,
+	allowUntrusted?: boolean,
+};
+
+export type ServiceInput_Serialize = {
+	name: string,
+	url: string,
+	hostId: number | null,
+	group: string,
+	description: string,
+	icon: string | null,
+	checkEnabled: boolean,
+	expectStatus: string,
+	allowUntrusted: boolean,
+};
+
+export type ServiceStatus = ServiceStatus_Serialize | ServiceStatus_Deserialize;
+
+export type ServiceStatus_Deserialize = {
+	serviceId: number,
+	/**  Unix seconds. */
+	ts: number,
+	result: CheckResult_Deserialize,
+};
+
+export type ServiceStatus_Serialize = {
+	serviceId: number,
+	/**  Unix seconds. */
+	ts: number,
+	result: CheckResult_Serialize,
+};
+
+export type Service_Deserialize = {
+	id: number,
+	name: string,
+	url: string,
+	hostId?: number | null,
+	group: string,
+	description: string,
+	icon?: string | null,
+	checkEnabled: boolean,
+	/**  Status codes that count as up: ranges and single codes, e.g. `200-399` or `200,401`. */
+	expectStatus: string,
+	/**  Self-signed / internal CA: shown, but doesn't make the service "down". */
+	allowUntrusted: boolean,
+	sortOrder: number,
+	/**  `manual` or `homepage`. */
+	source: string,
+};
+
+export type Service_Serialize = {
+	id: number,
+	name: string,
+	url: string,
+	hostId: number | null,
+	group: string,
+	description: string,
+	icon: string | null,
+	checkEnabled: boolean,
+	/**  Status codes that count as up: ranges and single codes, e.g. `200-399` or `200,401`. */
+	expectStatus: string,
+	/**  Self-signed / internal CA: shown, but doesn't make the service "down". */
+	allowUntrusted: boolean,
+	sortOrder: number,
+	/**  `manual` or `homepage`. */
+	source: string,
+};
+
 /**  Which filesystem a path is on. */
 export type Side = { kind: "local" } | { kind: "host"; id: number };
 
@@ -1178,6 +1427,17 @@ export type Stamp_Serialize = {
 	mtime: number | null,
 };
 
+/**
+ *  u64 counters are typed `u32` for TypeScript (plain `number`); values above
+ *  4 GiB still serialize exactly up to 2^53.
+ */
+export type StatsView = {
+	rx: number,
+	tx: number,
+	active: number,
+	total: number,
+};
+
 /**  One temperature sensor. */
 export type Temp = {
 	/**  hwmon chip (`coretemp`, `k10temp`, `nvme`, `cpu_thermal`) or thermal zone type. */
@@ -1225,6 +1485,103 @@ export type TextFile_Serialize = {
 	content: string,
 	stat: Entry_Serialize,
 };
+
+export type TlsInfo = TlsInfo_Serialize | TlsInfo_Deserialize;
+
+export type TlsInfo_Deserialize = {
+	/**  Chains to a root the OS trusts and matches the host name. */
+	trusted: boolean,
+	/**  Why it isn't trusted (expired, unknown issuer, wrong name…). */
+	problem?: string | null,
+	/**  Certificate `notAfter`, unix seconds. */
+	expires?: number | null,
+	subject?: string | null,
+	issuer?: string | null,
+};
+
+export type TlsInfo_Serialize = {
+	/**  Chains to a root the OS trusts and matches the host name. */
+	trusted: boolean,
+	/**  Why it isn't trusted (expired, unknown issuer, wrong name…). */
+	problem: string | null,
+	/**  Certificate `notAfter`, unix seconds. */
+	expires: number | null,
+	subject: string | null,
+	issuer: string | null,
+};
+
+export type Tunnel = {
+	id: number,
+	hostId: number,
+	name: string,
+	kind: TunnelKind,
+	bindAddr: string,
+	/**  0 = any free port (local/dynamic), or let the server pick (remote). */
+	bindPort: number,
+	destHost: string,
+	destPort: number,
+	autoStart: boolean,
+};
+
+export type TunnelEvent = { kind: "state"; id: number; state: TunnelState } | { kind: "stats"; stats: TunnelStats[] } | 
+/**  Temporary tunnels were added or removed: reload the list. */
+{ kind: "changed" };
+
+export type TunnelInput = TunnelInput_Serialize | TunnelInput_Deserialize;
+
+export type TunnelInput_Deserialize = {
+	hostId: number,
+	name?: string,
+	kind: TunnelKind,
+	bindAddr?: string,
+	bindPort: number,
+	destHost?: string,
+	destPort?: number,
+	autoStart?: boolean,
+};
+
+export type TunnelInput_Serialize = {
+	hostId: number,
+	name: string,
+	kind: TunnelKind,
+	bindAddr: string,
+	bindPort: number,
+	destHost: string,
+	destPort: number,
+	autoStart: boolean,
+};
+
+export type TunnelKind = 
+/**  Listen here, connect from the server (`ssh -L`). */
+"local" | 
+/**  Listen on the server, connect from here (`ssh -R`). */
+"remote" | 
+/**  SOCKS5 proxy here, connections leave from the server (`ssh -D`). */
+"dynamic";
+
+export type TunnelState = { kind: "stopped" } | { kind: "starting" } | { kind: "running"; 
+/**  The port actually listening (useful when 0 = "any" was saved). */
+boundPort: number } | 
+/**  Lost or couldn't reach the host; trying again. */
+{ kind: "retrying"; message: string; retrySecs: number } | 
+/**
+ *  Won't retry on its own: port in use, server refused, or the host needs
+ *  a login (open a terminal on it once, then start again).
+ */
+{ kind: "failed"; message: string; needsLogin: boolean };
+
+export type TunnelStats = {
+	id: number,
+	stats: StatsView,
+};
+
+/**  A tunnel as the UI lists it: saved ones, then temporary ones (negative ids). */
+export type TunnelView = {
+	temporary: boolean,
+	spec: string,
+	public: boolean,
+	state: TunnelState,
+} & Tunnel;
 
 export type UpdateInfo = UpdateInfo_Serialize | UpdateInfo_Deserialize;
 

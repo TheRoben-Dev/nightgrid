@@ -26,6 +26,13 @@
   import Terminal from "./lib/views/Terminal.svelte";
   import Files from "./lib/views/Files.svelte";
   import Docker from "./lib/views/Docker.svelte";
+  import Services from "./lib/views/Services.svelte";
+  import ServiceEditor from "./lib/components/services/ServiceEditor.svelte";
+  import HomepageImport from "./lib/components/services/HomepageImport.svelte";
+  import { services } from "./lib/stores/services.svelte";
+  import Tunnels from "./lib/views/Tunnels.svelte";
+  import TunnelEditor from "./lib/components/tunnels/TunnelEditor.svelte";
+  import { tunnels } from "./lib/stores/tunnels.svelte";
 
   let info = $state<AppInfo | null>(null);
   /** Files stays mounted after the first visit so open editors survive section switches. */
@@ -41,6 +48,8 @@
     settings.load().then(() => {
       booted = true;
       metrics.start();
+      services.start();
+      tunnels.start();
       updates.startLaunchCheck();
     });
     api
@@ -111,7 +120,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.4.2"} />
+  <LeftRail version={info?.version ?? "0.5.0"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker"} aria-label={section.label}>
@@ -135,6 +144,10 @@
         <!-- rendered above -->
       {:else if section.id === "docker"}
         <div class="view-fill"><Docker /></div>
+      {:else if section.id === "services"}
+        <Services />
+      {:else if section.id === "tunnels"}
+        <Tunnels />
       {:else if section.id === "overview"}
         <Overview {info} />
       {:else if section.id === "settings"}
@@ -152,6 +165,9 @@
 <SshImportDialog />
 <HostMonitor />
 <UpdateDialog />
+<ServiceEditor />
+<HomepageImport />
+<TunnelEditor />
 
 <style>
   .shell {
