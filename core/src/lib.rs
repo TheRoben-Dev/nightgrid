@@ -12,6 +12,7 @@ pub mod error;
 pub mod files;
 pub mod hosts;
 pub mod http;
+pub mod integrations;
 pub mod metrics;
 pub mod secrets;
 pub mod services;

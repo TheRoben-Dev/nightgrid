@@ -11,6 +11,15 @@ import {
   type AlertSettings_Serialize as AlertSettings,
   type AlertsSnapshot_Serialize as AlertsSnapshot,
   type Severity,
+  type AmpAction,
+  type AmpInstance_Serialize as AmpInstance,
+  type Integration_Serialize as Integration,
+  type IntegrationInput_Serialize as IntegrationInput,
+  type IntegrationKind,
+  type IntegrationStatus_Serialize as IntegrationStatus,
+  type IntegrationView_Serialize as IntegrationView,
+  type KumaMonitor_Serialize as KumaMonitor,
+  type PlexStream_Serialize as PlexStream,
   type TestResult_Serialize as AlertTestResult,
   type WebhookInfo_Serialize as WebhookInfo,
   type AppInfo_Serialize as AppInfo,
@@ -106,6 +115,7 @@ import {
   type UpgradeOp,
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
+import { mockIntegrations } from "./mockIntegrations";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
 import { mockFiles } from "./mockFiles";
@@ -115,6 +125,15 @@ import { mockTunnels } from "./mockTunnels";
 import { mockSystem } from "./mockSystem";
 
 export type {
+  AmpAction,
+  AmpInstance,
+  Integration,
+  IntegrationInput,
+  IntegrationKind,
+  IntegrationStatus,
+  IntegrationView,
+  KumaMonitor,
+  PlexStream,
   Alert,
   AlertKind,
   AlertSettings,
@@ -261,7 +280,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.7.0-web",
+      version: "0.7.1-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -488,6 +507,20 @@ export const api = {
     T() ? commands.systemReboot(hostId, sudo) : mockSystem.reboot(hostId, sudo),
   systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
     T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
+  integrationsList: (): Promise<IntegrationView[]> => (T() ? commands.integrationsList() : mockIntegrations.list()),
+  integrationCreate: (i: IntegrationInput, secret: string | null): Promise<IntegrationView> =>
+    T() ? commands.integrationCreate(i, secret) : mockIntegrations.create(i, secret),
+  integrationUpdate: (id: number, i: IntegrationInput, secret: string | null): Promise<IntegrationView> =>
+    T() ? commands.integrationUpdate(id, i, secret) : mockIntegrations.update(id, i, secret),
+  integrationDelete: (id: number): Promise<null> => (T() ? commands.integrationDelete(id) : mockIntegrations.remove(id)),
+  integrationRevealSecret: (id: number): Promise<string | null> =>
+    T() ? commands.integrationRevealSecret(id) : mockIntegrations.reveal(id),
+  integrationStatus: (id: number): Promise<IntegrationStatus> =>
+    T() ? commands.integrationStatus(id) : mockIntegrations.status(id),
+  integrationTest: (id: number | null, i: IntegrationInput, secret: string | null): Promise<IntegrationStatus> =>
+    T() ? commands.integrationTest(id, i, secret) : mockIntegrations.test(i),
+  ampInstanceAction: (id: number, instance: string, action: AmpAction): Promise<null> =>
+    T() ? commands.ampInstanceAction(id, instance, action) : mockIntegrations.ampAction(id, instance, action),
   alertsSubscribe: (on: (s: AlertsSnapshot) => void): Promise<null> => {
     if (!T()) return mockAlerts.subscribe(on);
     const ch = new Channel<AlertsSnapshot>();

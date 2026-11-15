@@ -6,6 +6,7 @@ mod commands;
 mod docker_cmd;
 mod files_cmd;
 mod hosts_cmd;
+mod integrations_cmd;
 mod logging;
 mod metrics_cmd;
 mod platform;
@@ -117,6 +118,14 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::system_upgrade_run,
         system_cmd::system_reboot,
         system_cmd::system_disks,
+        integrations_cmd::integrations_list,
+        integrations_cmd::integration_create,
+        integrations_cmd::integration_update,
+        integrations_cmd::integration_delete,
+        integrations_cmd::integration_reveal_secret,
+        integrations_cmd::integration_status,
+        integrations_cmd::integration_test,
+        integrations_cmd::amp_instance_action,
         alerts_cmd::alerts_subscribe,
         alerts_cmd::alerts_refresh,
         alerts_cmd::alerts_clear_history,

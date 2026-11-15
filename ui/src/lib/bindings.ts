@@ -197,6 +197,23 @@ export const commands = {
 	systemReboot: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_reboot", { hostId, sudo }, options),
 	/**  SMART health of every disk (needs root). */
 	systemDisks: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<DisksReport_Serialize>("system_disks", { hostId, sudo }, options),
+	integrationsList: (options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize[]>("integrations_list", undefined, options),
+	integrationCreate: (input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize>("integration_create", { input, secret }, options),
+	integrationUpdate: (id: number, input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize>("integration_update", { id, input, secret }, options),
+	integrationDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("integration_delete", { id }, options),
+	/**  The saved token/password, for "click to reveal" in the editor. */
+	integrationRevealSecret: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("integration_reveal_secret", { id }, options),
+	integrationStatus: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationStatus_Serialize>("integration_status", { id }, options),
+	/**
+	 *  Tries settings before saving them. Uses `secret` if given, otherwise
+	 *  the one saved for `id`.
+	 */
+	integrationTest: (id: number | null, input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationStatus_Serialize>("integration_test", { id, input, secret }, options),
+	/**
+	 *  Starts, stops or restarts an AMP instance. The UI confirms stop and
+	 *  restart with the instance named.
+	 */
+	ampInstanceAction: (id: number, instance: string, action: AmpAction, options?: InvokeOptions) => __TAURI_INVOKE<null>("amp_instance_action", { id, instance, action }, options),
 	/**  Registers the UI channel and sends the current snapshot. */
 	alertsSubscribe: (onEvent: Channel<AlertsSnapshot_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_subscribe", { onEvent }, options),
 	/**  Re-evaluates now (after alert settings change). */
@@ -342,6 +359,52 @@ export type AlertsSnapshot_Serialize = {
 	/**  Quiet hours are on right now (no notifications or webhooks). */
 	quiet: boolean,
 	enabled: boolean,
+};
+
+export type AmpAction = "start" | "stop" | "restart";
+
+export type AmpInstance = AmpInstance_Serialize | AmpInstance_Deserialize;
+
+export type AmpInstance_Deserialize = {
+	/**  AMP's instance name (used for actions), e.g. `Minecraft01`. */
+	name: string,
+	friendlyName: string,
+	/**  Game/module, e.g. "Minecraft". */
+	module: string,
+	/**  The instance process is running (the game itself may still be starting). */
+	running: boolean,
+	/**  Application state: `ready`, `starting`, `stopped`, ... */
+	state: string,
+	users?: number | null,
+	maxUsers?: number | null,
+	cpuPercent?: number | null,
+	memoryMb?: number | null,
+};
+
+export type AmpInstance_Serialize = {
+	/**  AMP's instance name (used for actions), e.g. `Minecraft01`. */
+	name: string,
+	friendlyName: string,
+	/**  Game/module, e.g. "Minecraft". */
+	module: string,
+	/**  The instance process is running (the game itself may still be starting). */
+	running: boolean,
+	/**  Application state: `ready`, `starting`, `stopped`, ... */
+	state: string,
+	users: number | null,
+	maxUsers: number | null,
+	cpuPercent: number | null,
+	memoryMb: number | null,
+};
+
+export type AmpStatus = AmpStatus_Serialize | AmpStatus_Deserialize;
+
+export type AmpStatus_Deserialize = {
+	instances: AmpInstance_Deserialize[],
+};
+
+export type AmpStatus_Serialize = {
+	instances: AmpInstance_Serialize[],
 };
 
 export type AppInfo = AppInfo_Serialize | AppInfo_Deserialize;
@@ -1116,6 +1179,107 @@ export type ImportSummary = {
 	stale: string[],
 };
 
+export type Integration = Integration_Serialize | Integration_Deserialize;
+
+export type IntegrationInput = IntegrationInput_Serialize | IntegrationInput_Deserialize;
+
+export type IntegrationInput_Deserialize = {
+	kind?: IntegrationKind | null,
+	name?: string,
+	baseUrl?: string,
+	username?: string,
+	slug?: string,
+	endpointId?: number,
+	hostId?: number | null,
+	allowUntrusted?: boolean,
+};
+
+export type IntegrationInput_Serialize = {
+	kind: IntegrationKind | null,
+	name: string,
+	baseUrl: string,
+	username: string,
+	slug: string,
+	endpointId: number,
+	hostId: number | null,
+	allowUntrusted: boolean,
+};
+
+export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer";
+
+/**  What an integration reports right now. */
+export type IntegrationStatus = IntegrationStatus_Serialize | IntegrationStatus_Deserialize;
+
+/**  What an integration reports right now. */
+export type IntegrationStatus_Deserialize = {
+	kind: "plex",
+} & PlexStatus_Deserialize | {
+	kind: "amp",
+} & AmpStatus_Deserialize | {
+	kind: "kuma",
+} & KumaStatus_Deserialize | {
+	kind: "portainer",
+} & PortainerStatus_Deserialize;
+
+/**  What an integration reports right now. */
+export type IntegrationStatus_Serialize = {
+	kind: "plex",
+} & PlexStatus_Serialize | {
+	kind: "amp",
+} & AmpStatus_Serialize | {
+	kind: "kuma",
+} & KumaStatus_Serialize | {
+	kind: "portainer",
+} & PortainerStatus_Serialize;
+
+export type IntegrationView = IntegrationView_Serialize | IntegrationView_Deserialize;
+
+export type IntegrationView_Deserialize = {
+	integration: Integration_Deserialize,
+	/**  A token/password is saved in the keychain. */
+	hasSecret: boolean,
+};
+
+export type IntegrationView_Serialize = {
+	integration: Integration_Serialize,
+	/**  A token/password is saved in the keychain. */
+	hasSecret: boolean,
+};
+
+export type Integration_Deserialize = {
+	id: number,
+	kind: IntegrationKind,
+	name: string,
+	/**  `http(s)://host[:port][/path]`, no trailing slash. */
+	baseUrl: string,
+	/**  AMP login name. */
+	username: string,
+	/**  Uptime Kuma status page slug. */
+	slug: string,
+	/**  Portainer environment id. */
+	endpointId: number,
+	/**  Portainer: the host whose Docker it manages (for container links). */
+	hostId?: number | null,
+	allowUntrusted: boolean,
+};
+
+export type Integration_Serialize = {
+	id: number,
+	kind: IntegrationKind,
+	name: string,
+	/**  `http(s)://host[:port][/path]`, no trailing slash. */
+	baseUrl: string,
+	/**  AMP login name. */
+	username: string,
+	/**  Uptime Kuma status page slug. */
+	slug: string,
+	/**  Portainer environment id. */
+	endpointId: number,
+	/**  Portainer: the host whose Docker it manages (for container links). */
+	hostId: number | null,
+	allowUntrusted: boolean,
+};
+
 export type JobState = "queued" | "running" | "paused" | 
 /**  Waiting for the user to resolve a conflict. */
 "conflict" | "done" | "skipped" | "failed" | "cancelled";
@@ -1260,6 +1424,48 @@ export type KeychainStatus_Deserialize = {
 export type KeychainStatus_Serialize = {
 	available: boolean,
 	detail: string | null,
+};
+
+export type KumaMonitor = KumaMonitor_Serialize | KumaMonitor_Deserialize;
+
+export type KumaMonitor_Deserialize = {
+	id: number,
+	name: string,
+	group: string,
+	state: KumaState,
+	pingMs?: number | null,
+	message: string,
+	/**  0–100 over the last 24 h. */
+	uptime24h?: number | null,
+};
+
+export type KumaMonitor_Serialize = {
+	id: number,
+	name: string,
+	group: string,
+	state: KumaState,
+	pingMs: number | null,
+	message: string,
+	/**  0–100 over the last 24 h. */
+	uptime24h: number | null,
+};
+
+export type KumaState = "up" | "down" | "pending" | "maintenance" | "unknown";
+
+export type KumaStatus = KumaStatus_Serialize | KumaStatus_Deserialize;
+
+export type KumaStatus_Deserialize = {
+	title: string,
+	monitors: KumaMonitor_Deserialize[],
+	up: number,
+	down: number,
+};
+
+export type KumaStatus_Serialize = {
+	title: string,
+	monitors: KumaMonitor_Serialize[],
+	up: number,
+	down: number,
 };
 
 export type Listing = Listing_Serialize | Listing_Deserialize;
@@ -1425,6 +1631,58 @@ export type PackageUpdate_Serialize = {
 	repo: string | null,
 };
 
+export type PlexStatus = PlexStatus_Serialize | PlexStatus_Deserialize;
+
+export type PlexStatus_Deserialize = {
+	server: string,
+	version: string,
+	streams: PlexStream_Deserialize[],
+	/**  Streams being transcoded (video or audio). */
+	transcodes: number,
+};
+
+export type PlexStatus_Serialize = {
+	server: string,
+	version: string,
+	streams: PlexStream_Serialize[],
+	/**  Streams being transcoded (video or audio). */
+	transcodes: number,
+};
+
+export type PlexStream = PlexStream_Serialize | PlexStream_Deserialize;
+
+export type PlexStream_Deserialize = {
+	user: string,
+	/**  "Show · S1E2 · Episode", "Movie (2019)", "Artist · Track". */
+	title: string,
+	/**  movie, episode, track, ... */
+	media: string,
+	player: string,
+	/**  playing, paused, buffering. */
+	state: string,
+	/**  0–100, when duration is known. */
+	progress?: number | null,
+	transcode: boolean,
+	/**  "1080p" etc. from the media, when known. */
+	quality?: string | null,
+};
+
+export type PlexStream_Serialize = {
+	user: string,
+	/**  "Show · S1E2 · Episode", "Movie (2019)", "Artist · Track". */
+	title: string,
+	/**  movie, episode, track, ... */
+	media: string,
+	player: string,
+	/**  playing, paused, buffering. */
+	state: string,
+	/**  0–100, when duration is known. */
+	progress: number | null,
+	transcode: boolean,
+	/**  "1080p" etc. from the media, when known. */
+	quality: string | null,
+};
+
 /**  One stored point (averages over its bucket). */
 export type Point = Point_Serialize | Point_Deserialize;
 
@@ -1500,6 +1758,16 @@ export type PortView_Serialize = {
 	private: number,
 	public: number | null,
 	proto: string,
+};
+
+export type PortainerStatus = PortainerStatus_Serialize | PortainerStatus_Deserialize;
+
+export type PortainerStatus_Deserialize = {
+	version?: string | null,
+};
+
+export type PortainerStatus_Serialize = {
+	version: string | null,
 };
 
 export type PromptKind = "password" | "passphrase";

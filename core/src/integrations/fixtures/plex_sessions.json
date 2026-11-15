@@ -1,0 +1,38 @@
+{
+  "MediaContainer": {
+    "size": 3,
+    "Metadata": [
+      {
+        "type": "episode",
+        "title": "The Fifth One",
+        "grandparentTitle": "Example Show",
+        "parentIndex": 2,
+        "index": 5,
+        "duration": 2400000,
+        "viewOffset": 600000,
+        "Media": [{ "videoResolution": "1080" }],
+        "User": { "id": "1", "title": "alice" },
+        "Player": { "title": "Living Room TV", "product": "Plex for Android (TV)", "state": "playing" },
+        "TranscodeSession": { "videoDecision": "transcode", "audioDecision": "copy" }
+      },
+      {
+        "type": "movie",
+        "title": "A Film",
+        "year": 2019,
+        "duration": 7200000,
+        "viewOffset": 7100000,
+        "Media": [{ "videoResolution": "4k" }],
+        "User": { "title": "bob" },
+        "Player": { "title": "", "product": "Plex Web", "state": "playing" }
+      },
+      {
+        "type": "track",
+        "title": "Song",
+        "grandparentTitle": "Some Band",
+        "User": { "title": "alice" },
+        "Player": { "product": "Plexamp", "state": "paused" },
+        "TranscodeSession": { "videoDecision": "", "audioDecision": "copy" }
+      }
+    ]
+  }
+}
