@@ -78,6 +78,7 @@ _Last updated: M2 (SFTP + editor)._
 - **History** (`core/src/metrics/history.rs`): `MinuteAverager` turns samples into `Point`s, `Store::insert_metric_point` writes the minute row and folds it into the 15-minute rollup, `metric_history` picks the resolution by range, `prune_metrics` applies retention (D-037).
 - **Pollers** (`app/src/metrics_cmd.rs`): `MetricsHub` in `AppState` holds one Tokio task per host, the visible-host set and the event `Channel`. Each poller connects through the shared `SshPool` without prompting (D-038), runs the script with a 15 s timeout, and sends `MetricsEvent::Sample` / `MetricsEvent::State`. Commands: `metrics_subscribe`, `metrics_sync` (after host or setting changes), `metrics_set_visible`, `metrics_retry`, `metrics_history`.
 - **UI**: `stores/metrics.svelte.ts` keeps the latest sample and ~5 minutes of sparkline values per host and merges "visible" requests from the Overview and the monitor panel. `components/metrics/`: `HostTile` (Overview), `HostMonitor` (modal with cores, mounts, interfaces, disks, temperatures and the history chart), `Sparkline`, `Meter`, `HistoryChart` (SVG, gaps for missing minutes, hover readout). In the browser dev mode `mockMetrics.ts` fakes samples and history.
+- **GPUs and forecasts** (M10c): the script's `@@nvidia` / `@@drm` sections become `Sample.gpus` (`parse_nvidia`, `parse_drm`) and the busiest GPU is stored as `Point.gpu` (D-068). `ui/src/lib/metrics/forecast.ts` fits a line to 14 days of rollups for the disk and memory forecasts in the monitor (D-067).
 
 ## Updates (M4.5)
 
@@ -107,6 +108,7 @@ _Last updated: M2 (SFTP + editor)._
 - **journal** (`journal.rs`): builds `journalctl -o json …` from a `JournalQuery` (unit, priority, since/until, lines, follow; all validated and quoted) and parses entries.
 - **packages** (`packages.rs`): one exec detects the manager, lists upgrades and reboot-required signals; `upgrade_command` per manager (D-049).
 - **smart** (`smart.rs`): scans and reads every disk in one root session and judges health; fixtures in `core/src/system/fixtures/`.
+- **schedule** (`schedule.rs`, M10c): one unprivileged script reads timers (`systemctl show --timestamp=unix`), their services' last result, crontabs and `cron.<period>` folders; `CronSpec` parses 5-field schedules and finds the next run in host time; `describe` words common schedules (D-066). Command: `system_schedules`; UI: `SchedulesPanel.svelte`.
 - **App** (`app/src/system_cmd.rs`): `resolve_sudo` (probe → prompt input or keychain → `sudo true` check), commands for units, journal (stream with batching), updates, upgrade runs, reboot and disks. Streams share a stop switch map (`system_runs`).
 - **UI**: `stores/system.svelte.ts` (per-tab state, `withSudo` retry loop around the prompt), `views/System.svelte`, `components/system/*`; `mockSystem.ts` for browser dev.
 

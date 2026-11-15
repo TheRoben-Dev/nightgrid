@@ -4,6 +4,7 @@ import {
   systemError,
   type ConnectError,
   type DisksReport,
+  type Schedules,
   type Health,
   type JournalEntry,
   type JournalEvent,
@@ -17,7 +18,7 @@ import {
 } from "../api";
 import { hosts } from "./hosts.svelte";
 
-export type SystemTab = "units" | "journal" | "updates" | "disks";
+export type SystemTab = "units" | "journal" | "schedules" | "updates" | "disks";
 export type UnitFilter = "all" | "running" | "failed" | "inactive";
 
 /** Journal rows kept in memory; older ones scroll off. */
@@ -145,6 +146,9 @@ class SystemStore {
   disks = $state<DisksReport | null>(null);
   disksLoading = $state(false);
 
+  schedules = $state<Schedules | null>(null);
+  schedulesLoading = $state(false);
+
   private seq = 0;
 
   get host() {
@@ -184,6 +188,7 @@ class SystemStore {
     this.updates = null;
     this.run = null;
     this.disks = null;
+    this.schedules = null;
     void this.loadInfo();
     void this.openTab(this.tab);
   }
@@ -193,6 +198,7 @@ class SystemStore {
     if (this.hostId === null || this.prompt) return;
     if (tab === "units" && !this.unitsLoaded) await this.loadUnits();
     else if (tab === "journal" && this.journalRun === null && !this.journal.length) await this.startJournal();
+    else if (tab === "schedules" && !this.schedules) await this.loadSchedules();
     else if (tab === "updates" && !this.updates) await this.checkUpdates();
     else if (tab === "disks" && !this.disks && !this.sudoNeedsPassword && this.info) await this.loadDisks();
   }
@@ -384,6 +390,33 @@ class SystemStore {
     const run = this.journalRun;
     this.journalRun = null;
     if (run !== null) await api.systemStreamStop(run).catch(() => {});
+  }
+
+  /** Opens the journal filtered to one unit (e.g. the service a timer starts). */
+  async showJournal(unit: string) {
+    this.journalForm = { ...defaultJournalForm(), unit, priority: 7, since: "-7d", follow: false };
+    this.journalQuery = "";
+    this.tab = "journal";
+    await this.startJournal();
+  }
+
+  // ---- schedules ----------------------------------------------------------
+
+  async loadSchedules() {
+    const id = this.hostId;
+    if (id === null) return;
+    const seq = this.seq;
+    this.schedulesLoading = true;
+    try {
+      const s = await api.systemSchedules(id);
+      if (seq !== this.seq) return;
+      this.schedules = s;
+      this.clearError("schedules");
+    } catch (e) {
+      if (seq === this.seq) this.fail("schedules", e);
+    } finally {
+      if (seq === this.seq) this.schedulesLoading = false;
+    }
   }
 
   // ---- packages -----------------------------------------------------------

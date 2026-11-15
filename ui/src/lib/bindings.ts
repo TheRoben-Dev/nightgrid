@@ -173,6 +173,8 @@ export const commands = {
 	/**  Deletes the host's saved sudo password. */
 	systemSudoForget: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_sudo_forget", { hostId }, options),
 	systemUnits: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Unit_Serialize[]>("system_units", { hostId }, options),
+	/**  Systemd timers and cron jobs (read-only). */
+	systemSchedules: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Schedules_Serialize>("system_schedules", { hostId }, options),
 	systemUnitStatus: (hostId: number, unit: string, options?: InvokeOptions) => __TAURI_INVOKE<string>("system_unit_status", { hostId, unit }, options),
 	/**
 	 *  Runs a unit action as root. Stop / restart / disable were confirmed in
@@ -922,6 +924,39 @@ export type ContainerView_Serialize = {
 	composeFiles: string[],
 };
 
+/**  One cron entry. */
+export type CronJob = CronJob_Serialize | CronJob_Deserialize;
+
+/**  One cron entry. */
+export type CronJob_Deserialize = {
+	/**  `crontab` (the login user's), `/etc/crontab` or `/etc/cron.d/<file>`. */
+	source: string,
+	/**  The user it runs as (system crontabs name one). */
+	user?: string | null,
+	/**  The schedule as written (`*\/5 * * * *`, `@daily`). */
+	schedule: string,
+	/**  Plain-language schedule ("every 5 minutes", "daily at 03:00"). */
+	every: string,
+	command: string,
+	/**  Next run, unix seconds (none for `@reboot` or a schedule that never matches). */
+	next?: number | null,
+};
+
+/**  One cron entry. */
+export type CronJob_Serialize = {
+	/**  `crontab` (the login user's), `/etc/crontab` or `/etc/cron.d/<file>`. */
+	source: string,
+	/**  The user it runs as (system crontabs name one). */
+	user: string | null,
+	/**  The schedule as written (`*\/5 * * * *`, `@daily`). */
+	schedule: string,
+	/**  Plain-language schedule ("every 5 minutes", "daily at 03:00"). */
+	every: string,
+	command: string,
+	/**  Next run, unix seconds (none for `@reboot` or a schedule that never matches). */
+	next: number | null,
+};
+
 export type Disk = Disk_Serialize | Disk_Deserialize;
 
 export type Disk_Deserialize = {
@@ -1102,6 +1137,44 @@ export type FsError_Deserialize = { kind: "notFound"; path: string } | { kind: "
 export type FsError_Serialize = { kind: "notFound"; path: string } | { kind: "permissionDenied"; path: string } | { kind: "exists"; path: string } | { kind: "isDir"; path: string } | { kind: "tooLarge"; path: string; size: number; limit: number } | { kind: "notText"; path: string } | 
 /**  The file changed on disk since it was opened (save conflict). */
 { kind: "changed"; path: string; current: Entry_Serialize } | { kind: "disconnected" } | { kind: "cancelled" } | { kind: "other"; message: string };
+
+/**
+ *  One GPU (NVIDIA through `nvidia-smi`, AMD through sysfs). Fields a
+ *  driver doesn't report are `None`.
+ */
+export type Gpu = Gpu_Serialize | Gpu_Deserialize;
+
+/**
+ *  One GPU (NVIDIA through `nvidia-smi`, AMD through sysfs). Fields a
+ *  driver doesn't report are `None`.
+ */
+export type Gpu_Deserialize = {
+	name: string,
+	/**  Busy %. */
+	util?: number | null,
+	/**  VRAM in bytes. */
+	memUsed?: number | null,
+	memTotal?: number | null,
+	temp?: number | null,
+	/**  Watts. */
+	power?: number | null,
+};
+
+/**
+ *  One GPU (NVIDIA through `nvidia-smi`, AMD through sysfs). Fields a
+ *  driver doesn't report are `None`.
+ */
+export type Gpu_Serialize = {
+	name: string,
+	/**  Busy %. */
+	util: number | null,
+	/**  VRAM in bytes. */
+	memUsed: number | null,
+	memTotal: number | null,
+	temp: number | null,
+	/**  Watts. */
+	power: number | null,
+};
 
 export type Group = Group_Serialize | Group_Deserialize;
 
@@ -1854,6 +1927,13 @@ export type PackageUpdate_Serialize = {
 	repo: string | null,
 };
 
+/**  Scripts in `/etc/cron.<period>/` (run by run-parts or anacron). */
+export type Periodic = {
+	/**  `hourly`, `daily`, `weekly` or `monthly`. */
+	period: string,
+	scripts: string[],
+};
+
 export type Playbook = Playbook_Serialize | Playbook_Deserialize;
 
 export type PlaybookInput = PlaybookInput_Serialize | PlaybookInput_Deserialize;
@@ -1961,6 +2041,8 @@ export type Point_Deserialize = {
 	diskRead?: number | null,
 	diskWrite?: number | null,
 	temp?: number | null,
+	/**  Busiest GPU, busy %. */
+	gpu?: number | null,
 };
 
 /**  One stored point (averages over its bucket). */
@@ -1981,6 +2063,8 @@ export type Point_Serialize = {
 	diskRead: number | null,
 	diskWrite: number | null,
 	temp: number | null,
+	/**  Busiest GPU, busy %. */
+	gpu: number | null,
 };
 
 /**  Why a host has no fresh sample. */
@@ -2113,6 +2197,7 @@ export type Sample_Deserialize = {
 	temps: Temp[],
 	/**  Best guess at the CPU temperature, for tiles. */
 	cpuTemp?: number | null,
+	gpus: Gpu_Deserialize[],
 };
 
 /**  One processed sample: what the UI shows. */
@@ -2145,6 +2230,7 @@ export type Sample_Serialize = {
 	temps: Temp[],
 	/**  Best guess at the CPU temperature, for tiles. */
 	cpuTemp: number | null,
+	gpus: Gpu_Serialize[],
 };
 
 export type SaveResult = SaveResult_Serialize | SaveResult_Deserialize;
@@ -2165,6 +2251,30 @@ export type SaveResult_Serialize = {
 	 *  writable, or the owner could not be preserved through a new file).
 	 */
 	atomic: boolean,
+};
+
+export type Schedules = Schedules_Serialize | Schedules_Deserialize;
+
+export type Schedules_Deserialize = {
+	systemd: boolean,
+	timers: Timer_Deserialize[],
+	cron: CronJob_Deserialize[],
+	periodic: Periodic[],
+	/**  The host's clock when it was read, unix seconds. */
+	now: number,
+	/**  The host's UTC offset in minutes (cron runs in local time). */
+	utcOffsetMin: number,
+};
+
+export type Schedules_Serialize = {
+	systemd: boolean,
+	timers: Timer_Serialize[],
+	cron: CronJob_Serialize[],
+	periodic: Periodic[],
+	/**  The host's clock when it was read, unix seconds. */
+	now: number,
+	/**  The host's UTC offset in minutes (cron runs in local time). */
+	utcOffsetMin: number,
 };
 
 export type Service = Service_Serialize | Service_Deserialize;
@@ -2555,6 +2665,55 @@ export type TextFile_Serialize = {
 	path: string,
 	content: string,
 	stat: Entry_Serialize,
+};
+
+/**  One systemd timer. */
+export type Timer = Timer_Serialize | Timer_Deserialize;
+
+/**  One systemd timer. */
+export type Timer_Deserialize = {
+	name: string,
+	description: string,
+	/**  `active` / `inactive` / `failed`. */
+	active: string,
+	/**  `enabled` / `disabled` / `static` …, when known. */
+	enabled?: string | null,
+	/**  The unit it starts (usually the `.service` of the same name). */
+	unit: string,
+	/**  `OnCalendar=` expressions. */
+	calendar: string[],
+	/**  `OnBootSec=` / `OnUnitActiveSec=` … settings. */
+	monotonic: string[],
+	/**  Next run, unix seconds. */
+	next?: number | null,
+	/**  Last run, unix seconds. */
+	last?: number | null,
+	/**  The started unit's last result (`success`, `exit-code`, `timeout` …). */
+	result?: string | null,
+	exitStatus?: number | null,
+};
+
+/**  One systemd timer. */
+export type Timer_Serialize = {
+	name: string,
+	description: string,
+	/**  `active` / `inactive` / `failed`. */
+	active: string,
+	/**  `enabled` / `disabled` / `static` …, when known. */
+	enabled: string | null,
+	/**  The unit it starts (usually the `.service` of the same name). */
+	unit: string,
+	/**  `OnCalendar=` expressions. */
+	calendar: string[],
+	/**  `OnBootSec=` / `OnUnitActiveSec=` … settings. */
+	monotonic: string[],
+	/**  Next run, unix seconds. */
+	next: number | null,
+	/**  Last run, unix seconds. */
+	last: number | null,
+	/**  The started unit's last result (`success`, `exit-code`, `timeout` …). */
+	result: string | null,
+	exitStatus: number | null,
 };
 
 export type TlsInfo = TlsInfo_Serialize | TlsInfo_Deserialize;

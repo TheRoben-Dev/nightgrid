@@ -28,6 +28,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "tunnels-add", view: "tunnels", what: "add an SSH tunnel" },
   { id: "system-tab-units", view: "system", what: "systemd services tab" },
   { id: "system-tab-journal", view: "system", what: "journal (live logs) tab" },
+  { id: "system-tab-schedules", view: "system", what: "scheduled jobs tab: systemd timers and cron, next and last runs" },
   { id: "system-tab-updates", view: "system", what: "package updates tab" },
   { id: "system-tab-disks", view: "system", what: "disk SMART health tab" },
   { id: "automation-command", view: "automation", what: "command box for running on several hosts" },

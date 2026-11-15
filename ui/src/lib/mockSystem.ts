@@ -10,6 +10,7 @@ import type {
   JournalQuery_Deserialize as JournalQuery,
   Manager,
   RunEvent_Serialize as RunEvent,
+  Schedules_Serialize as Schedules,
   SudoInput,
   SystemInfo,
   Unit_Serialize as Unit,
@@ -83,6 +84,32 @@ export const mockSystem = {
   },
   async units(_hostId: number): Promise<Unit[]> {
     return units.map((x) => ({ ...x }));
+  },
+  async schedules(_hostId: number): Promise<Schedules> {
+    const now = Math.floor(Date.now() / 1000);
+    const h = 3600;
+    return {
+      systemd: true,
+      now,
+      utcOffsetMin: -new Date().getTimezoneOffset(),
+      timers: [
+        { name: "certbot.timer", description: "Run certbot twice daily", active: "active", enabled: "enabled", unit: "certbot.service", calendar: ["*-*-* 00,12:00:00"], monotonic: [], next: now + 2 * h + 600, last: now - 10 * h, result: "success", exitStatus: 0 },
+        { name: "restic-backup.timer", description: "Nightly restic backup", active: "active", enabled: "enabled", unit: "restic-backup.service", calendar: ["*-*-* 03:30:00"], monotonic: [], next: now + 9 * h, last: now - 15 * h, result: "exit-code", exitStatus: 3 },
+        { name: "apt-daily.timer", description: "Daily apt download activities", active: "active", enabled: "enabled", unit: "apt-daily.service", calendar: ["*-*-* 6,18:00"], monotonic: [], next: now + 5 * h, last: now - 7 * h, result: "success", exitStatus: 0 },
+        { name: "fstrim.timer", description: "Discard unused filesystem blocks once a week", active: "active", enabled: "enabled", unit: "fstrim.service", calendar: ["weekly"], monotonic: [], next: now + 50 * h, last: now - 118 * h, result: "success", exitStatus: 0 },
+        { name: "docker-prune.timer", description: "Prune unused Docker images", active: "inactive", enabled: "disabled", unit: "docker-prune.service", calendar: [], monotonic: ["OnUnitActiveSec=1w"], next: null, last: null, result: null, exitStatus: null },
+      ],
+      cron: [
+        { source: "crontab", user: null, schedule: "*/15 * * * *", every: "every 15 minutes", command: "/home/me/bin/ddns-update.sh --token=abc123 >/dev/null 2>&1", next: now + 420 },
+        { source: "/etc/crontab", user: "root", schedule: "17 * * * *", every: "hourly at :17", command: "cd / && run-parts --report /etc/cron.hourly", next: now + 1500 },
+        { source: "/etc/cron.d/zfs", user: "root", schedule: "0 2 1 * *", every: "monthly on day 1 at 02:00", command: "zpool scrub tank", next: now + 12 * 86400 },
+        { source: "crontab", user: null, schedule: "@reboot", every: "at boot", command: "sleep 30 && /home/me/bin/mount-shares.sh", next: null },
+      ],
+      periodic: [
+        { period: "daily", scripts: ["apt-compat", "dpkg", "logrotate", "man-db"] },
+        { period: "weekly", scripts: ["man-db"] },
+      ],
+    };
   },
   async unitStatus(_hostId: number, unit: string): Promise<string> {
     const x = units.find((y) => y.name === unit);

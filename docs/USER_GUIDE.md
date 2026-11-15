@@ -52,6 +52,8 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - The Overview shows every host with CPU, memory, disk, network and temperatures, read over SSH with one short command per sample.
 - Click a host for history charts. Minute detail is kept for the days set in Settings → Monitoring, and 15-minute averages for at least 90 days.
 - Hosts that need a password or a new host key wait until you open a terminal on them; monitoring never prompts.
+- **Forecasts**: the monitor fits a trend to the last 14 days and says when the fullest disk reaches 100 % (orange within two months, red within two weeks). Memory gets a line only when it keeps climbing towards 95 %, which can point at a leak. It needs at least two days of history.
+- **GPUs**: NVIDIA cards (through `nvidia-smi`, if the driver is installed) and AMD cards (amdgpu) show busy %, VRAM, temperature and power in the monitor, with a GPU history chart. Intel GPUs aren't read yet.
 
 ## Services and integrations
 
@@ -73,6 +75,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - Per host:
   - **services**: systemd units, with start, stop, restart, enable and disable;
   - **journal**: live logs with filters;
+  - **schedules**: systemd timers (schedule, next and last run, and whether the last run failed, with a **Journal** button for the service it starts) and cron jobs from your crontab, `/etc/crontab` and `/etc/cron.d` in plain words ("daily at 03:30") with the next run. Read-only. Commands that look like they hold a token are masked until you click **Reveal**;
   - **updates**: apt, dnf or pacman, with a reboot-needed flag;
   - **disks**: SMART health.
 - **sudo**: asked each time by default. Tick "remember for this host" to keep it in the keychain. The password is sent on sudo's input, never on a command line.

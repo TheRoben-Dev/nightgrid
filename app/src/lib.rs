@@ -113,6 +113,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::system_info,
         system_cmd::system_sudo_forget,
         system_cmd::system_units,
+        system_cmd::system_schedules,
         system_cmd::system_unit_status,
         system_cmd::system_unit_action,
         system_cmd::system_journal_start,

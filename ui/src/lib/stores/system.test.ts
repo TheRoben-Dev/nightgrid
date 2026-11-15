@@ -80,6 +80,17 @@ describe("system store (browser mock)", () => {
     expect(system.units.find((u) => u.name === "nginx.service")?.active).toBe("active");
   });
 
+  it("loads schedules and opens a timer's journal", async () => {
+    system.select(1);
+    await system.openTab("schedules");
+    expect(system.schedules?.timers.length).toBeGreaterThan(2);
+    expect(system.schedules?.cron.some((j) => j.schedule === "@reboot")).toBe(true);
+    await system.showJournal("certbot.service");
+    expect(system.tab).toBe("journal");
+    expect(system.journalForm).toMatchObject({ unit: "certbot.service", follow: false, since: "-7d" });
+    await system.stopJournal();
+  });
+
   it("cancelling the prompt fails the action", async () => {
     system.request("ssh.service", "stop");
     expect(system.pendingUnit).toEqual({ unit: "ssh.service", action: "stop" });

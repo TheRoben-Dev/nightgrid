@@ -2,7 +2,7 @@
 
 Agentless homelab command center: SSH terminals, SFTP, Docker, monitoring, services and tunnels in one native-feeling desktop app. Built with Tauri 2, Rust and Svelte 5.
 
-> Status: **M10 — DRIFT helper** (0.10.1: Explain buttons). Hosts + terminals, SFTP + editor, Docker, monitoring, services, tunnels, system tasks, alerts, integrations, automation, encrypted backups, a handheld/controller layout and the local DRIFT helper are in. Next: more of the M10 backlog and the offline knowledge base (M11). How to use it: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md).
+> Status: **M10 — DRIFT helper and backlog** (0.10.2: forecasts, GPUs, scheduled jobs). Hosts + terminals, SFTP + editor, Docker, monitoring, services, tunnels, system tasks, alerts, integrations, automation, encrypted backups, a handheld/controller layout and the local DRIFT helper are in. Next: more of the M10 backlog and the offline knowledge base (M11). How to use it: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md).
 
 ## Repository layout
 
@@ -163,6 +163,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 2. Ask "How do I back up my setup?". The first question loads the model (a few seconds), then the reply streams in. **Show me** jumps to Settings and puts magenta brackets around the Backup panel; clicking anywhere clears them.
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
+
+### macOS: testing M10c (schedules, GPUs, forecasts)
+
+1. **System → Schedules** on a Linux host: timers are listed with their schedule, next run ("in 2h 10m") and last run with `OK` or a red `EXIT n`. Hover a time to see it in the host's clock. **Journal** on a timer jumps to the last 7 days of its service.
+2. Add a test job on the host with `crontab -e`: `*/15 * * * * echo hi API_KEY=secret`. Click **Refresh**: it shows as "every 15 minutes", the next run is under 15 minutes away, and the key reads `API_KEY=••••` until you click **Reveal**.
+3. On a host with an NVIDIA (driver installed) or AMD GPU, open its monitor from the Overview: a **GPU** panel shows busy %, VRAM, temperature and power, and the history bar gets a **GPU** tab.
+4. After a host has a few days of history, the monitor's Disks panel shows a line like "Fullest disk: reaches 100% in about 7 weeks" (or "steady").
 
 ### macOS: testing M10b (Explain buttons)
 

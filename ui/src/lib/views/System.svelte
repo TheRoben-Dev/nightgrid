@@ -5,6 +5,7 @@
   import HostKeyPrompt from "../components/terminal/HostKeyPrompt.svelte";
   import DisksPanel from "../components/system/DisksPanel.svelte";
   import JournalPanel from "../components/system/JournalPanel.svelte";
+  import SchedulesPanel from "../components/system/SchedulesPanel.svelte";
   import SudoPrompt from "../components/system/SudoPrompt.svelte";
   import UnitsPanel from "../components/system/UnitsPanel.svelte";
   import UpdatesPanel from "../components/system/UpdatesPanel.svelte";
@@ -20,6 +21,7 @@
   const TABS: { id: SystemTab; label: string }[] = [
     { id: "units", label: "UNITS" },
     { id: "journal", label: "JOURNAL" },
+    { id: "schedules", label: "SCHEDULES" },
     { id: "updates", label: "UPDATES" },
     { id: "disks", label: "DISKS" },
   ];
@@ -73,7 +75,7 @@
     {#if !hosts.hosts.length}
       <div class="empty">
         <p class="label">NO HOSTS</p>
-        <p class="muted">Add a host first; its services, journal, updates and disks show up here.</p>
+        <p class="muted">Add a host first; its services, journal, timers, cron jobs, updates and disks show up here.</p>
         <button type="button" class="btn primary" onclick={() => (hosts.editing = 0)}>Add host</button>
       </div>
     {:else if system.prompt}
@@ -88,6 +90,8 @@
       <UnitsPanel />
     {:else if system.tab === "journal"}
       <JournalPanel />
+    {:else if system.tab === "schedules"}
+      <SchedulesPanel />
     {:else if system.tab === "updates"}
       <UpdatesPanel />
     {:else}

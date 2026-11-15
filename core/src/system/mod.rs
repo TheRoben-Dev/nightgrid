@@ -1,5 +1,5 @@
 //! Host system management over SSH: systemd units, the journal, package
-//! updates and SMART disk health (M6).
+//! updates and SMART disk health (M6), and scheduled jobs (M10c).
 //!
 //! Everything here runs plain commands on the host's pooled SSH connection
 //! (nothing is installed there). Commands that need root go through
@@ -7,6 +7,7 @@
 
 pub mod journal;
 pub mod packages;
+pub mod schedule;
 pub mod smart;
 pub mod sudo;
 pub mod systemd;
