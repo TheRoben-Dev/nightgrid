@@ -23,7 +23,7 @@ function check(i: NoteInput): Note {
       throw new Error(`invalid value for ${field}: looks like it contains a password or token. Mask it (or keep it in a password manager) before saving`);
   }
   const tags = [...new Set((i.tags ?? []).map((t) => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean))];
-  return { id: 0, title, body, hostId: i.hostId ?? null, tags, pinned: !!i.pinned, updatedAt: now() };
+  return { id: 0, title, body, hostId: i.hostId ?? null, tags, pinned: !!i.pinned, hideFromDrift: !!i.hideFromDrift, updatedAt: now() };
 }
 
 const sorted = () => [...notes].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt || b.id - a.id);
@@ -51,6 +51,7 @@ export function resetMockNotes(seed = true) {
     hostId: 1,
     tags: ["docker", "runbook"],
     pinned: true,
+    hideFromDrift: false,
     updatedAt: now() - 3600,
   });
   notes.push({
@@ -60,6 +61,7 @@ export function resetMockNotes(seed = true) {
     hostId: null,
     tags: ["storage"],
     pinned: false,
+    hideFromDrift: false,
     updatedAt: now() - 86400 * 3,
   });
 }

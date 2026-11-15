@@ -11,6 +11,14 @@
   import { scramble } from "../../scramble";
   import { sectionById } from "../../sections";
   import { helper, type ChatMessage } from "../../stores/helper.svelte";
+  import { notes } from "../../stores/notes.svelte";
+  import { ui } from "../../stores/ui.svelte";
+
+  function openNote(id: number) {
+    notes.draft = null;
+    notes.selected = id;
+    ui.go("notes");
+  }
   import Drift from "./Drift.svelte";
   import ModelCard from "./ModelCard.svelte";
 
@@ -136,6 +144,12 @@
                   {#if a.kind === "point"}<button type="button" class="chip" onclick={() => void helper.point(a.id, a.note)}>{a.note || a.id}</button>
                   {:else}<span class="muted small">→ {sectionById(a.view).label}</span>{/if}
                 {/each}
+              </div>
+            {/if}
+            {#if !m.streaming && m.noteRefs?.length}
+              <div class="acts notes" aria-label="Notes used">
+                <span class="muted small">From your notes:</span>
+                {#each m.noteRefs as r (r.id)}<button type="button" class="chip" onclick={() => openNote(r.id)}>▤ {r.title}</button>{/each}
               </div>
             {/if}
             {#if !m.streaming && m.sent}

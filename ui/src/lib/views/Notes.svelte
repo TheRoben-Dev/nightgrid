@@ -134,6 +134,9 @@
         <div class="row">
           <input class="input title" placeholder="Title" aria-label="Title" maxlength="120" bind:value={draft.input.title} onkeydown={saveKey} />
           <label class="pinbox"><input type="checkbox" bind:checked={draft.input.pinned} /> Pin</label>
+          <label class="pinbox" title="DRIFT, the local helper, can search your notes to answer questions. Tick to keep this one out."
+            ><input type="checkbox" bind:checked={draft.input.hideFromDrift} /> Hide from DRIFT</label
+          >
         </div>
         <div class="row">
           <select class="input" aria-label="Host" bind:value={draft.input.hostId}>
@@ -172,6 +175,7 @@
             {#if cur.hostId !== null}<span class="host">{hostName(cur.hostId)}</span>{/if}
             {#each cur.tags as t (t)}<span class="muted">#{t}</span>{/each}
             <span class="muted">edited {ago(cur.updatedAt)}</span>
+            {#if cur.hideFromDrift}<span class="muted" title="DRIFT doesn't search this note">· hidden from DRIFT</span>{/if}
             <span class="spacer"></span>
             <ExplainButton
               source="note “{cur.title}”"

@@ -136,3 +136,18 @@ describe("md", () => {
     expect(parseMd("```\nabc")).toEqual([{ kind: "code", lang: "", text: "abc", open: true }]);
   });
 });
+
+describe("notes in DRIFT", () => {
+  it("indexes notes, skips hidden ones and lists the notes used", async () => {
+    const { notesIndex, noteChunks, noteRefs } = await import("./knowledge");
+    const ns = [
+      { id: 1, title: "Replace a disk", body: "Run `zpool replace tank old new` and wait for resilver.", tags: ["zfs"], hideFromDrift: false, updatedAt: 1 },
+      { id: 2, title: "Router login", body: "zpool notes kept private", tags: [], hideFromDrift: true, updatedAt: 1 },
+    ];
+    expect(noteChunks(ns).every((c) => c.noteId === 1)).toBe(true);
+    const hits = notesIndex(ns).search("how do I replace a zpool disk", 2);
+    expect(hits[0].noteId).toBe(1);
+    expect(hits[0].title).toContain("Replace a disk");
+    expect(noteRefs([...hits, { title: "Hosts" }])).toEqual([{ id: 1, title: "Replace a disk" }]);
+  });
+});

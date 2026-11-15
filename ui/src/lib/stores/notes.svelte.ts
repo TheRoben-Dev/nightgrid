@@ -4,7 +4,7 @@ import { redact } from "../helper/prompt";
 /** Which notes the list shows by host. */
 export type HostFilter = "all" | "none" | number;
 
-export const emptyInput = (hostId: number | null = null): NoteInput => ({ title: "", body: "", hostId, tags: [], pinned: false });
+export const emptyInput = (hostId: number | null = null): NoteInput => ({ title: "", body: "", hostId, tags: [], pinned: false, hideFromDrift: false });
 
 /** Splits "a, #b c" into tags. */
 export const parseTags = (s: string): string[] =>
@@ -68,7 +68,7 @@ class NotesStore {
   }
 
   edit(n: Note) {
-    this.draft = { id: n.id, input: { title: n.title, body: n.body, hostId: n.hostId, tags: [...n.tags], pinned: n.pinned } };
+    this.draft = { id: n.id, input: { title: n.title, body: n.body, hostId: n.hostId, tags: [...n.tags], pinned: n.pinned, hideFromDrift: n.hideFromDrift } };
     this.saveError = null;
   }
 
@@ -104,7 +104,7 @@ class NotesStore {
 
   async togglePin(n: Note) {
     try {
-      await api.noteSave(n.id, { title: n.title, body: n.body, hostId: n.hostId, tags: n.tags, pinned: !n.pinned });
+      await api.noteSave(n.id, { title: n.title, body: n.body, hostId: n.hostId, tags: n.tags, pinned: !n.pinned, hideFromDrift: n.hideFromDrift });
       await this.load();
     } catch (e) {
       this.error = errorText(e);

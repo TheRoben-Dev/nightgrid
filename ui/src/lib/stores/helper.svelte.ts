@@ -4,10 +4,11 @@
  */
 import { api, type HelperStatus } from "../api";
 import { guideTarget } from "../helper/guide";
-import { guideIndex } from "../helper/knowledge";
+import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
 import { buildTurns, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
 import { sectionById } from "../sections";
 import { docker } from "./docker.svelte";
+import { notes } from "./notes.svelte";
 import { settings } from "./settings.svelte";
 import { system } from "./system.svelte";
 import { terms } from "./terms.svelte";
@@ -26,6 +27,8 @@ export interface ChatMessage {
   /** Exactly what the model was given for this reply. */
   sent?: Turn[];
   sources?: string[];
+  /** Notes the answer was given, to open from the reply. */
+  noteRefs?: { id: number; title: string }[];
   stats?: string;
   /** What was attached to a question ("Docker logs: web · 150 lines"). */
   attached?: string;
@@ -202,7 +205,8 @@ class HelperStore {
     const q = question.trim();
     if (!q || this.busy) return;
     const ctx = { ...this.context, view: this.context.view ?? ui.section };
-    const docs = guideIndex().search(`${q} ${sectionById(ctx.view).label}`, 4);
+    if (!notes.loaded) await notes.load();
+    const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, 4), ...notesIndex(notes.notes).search(q, 2)];
     const history: Turn[] = this.messages
       .filter((m) => !m.error && m.text)
       .map((m) => ({ role: m.role, content: m.text }));
@@ -211,7 +215,7 @@ class HelperStore {
     const n = sel ? sel.split("\n").length : 0;
     const attached = sel ? `${ctx.source ?? "selection"} · ${n} line${n === 1 ? "" : "s"}` : undefined;
     this.messages.push({ id: ++this.seq, role: "user", text: q, actions: [], attached });
-    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title) });
+    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), noteRefs: noteRefs(docs) });
     const msg = this.messages[this.messages.length - 1];
     // Selection is used once; the view context stays.
     this.context = { ...this.context, selection: null, source: null };
