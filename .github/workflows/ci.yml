@@ -167,6 +167,14 @@ jobs:
           merge-multiple: true
       - name: Updater manifest
         run: node scripts/updater-manifest.mjs dist "${{ inputs.release_tag || github.ref_name }}" dist/latest.json
+      - name: Require signed updates
+        # With a public key in the app, a release without latest.json would
+        # leave installed copies unable to update: fail instead.
+        run: |
+          if [ -s app/updater.pub ] && [ ! -f dist/latest.json ]; then
+            echo "::error::app/updater.pub is set but no signed updater bundles were built. Check the TAURI_SIGNING_PRIVATE_KEY secrets."
+            exit 1
+          fi
       - name: List installers
         run: ls -laR dist
       - uses: softprops/action-gh-release@v2
