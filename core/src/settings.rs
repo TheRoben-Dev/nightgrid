@@ -65,6 +65,9 @@ pub struct AppSettings {
     pub tray_enabled: bool,
     /// Closing the window hides it to the tray instead of quitting.
     pub close_to_tray: bool,
+    /// Folder (e.g. a Syncthing or git folder) for quick encrypted backups.
+    /// Machine-specific: kept as is when a backup is imported.
+    pub backup_folder: Option<String>,
 }
 
 pub const WEBHOOK_KINDS: &[&str] = &["none", "ntfy", "discord", "json"];
@@ -146,6 +149,7 @@ impl Default for AppSettings {
             alerts: AlertSettings::default(),
             tray_enabled: true,
             close_to_tray: false,
+            backup_folder: None,
         }
     }
 }

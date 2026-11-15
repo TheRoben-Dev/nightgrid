@@ -49,6 +49,8 @@ pub struct AppState {
     pub system_runs: crate::system_cmd::SystemRuns,
     /// Running compose commands: cancel switch by run id.
     pub compose_runs: Mutex<HashMap<u32, tokio::sync::watch::Sender<bool>>>,
+    /// Backup file picked for import (opened and previewed, not yet imported).
+    pub pending_backup: Mutex<Option<PathBuf>>,
     next_term: AtomicU32,
 }
 
@@ -73,6 +75,7 @@ impl AppState {
             docker: DockerCache::new(),
             log_streams: Mutex::default(),
             compose_runs: Mutex::default(),
+            pending_backup: Mutex::default(),
             system_runs: Default::default(),
             metrics: Arc::default(),
             services: Arc::default(),

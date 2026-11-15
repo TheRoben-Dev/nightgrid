@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-15
+
+### Added: encrypted backups (M9)
+- **Settings → Backup** exports your setup (hosts, groups, tags, snippets, playbooks, services, tunnels, integrations, bookmarks, Docker stack folders and settings) to one file encrypted with a passphrase. It's a standard [age](https://age-encryption.org) file, so `age -d` can open it too.
+- **Include saved passwords and tokens** (off by default) adds the keychain entries to the encrypted file, so the other machine doesn't ask for them again.
+- **Import** asks for the passphrase, shows what the file holds and lets you **Merge** (keep everything here, add what's new, skip what already exists) or **Replace** (delete the current setup and load the backup; you type `replace` to confirm). Nightgrid restarts afterwards.
+- **Sync folder**: pick a folder that syncs between your machines and export/import use `nightgrid-backup.age` in it with one click. The passphrase is never stored.
+
 ## [0.8.0] - 2026-11-15
 
 ### Added: automation (M8)

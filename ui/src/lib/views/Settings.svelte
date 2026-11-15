@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type AppInfo } from "../api";
   import AlertSettings from "../components/alerts/AlertSettings.svelte";
+  import BackupPanel from "../components/backup/BackupPanel.svelte";
   import Barcode from "../components/Barcode.svelte";
   import Panel from "../components/Panel.svelte";
   import SegmentSlider from "../components/SegmentSlider.svelte";
@@ -247,6 +248,8 @@
       />
     </div>
   </Panel>
+
+  <BackupPanel />
 
   <Panel title="KEYBINDINGS" prefix=">" count={bindings.length}>
     <table>

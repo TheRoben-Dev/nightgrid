@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use nightgrid_core::alerts::{self, Alert, Change, ContainerWatch, Scope, Severity, Tracker};
 use nightgrid_core::hosts::HostId;
-use nightgrid_core::secrets::{Secret, SecretKind, SecretRef, SecretStore};
+use nightgrid_core::secrets::{Secret, SecretRef, SecretStore};
 use nightgrid_core::services::check::now_unix;
 use nightgrid_core::settings::AppSettings;
 use nightgrid_core::system::smart;
@@ -104,7 +104,7 @@ fn is_quiet(s: &AppSettings) -> bool {
 }
 
 fn webhook_ref() -> SecretRef {
-    SecretRef::new(SecretKind::IntegrationToken, "alerts-webhook")
+    SecretRef::alerts_webhook()
 }
 
 fn webhook_url(app: &AppHandle) -> Option<String> {

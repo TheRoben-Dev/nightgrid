@@ -232,6 +232,29 @@ export const commands = {
 	 */
 	automationRun: (spec: RunSpec, hostIds: number[], values: { [key in string]: string }, sudoPassword: string | null, onEvent: Channel<AutomationEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("automation_run", { spec, hostIds, values, sudoPassword, onEvent }, options),
 	automationStop: (run: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("automation_stop", { run }, options),
+	/**
+	 *  Encrypts the config (and saved secrets, if asked) to a file picked in a
+	 *  save dialog, or to the sync folder. `None` when the dialog was cancelled.
+	 */
+	backupExport: (passphrase: string, includeSecrets: boolean, toFolder: boolean, options?: InvokeOptions) => __TAURI_INVOKE<BackupWritten | null>("backup_export", { passphrase, includeSecrets, toFolder }, options),
+	/**
+	 *  Picks a backup (dialog or sync folder), decrypts it and returns what it
+	 *  holds. The path is remembered for [`backup_import`].
+	 */
+	backupOpen: (passphrase: string, fromFolder: boolean, options?: InvokeOptions) => __TAURI_INVOKE<BackupPreview | null>("backup_open", { passphrase, fromFolder }, options),
+	/**
+	 *  Imports the backup picked with [`backup_open`]. The app should restart
+	 *  afterwards so every view and background task reloads.
+	 */
+	backupImport: (passphrase: string, mode: ImportMode, options?: InvokeOptions) => __TAURI_INVOKE<BackupImported_Serialize>("backup_import", { passphrase, mode }, options),
+	/**  Picks the sync folder with a native dialog and saves it in settings. */
+	backupPickFolder: (options?: InvokeOptions) => __TAURI_INVOKE<BackupFolder_Serialize | null>("backup_pick_folder", undefined, options),
+	/**  The sync folder and when its backup was last written. */
+	backupFolder: (options?: InvokeOptions) => __TAURI_INVOKE<BackupFolder_Serialize | null>("backup_folder", undefined, options),
+	/**  Forgets the sync folder (the files in it stay). */
+	backupClearFolder: (options?: InvokeOptions) => __TAURI_INVOKE<null>("backup_clear_folder", undefined, options),
+	/**  Restarts the app (after an import). */
+	appRestart: (options?: InvokeOptions) => __TAURI_INVOKE<void>("app_restart", undefined, options),
 	/**  Registers the UI channel and sends the current snapshot. */
 	alertsSubscribe: (onEvent: Channel<AlertsSnapshot_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_subscribe", { onEvent }, options),
 	/**  Re-evaluates now (after alert settings change). */
@@ -512,6 +535,11 @@ export type AppSettings_Deserialize = {
 	trayEnabled?: boolean,
 	/**  Closing the window hides it to the tray instead of quitting. */
 	closeToTray?: boolean,
+	/**
+	 *  Folder (e.g. a Syncthing or git folder) for quick encrypted backups.
+	 *  Machine-specific: kept as is when a backup is imported.
+	 */
+	backupFolder?: string | null,
 };
 
 /**
@@ -565,6 +593,11 @@ export type AppSettings_Serialize = {
 	trayEnabled: boolean,
 	/**  Closing the window hides it to the tray instead of quitting. */
 	closeToTray: boolean,
+	/**
+	 *  Folder (e.g. a Syncthing or git folder) for quick encrypted backups.
+	 *  Machine-specific: kept as is when a backup is imported.
+	 */
+	backupFolder: string | null,
 };
 
 export type AuthMethod = 
@@ -587,6 +620,69 @@ code?: number | null; error?: string | null; needs?: HostNeeds | null; ms: numbe
 export type AutomationEvent_Serialize = { kind: "hostStart"; hostId: number } | { kind: "stepStart"; hostId: number; step: number; label: string } | { kind: "lines"; hostId: number; lines: OutLine[] } | { kind: "stepEnd"; hostId: number; step: number; code: number | null; error: string | null; ms: number } | { kind: "hostEnd"; hostId: number; ok: boolean; 
 /**  Exit code of the last command step that ran. */
 code: number | null; error: string | null; needs: HostNeeds | null; ms: number; stopped: boolean } | { kind: "done"; stopped: boolean };
+
+export type BackupFolder = BackupFolder_Serialize | BackupFolder_Deserialize;
+
+export type BackupFolder_Deserialize = {
+	path: string,
+	/**  Unix seconds the backup file in it was last written, if there is one. */
+	modified?: number | null,
+};
+
+export type BackupFolder_Serialize = {
+	path: string,
+	/**  Unix seconds the backup file in it was last written, if there is one. */
+	modified: number | null,
+};
+
+export type BackupImported = BackupImported_Serialize | BackupImported_Deserialize;
+
+export type BackupImported_Deserialize = {
+	added: number,
+	skipped: number,
+	secrets: number,
+	settings: boolean,
+	/**  The config was imported but the keychain step failed. */
+	secretsError?: string | null,
+};
+
+export type BackupImported_Serialize = {
+	added: number,
+	skipped: number,
+	secrets: number,
+	settings: boolean,
+	/**  The config was imported but the keychain step failed. */
+	secretsError: string | null,
+};
+
+export type BackupPreview = {
+	path: string,
+	summary: BackupSummary,
+};
+
+/**  What a backup holds, shown before importing. */
+export type BackupSummary = {
+	appVersion: string,
+	/**  Unix seconds. */
+	createdAt: number | null,
+	hosts: number,
+	groups: number,
+	tags: number,
+	snippets: number,
+	playbooks: number,
+	services: number,
+	tunnels: number,
+	integrations: number,
+	bookmarks: number,
+	settings: boolean,
+	secrets: number,
+};
+
+export type BackupWritten = {
+	path: string,
+	secrets: number,
+	bytes: number,
+};
 
 export type Bookmark = Bookmark_Serialize | Bookmark_Deserialize;
 
@@ -1206,6 +1302,12 @@ export type ImageChange_Serialize = {
 	before: string | null,
 	after: string,
 };
+
+export type ImportMode = 
+/**  Keep what's here; add what's new. */
+"merge" | 
+/**  Clear the config tables and load the backup as is. */
+"replace";
 
 export type ImportResult = {
 	created: number,

@@ -4,7 +4,7 @@
 
 use nightgrid_core::integrations::amp::{self, AmpAction};
 use nightgrid_core::integrations::{self, Integration, IntegrationId, IntegrationInput, IntegrationStatus};
-use nightgrid_core::secrets::{Secret, SecretKind, SecretRef, SecretStore};
+use nightgrid_core::secrets::{Secret, SecretRef, SecretStore};
 use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Manager, State};
@@ -21,7 +21,7 @@ pub struct IntegrationView {
 }
 
 fn secret_ref(id: IntegrationId) -> SecretRef {
-    SecretRef::new(SecretKind::IntegrationToken, format!("integration-{id}"))
+    SecretRef::integration(id)
 }
 
 fn read_secret(state: &AppState, id: IntegrationId) -> Option<String> {
