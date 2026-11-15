@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use super::{MountUsage, Temp};
+use super::{Gpu, MountUsage, Temp};
 
 /// Jiffies from one `cpu` line of `/proc/stat`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -83,6 +83,7 @@ pub struct Raw {
     pub blocks: Vec<String>,
     pub mounts: Vec<MountUsage>,
     pub temps: Vec<Temp>,
+    pub gpus: Vec<Gpu>,
 }
 
 /// Splits the script output into `@@name` sections.
@@ -122,6 +123,7 @@ pub fn parse(out: &str) -> Raw {
         blocks: get("blocks").iter().flat_map(|l| l.split_whitespace()).map(str::to_owned).collect(),
         mounts: join_mounts(get("mounts"), &df),
         temps,
+        gpus: [parse_nvidia(get("nvidia")), parse_drm(get("drm"))].concat(),
     }
 }
 
@@ -328,6 +330,59 @@ pub fn parse_thermal(lines: &[&str]) -> Vec<Temp> {
         .collect()
 }
 
+/// A number, or `None` for blanks and `[N/A]` / `[Not Supported]`.
+fn opt_num(v: &str) -> Option<f64> {
+    v.trim().parse::<f64>().ok().filter(|n| n.is_finite() && *n >= 0.0)
+}
+
+/// `nvidia-smi --format=csv,noheader,nounits` rows:
+/// `index, name, util %, mem used MiB, mem total MiB, temp C, power W`.
+pub fn parse_nvidia(lines: &[&str]) -> Vec<Gpu> {
+    lines
+        .iter()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split(',').map(str::trim).collect();
+            if f.len() < 7 || f[0].parse::<u32>().is_err() {
+                return None;
+            }
+            let mib = |v: &str| opt_num(v).map(|n| (n * 1024.0 * 1024.0) as u64);
+            Some(Gpu {
+                name: f[1].to_owned(),
+                util: opt_num(f[2]).map(|n| n as f32),
+                mem_used: mib(f[3]),
+                mem_total: mib(f[4]),
+                temp: opt_num(f[5]).map(|n| n as f32),
+                power: opt_num(f[6]).map(|n| n as f32),
+            })
+        })
+        .collect()
+}
+
+/// `card|busy %|vram used B|vram total B|temp m°C|power µW|product name`
+/// from amdgpu's sysfs files.
+pub fn parse_drm(lines: &[&str]) -> Vec<Gpu> {
+    lines
+        .iter()
+        .filter_map(|l| {
+            let f: Vec<&str> = l.split('|').collect();
+            if f.len() < 7 {
+                return None;
+            }
+            let util = opt_num(f[1])? as f32;
+            let name =
+                if f[6].trim().is_empty() { format!("AMD GPU ({})", f[0].trim()) } else { f[6].trim().to_owned() };
+            Some(Gpu {
+                name,
+                util: Some(util),
+                mem_used: opt_num(f[2]).map(|n| n as u64),
+                mem_total: opt_num(f[3]).map(|n| n as u64).filter(|n| *n > 0),
+                temp: millideg(f[4]),
+                power: opt_num(f[5]).map(|n| (n / 1e6) as f32).filter(|w| *w > 0.0),
+            })
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,6 +390,31 @@ mod tests {
     const A: &str = include_str!("../../tests/fixtures/metrics/x86_server_a.txt");
     const PI: &str = include_str!("../../tests/fixtures/metrics/pi_busybox.txt");
     const OLD: &str = include_str!("../../tests/fixtures/metrics/old_kernel_partial.txt");
+
+    #[test]
+    fn gpus() {
+        let n = parse_nvidia(&[
+            "0, NVIDIA GeForce RTX 3060, 37, 2048, 12288, 61, 98.52",
+            "1, Tesla P4, 0, 0, 7680, [N/A], [N/A]",
+            "garbage",
+        ]);
+        assert_eq!(n.len(), 2);
+        assert_eq!(n[0].name, "NVIDIA GeForce RTX 3060");
+        assert_eq!(
+            (n[0].util, n[0].mem_used, n[0].mem_total, n[0].temp),
+            (Some(37.0), Some(2048 << 20), Some(12288 << 20), Some(61.0))
+        );
+        assert!((n[0].power.unwrap() - 98.52).abs() < 0.01);
+        assert_eq!((n[1].temp, n[1].power), (None, None));
+        let a = parse_drm(&["card1|12|1073741824|8573157376|54000|23000000|", "card0||||||"]);
+        assert_eq!(a.len(), 1);
+        assert_eq!(
+            (a[0].name.as_str(), a[0].util, a[0].mem_used, a[0].temp, a[0].power),
+            ("AMD GPU (card1)", Some(12.0), Some(1 << 30), Some(54.0), Some(23.0))
+        );
+        let raw = parse("@@nvidia\n0, A, 5, 1, 2, 30, 10\n@@drm\ncard0|50|||||Radeon RX 6600\n@@end\n");
+        assert_eq!(raw.gpus.iter().map(|g| g.name.as_str()).collect::<Vec<_>>(), ["A", "Radeon RX 6600"]);
+    }
 
     #[test]
     fn x86_server() {

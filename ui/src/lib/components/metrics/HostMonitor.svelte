@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type MetricPoint } from "../../api";
   import { formatSize } from "../../files/util";
+  import { describeTrend, trend } from "../../metrics/forecast";
   import { hosts } from "../../stores/hosts.svelte";
   import { formatRate, formatUptime, metrics } from "../../stores/metrics.svelte";
   import { terms } from "../../stores/terms.svelte";
@@ -25,7 +26,7 @@
     { id: "7d", label: "7D", secs: 7 * 86400 },
     { id: "30d", label: "30D", secs: 30 * 86400 },
   ] as const;
-  const KINDS = ["cpu", "mem", "net", "io", "temp"] as const;
+  const KINDS = ["cpu", "mem", "net", "io", "temp", "gpu"] as const;
   type Kind = (typeof KINDS)[number];
   let range = $state<(typeof RANGES)[number]["id"]>("1h");
   let kind = $state<Kind>("cpu");
@@ -45,6 +46,28 @@
       points = [];
     }
   }
+  // Forecasts use the last 14 days (15-minute rollups), refreshed every 10 minutes.
+  let longPoints = $state<MetricPoint[]>([]);
+  $effect(() => {
+    if (id == null) return;
+    const hostId = id;
+    const load = async () => {
+      const to = Math.floor(Date.now() / 1000);
+      try {
+        const p = await api.metricsHistory(hostId, to - 14 * 86400, to);
+        if (metrics.detailId === hostId) longPoints = p;
+      } catch {
+        longPoints = [];
+      }
+    };
+    void load();
+    const t = setInterval(() => void load(), 600_000);
+    return () => clearInterval(t);
+  });
+  const diskTrend = $derived(describeTrend(trend(longPoints.map((p) => ({ ts: p.ts, value: p.disk })), 100), "Fullest disk", 100));
+  const memTrend = $derived(describeTrend(trend(longPoints.map((p) => ({ ts: p.ts, value: p.mem })), 95), "Memory", 95));
+  const hasGpu = $derived(!!s?.gpus.length || points.some((p) => p.gpu != null));
+
   $effect(() => {
     if (id == null) return;
     const secs = RANGES.find((r) => r.id === range)!.secs;
@@ -91,9 +114,14 @@
         };
       case "temp":
         return { ts, max: undefined, format: (v: number) => `${v.toFixed(1)}°C`, series: [{ label: "CPU temp", color: "var(--accent)", values: points.map((p) => p.temp) }] };
+      case "gpu":
+        return { ts, max: 100, format: pct, series: [{ label: "GPU (busiest)", color: "var(--mint)", values: points.map((p) => p.gpu) }] };
     }
   });
-  const kindLabel: Record<Kind, string> = { cpu: "CPU", mem: "MEMORY", net: "NETWORK", io: "DISK I/O", temp: "TEMP" };
+  const kindLabel: Record<Kind, string> = { cpu: "CPU", mem: "MEMORY", net: "NETWORK", io: "DISK I/O", temp: "TEMP", gpu: "GPU" };
+  $effect(() => {
+    if (kind === "gpu" && !hasGpu) kind = "cpu";
+  });
 
   const memPct = $derived(s && s.memTotal ? (s.memUsed / s.memTotal) * 100 : null);
   const swapPct = $derived(s && s.swapTotal ? (s.swapUsed / s.swapTotal) * 100 : null);
@@ -146,6 +174,7 @@
               >{s.swapTotal ? `${formatSize(s.swapUsed)} / ${formatSize(s.swapTotal)}` : "none"}</span
             >
           </div>
+          {#if memTrend && memTrend.tone !== "ok"}<p class="trend {memTrend.tone}">{memTrend.text}</p>{/if}
         </section>
 
         <section>
@@ -160,6 +189,7 @@
               <span class="muted">No mounted filesystems reported.</span>
             {/each}
           </div>
+          {#if diskTrend}<p class="trend {diskTrend.tone}" title="Linear trend of the fullest filesystem over the stored history">{diskTrend.text}</p>{/if}
           {#if s.disks.length}
             <div class="ifaces">
               {#each s.disks as d (d.name)}
@@ -178,6 +208,27 @@
             {/each}
           </div>
         </section>
+
+        {#if s.gpus.length}
+          <section>
+            <h3 class="label">GPU</h3>
+            {#each s.gpus as g, i (i)}
+              <div class="gpu">
+                <span class="mono gname" title={g.name}>{g.name}</span>
+                <div class="kv">
+                  <span>BUSY</span><Meter value={g.util} label="{g.name} busy" /><span class="data">{g.util == null ? "--" : pct(g.util)}</span>
+                  {#if g.memTotal}
+                    {@const vp = ((g.memUsed ?? 0) / g.memTotal) * 100}
+                    <span>VRAM</span><Meter value={vp} label="{g.name} memory" /><span class="data">{formatSize(g.memUsed ?? 0)} / {formatSize(g.memTotal)}</span>
+                  {/if}
+                </div>
+                <span class="muted small"
+                  >{g.temp != null ? `${g.temp.toFixed(0)}°C` : ""}{g.temp != null && g.power != null ? " · " : ""}{g.power != null ? `${g.power.toFixed(0)} W` : ""}</span
+                >
+              </div>
+            {/each}
+          </section>
+        {/if}
 
         <section>
           <h3 class="label">TEMPERATURES</h3>
@@ -199,7 +250,7 @@
       <div class="hbar">
         <h3 class="label">HISTORY</h3>
         <div class="seg" role="tablist" aria-label="Metric">
-          {#each KINDS as k (k)}
+          {#each KINDS.filter((k) => k !== "gpu" || hasGpu) as k (k)}
             <button type="button" role="tab" aria-selected={kind === k} class:on={kind === k} onclick={() => (kind = k)}>{kindLabel[k]}</button>
           {/each}
         </div>
@@ -216,6 +267,27 @@
 </Modal>
 
 <style>
+  .trend {
+    margin: 6px 0 0;
+    font-size: var(--fs-xs);
+    color: var(--text-1);
+  }
+  .trend.warn {
+    color: var(--warn);
+  }
+  .trend.crit {
+    color: var(--danger);
+  }
+  .gpu + .gpu {
+    margin-top: 8px;
+  }
+  .gname {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 4px;
+  }
   .top {
     display: flex;
     gap: 14px;

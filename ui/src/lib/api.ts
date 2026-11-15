@@ -135,6 +135,11 @@ import {
   type SystemError,
   type SystemInfo,
   type Unit_Serialize as Unit,
+  type Schedules_Serialize as Schedules,
+  type Timer_Serialize as Timer,
+  type CronJob_Serialize as CronJob,
+  type Periodic,
+  type Gpu_Serialize as Gpu,
   type UnitAction,
   type UpdatesReport_Serialize as UpdatesReport,
   type UpgradeOp,
@@ -274,6 +279,11 @@ export type {
   SystemError,
   SystemInfo,
   Unit,
+  Schedules,
+  Timer,
+  CronJob,
+  Periodic,
+  Gpu,
   UnitAction,
   UpdatesReport,
   UpgradeOp,
@@ -337,7 +347,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.1-web",
+      version: "0.10.2-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -536,6 +546,7 @@ export const api = {
   systemInfo: (hostId: number): Promise<SystemInfo> => (T() ? commands.systemInfo(hostId) : mockSystem.info(hostId)),
   systemSudoForget: (hostId: number): Promise<null> => (T() ? commands.systemSudoForget(hostId) : mockSystem.forget(hostId)),
   systemUnits: (hostId: number): Promise<Unit[]> => (T() ? commands.systemUnits(hostId) : mockSystem.units(hostId)),
+  systemSchedules: (hostId: number): Promise<Schedules> => (T() ? commands.systemSchedules(hostId) : mockSystem.schedules(hostId)),
   systemUnitStatus: (hostId: number, unit: string): Promise<string> =>
     T() ? commands.systemUnitStatus(hostId, unit) : mockSystem.unitStatus(hostId, unit),
   systemUnitAction: (hostId: number, unit: string, action: UnitAction, sudo: SudoInput | null): Promise<null> =>

@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-15
+
+### Added: forecasts, GPUs and scheduled jobs (M10c)
+- **System → Schedules** lists systemd timers and cron jobs on the host: the schedule in plain words ("every 15 minutes", "weekdays at 09:00"), when each runs next and ran last, and whether the last run failed (marked red with its exit code). **Journal** opens the last 7 days of the service a timer starts. Cron jobs come from your crontab, `/etc/crontab` and `/etc/cron.d`; the `cron.daily`/`weekly`/… scripts are listed too. Commands that look like they carry a token are masked until you click **Reveal**.
+- **Disk and memory forecasts** in the host monitor: a trend over the last 14 days says when the fullest filesystem fills up, and warns when memory keeps climbing.
+- **GPU monitoring**: NVIDIA (`nvidia-smi`) and AMD (amdgpu sysfs) cards show busy %, VRAM, temperature and power in the monitor, and the busiest GPU is kept in history with its own chart.
+
 ## [0.10.1] - 2026-11-15
 
 ### Added: DRIFT explains things where you are (M10b)

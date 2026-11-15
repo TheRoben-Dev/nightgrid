@@ -67,6 +67,10 @@ export function mockSample(id: number, t: number): Sample {
           { chip: "nvme", label: "Composite", celsius: 38.9 },
         ],
     cpuTemp: Math.round(wave(id, t, p.pi ? 46 : 41, p.pi ? 58 : 67) * 10) / 10,
+    gpus:
+      id % 4 === 1
+        ? [{ name: "NVIDIA GeForce RTX 3060", util: Math.round(wave(id + 7, t, 0, 92)), memUsed: 3.1 * GiB, memTotal: 12 * GiB, temp: Math.round(wave(id + 7, t, 38, 71)), power: Math.round(wave(id + 7, t, 14, 160)) }]
+        : [],
   };
 }
 
@@ -110,12 +114,14 @@ export const mockMetrics = {
         mem: wave(hostId + 9, t / 5, 35, 62),
         swap: 10,
         load1: wave(hostId, t, 0.1, 2.5),
-        disk: 89,
+        // Fills slowly (about 0.35 % a day) so the forecast has something to say.
+        disk: 84 - ((to - ts) / 86400) * 0.35,
         netRx: wave(hostId + 1, t, 20e3, 9e6),
         netTx: wave(hostId + 1, t, 20e3, 9e6) / 6,
         diskRead: wave(hostId + 4, t, 0, 40e6),
         diskWrite: wave(hostId + 5, t, 0, 12e6),
         temp: wave(hostId, t, 41, 67),
+        gpu: hostId % 4 === 1 ? wave(hostId + 7, t, 0, 80) : null,
       });
     }
     return Promise.resolve(out);

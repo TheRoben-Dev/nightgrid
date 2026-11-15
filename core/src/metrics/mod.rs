@@ -40,6 +40,18 @@ echo @@thermal
 for z in /sys/class/thermal/thermal_zone*; do
   [ -r "$z/temp" ] && echo "$(cat "$z/type" 2>/dev/null)|$(cat "$z/temp" 2>/dev/null)"
 done
+echo @@nvidia
+if command -v nvidia-smi >/dev/null 2>&1; then
+  q="--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw --format=csv,noheader,nounits"
+  if command -v timeout >/dev/null 2>&1; then timeout 3 nvidia-smi $q 2>/dev/null; else nvidia-smi $q 2>/dev/null; fi
+fi
+echo @@drm
+for c in /sys/class/drm/card[0-9] /sys/class/drm/card[0-9][0-9]; do
+  d="$c/device"
+  [ -r "$d/gpu_busy_percent" ] || continue
+  h=$(ls -d "$d"/hwmon/hwmon* 2>/dev/null | head -n 1)
+  echo "${c##*/}|$(cat "$d/gpu_busy_percent" 2>/dev/null)|$(cat "$d/mem_info_vram_used" 2>/dev/null)|$(cat "$d/mem_info_vram_total" 2>/dev/null)|$(cat "$h/temp1_input" 2>/dev/null)|$(cat "$h/power1_average" 2>/dev/null)|$(cat "$d/product_name" 2>/dev/null)"
+done
 echo @@end
 "#;
 
@@ -70,6 +82,28 @@ pub struct Temp {
     pub label: String,
     #[cfg_attr(feature = "specta", specta(type = u32))]
     pub celsius: f32,
+}
+
+/// One GPU (NVIDIA through `nvidia-smi`, AMD through sysfs). Fields a
+/// driver doesn't report are `None`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct Gpu {
+    pub name: String,
+    /// Busy %.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub util: Option<f32>,
+    /// VRAM in bytes.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub mem_used: Option<u64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub mem_total: Option<u64>,
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub temp: Option<f32>,
+    /// Watts.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub power: Option<f32>,
 }
 
 /// Throughput of one network interface or block device, in bytes/s.
@@ -133,6 +167,7 @@ pub struct Sample {
     /// Best guess at the CPU temperature, for tiles.
     #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
     pub cpu_temp: Option<f32>,
+    pub gpus: Vec<Gpu>,
 }
 
 /// Interfaces left out of the network total (virtual / container plumbing).
@@ -250,6 +285,7 @@ impl Collector {
             disk_write,
             cpu_temp: cpu_temp(&raw.temps),
             temps: raw.temps.clone(),
+            gpus: raw.gpus.clone(),
         };
         self.prev = Some((raw, ts));
         s

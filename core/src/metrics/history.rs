@@ -50,6 +50,9 @@ pub struct Point {
     pub disk_write: Option<f64>,
     #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
     pub temp: Option<f32>,
+    /// Busiest GPU, busy %.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub gpu: Option<f32>,
 }
 
 impl Point {
@@ -67,6 +70,7 @@ impl Point {
             disk_read: Some(s.disk_read),
             disk_write: Some(s.disk_write),
             temp: s.cpu_temp,
+            gpu: s.gpus.iter().filter_map(|g| g.util).reduce(f32::max),
         }
     }
 }
@@ -77,8 +81,8 @@ impl Point {
 pub struct MinuteAverager {
     bucket: i64,
     n: u32,
-    sum: [f64; 10],
-    seen: [u32; 10],
+    sum: [f64; N],
+    seen: [u32; N],
 }
 
 impl MinuteAverager {
@@ -106,16 +110,31 @@ impl MinuteAverager {
 
     fn take(&mut self) -> Point {
         let avg: Vec<Option<f64>> =
-            (0..10).map(|i| (self.seen[i] > 0).then(|| self.sum[i] / self.seen[i] as f64)).collect();
+            (0..N).map(|i| (self.seen[i] > 0).then(|| self.sum[i] / self.seen[i] as f64)).collect();
         let p = point(self.bucket, &avg);
         *self = Self::default();
         p
     }
 }
 
-fn values(p: &Point) -> [Option<f64>; 10] {
+/// Number of stored columns.
+const N: usize = 11;
+
+fn values(p: &Point) -> [Option<f64>; N] {
     let f = |v: Option<f32>| v.map(f64::from);
-    [f(p.cpu), f(p.mem), f(p.swap), f(p.load1), f(p.disk), p.net_rx, p.net_tx, p.disk_read, p.disk_write, f(p.temp)]
+    [
+        f(p.cpu),
+        f(p.mem),
+        f(p.swap),
+        f(p.load1),
+        f(p.disk),
+        p.net_rx,
+        p.net_tx,
+        p.disk_read,
+        p.disk_write,
+        f(p.temp),
+        f(p.gpu),
+    ]
 }
 
 fn point(ts: i64, v: &[Option<f64>]) -> Point {
@@ -132,10 +151,11 @@ fn point(ts: i64, v: &[Option<f64>]) -> Point {
         disk_read: v[7],
         disk_write: v[8],
         temp: f(v[9]),
+        gpu: f(v[10]),
     }
 }
 
-const COLS: &str = "cpu, mem, swap, load1, disk, net_rx, net_tx, disk_read, disk_write, temp";
+const COLS: &str = "cpu, mem, swap, load1, disk, net_rx, net_tx, disk_read, disk_write, temp, gpu";
 
 impl Store {
     /// Stores a minute point and folds it into its 15-minute rollup.
@@ -145,10 +165,10 @@ impl Store {
         let tx = self.conn_mut().transaction()?;
         let inserted = tx.execute(
             &format!(
-                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
                  ON CONFLICT (host_id, res, ts) DO NOTHING"
             ),
-            params![host_id, MINUTE, ts, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9]],
+            params![host_id, MINUTE, ts, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10]],
         )?;
         if inserted == 0 {
             // Already have this minute (e.g. a reconnect replayed it).
@@ -166,11 +186,11 @@ impl Store {
             .collect();
         tx.execute(
             &format!(
-                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
                  ON CONFLICT (host_id, res, ts) DO UPDATE SET {}, n = n + 1",
                 upd.join(", ")
             ),
-            params![host_id, ROLLUP, ts.div_euclid(ROLLUP) * ROLLUP, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9]],
+            params![host_id, ROLLUP, ts.div_euclid(ROLLUP) * ROLLUP, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10]],
         )?;
         tx.commit()?;
         Ok(())
@@ -184,7 +204,7 @@ impl Store {
             "SELECT ts, {COLS} FROM metric_points WHERE host_id = ?1 AND res = ?2 AND ts >= ?3 AND ts <= ?4 ORDER BY ts"
         ))?;
         let rows = stmt.query_map(params![host_id, res, from.div_euclid(res) * res, to], |r| {
-            let v: Vec<Option<f64>> = (1..=10).map(|i| r.get(i)).collect::<rusqlite::Result<_>>()?;
+            let v: Vec<Option<f64>> = (1..=N).map(|i| r.get(i)).collect::<rusqlite::Result<_>>()?;
             Ok(point(r.get(0)?, &v))
         })?;
         Ok(rows.collect::<rusqlite::Result<_>>()?)
