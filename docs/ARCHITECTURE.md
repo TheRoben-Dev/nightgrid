@@ -200,6 +200,18 @@ _Last updated: M2 (SFTP + editor)._
 - **App** (`app/src/timeline_cmd.rs`): `timeline_get`, `timeline_clear`; `record` and `record_alerts` are called from the alert loop, `system_power`, `host_wake`, `system_unit_action`, `system_upgrade_run`, `docker_action`, compose runs, rollbacks, deploys and automation runs.
 - **UI**: `components/system/TimelinePanel.svelte` (System → TIMELINE), `system.loadTimeline` / `clearTimeline`, pure helpers in `timeline.ts`; browser preview uses `mockOps.timeline`.
 
+## Expiry watch (M10l)
+
+- **Core** (`core/src/expiry.rs`, D-100): `WatchItem` / `WatchInput` / `WatchKind`, `Store::{watch_list, watch_get, watch_save, watch_delete, watch_checked}` on `watch_items` (migration 0019, in the profile export), `cert_files_command` + `parse_cert_files`, `whois_command` + `parse_whois` / `parse_date`, `conditions` → `AlertKind::ExpirySoon` (source `expiry`).
+- **App** (`app/src/expiry_cmd.rs`): `watch_list`, `watch_save`, `watch_delete`, `watch_check`, `watch_lookup`; `refresh_due` is called from the alert loop (certificate files on connected hosts every 12 h).
+- **UI**: `components/services/ExpiryPanel.svelte` (bottom of Services), `stores/expiry.svelte.ts`, `expiry.ts` (`expiryRows` merges items with service and proxy certificates); browser preview uses `mockOps.watch*`.
+
+## Config drift (M10l)
+
+- **Core** (`core/src/confdiff.rs`, D-101): `snapshot_command` / `save_baseline_command` / `read_baseline_command`, `parse_snapshot` → `Snapshot` (manifest + packages), `compare` / `report` → `DriftReport`, `read_file_command` / `read_baseline_file_command`, `line_diff` (Myers) → `FileDiff`, `host_specific`, `is_secret_file`.
+- **App** (`app/src/confdiff_cmd.rs`): `confdiff_baseline`, `confdiff_save_baseline`, `confdiff_compare`, `confdiff_file`.
+- **UI**: `components/system/ConfigPanel.svelte` (System → CONFIG), `stores/confdiff.svelte.ts`, helpers in `confdiff.ts`; browser preview uses `mockOps.confdiff*`.
+
 ## SSH key manager (M10k)
 
 - **Core** (`core/src/ssh/keys.rs`, D-097): `SshKey`, `scan_dir`, `agent_keys`, `merge_agent`, `generate` (ed25519, optional passphrase, never overwrites), `AuthorizedKey` / `parse_authorized` / `find_authorized`, and the shell commands `READ_AUTHORIZED`, `add_command`, `remove_command` (+ `parse_removed`).

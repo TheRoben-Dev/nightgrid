@@ -15,6 +15,7 @@ export const KIND_LABEL: Record<AlertKind, string> = {
   backupStale: "BACKUP STALE",
   logBurst: "ERROR BURST",
   logNewError: "NEW ERROR",
+  expirySoon: "EXPIRING",
 };
 
 /** Log alerts can be explained from their recent error lines. */
@@ -36,6 +37,7 @@ export function targetLabel(a: Alert): string {
       return "Docker";
     case "serviceDown":
     case "certExpiring":
+    case "expirySoon":
       return "Services";
     case "smartWarning":
       return "Disks";
@@ -113,6 +115,7 @@ class AlertsStore {
         break;
       case "serviceDown":
       case "certExpiring":
+      case "expirySoon":
         ui.go("services");
         break;
       case "smartWarning":

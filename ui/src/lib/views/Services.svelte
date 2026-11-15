@@ -3,6 +3,7 @@
   import Panel from "../components/Panel.svelte";
   import ServiceCard from "../components/services/ServiceCard.svelte";
   import IntegrationCard from "../components/integrations/IntegrationCard.svelte";
+  import ExpiryPanel from "../components/services/ExpiryPanel.svelte";
   import Modal from "../components/Modal.svelte";
   import { scramble } from "../scramble";
   import { integrations } from "../stores/integrations.svelte";
@@ -100,6 +101,8 @@
       </Panel>
     {/each}
   {/if}
+
+  <ExpiryPanel />
 </div>
 
 <Modal

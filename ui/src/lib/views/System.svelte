@@ -7,6 +7,7 @@
   import JournalPanel from "../components/system/JournalPanel.svelte";
   import SchedulesPanel from "../components/system/SchedulesPanel.svelte";
   import TimelinePanel from "../components/system/TimelinePanel.svelte";
+  import ConfigPanel from "../components/system/ConfigPanel.svelte";
   import SecurityPanel from "../components/system/SecurityPanel.svelte";
   import SudoPrompt from "../components/system/SudoPrompt.svelte";
   import UnitsPanel from "../components/system/UnitsPanel.svelte";
@@ -28,6 +29,7 @@
     { id: "journal", label: "JOURNAL" },
     { id: "schedules", label: "SCHEDULES" },
     { id: "timeline", label: "TIMELINE" },
+    { id: "config", label: "CONFIG" },
     { id: "security", label: "SECURITY" },
     { id: "updates", label: "UPDATES" },
     { id: "disks", label: "DISKS" },
@@ -148,6 +150,8 @@
       <SchedulesPanel />
     {:else if system.tab === "timeline"}
       <TimelinePanel />
+    {:else if system.tab === "config"}
+      <ConfigPanel />
     {:else if system.tab === "security"}
       <SecurityPanel />
     {:else if system.tab === "updates"}

@@ -245,6 +245,17 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
 
     let connected: Vec<HostId> = state.pool.connected().into_iter().filter(|h| hosts.contains_key(h)).collect();
 
+    // Expiry watch (M10l): dates are in the local database; certificate
+    // files are re-read from connected hosts twice a day.
+    let watched = state.store().watch_list().unwrap_or_default();
+    let expiring = if rules.cert_expiring { nightgrid_core::expiry::conditions(&watched, now) } else { vec![] };
+    changes.extend(hub.tracker.lock().expect("poisoned").report(
+        &Scope { source: "expiry", hosts: None },
+        expiring,
+        now,
+    ));
+    crate::expiry_cmd::refresh_due(app, &watched, &connected, now);
+
     // Containers on connected hosts.
     if !rules.container_down {
         changes.extend(hub.tracker.lock().expect("poisoned").report(

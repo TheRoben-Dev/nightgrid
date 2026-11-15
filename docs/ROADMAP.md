@@ -5,7 +5,7 @@ What's planned after the shipped milestones (see `CHANGELOG.md` for what's done)
 | Batch | Scope |
 | --- | --- |
 | ~~**M10k** · Keys & power~~ | Done: power states, sleep windows and Wake-on-LAN (0.10.12), SSH key manager (0.10.14), group and scheduled power (0.10.15). |
-| **M10l** · Watch & history | Per-host incident timeline with a DRIFT summary done (0.10.16). Still to come: expiry watch for certificates, domains and tokens; config drift diff (`/etc`, compose files, packages) between hosts or against a saved baseline. |
+| ~~**M10l** · Watch & history~~ | Done: incident timeline (0.10.16), expiry watch and config drift (0.10.17). |
 | **M10m** · Fleet health | Builds on the per-host Backups, Disks and Updates panels. **Backup monitor**: every host's restic, borg and rsync jobs on one board, alerts when a backup is stale or failed, and a test restore that pulls one file to a temp folder and checks it. **Disk health**: ZFS, mdraid and btrfs pool state next to SMART; usage trend with a "full in about X days" forecast that can alert. **Update center**: pending updates on all hosts at once (apt, dnf, pacman, rpm-ostree), batch apply with typed confirmation, reboot-required flags, container image updates in the same list. Agentless, like the rest. |
 | **M10n** · VM desktops | Graphical guest consoles in a tab: embedded noVNC streamed over the existing SSH connection (`qm vncproxy`, libvirt's local VNC), no API token or open ports; one-click RDP for Windows guests through an SSH tunnel and the system RDP client. |
 | **M10o** · Layout customization | Dashboard edit mode (drag, resize, add, remove widgets, reset); per-workspace layouts and named presets; layouts included in profile export. |

@@ -6,6 +6,11 @@ import type {
   HostSchedule_Serialize as HostSchedule,
   HostEvent,
   Timeline,
+  DriftReport_Serialize as DriftReport,
+  FileDiff_Serialize as FileDiff,
+  SideInfo,
+  WatchItem_Serialize as WatchItem,
+  WatchInput_Deserialize as WatchInput,
   ScheduleSpec_Deserialize as ScheduleSpec,
   BackupJob,
   BackupJobInput,
@@ -121,12 +126,102 @@ function sampleEvents(now: number): HostEvent[] {
 }
 const clearedTimelines = new Set<number>();
 
+const DAY = 86400;
+const nowS = () => Math.floor(Date.now() / 1000);
+let watchId = 3;
+let watch: WatchItem[] = [
+  { id: 1, kind: "domain", name: "example.com", hostId: null, target: "example.com", expiresAt: nowS() + 21 * DAY, warnDays: 30, note: "Renews at the registrar", checkedAt: null, checkError: null },
+  { id: 2, kind: "token", name: "DNS API token", hostId: null, target: "", expiresAt: nowS() + 90 * DAY, warnDays: 14, note: "", checkedAt: null, checkError: null },
+  { id: 3, kind: "certFile", name: "Internal CA", hostId: 1, target: "/etc/ssl/certs/lab-ca.pem", expiresAt: nowS() + 2 * DAY, warnDays: 30, note: "", checkedAt: nowS() - 3600, checkError: null },
+];
+
+const baselines = new Map<number, SideInfo>();
+
 export const mockOps = {
+  confdiffBaseline: (hostId: number): Promise<SideInfo | null> => Promise.resolve(baselines.get(hostId) ?? null),
+  confdiffSaveBaseline(hostId: number): Promise<SideInfo> {
+    const b: SideInfo = { label: "baseline", taken: nowS(), manager: "apt", files: 412, packages: 1532 };
+    baselines.set(hostId, b);
+    return Promise.resolve(b);
+  },
+  confdiffCompare(hostId: number, other: number | null, hide: boolean): Promise<DriftReport> {
+    const base = baselines.get(hostId);
+    if (other === null && !base) return Promise.reject(new Error("No baseline on this host yet: save one first."));
+    const left: SideInfo = other === null ? base! : { label: `host ${hostId}`, taken: nowS(), manager: "apt", files: 412, packages: 1532 };
+    const right: SideInfo = { label: other === null ? `host ${hostId}` : `host ${other}`, taken: nowS(), manager: "apt", files: 415, packages: 1534 };
+    return Promise.resolve({
+      left,
+      right,
+      files: [
+        { path: "/etc/ssh/sshd_config", change: "changed", secret: false },
+        { path: "/etc/fail2ban/jail.local", change: "added", secret: false },
+        { path: "/etc/cron.d/old-backup", change: "removed", secret: false },
+        { path: "/srv/stacks/media/compose.yaml", change: "changed", secret: false },
+        { path: "/srv/stacks/media/.env", change: "changed", secret: true },
+      ],
+      packages: [
+        { name: "openssl", left: "3.0.13-1", right: "3.0.15-1" },
+        { name: "fail2ban", left: null, right: "1.0.2-2" },
+        { name: "telnet", left: "0.17-44", right: null },
+      ],
+      hidden: other !== null && hide ? 3 : 0,
+      mixedManagers: false,
+    });
+  },
+  confdiffFile(path: string): Promise<FileDiff> {
+    return Promise.resolve({
+      path,
+      added: 2,
+      removed: 1,
+      binary: false,
+      tooLarge: false,
+      truncated: false,
+      lines: [
+        { tag: "skip", old: null, new: null, text: "12" },
+        { tag: "same", old: 13, new: 13, text: "Port 22" },
+        { tag: "del", old: 14, new: null, text: "PasswordAuthentication yes" },
+        { tag: "add", old: null, new: 14, text: "PasswordAuthentication no" },
+        { tag: "add", old: null, new: 15, text: "PermitRootLogin no" },
+        { tag: "same", old: 15, new: 16, text: "UsePAM yes" },
+        { tag: "skip", old: null, new: null, text: "40" },
+      ],
+    });
+  },
   timeline(hostId: number, days: number): Promise<Timeline> {
     const now = Math.floor(Date.now() / 1000);
     const since = now - days * 86400;
     const all = sampleEvents(now).filter((x) => x.at >= since && !(clearedTimelines.has(hostId) && x.origin === "nightgrid"));
     return Promise.resolve({ events: all, notes: hostId % 2 ? [] : ["Docker events: Docker only remembers recent events."], since });
+  },
+  watchList: (): Promise<WatchItem[]> => Promise.resolve([...watch]),
+  watchSave(input: WatchInput): Promise<WatchItem> {
+    if (!input.name.trim()) return Promise.reject(new Error("name: 1 to 120 characters"));
+    const old = input.id != null ? watch.find((w) => w.id === input.id) : undefined;
+    const item: WatchItem = {
+      id: old?.id ?? ++watchId,
+      kind: input.kind,
+      name: input.name.trim(),
+      hostId: input.hostId ?? null,
+      target: input.target.trim(),
+      expiresAt: input.kind === "certFile" ? nowS() + 200 * DAY : (input.expiresAt ?? null),
+      warnDays: input.warnDays,
+      note: input.note,
+      checkedAt: input.kind === "certFile" ? nowS() : null,
+      checkError: null,
+    };
+    watch = old ? watch.map((w) => (w.id === old.id ? item : w)) : [...watch, item];
+    return Promise.resolve(item);
+  },
+  watchDelete(id: number): Promise<null> {
+    watch = watch.filter((w) => w.id !== id);
+    return Promise.resolve(null);
+  },
+  watchLookup(id: number): Promise<WatchItem> {
+    const w = watch.find((x) => x.id === id);
+    if (!w) return Promise.reject(new Error("item not found"));
+    const item = { ...w, expiresAt: nowS() + 300 * DAY, checkedAt: nowS(), checkError: null };
+    watch = watch.map((x) => (x.id === id ? item : x));
+    return Promise.resolve(item);
   },
   timelineClear(hostId: number): Promise<null> {
     clearedTimelines.add(hostId);

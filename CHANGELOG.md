@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.17] - 2026-11-15
+
+### Added: expiry watch and config drift (completes M10l)
+- **Services → Expiry watch** lists everything that runs out on a date, soonest first: HTTPS service certificates, proxy route certificates (once Docker → Routes has been read) and items you add.
+- **Add…** watches a **certificate file on a host** (end date read with `openssl` over SSH, re-read twice a day while the host is connected), a **domain** (type the date, or **Look up** with `whois` on a host you pick, only when you click), an **API token or key**, a **licence** or anything else with a date. Only names and dates are stored, never the token itself.
+- Each item has its own warning days and raises an **EXPIRING** alert inside that window (critical in the last 3 days). Items are included in profile exports. **✦ Explain** asks DRIFT what to renew first.
+- **System → CONFIG** compares a host's `/etc`, the compose files in its stack folders and its installed packages (apt, dnf/rpm, pacman, apk) with a **baseline** saved on the host, or with **another host**. Changed, added and removed files are grouped by folder; click a changed file for a line diff (values that look like secrets are masked until you reveal them). Packages show as upgraded, downgraded, added or removed. Host-to-host comparisons hide files that are meant to differ (hostname, machine-id, SSH host keys, network config) unless you turn that off. **✦ Explain** asks DRIFT which changes look risky.
+- The baseline lives on the host in `~/.nightgrid/baselines/default` (readable only by that login), so file contents never come to this computer's database; `.env` files are compared by checksum only. Only files the login can read are included, and nothing else on the host is changed.
+
 ## [0.10.16] - 2026-11-15
 
 ### Added: incident timeline (M10l, part 1)
