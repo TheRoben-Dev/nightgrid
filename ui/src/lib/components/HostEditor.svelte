@@ -52,7 +52,8 @@
     if (!open) return;
     const h = existing;
     untrack(() => {
-      form = h ? fromHost(h) : blank();
+      form = h ? fromHost(h) : { ...blank(), ...(hosts.prefill ?? {}) };
+      hosts.prefill = null;
       tagsText = form.tags.join(", ");
       newGroup = "";
       error = null;

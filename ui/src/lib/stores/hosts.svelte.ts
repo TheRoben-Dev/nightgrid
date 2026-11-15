@@ -45,11 +45,19 @@ class HostsStore {
   loaded = $state(false);
   /** Host being edited (`0` = new host), or null when the editor is closed. */
   editing = $state<number | null>(null);
+  /** Fields to start a new host with (e.g. from the network map's "Add as host"). */
+  prefill = $state<{ name: string; hostname: string } | null>(null);
   importOpen = $state(false);
   private timer: ReturnType<typeof setInterval> | null = null;
 
   get grouped(): HostGroupView[] {
     return groupHosts(this.hosts, this.groups, this.query);
+  }
+
+  /** Opens the editor for a new host with the given name and address filled in. */
+  addFrom(p: { name: string; hostname: string }) {
+    this.prefill = p;
+    this.editing = 0;
   }
 
   byId(id: number): Host | undefined {

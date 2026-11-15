@@ -5,6 +5,7 @@
   import StatusPagePanel from "../components/status/StatusPagePanel.svelte";
   import HelperSettings from "../components/helper/HelperSettings.svelte";
   import Barcode from "../components/Barcode.svelte";
+  import CustomThemeEditor from "../components/CustomThemeEditor.svelte";
   import Panel from "../components/Panel.svelte";
   import SegmentSlider from "../components/SegmentSlider.svelte";
   import Toggle from "../components/Toggle.svelte";
@@ -18,7 +19,7 @@
     SERVICES_INTERVAL_STEPS,
     settings,
     TERM_FONT_STEPS, TERM_SCROLLBACK_STEPS, UI_SCALE_STEPS } from "../stores/settings.svelte";
-  import { THEME_IDS, THEMES } from "../theme/themes";
+  import { resolveCustom, THEME_IDS, THEMES } from "../theme/themes";
 
   interface Props {
     info: AppInfo | null;
@@ -38,6 +39,7 @@
     "nav.system": "System",
     "nav.automation": "Automation",
     "nav.notes": "Notes",
+    "nav.network": "Network map",
     "effects.toggle": "Toggle effects",
     "palette.openAlt": "Command palette (works in terminal)",
     "term.newLocal": "New local terminal",
@@ -50,7 +52,8 @@
     "helper.toggle": "Open or close the DRIFT helper",
   };
   const bindings = Object.entries(DEFAULT_KEYMAP) as [ActionId, string][];
-  const plain = $derived(!THEMES[settings.themeId].effects);
+  const plain = $derived(settings.legacyPlain);
+  const customTokens = $derived(resolveCustom(settings.value.customTheme));
 </script>
 
 <div class="grid">
@@ -59,6 +62,7 @@
       <div class="themes" role="radiogroup" aria-label="Theme">
         {#each THEME_IDS as id (id)}
           {@const t = THEMES[id]}
+          {@const tok = id === "custom" ? customTokens : t.tokens}
           {@const active = settings.themeId === id}
           <button
             type="button"
@@ -71,14 +75,15 @@
             <span class="name">{t.label}</span>
             <span class="swatches" aria-hidden="true">
               {#each ["bg-1", "text-0", "accent", "cyan", "magenta", "mint"] as const as k (k)}
-                <i style:background={t.tokens[k]}></i>
+                <i style:background={tok[k]}></i>
               {/each}
             </span>
-            <span class="meta">{t.effects ? "FX ENABLED" : "ZERO EFFECTS"}</span>
+            <span class="meta">{id === "custom" ? "PICK EACH SLOT" : "FX ENABLED"}</span>
             {#if active}<span class="strip"><Barcode seed={id} bars={30} tone="magenta" /></span>{/if}
           </button>
         {/each}
       </div>
+      {#if settings.themeId === "custom"}<CustomThemeEditor />{/if}
     </Panel>
   </div>
 
@@ -101,7 +106,7 @@
       />
       <Toggle
         label="Scanline overlay"
-        hint={plain ? "Not used by the plain theme." : "Very low opacity CRT lines."}
+        hint={plain ? "Off while the old plain scheme is kept; pick a scheme to turn it on." : "Very low opacity CRT lines."}
         checked={settings.value.scanlines}
         disabled={plain || settings.value.reduceEffects}
         onchange={(v) => settings.update({ scanlines: v })}

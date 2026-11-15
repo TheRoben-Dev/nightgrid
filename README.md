@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing M10i (network map, custom scheme, notes in DRIFT)
+
+1. Press `Cmd+0`: **Network** shows your hosts. Pick a host under **Scan from** and click **Scan**: the router, tailnet peers and other devices appear, and any router port forward, Funnel or cloudflared tunnel shows as a red line with a ▲ count on the host it lands on. Turn on **Ping sweep** and scan again to find quiet devices.
+2. Click **Audit ports on all hosts**, then select a host: its listening ports are listed, with internet-facing ones in red. Select an unknown device and click **Add as host**: the editor opens with its address filled in.
+3. **Settings → Theme → CUSTOM**: pick a surface set, text pair and colours; the app recolours as you click. **Start from → ICE** copies ICE; **Reset** goes back. Quit and reopen: the palette is kept.
+4. In **Notes**, write a note such as "The NAS backup runs at 03:00 via restic" and save. Ask DRIFT "when does the NAS backup run?": the reply uses it and shows a **From your notes** chip that opens it. Tick **Hide from DRIFT** on the note, ask again: it isn't used.
+
 ### macOS: testing M10h (VMs, status page, snapshot)
 
 1. On a Proxmox or libvirt host: **System → VMs** lists the guests. If **Read as root** shows, click it and enter the sudo password: the rest appear. **Start** a stopped guest; **Shut down** asks first with the guest and host named; **Force stop** needs the name typed.

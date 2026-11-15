@@ -184,6 +184,21 @@ pub async fn system_security(app: AppHandle, host_id: HostId) -> SysResult<Secur
     Ok(security::audit(&conn).await?)
 }
 
+/// What `host_id` sees of its network (M10i): interfaces, gateway,
+/// neighbours, mDNS, Tailscale peers and what faces the internet. `sweep`
+/// also pings the host's own LAN subnet (/24 or smaller). Only on a click.
+#[tauri::command]
+#[specta::specta]
+pub async fn netmap_discover(
+    app: AppHandle,
+    host_id: HostId,
+    sweep: bool,
+) -> SysResult<nightgrid_core::netmap::Discovery> {
+    let conn = connect_host(&app, host_id).await?;
+    tracing::info!(host = %host_id, sweep, "network discovery");
+    nightgrid_core::netmap::discover(&conn, sweep).await.map_err(|e| SystemError::other(e).into())
+}
+
 /// Searches the login user's shell history (opt-in setting). Secret-looking
 /// lines are dropped in core; nothing is stored.
 #[tauri::command]

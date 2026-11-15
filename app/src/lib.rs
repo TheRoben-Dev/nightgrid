@@ -182,6 +182,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         backup_jobs_cmd::backup_jobs_check,
         backup_jobs_cmd::backup_jobs_detect,
         system_cmd::system_vms,
+        system_cmd::netmap_discover,
         system_cmd::system_vm_action,
         term_cmd::term_open_vm_console,
         status_cmd::status_page_get,

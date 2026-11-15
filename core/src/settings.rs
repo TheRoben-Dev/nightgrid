@@ -7,7 +7,11 @@ use crate::{Error, Result};
 
 const KEY: &str = "app";
 
-pub const THEMES: &[&str] = &["nightgrid", "ice", "bloodline", "plain"];
+/// Theme ids. `plain` is the old fourth theme, read as `custom`.
+pub const THEMES: &[&str] = &["nightgrid", "ice", "bloodline", "custom", "plain"];
+/// Colour tokens the custom theme may set.
+pub const THEME_TOKENS: &[&str] =
+    &["bg-0", "bg-1", "bg-2", "line", "text-0", "text-1", "accent", "cyan", "magenta", "danger", "ok", "warn", "mint"];
 /// UI scale bounds in percent.
 pub const UI_SCALE_MIN: u16 = 90;
 pub const UI_SCALE_MAX: u16 = 150;
@@ -21,8 +25,11 @@ pub const TERM_SCROLLBACK_MAX: u32 = 200_000;
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(default, rename_all = "camelCase")]
 pub struct AppSettings {
-    /// Theme id: `nightgrid`, `ice`, `bloodline` or `plain`.
+    /// Theme id: `nightgrid`, `ice`, `bloodline` or `custom`.
     pub theme: String,
+    /// The custom theme's colours, by token (`bg-0`, `accent`, …) as `#RRGGBB`.
+    /// Tokens left out use the custom theme's defaults.
+    pub custom_theme: std::collections::BTreeMap<String, String>,
     /// Disables glitch text, scanlines, glow and animations.
     pub reduce_effects: bool,
     /// Low-opacity scanline overlay (ignored when effects are reduced).
@@ -174,6 +181,7 @@ impl Default for AppSettings {
     fn default() -> Self {
         Self {
             theme: "nightgrid".into(),
+            custom_theme: Default::default(),
             reduce_effects: false,
             scanlines: true,
             ui_scale: 100,
@@ -212,6 +220,15 @@ impl AppSettings {
     pub fn validate(&self) -> Result<()> {
         if !THEMES.contains(&self.theme.as_str()) {
             return Err(Error::Invalid { field: "theme", reason: format!("unknown theme {:?}", self.theme) });
+        }
+        for (k, v) in &self.custom_theme {
+            let hex = v.len() == 7 && v.starts_with('#') && v[1..].chars().all(|c| c.is_ascii_hexdigit());
+            if !THEME_TOKENS.contains(&k.as_str()) || !hex {
+                return Err(Error::Invalid {
+                    field: "customTheme",
+                    reason: format!("{k}: expected a known token and #RRGGBB"),
+                });
+            }
         }
         if !(UI_SCALE_MIN..=UI_SCALE_MAX).contains(&self.ui_scale) {
             return Err(Error::Invalid {
@@ -306,6 +323,20 @@ mod tests {
             AlertSettings { webhook: "slack".into(), ..Default::default() },
         ] {
             assert!(AppSettings { alerts, ..Default::default() }.save(&store).is_err());
+        }
+    }
+
+    #[test]
+    fn custom_theme_tokens() {
+        let store = Store::open_in_memory().unwrap();
+        let mut ok = AppSettings { theme: "custom".into(), ..Default::default() };
+        ok.custom_theme.insert("accent".into(), "#E8D44D".into());
+        ok.save(&store).unwrap();
+        assert_eq!(AppSettings::load(&store).unwrap().custom_theme["accent"], "#E8D44D");
+        for (k, v) in [("accent", "red"), ("accent", "#E8D44"), ("font", "#000000"), ("bg-0", "url(x)")] {
+            let mut bad = AppSettings::default();
+            bad.custom_theme.insert(k.into(), v.into());
+            assert!(bad.save(&store).is_err(), "{k}={v}");
         }
     }
 

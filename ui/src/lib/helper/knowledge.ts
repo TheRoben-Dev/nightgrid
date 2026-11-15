@@ -9,6 +9,8 @@ export interface Chunk {
   /** "Section › Subsection" path, for the prompt and the sources list. */
   title: string;
   text: string;
+  /** Set for a chunk of one of the user's notes. */
+  noteId?: number;
 }
 
 const MAX_CHUNK = 900;
@@ -103,4 +105,48 @@ let index: Index | null = null;
 /** The index over the bundled user guide (built on first use). */
 export function guideIndex(): Index {
   return (index ??= new Index(chunkMarkdown(guideMd)));
+}
+
+/** A note as DRIFT needs it (the store's `Note` has more). */
+export interface NoteLike {
+  id: number;
+  title: string;
+  body: string;
+  tags: string[];
+  hideFromDrift: boolean;
+  updatedAt: number;
+}
+
+/** Chunks of the user's notes, minus the ones hidden from DRIFT. */
+export function noteChunks(notes: NoteLike[]): Chunk[] {
+  return notes
+    .filter((n) => !n.hideFromDrift)
+    .flatMap((n) => {
+      const head = n.tags.length ? `${n.tags.map((t) => `#${t}`).join(" ")}\n\n` : "";
+      const parts = chunkMarkdown(`## ${n.title}\n${head}${n.body}`);
+      return parts.map((c) => ({ title: c.title === n.title ? `Note “${n.title}”` : `Note “${n.title}” › ${c.title}`, text: c.text, noteId: n.id }));
+    });
+}
+
+let notesKey = "";
+let notesIdx: Index | null = null;
+/** The index over the user's notes, rebuilt when they change. */
+export function notesIndex(notes: NoteLike[]): Index {
+  const key = notes.map((n) => `${n.id}:${n.updatedAt}:${n.hideFromDrift ? 1 : 0}`).join("|");
+  if (!notesIdx || key !== notesKey) {
+    notesIdx = new Index(noteChunks(notes));
+    notesKey = key;
+  }
+  return notesIdx;
+}
+
+/** The notes among the retrieved chunks, once each. */
+export function noteRefs(docs: { noteId?: number; title: string }[]): { id: number; title: string }[] {
+  const seen = new Map<number, string>();
+  for (const d of docs) {
+    if (d.noteId === undefined || seen.has(d.noteId)) continue;
+    const m = /^Note “(.*?)”/.exec(d.title);
+    seen.set(d.noteId, m ? m[1] : d.title);
+  }
+  return [...seen].map(([id, title]) => ({ id, title }));
 }

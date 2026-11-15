@@ -38,6 +38,7 @@
   import Tunnels from "./lib/views/Tunnels.svelte";
   import Automation from "./lib/views/Automation.svelte";
   import Notes from "./lib/views/Notes.svelte";
+  import Network from "./lib/views/Network.svelte";
   import SnippetEditor from "./lib/components/automation/SnippetEditor.svelte";
   import PlaybookEditor from "./lib/components/automation/PlaybookEditor.svelte";
   import { automation } from "./lib/stores/automation.svelte";
@@ -155,10 +156,10 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.8"} />
+  <LeftRail version={info?.version ?? "0.10.9"} />
   <div class="main">
     <TopBar />
-    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes"} aria-label={section.label}>
+    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>
@@ -187,6 +188,8 @@
         <Tunnels />
       {:else if section.id === "automation"}
         <Automation />
+      {:else if section.id === "network"}
+        <div class="view-fill"><Network /></div>
       {:else if section.id === "notes"}
         <div class="view-fill"><Notes /></div>
       {:else if section.id === "overview"}

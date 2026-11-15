@@ -1,0 +1,13 @@
+/*
+ * Nerd Font symbols (powerline, devicons, Font Awesome, Material Design …),
+ * bundled so prompts, MOTDs and tools like fastfetch show icons with nothing
+ * installed. Symbols-only and limited to icon code points: text keeps its own
+ * font. Nerd Fonts v3.4.0, MIT (fonts/SymbolsNerdFont-LICENSE.txt).
+ */
+@font-face {
+  font-family: "NG Symbols";
+  src: url("./fonts/SymbolsNerdFontMono.woff2") format("woff2");
+  font-display: block;
+  unicode-range:
+    U+23FB-23FE, U+2665, U+26A1, U+2B58, U+E000-F8FF, U+F0000-FFFFD;
+}

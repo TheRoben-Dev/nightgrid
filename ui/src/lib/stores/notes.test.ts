@@ -12,7 +12,7 @@ describe("notes", () => {
 
   it("parses tags and filters", () => {
     expect(parseTags("Docker, #backup docker  ")).toEqual(["docker", "backup"]);
-    const n = { id: 1, title: "Restart media", body: "docker compose restart", hostId: 2, tags: ["docker"], pinned: false, updatedAt: 0 };
+    const n = { id: 1, title: "Restart media", body: "docker compose restart", hostId: 2, tags: ["docker"], pinned: false, hideFromDrift: false, updatedAt: 0 };
     expect(matches(n, "media restart", null, "all")).toBe(true);
     expect(matches(n, "", "backup", "all")).toBe(false);
     expect(matches(n, "", null, "none")).toBe(false);

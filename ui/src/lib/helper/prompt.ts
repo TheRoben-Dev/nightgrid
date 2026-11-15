@@ -70,8 +70,13 @@ Use at most one show and three points, in the order the user should follow.`;
 export function contextBlock(ctx: HelperContext, docs: Chunk[]): string {
   const parts: string[] = [];
   parts.push(`Current view: ${viewLabel(ctx.view)}${ctx.host ? `, host "${ctx.host}"` : ""}.`);
-  if (docs.length) {
-    parts.push("GUIDE:\n" + docs.map((d) => `## ${d.title}\n${d.text}`).join("\n\n"));
+  const guide = docs.filter((d) => d.noteId === undefined);
+  const mine = docs.filter((d) => d.noteId !== undefined);
+  if (guide.length) {
+    parts.push("GUIDE:\n" + guide.map((d) => `## ${d.title}\n${d.text}`).join("\n\n"));
+  }
+  if (mine.length) {
+    parts.push("USER'S NOTES (written by the user; say which note you used):\n" + mine.map((d) => `## ${d.title}\n${d.text}`).join("\n\n"));
   }
   if (ctx.selection?.trim()) {
     const sel = redact(ctx.selection.trim());

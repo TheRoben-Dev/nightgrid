@@ -14,6 +14,8 @@ import type {
   VmAction,
   VmKind,
   VmReport_Serialize as VmReport,
+  Discovery_Serialize as Discovery,
+  Device_Serialize as Device,
 } from "./bindings";
 
 let nextId = 1;
@@ -38,6 +40,38 @@ let guests: Vm[] = [
   { kind: "lxc", id: "200", name: "pihole", state: "running", vcpus: 1, memoryMb: 512, autostart: true },
   { kind: "libvirt", id: "debian-lab", name: "debian-lab", state: "paused", vcpus: 2, memoryMb: 2048, autostart: false },
 ];
+const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, ...d });
+
+/** A made-up home LAN for the network map. Addresses are documentation-style examples. */
+function discovery(sweep: boolean): Discovery {
+  const devices: Device[] = [
+    dev("192.168.1.1", { mac: "a4:2b:b0:11:22:33", names: ["router.lan"], seen: ["gateway", "neighbour"] }),
+    dev("192.168.1.20", { mac: "00:11:32:aa:bb:cc", names: ["nas.local"], services: ["_smb._tcp", "_http._tcp"], seen: ["neighbour", "mdns"] }),
+    dev("192.168.1.31", { mac: "b8:27:eb:12:34:56", names: ["octoprint.local"], services: ["_octoprint._tcp", "_http._tcp"], seen: ["mdns"] }),
+    dev("192.168.1.44", { mac: "f0:18:98:de:ad:01", names: ["Living Room TV"], services: ["_airplay._tcp"], seen: ["neighbour", "mdns"] }),
+    dev("192.168.1.52", { mac: "3c:22:fb:00:00:52", seen: ["neighbour"] }),
+    dev("100.101.7.12", { names: ["macbook"], seen: ["tailscale"], os: "macOS", online: true }),
+    dev("100.88.1.9", { names: ["phone"], seen: ["tailscale"], os: "iOS", online: false }),
+  ];
+  if (sweep) devices.push(dev("192.168.1.77", { seen: ["ping"] }), dev("192.168.1.78", { seen: ["ping"] }));
+  return {
+    ifaces: [
+      { name: "eth0", addr: "192.168.1.40", prefix: 24, kind: "private" },
+      { name: "tailscale0", addr: "100.70.3.4", prefix: 32, kind: "tailnet" },
+    ],
+    gateway: "192.168.1.1",
+    devices,
+    exposures: [
+      { kind: "upnp", port: 32400, public: "203.0.113.7:32400", target: "192.168.1.40:32400", detail: "Plex Media Server" },
+      { kind: "upnp", port: 51820, public: "203.0.113.7:51820", target: "192.168.1.20:51820", detail: "UDP" },
+      { kind: "funnel", port: 8080, public: "https://lab.example-tailnet.ts.net", target: "http://127.0.0.1:8080", detail: "Tailscale Funnel" },
+      { kind: "tunnel", port: 3000, public: "status.example.com", target: "http://localhost:3000", detail: "cloudflared" },
+    ],
+    swept: sweep ? "192.168.1.0/24" : null,
+    notes: [],
+  };
+}
+
 let status: StatusPageSettings = { enabled: false, bind: "lan", port: 8787 };
 let tok = "3f9c2a71d0b84e6f9a1c5d7e2b4f6a8c0e1d3b5a7c9e2f4a6b8d0c1e3f5a7b9";
 
@@ -49,6 +83,7 @@ const statusInfo = (): StatusPageInfo => ({
 });
 
 export const mockOps = {
+  discover: (_hostId: number, sweep: boolean): Promise<Discovery> => delay(discovery(sweep), sweep ? 1200 : 500),
   vms: (_hostId: number, elevate: boolean): Promise<VmReport> =>
     delay(
       elevate

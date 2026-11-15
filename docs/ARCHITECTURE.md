@@ -162,6 +162,13 @@ _Last updated: M2 (SFTP + editor)._
 - **Status page** (`core/src/status_page.rs`): `StatusSnapshot` → `render_html` (inline CSS, escaped), `route`, `token_matches`, `response`, `new_token`. `app/src/status_cmd.rs` builds the snapshot from `MetricsHub::latest`, the alert tracker and service checks, and runs the listener (`apply` on launch and on change; per-address lockout) (D-080, D-081). Commands: `status_page_get`, `status_page_set`, `status_page_new_token`, `dashboard_export`. Settings: `AppSettings.status_page` (machine-specific, only changed through its command).
 - **UI**: `components/system/VmsPanel.svelte` + `stores/vms.svelte.ts`; VM console tabs via `Origin.vm` in `term/session.svelte.ts`; `components/status/StatusPagePanel.svelte` + `stores/statusPage.ts`.
 
+## Network map, custom scheme, notes in DRIFT (M10i)
+
+- **Discovery** (`core/src/netmap.rs`): `discover_command` (one `sh` script with `@@MARK@@` sections: addr, route, sweep, neigh, mdns, tailscale, funnel, upnp, cloudflared) → `parse_discovery` → `Discovery { ifaces, gateway, devices, exposures, swept, notes }`; `sweep_range` limits sweeps to private /24–/30 (D-082). Command `netmap_discover` (`app/src/system_cmd.rs`).
+- **UI**: `views/Network.svelte` + `stores/netmap.svelte.ts`; `netmap/graph.ts` builds columns (internet, router/tailnet, hosts, other devices) and links from the host list, `system.portMap` audits and the last discovery, matching devices to hosts by address or name stem. **Add as host** uses `hosts.addFrom` (prefills the editor).
+- **Custom scheme** (D-084): `theme/themes.ts` `SURFACES`, `TEXTS`, `COLOURS`, `resolveCustom`; `applyTheme(el, id, custom)`; `components/CustomThemeEditor.svelte`. Rust: `settings::THEME_TOKENS`, `AppSettings.custom_theme` validation.
+- **Notes in DRIFT** (D-083): `helper/knowledge.ts` `notesIndex` / `noteRefs`; `helper/prompt.ts` puts notes in their own block; migration `0014_note_drift.sql` adds `notes.hide_from_drift`.
+
 ## Backups (M9)
 
 - **Core** (`core/src/backup.rs`): `snapshot` copies the config tables into a JSON `Bundle` (history tables left out), `collect_secrets` adds keychain entries on request, `encrypt`/`decrypt` wrap it in an age scrypt passphrase file, `import` merges (natural keys, id remapping) or replaces in one transaction, and `restore_secrets` moves keychain entries to the new ids (D-057, D-058).

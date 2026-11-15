@@ -4,6 +4,7 @@ import "@fontsource/jetbrains-mono/latin-500.css";
 import "@fontsource/rajdhani/latin-500.css";
 import "@fontsource/rajdhani/latin-600.css";
 import "@fontsource/rajdhani/latin-700.css";
+import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/backdrop.css";
@@ -18,3 +19,6 @@ installCspStyleMirror();
 const app = mount(App, { target: document.getElementById("app")! });
 
 export default app;
+
+// Fetch the terminal icon font up front so the first prompt doesn't cache tofu.
+void document.fonts?.load('13px "NG Symbols"', "\ue0b0").catch(() => {});

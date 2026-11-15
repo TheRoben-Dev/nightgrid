@@ -79,6 +79,11 @@ export class TermSession {
   private generation = 0;
   private opened = false;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  private fitFrame = 0;
+  private gl: WebglAddon | null = null;
+  /** Size the backend PTY was last told (null until the session is open). */
+  private sentSize: { cols: number; rows: number } | null = null;
+  private readonly onDocEvent = () => this.redraw();
   private disposed = false;
   /** Per-start secret for the "edit in Nightgrid" hook (null when off). */
   private editToken: string | null = null;
@@ -93,7 +98,8 @@ export class TermSession {
     const s = settings.value;
     this.term = new Terminal({
       allowProposedApi: true,
-      fontFamily: '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+      // "NG Symbols" (bundled Nerd Font symbols) only covers icon code points, so text stays in JetBrains Mono.
+      fontFamily: '"NG Symbols", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
       fontSize: s.termFontSize,
       scrollback: s.termScrollback,
       cursorBlink: s.termCursorBlink,
@@ -110,12 +116,15 @@ export class TermSession {
     this.term.onData((d) => {
       if (this.backendId !== null) void api.termWrite(this.backendId, d);
     });
-    this.term.onResize(({ cols, rows }) => this.sendResize(cols, rows));
+    this.term.onResize(() => this.sendResize());
     this.term.onSelectionChange(() => {
       if (settings.value.termCopyOnSelect && this.term.hasSelection()) void writeClipboard(this.term.getSelection());
     });
     this.term.attachCustomKeyEventHandler((e) => this.onKey(e));
     this.term.parser.registerOscHandler(EDIT_OSC, (data) => this.onEditRequest(data));
+    // Repaint when the window comes back or a font (e.g. the icon font) finishes loading.
+    document.addEventListener("visibilitychange", this.onDocEvent);
+    document.fonts?.addEventListener?.("loadingdone", this.onDocEvent);
     this.el.addEventListener("contextmenu", (e) => {
       if (!settings.value.termRightClickPaste) return;
       e.preventDefault();
@@ -132,20 +141,45 @@ export class TermSession {
   /** Puts the terminal into `host` (first call opens xterm). */
   attach(host: HTMLElement) {
     if (this.disposed) return;
+    const moved = this.opened && this.el.parentElement !== host;
     if (this.el.parentElement !== host) host.appendChild(this.el);
     if (!this.opened) {
       this.term.open(this.el);
-      try {
-        const gl = new WebglAddon();
-        gl.onContextLoss(() => gl.dispose());
-        this.term.loadAddon(gl);
-      } catch {
-        /* no WebGL: xterm keeps its DOM renderer */
-      }
+      this.loadWebgl();
       this.opened = true;
     }
     resyncStyles(this.el);
     this.refit();
+    // Splitting re-parents the pane; WebKit can drop the canvas contents on a move.
+    if (moved) requestAnimationFrame(() => this.redraw());
+  }
+
+  private loadWebgl() {
+    try {
+      const gl = new WebglAddon();
+      // WebKit caps live WebGL contexts and may drop one (many panes, sleep, GPU switch):
+      // fall back to xterm's DOM renderer and repaint instead of going blank.
+      gl.onContextLoss(() => {
+        gl.dispose();
+        if (this.gl === gl) this.gl = null;
+        this.redraw();
+      });
+      this.term.loadAddon(gl);
+      this.gl = gl;
+    } catch {
+      /* no WebGL: xterm keeps its DOM renderer */
+    }
+  }
+
+  /** Repaints every row (and rebuilds the glyph atlas). */
+  redraw() {
+    if (!this.opened || this.disposed || document.visibilityState === "hidden") return;
+    try {
+      this.gl?.clearTextureAtlas();
+      this.term.refresh(0, this.term.rows - 1);
+    } catch {
+      /* disposed mid-frame */
+    }
   }
 
   /** Takes the terminal out of `host` without disposing it. */
@@ -153,13 +187,19 @@ export class TermSession {
     if (this.el.parentElement === host) host.removeChild(this.el);
   }
 
+  /** Fits to the pane once layout has settled (one fit per frame, however many resizes). */
   refit() {
-    if (!this.opened || !this.el.isConnected || this.el.clientWidth === 0) return;
-    try {
-      this.fit.fit();
-    } catch {
-      /* not laid out yet */
-    }
+    if (this.fitFrame) return;
+    this.fitFrame = requestAnimationFrame(() => {
+      this.fitFrame = 0;
+      if (!this.opened || this.disposed || !this.el.isConnected || this.el.clientWidth === 0 || this.el.clientHeight === 0) return;
+      try {
+        this.fit.fit();
+      } catch {
+        /* not laid out yet */
+      }
+      this.syncSize();
+    });
   }
 
   /** Types `text` at the prompt as a bracketed paste; the user presses Enter. */
@@ -224,11 +264,22 @@ export class TermSession {
     }
   }
 
-  private sendResize(cols: number, rows: number) {
+  private sendResize() {
     if (this.resizeTimer) clearTimeout(this.resizeTimer);
-    this.resizeTimer = setTimeout(() => {
-      if (this.backendId !== null) void api.termResize(this.backendId, cols, rows);
-    }, 60);
+    this.resizeTimer = setTimeout(() => this.syncSize(), 60);
+  }
+
+  /**
+   * Tells the backend the terminal's current size if it differs from what it
+   * was last told. Called after fits and once the session opens, so a resize
+   * that happened while connecting (a split, a sidebar toggle) isn't lost.
+   */
+  private syncSize() {
+    if (this.backendId === null) return;
+    const { cols, rows } = this.term;
+    if (this.sentSize?.cols === cols && this.sentSize.rows === rows) return;
+    this.sentSize = { cols, rows };
+    void api.termResize(this.backendId, cols, rows);
   }
 
   private listener(gen: number) {
@@ -266,6 +317,8 @@ export class TermSession {
     try {
       if (this.origin.kind === "local") {
         this.backendId = await api.termOpenLocal(cols, rows, this.listener(gen));
+        this.sentSize = { cols, rows };
+        this.syncSize();
       } else {
         const o = this.origin;
         this.editToken = !o.container && !o.vm && settings.value.termEditInApp ? newToken() : null;
@@ -277,6 +330,8 @@ export class TermSession {
         if (gen !== this.generation) return;
         if (res.kind === "opened") {
           this.backendId = res.id;
+          this.sentSize = { cols, rows };
+          this.syncSize();
         } else if (res.error.kind === "authFailed" || res.error.kind === "other") {
           this.state = "failed";
           this.message = res.error.message;
@@ -328,6 +383,7 @@ export class TermSession {
   private closeBackend() {
     if (this.backendId !== null) {
       void api.termClose(this.backendId);
+      this.sentSize = null;
       this.backendId = null;
     }
   }
@@ -335,6 +391,9 @@ export class TermSession {
   dispose() {
     this.disposed = true;
     this.generation++;
+    if (this.fitFrame) cancelAnimationFrame(this.fitFrame);
+    document.removeEventListener("visibilitychange", this.onDocEvent);
+    document.fonts?.removeEventListener?.("loadingdone", this.onDocEvent);
     this.closeBackend();
     this.term.dispose();
     this.el.remove();
