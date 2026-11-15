@@ -21,6 +21,7 @@ use nightgrid_core::hosts::{Host, HostId};
 use nightgrid_core::ssh::client::ConnectError;
 use nightgrid_core::system::sudo::SudoAuth;
 use nightgrid_core::system::SystemError;
+use nightgrid_core::timeline::{EventKind, Level};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::ipc::Channel;
@@ -424,6 +425,24 @@ async fn run_host(
         let _ = tx.send(e);
     };
     let end = |ok: bool, code: Option<i32>, error: Option<String>, needs: Option<HostNeeds>, stopped: bool| {
+        if needs.is_none() {
+            let (level, detail) = match (&error, stopped, ok) {
+                (_, true, _) => (Level::Warn, "stopped".to_owned()),
+                (Some(e), _, _) => (Level::Warn, e.clone()),
+                (None, _, false) => {
+                    (Level::Warn, code.map(|c| format!("exit code {c}")).unwrap_or_else(|| "failed".into()))
+                }
+                (None, _, true) => (Level::Info, "finished".to_owned()),
+            };
+            crate::timeline_cmd::record(
+                app,
+                host_id,
+                EventKind::Automation,
+                level,
+                &format!("Ran {}", plan.name),
+                &detail,
+            );
+        }
         send(AutomationEvent::HostEnd { host_id, ok, code, error, needs, ms: ms(t0), stopped });
     };
     if *cancel.borrow() {

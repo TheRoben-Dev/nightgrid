@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.16 (incident timeline)
+
+1. **System → TIMELINE** on a Linux host: boots (with "down for about …"), package upgrades and, on a Docker host, container restarts appear for the last 7 days, marked **HOST**. Try **30 D** and **90 D**.
+2. Restart a container from the Docker view, reboot a test host and run a snippet on it from Automation: each shows up marked **NG** after **Refresh**. Stop a container that has a restart policy with `docker kill` in a terminal: a "restarted" or "exited" entry appears.
+3. **Problems only** leaves warnings and critical entries; the chips hide kinds. With DRIFT on, **✦ Summarize** explains the period.
+4. On a login that isn't in `systemd-journal`/`adm`, a note says failed units and OOM kills are missing.
+5. **Clear recorded history…** removes the NG entries; HOST entries stay.
+
 ### macOS: testing 0.10.15 (group and scheduled power)
 
 1. Put two test hosts in a group. **System → GROUP…**, pick the group and **Suspend**, type the group name: each host turns **SUSPENDED** in turn. A host whose sudo password isn't remembered shows ✕ with the reason.

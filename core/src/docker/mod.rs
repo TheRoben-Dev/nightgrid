@@ -17,8 +17,8 @@ use bollard::container::LogOutput;
 use bollard::errors::Error as BollardError;
 use bollard::models::{ContainerInspectResponse, ContainerStatsResponse, ContainerSummary};
 use bollard::query_parameters::{
-    InspectContainerOptions, KillContainerOptions, ListContainersOptions, LogsOptions, RemoveContainerOptions,
-    RestartContainerOptions, StartContainerOptions, StatsOptions, StopContainerOptions,
+    EventsOptions, InspectContainerOptions, KillContainerOptions, ListContainersOptions, LogsOptions,
+    RemoveContainerOptions, RestartContainerOptions, StartContainerOptions, StatsOptions, StopContainerOptions,
 };
 use bollard::Docker;
 use futures_util::{stream, StreamExt};
@@ -233,6 +233,37 @@ impl DockerHost {
             Err(BollardError::DockerResponseServerError { status_code: 304, .. }) => Ok(()),
             Err(e) => Err(DockerError::from_bollard(e, Some(id))),
         }
+    }
+
+    /// Container events between `since` and `until` (unix seconds), as far
+    /// back as the daemon still remembers them. Used by the host timeline.
+    pub async fn events(&self, since: i64, until: i64) -> DockerResult<Vec<crate::timeline::DockerEvent>> {
+        let filters = HashMap::from([
+            ("type".to_owned(), vec!["container".to_owned()]),
+            (
+                "event".to_owned(),
+                ["die", "start", "restart", "oom", "health_status"].iter().map(|s| (*s).to_owned()).collect(),
+            ),
+        ]);
+        let opts =
+            EventsOptions { since: Some(since.to_string()), until: Some(until.to_string()), filters: Some(filters) };
+        let mut s = self.docker.events(Some(opts));
+        let mut out = Vec::new();
+        while let Some(m) = s.next().await {
+            let m = m.map_err(|e| DockerError::from_bollard(e, None))?;
+            let attrs = m.actor.and_then(|a| a.attributes).unwrap_or_default();
+            let Some(name) = attrs.get("name").cloned() else { continue };
+            out.push(crate::timeline::DockerEvent {
+                at: m.time.unwrap_or(0),
+                action: m.action.unwrap_or_default(),
+                name,
+                exit_code: attrs.get("exitCode").and_then(|c| c.parse().ok()),
+            });
+            if out.len() >= 5_000 {
+                break;
+            }
+        }
+        Ok(out)
     }
 
     pub async fn inspect(&self, id: &str) -> DockerResult<ContainerDetail> {

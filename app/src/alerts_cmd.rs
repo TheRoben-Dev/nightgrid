@@ -152,6 +152,7 @@ pub fn start(app: &AppHandle) {
             let cfg = settings(&app);
             let now = now_unix();
             let changes = evaluate(&app, &cfg, now, &mut last_docker).await;
+            crate::timeline_cmd::record_alerts(&app, &changes);
             let quiet = is_quiet(&cfg);
             let hub = app.state::<AppState>().alerts.clone();
             if !changes.is_empty() || last_quiet != Some(quiet) {

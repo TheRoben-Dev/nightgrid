@@ -5,6 +5,7 @@ import {
   type ConnectError,
   type DisksReport,
   type Schedules,
+  type Timeline,
   type HostSchedule,
   type ScheduleSpec,
   type SecurityReport,
@@ -24,7 +25,7 @@ import { backups } from "./backups.svelte";
 import { hosts } from "./hosts.svelte";
 import { vms } from "./vms.svelte";
 
-export type SystemTab = "units" | "journal" | "schedules" | "security" | "updates" | "disks" | "vms" | "backups";
+export type SystemTab = "units" | "journal" | "schedules" | "timeline" | "security" | "updates" | "disks" | "vms" | "backups";
 export type UnitFilter = "all" | "running" | "failed" | "inactive";
 
 /** Journal rows kept in memory; older ones scroll off. */
@@ -167,6 +168,11 @@ class SystemStore {
 
   security = $state<SecurityReport | null>(null);
   securityLoading = $state(false);
+
+  /** Incident timeline (M10l) for the selected host. */
+  timeline = $state<Timeline | null>(null);
+  timelineDays = $state(7);
+  timelineLoading = $state(false);
   /** Port map over every host: reports (or errors) by host id. */
   portMap = $state<Record<number, SecurityReport | string>>({});
   portMapLoading = $state(false);
@@ -214,6 +220,7 @@ class SystemStore {
     this.powerSchedules = null;
     this.powerSchedulesError = null;
     this.security = null;
+    this.timeline = null;
     vms.reset(id);
     void this.loadInfo();
     void this.openTab(this.tab);
@@ -225,6 +232,7 @@ class SystemStore {
     if (tab === "units" && !this.unitsLoaded) await this.loadUnits();
     else if (tab === "journal" && this.journalRun === null && !this.journal.length) await this.startJournal();
     else if (tab === "schedules" && !this.schedules) await Promise.all([this.loadSchedules(), this.loadPowerSchedules()]);
+    else if (tab === "timeline" && !this.timeline) await this.loadTimeline();
     else if (tab === "security" && !this.security) await this.loadSecurity();
     else if (tab === "updates" && !this.updates) await this.checkUpdates();
     else if (tab === "vms" && (!vms.report || vms.hostId !== this.hostId) && !vms.loading) await vms.load();
@@ -430,6 +438,37 @@ class SystemStore {
   }
 
   // ---- schedules ----------------------------------------------------------
+
+  async loadTimeline(days = this.timelineDays) {
+    const id = this.hostId;
+    if (id === null) return;
+    const seq = this.seq;
+    this.timelineDays = days;
+    this.timelineLoading = true;
+    try {
+      const t = await api.timelineGet(id, days);
+      if (seq !== this.seq || days !== this.timelineDays) return;
+      this.timeline = t;
+      this.clearError("timeline");
+    } catch (e) {
+      if (seq === this.seq) this.fail("timeline", e);
+    } finally {
+      if (seq === this.seq) this.timelineLoading = false;
+    }
+  }
+
+  /** Forgets what Nightgrid recorded for the host, then re-reads. */
+  async clearTimeline() {
+    const id = this.hostId;
+    if (id === null) return;
+    try {
+      await api.timelineClear(id);
+      this.notice = { text: "Cleared Nightgrid's recorded history for this host.", tone: "ok" };
+    } catch (e) {
+      this.notice = { text: errorText(e), tone: "err" };
+    }
+    await this.loadTimeline();
+  }
 
   async loadSchedules() {
     const id = this.hostId;

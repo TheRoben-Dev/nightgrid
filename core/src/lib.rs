@@ -35,6 +35,7 @@ pub mod store;
 pub mod system;
 pub mod tailnet;
 pub mod term;
+pub mod timeline;
 pub mod tunnels;
 
 pub use error::{Error, Result};

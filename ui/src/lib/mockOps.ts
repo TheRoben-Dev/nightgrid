@@ -4,6 +4,8 @@
  */
 import type {
   HostSchedule_Serialize as HostSchedule,
+  HostEvent,
+  Timeline,
   ScheduleSpec_Deserialize as ScheduleSpec,
   BackupJob,
   BackupJobInput,
@@ -92,7 +94,44 @@ const statusInfo = (): StatusPageInfo => ({
 let schedules: HostSchedule[] = [];
 const unitFor = (sp: ScheduleSpec) => (sp.action === "wake" ? `nightgrid-wake-${(sp.mac ?? "aabbcc001122").replace(/:/g, "")}` : `nightgrid-power-${sp.action}`);
 
+/** A few days of plausible history for the timeline. */
+function sampleEvents(now: number): HostEvent[] {
+  const h = 3600;
+  const e = (ago: number, kind: HostEvent["kind"], level: HostEvent["level"], title: string, detail = "", origin: HostEvent["origin"] = "host"): HostEvent => ({
+    at: now - ago,
+    kind,
+    level,
+    title,
+    detail,
+    origin,
+  });
+  return [
+    e(0.2 * h, "recovered", "ok", "CONTAINER DOWN: web on host", "cleared after 4m", "nightgrid"),
+    e(0.3 * h, "container", "warn", "web restarted", "after exit 1"),
+    e(0.27 * h, "alert", "critical", "CONTAINER DOWN: web on host", "exited with code 1", "nightgrid"),
+    e(5 * h, "stack", "info", "Updated stack media", "from Nightgrid; new images: jellyfin", "nightgrid"),
+    e(26 * h, "packages", "info", "apt: upgraded 12, installed 1", "apt-get upgrade -y"),
+    e(27 * h, "boot", "info", "Booted", "down for about 1m (last log before it at the previous boot's end)"),
+    e(27.1 * h, "power", "info", "Rebooted from Nightgrid", "", "nightgrid"),
+    e(50 * h, "oom", "critical", "Out of memory: killed java"),
+    e(51 * h, "unit", "warn", "backup.service failed", "result: exit-code"),
+    e(74 * h, "automation", "info", "Ran Update all", "finished", "nightgrid"),
+    e(75 * h, "alert", "warn", "DISK FULL: host /srv", "91 % used", "nightgrid"),
+  ].sort((a, b) => b.at - a.at);
+}
+const clearedTimelines = new Set<number>();
+
 export const mockOps = {
+  timeline(hostId: number, days: number): Promise<Timeline> {
+    const now = Math.floor(Date.now() / 1000);
+    const since = now - days * 86400;
+    const all = sampleEvents(now).filter((x) => x.at >= since && !(clearedTimelines.has(hostId) && x.origin === "nightgrid"));
+    return Promise.resolve({ events: all, notes: hostId % 2 ? [] : ["Docker events: Docker only remembers recent events."], since });
+  },
+  timelineClear(hostId: number): Promise<null> {
+    clearedTimelines.add(hostId);
+    return Promise.resolve(null);
+  },
   powerSchedules: (hostId: number): Promise<HostSchedule[]> => Promise.resolve(schedules.filter((s) => s.onHostId === hostId || s.spec.action === "wake")),
   powerScheduleSet(hostId: number, spec: ScheduleSpec): Promise<HostSchedule> {
     const unit = unitFor(spec);
