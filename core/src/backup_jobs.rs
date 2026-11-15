@@ -305,7 +305,7 @@ pub fn status_command(jobs: &[BackupJob]) -> String {
             )),
             BackupSource::Path => s.push_str(&format!(
                 "p={t}; echo '{MARK} {id} path'\n\
-                 if [ -e \"$p\" ]; then stat -c 'stat %Y %s %F' \"$p\"; \
+                 if [ -e \"$p\" ]; then stat -c 'stat %Y %s %F' \"$p\" || stat -f 'stat %m %z %HT' \"$p\"; \
                  if [ -d \"$p\" ]; then echo \"newest $(timeout 15 find \"$p\" -maxdepth 3 -type f -printf '%T@\\n' | sort -n | tail -n 1)\"; \
                  echo \"du $(timeout 20 du -sk \"$p\" | cut -f1)\"; fi; \
                  elif [ -r \"$(dirname \"$p\")\" ]; then echo missing; else echo denied; fi\n",
@@ -328,9 +328,9 @@ pub fn parse_status(out: &str, jobs: &[BackupJob], now: f64) -> Vec<BackupStatus
         if let Some(rest) = line.strip_prefix(MARK) {
             let w: Vec<&str> = rest.split_whitespace().collect();
             match w.as_slice() {
-                ["now", n, up] => {
+                ["now", n, rest @ ..] => {
                     host_now = n.parse().unwrap_or(now);
-                    uptime = up.parse().ok();
+                    uptime = rest.first().and_then(|u| u.parse().ok());
                 }
                 ["log"] => in_log = true,
                 [id, kind] => {
@@ -438,7 +438,7 @@ fn path_status(id: BackupJobId, props: &[&str]) -> BackupStatus {
         match w.as_slice() {
             ["stat", m, size, kind @ ..] => {
                 mtime = m.parse::<f64>().ok();
-                is_dir = kind.first() == Some(&"directory");
+                is_dir = kind.first().is_some_and(|k| k.eq_ignore_ascii_case("directory"));
                 if !is_dir {
                     st.size = size.parse().ok();
                 }
