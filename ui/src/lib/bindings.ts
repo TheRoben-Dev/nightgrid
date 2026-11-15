@@ -293,6 +293,31 @@ export const commands = {
 	timelineGet: (hostId: number, days: number, options?: InvokeOptions) => __TAURI_INVOKE<Timeline>("timeline_get", { hostId, days }, options),
 	/**  Forgets what Nightgrid recorded for the host (the host's own logs stay). */
 	timelineClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("timeline_clear", { hostId }, options),
+	watchList: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_list", undefined, options),
+	/**  Adds or updates an item; a certificate file is read right away. */
+	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
+	watchDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("watch_delete", { id }, options),
+	/**  Re-reads every certificate file now. */
+	watchCheck: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_check", undefined, options),
+	/**
+	 *  Looks the domain's expiry up with `whois` on `via` (asked for by a click;
+	 *  the host contacts the registry's whois server).
+	 */
+	watchLookup: (id: number, via: number, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_lookup", { id, via }, options),
+	/**  The host's saved baseline, if any. */
+	confdiffBaseline: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<SideInfo | null>("confdiff_baseline", { hostId }, options),
+	/**
+	 *  Saves (or replaces) the baseline on the host: a manifest plus an archive
+	 *  of the readable files, in `~/.nightgrid/baselines/default` (mode 700).
+	 */
+	confdiffSaveBaseline: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<SideInfo>("confdiff_save_baseline", { hostId }, options),
+	/**
+	 *  Compares the host with its baseline (`other` = `None`) or with another
+	 *  host. `hide_host_specific` leaves out files meant to differ between hosts.
+	 */
+	confdiffCompare: (hostId: number, other: number | null, hideHostSpecific: boolean, options?: InvokeOptions) => __TAURI_INVOKE<DriftReport_Serialize>("confdiff_compare", { hostId, other, hideHostSpecific }, options),
+	/**  Line diff of one file: baseline → live, or this host → the other host. */
+	confdiffFile: (hostId: number, other: number | null, path: string, options?: InvokeOptions) => __TAURI_INVOKE<FileDiff_Serialize>("confdiff_file", { hostId, other, path }, options),
 	/**  SMART health of every disk (needs root). */
 	systemDisks: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<DisksReport_Serialize>("system_disks", { hostId, sudo }, options),
 	integrationsList: (options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize[]>("integrations_list", undefined, options),
@@ -492,7 +517,9 @@ export type AddrKind = "loopback" |
 
 export type Alert = Alert_Serialize | Alert_Deserialize;
 
-export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceDown" | "certExpiring" | "smartWarning" | "backupFailed" | "backupStale" | "logBurst" | "logNewError";
+export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceDown" | "certExpiring" | "smartWarning" | "backupFailed" | "backupStale" | "logBurst" | "logNewError" | 
+/**  A watched certificate file, domain, token or licence (M10l). */
+"expirySoon";
 
 /**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
 export type AlertSettings = AlertSettings_Serialize | AlertSettings_Deserialize;
@@ -1158,6 +1185,12 @@ export type CertInfo_Serialize = {
 	error: string | null,
 };
 
+export type Change = "changed" | 
+/**  Only on the right (the live host, or the second host). */
+"added" | 
+/**  Only on the left (the baseline, or the first host). */
+"removed";
+
 export type ChatTurn = {
 	/**  `system`, `user` or `assistant`. */
 	role: string,
@@ -1500,6 +1533,24 @@ export type Device_Serialize = {
 	also: string[],
 };
 
+export type DiffLine = DiffLine_Serialize | DiffLine_Deserialize;
+
+export type DiffLine_Deserialize = {
+	tag: Tag,
+	/**  Line number on the left (1-based). */
+	old?: number | null,
+	new?: number | null,
+	text: string,
+};
+
+export type DiffLine_Serialize = {
+	tag: Tag,
+	/**  Line number on the left (1-based). */
+	old: number | null,
+	new: number | null,
+	text: string,
+};
+
 export type Discovery = Discovery_Serialize | Discovery_Deserialize;
 
 export type Discovery_Deserialize = {
@@ -1621,6 +1672,30 @@ export type DownloadProgress = {
 	total: number | null,
 };
 
+export type DriftReport = DriftReport_Serialize | DriftReport_Deserialize;
+
+export type DriftReport_Deserialize = {
+	left: SideInfo,
+	right: SideInfo,
+	files: FileChange[],
+	packages: PackageChange_Deserialize[],
+	/**  Host-specific files left out (host-to-host only). */
+	hidden: number,
+	/**  Package lists come from different package managers. */
+	mixedManagers: boolean,
+};
+
+export type DriftReport_Serialize = {
+	left: SideInfo,
+	right: SideInfo,
+	files: FileChange[],
+	packages: PackageChange_Serialize[],
+	/**  Host-specific files left out (host-to-host only). */
+	hidden: number,
+	/**  Package lists come from different package managers. */
+	mixedManagers: boolean,
+};
+
 /**  Engine summary shown in the Docker view header. */
 export type EngineInfo = {
 	version: string,
@@ -1720,6 +1795,41 @@ export type Exposure_Serialize = {
 	/**  Internal side: `ip:port`, a URL or an interface. */
 	target: string,
 	detail: string,
+};
+
+export type FileChange = {
+	path: string,
+	change: Change,
+	/**  A `.env` file: compared by hash only, contents never fetched. */
+	secret: boolean,
+};
+
+export type FileDiff = FileDiff_Serialize | FileDiff_Deserialize;
+
+export type FileDiff_Deserialize = {
+	path: string,
+	lines: DiffLine_Deserialize[],
+	added: number,
+	removed: number,
+	/**  Not text: no line diff. */
+	binary: boolean,
+	/**  Too different (or too long) for a line diff; only counts are given. */
+	tooLarge: boolean,
+	/**  A side was cut at [`MAX_DIFF_BYTES`]. */
+	truncated: boolean,
+};
+
+export type FileDiff_Serialize = {
+	path: string,
+	lines: DiffLine_Serialize[],
+	added: number,
+	removed: number,
+	/**  Not text: no line diff. */
+	binary: boolean,
+	/**  Too different (or too long) for a line diff; only counts are given. */
+	tooLarge: boolean,
+	/**  A side was cut at [`MAX_DIFF_BYTES`]. */
+	truncated: boolean,
 };
 
 /**
@@ -2839,6 +2949,20 @@ export type OutStream = "out" | "err" |
 /**  Nightgrid's own notes ("uploaded 2.1 KB", "port open after 3 s"). */
 "info";
 
+export type PackageChange = PackageChange_Serialize | PackageChange_Deserialize;
+
+export type PackageChange_Deserialize = {
+	name: string,
+	left?: string | null,
+	right?: string | null,
+};
+
+export type PackageChange_Serialize = {
+	name: string,
+	left: string | null,
+	right: string | null,
+};
+
 export type PackageUpdate = PackageUpdate_Serialize | PackageUpdate_Deserialize;
 
 export type PackageUpdate_Deserialize = {
@@ -3518,6 +3642,14 @@ export type Severity = "warn" | "critical";
 /**  Which filesystem a path is on. */
 export type Side = { kind: "local" } | { kind: "host"; id: number };
 
+export type SideInfo = {
+	label: string,
+	taken: number,
+	manager: string,
+	files: number,
+	packages: number,
+};
+
 export type SmartAttr = SmartAttr_Serialize | SmartAttr_Deserialize;
 
 export type SmartAttr_Deserialize = {
@@ -3884,6 +4016,10 @@ export type SystemInfo = {
 	/**  A sudo password for this host is saved in the keychain. */
 	remembered: boolean,
 };
+
+export type Tag = "same" | "add" | "del" | 
+/**  Unchanged lines left out; `text` says how many. */
+"skip";
 
 /**  A node of the tailnet (this one or a peer). */
 export type TailnetPeer = TailnetPeer_Serialize | TailnetPeer_Deserialize;
@@ -4401,6 +4537,82 @@ export type WakeSent_Serialize = {
 	via: string | null,
 	mac: string,
 };
+
+export type WatchInput = WatchInput_Serialize | WatchInput_Deserialize;
+
+export type WatchInput_Deserialize = {
+	/**  `None` adds a new item. */
+	id?: number | null,
+	kind: WatchKind,
+	name: string,
+	hostId?: number | null,
+	target: string,
+	/**  Typed-in date (unix seconds); ignored for certificate files. */
+	expiresAt?: number | null,
+	warnDays: number,
+	note: string,
+};
+
+export type WatchInput_Serialize = {
+	/**  `None` adds a new item. */
+	id: number | null,
+	kind: WatchKind,
+	name: string,
+	hostId: number | null,
+	target: string,
+	/**  Typed-in date (unix seconds); ignored for certificate files. */
+	expiresAt: number | null,
+	warnDays: number,
+	note: string,
+};
+
+export type WatchItem = WatchItem_Serialize | WatchItem_Deserialize;
+
+export type WatchItem_Deserialize = {
+	id: number,
+	kind: WatchKind,
+	name: string,
+	/**  The host a certificate file is on, or a domain is looked up from. */
+	hostId?: number | null,
+	/**  Path of a certificate file, or the domain name. */
+	target: string,
+	/**  Unix seconds; `None` until known. */
+	expiresAt?: number | null,
+	/**  Warn this many days before. */
+	warnDays: number,
+	note: string,
+	/**  When the date was last read from the host. */
+	checkedAt?: number | null,
+	checkError?: string | null,
+};
+
+export type WatchItem_Serialize = {
+	id: number,
+	kind: WatchKind,
+	name: string,
+	/**  The host a certificate file is on, or a domain is looked up from. */
+	hostId: number | null,
+	/**  Path of a certificate file, or the domain name. */
+	target: string,
+	/**  Unix seconds; `None` until known. */
+	expiresAt: number | null,
+	/**  Warn this many days before. */
+	warnDays: number,
+	note: string,
+	/**  When the date was last read from the host. */
+	checkedAt: number | null,
+	checkError: string | null,
+};
+
+export type WatchKind = 
+/**  A PEM certificate file on a host; the date is read from it. */
+"certFile" | 
+/**  A domain registration. */
+"domain" | 
+/**  An API token, key or password with an end date (the value is never stored). */
+"token" | 
+/**  A licence or subscription. */
+"license" | "other";
 
 export type WebhookInfo = WebhookInfo_Serialize | WebhookInfo_Deserialize;
 

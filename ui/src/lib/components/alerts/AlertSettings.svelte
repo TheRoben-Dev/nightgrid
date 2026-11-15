@@ -86,7 +86,7 @@
       <SegmentSlider label="DISK FULL AT" steps={DISK_STEPS} value={a.diskPercent} format={(v) => `${v}%`} onchange={(v) => set({ diskPercent: v })} />
     {/if}
     <Toggle label="Service down" hint="Health check failing for about 90 seconds." checked={a.serviceDown} disabled={!a.enabled} onchange={(v) => set({ serviceDown: v })} />
-    <Toggle label="Certificate expiring" checked={a.certExpiring} disabled={!a.enabled} onchange={(v) => set({ certExpiring: v })} />
+    <Toggle label="Certificate or watched item expiring" hint="Service and proxy certificates within the days below; items on Services → Expiry watch within their own warning days." checked={a.certExpiring} disabled={!a.enabled} onchange={(v) => set({ certExpiring: v })} />
     {#if a.certExpiring}
       <SegmentSlider label="WARN WITHIN" steps={CERT_STEPS} value={a.certDays} format={(v) => `${v}d`} onchange={(v) => set({ certDays: v })} />
     {/if}

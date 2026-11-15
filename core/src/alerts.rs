@@ -35,6 +35,8 @@ pub enum AlertKind {
     BackupStale,
     LogBurst,
     LogNewError,
+    /// A watched certificate file, domain, token or licence (M10l).
+    ExpirySoon,
 }
 
 impl AlertKind {
@@ -70,6 +72,7 @@ impl AlertKind {
             AlertKind::BackupStale => "BACKUP STALE",
             AlertKind::LogBurst => "ERROR BURST",
             AlertKind::LogNewError => "NEW ERROR",
+            AlertKind::ExpirySoon => "EXPIRING",
         }
     }
 }

@@ -25,7 +25,7 @@ import { backups } from "./backups.svelte";
 import { hosts } from "./hosts.svelte";
 import { vms } from "./vms.svelte";
 
-export type SystemTab = "units" | "journal" | "schedules" | "timeline" | "security" | "updates" | "disks" | "vms" | "backups";
+export type SystemTab = "units" | "journal" | "schedules" | "timeline" | "config" | "security" | "updates" | "disks" | "vms" | "backups";
 export type UnitFilter = "all" | "running" | "failed" | "inactive";
 
 /** Journal rows kept in memory; older ones scroll off. */

@@ -6,7 +6,9 @@ mod automation_cmd;
 mod backup_cmd;
 mod backup_jobs_cmd;
 mod commands;
+mod confdiff_cmd;
 mod docker_cmd;
+mod expiry_cmd;
 mod files_cmd;
 mod helper_cmd;
 mod hosts_cmd;
@@ -151,6 +153,15 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         keys_cmd::keys_verify,
         timeline_cmd::timeline_get,
         timeline_cmd::timeline_clear,
+        expiry_cmd::watch_list,
+        expiry_cmd::watch_save,
+        expiry_cmd::watch_delete,
+        expiry_cmd::watch_check,
+        expiry_cmd::watch_lookup,
+        confdiff_cmd::confdiff_baseline,
+        confdiff_cmd::confdiff_save_baseline,
+        confdiff_cmd::confdiff_compare,
+        confdiff_cmd::confdiff_file,
         system_cmd::system_disks,
         integrations_cmd::integrations_list,
         integrations_cmd::integration_create,

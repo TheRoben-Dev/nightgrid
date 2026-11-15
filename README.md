@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.17 (expiry watch and config drift)
+
+1. **Services**, scroll to **Expiry watch**: HTTPS services show their certificate with days left. Open **Docker → Routes** on a host with a reverse proxy, come back: route certificates are listed too.
+2. **Add…** → **Certificate file on a host**, pick a host and a PEM path (e.g. `/etc/ssl/certs/ca-certificates.crt` reads the first one): the date appears. A wrong path shows "file not found".
+3. **Add…** → **Domain** `example.com`, save, pick a host with `whois` installed and **Look up**: the registry date fills in. Without `whois` you get a hint instead.
+4. **Add…** → **API token or key** with a date 5 days ahead and warn days 30: an **EXPIRING** alert appears within a minute and clicking it opens Services. Try a name like `token=abc123456789`: it's refused.
+5. **System → CONFIG** on a test host: **Save baseline** (confirm). `ls -la ~/.nightgrid/baselines/default` on the host shows `manifest.txt`, `files.tar.gz`, mode `drwx------`. Edit a file in `/etc` with sudo (e.g. add a comment to `/etc/ssh/sshd_config`) and install a small package, then **Compare**: the file shows CHANGED with a line diff when clicked, the package ADDED.
+6. **Compare with** another host: differing packages and files appear; the hostname and SSH host keys are hidden until you turn off **Hide host-specific files**.
+
 ### macOS: testing 0.10.16 (incident timeline)
 
 1. **System → TIMELINE** on a Linux host: boots (with "down for about …"), package upgrades and, on a Docker host, container restarts appear for the last 7 days, marked **HOST**. Try **30 D** and **90 D**.
