@@ -119,3 +119,14 @@ pub async fn update_install(app: AppHandle, on_progress: Channel<UpdateProgress>
         })?;
     app.restart();
 }
+
+#[cfg(test)]
+mod tests {
+    /// The Tauri CLI signs bundles against the config's key and the app
+    /// verifies with `updater.pub`: they must be the same key.
+    #[test]
+    fn pubkey_matches_config() {
+        let conf: serde_json::Value = serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        assert_eq!(conf["plugins"]["updater"]["pubkey"].as_str().unwrap(), super::PUBKEY.trim());
+    }
+}

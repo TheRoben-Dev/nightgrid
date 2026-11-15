@@ -80,7 +80,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ5OTk4OTQ3OUU0Q0RBMzIKUldReTJreWVSNG1aMmVFVDl3S0VHMHlFdU9aMWVNN0RkSXZZVUI3cDZNZ1dsa3Nwbi8zT0hHWVYK",
       "endpoints": [
         "https://github.com/TheRoben-Dev/nightgrid/releases/latest/download/latest.json"
       ],
