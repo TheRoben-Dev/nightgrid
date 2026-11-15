@@ -62,8 +62,8 @@ pub struct MetricsHub {
     /// Last state per host, re-sent to a new subscriber.
     states: Mutex<HashMap<HostId, MetricsEvent>>,
     pruner: Mutex<Option<tauri::async_runtime::JoinHandle<()>>>,
-    /// Latest mount usage per host, for disk alerts.
-    mounts: Mutex<HashMap<HostId, Vec<MountUsage>>>,
+    /// Latest sample per host, for disk alerts and the status page.
+    latest: Mutex<HashMap<HostId, Box<Sample>>>,
 }
 
 impl MetricsHub {
@@ -73,7 +73,7 @@ impl MetricsHub {
                 self.states.lock().expect("poisoned").insert(*host_id, ev.clone());
             }
             MetricsEvent::Sample { host_id, sample } => {
-                self.mounts.lock().expect("poisoned").insert(*host_id, sample.mounts.clone());
+                self.latest.lock().expect("poisoned").insert(*host_id, sample.clone());
             }
         }
         if let Some(ch) = self.channel.lock().expect("poisoned").as_ref() {
@@ -95,7 +95,12 @@ impl MetricsHub {
     }
 
     pub fn mounts(&self, id: HostId) -> Option<Vec<MountUsage>> {
-        self.mounts.lock().expect("poisoned").get(&id).cloned()
+        self.latest.lock().expect("poisoned").get(&id).map(|s| s.mounts.clone())
+    }
+
+    /// The latest sample of a host.
+    pub fn latest(&self, id: HostId) -> Option<Box<Sample>> {
+        self.latest.lock().expect("poisoned").get(&id).cloned()
     }
 
     fn is_visible(&self, id: HostId) -> bool {
@@ -231,7 +236,7 @@ fn sync_pollers(app: &AppHandle) -> CmdResult<()> {
         if !keep {
             p.task.abort();
             hub.states.lock().expect("poisoned").remove(id);
-            hub.mounts.lock().expect("poisoned").remove(id);
+            hub.latest.lock().expect("poisoned").remove(id);
             if let Some(ch) = hub.channel.lock().expect("poisoned").as_ref() {
                 let _ = ch.send(MetricsEvent::State {
                     host_id: *id,

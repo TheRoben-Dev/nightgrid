@@ -174,6 +174,37 @@ pub async fn term_open_docker_exec(
     }
 }
 
+/// Opens a terminal tab on a guest's console (`virsh console`, `qm
+/// terminal`, `pct enter`). With `as_root` it runs under sudo and sudo's own
+/// prompt asks in the terminal (nothing goes on the command line).
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn term_open_vm_console(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    host_id: HostId,
+    kind: nightgrid_core::system::vms::VmKind,
+    id: String,
+    as_root: bool,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<TermMessage>,
+) -> CmdResult<TermOpen> {
+    let command = nightgrid_core::system::vms::console_command(kind, &id, as_root)
+        .map_err(|e| CommandError::msg(e.to_string()))?;
+    let connector = connector_for(app.clone(), host_id);
+    match term::spawn_ssh(connector, Some(command), cols, rows, sink_for(on_event)).await {
+        Ok(handle) => {
+            let id = state.next_term_id();
+            state.terms.lock().expect("poisoned").insert(id, handle);
+            Ok(TermOpen::Opened { id })
+        }
+        Err(e) if e.needs_user() => Ok(TermOpen::NeedsUser { error: e }),
+        Err(e) => Err(CommandError::msg(e.to_string())),
+    }
+}
+
 fn with_term(state: &AppState, id: TermId, f: impl FnOnce(&term::TermHandle)) -> CmdResult<()> {
     let terms = state.terms.lock().expect("poisoned");
     let h = terms.get(&id).ok_or_else(|| CommandError::msg("terminal not found"))?;

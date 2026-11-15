@@ -8,6 +8,12 @@ import type {
   BackupStatus_Serialize as BackupStatus,
   BackupSuggestion,
   ProxyReport_Serialize as ProxyReport,
+  StatusPageInfo_Serialize as StatusPageInfo,
+  StatusPageSettings_Serialize as StatusPageSettings,
+  Vm_Serialize as Vm,
+  VmAction,
+  VmKind,
+  VmReport_Serialize as VmReport,
 } from "./bindings";
 
 let nextId = 1;
@@ -26,7 +32,45 @@ function check(i: BackupJobInput): BackupJobInput {
   return { ...i, name, target };
 }
 
+let guests: Vm[] = [
+  { kind: "qemu", id: "100", name: "homeassistant", state: "running", vcpus: 2, memoryMb: 4096, autostart: true },
+  { kind: "qemu", id: "101", name: "win11-test", state: "stopped", vcpus: 4, memoryMb: 8192, autostart: false },
+  { kind: "lxc", id: "200", name: "pihole", state: "running", vcpus: 1, memoryMb: 512, autostart: true },
+  { kind: "libvirt", id: "debian-lab", name: "debian-lab", state: "paused", vcpus: 2, memoryMb: 2048, autostart: false },
+];
+let status: StatusPageSettings = { enabled: false, bind: "lan", port: 8787 };
+let tok = "3f9c2a71d0b84e6f9a1c5d7e2b4f6a8c0e1d3b5a7c9e2f4a6b8d0c1e3f5a7b9";
+
+const statusInfo = (): StatusPageInfo => ({
+  settings: { ...status },
+  running: status.enabled,
+  urls: status.enabled ? [`http://${status.bind === "tailscale" ? "100.101.7.12" : "192.168.1.40"}:${status.port}/s/${tok}`] : [],
+  error: null,
+});
+
 export const mockOps = {
+  vms: (_hostId: number, elevate: boolean): Promise<VmReport> =>
+    delay(
+      elevate
+        ? { vms: [...guests], libvirt: true, proxmox: true, needsRoot: false, notes: [] }
+        : { vms: guests.filter((g) => g.kind !== "libvirt"), libvirt: true, proxmox: true, needsRoot: true, notes: ["virsh: authentication failed: access denied"] },
+      400,
+    ),
+  vmAction: (kind: VmKind, id: string, action: VmAction): Promise<null> => {
+    const to = action === "start" || action === "reboot" ? "running" : "stopped";
+    guests = guests.map((g) => (g.kind === kind && g.id === id ? { ...g, state: to } : g));
+    return delay(null, 500);
+  },
+  statusGet: async (): Promise<StatusPageInfo> => statusInfo(),
+  statusSet: (s: StatusPageSettings): Promise<StatusPageInfo> => {
+    if (s.port < 1024) return Promise.reject(new Error("invalid value for statusPage.port: must be between 1024 and 65535"));
+    status = { ...s };
+    return delay(statusInfo(), 200);
+  },
+  statusNewToken: async (): Promise<StatusPageInfo> => {
+    tok = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    return statusInfo();
+  },
   jobsList: async (): Promise<BackupJob[]> => [...jobs],
   jobSave: async (id: number | null, i: BackupJobInput): Promise<BackupJob> => {
     const v = check(i);

@@ -84,6 +84,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **security**: a hygiene score (A–F) from checks that need no root: SSH root and password logins, an active firewall, databases or the Docker API listening on every interface, Docker ports that bypass ufw, fail2ban/CrowdSec, automatic security updates, a pending reboot and extra uid-0 accounts. Each finding says how to fix it, with copy buttons for the commands; Nightgrid never changes anything itself. Below the checks, every listening port shows who can reach it (local, VPN, one address, all interfaces) and which process or container owns it. **Port map · all hosts** scans every host and lays their reachable ports side by side;
   - **updates**: apt, dnf or pacman, with a reboot-needed flag;
   - **disks**: SMART health;
+  - **VMs**: libvirt/KVM and Proxmox VE guests (VMs and LXC containers) with state, vCPUs and memory. **Start**, **Shut down**, **Reboot** and **Force stop** (asks first and names the guest; force stop needs its name typed). **Console** opens a guest's serial console and **Shell** enters a Proxmox container, in a terminal tab. **Read as root** appears when this login can't use `virsh`, `qm` or `pct`;
   - **backups**: a board for every host's restic, borg, rsync and rclone jobs with last run, size, result and a stale flag. A job reads a systemd timer (last run, exit status and the totals the tool printed) or a path such as a repository or rsync target (newest file and size). **Find jobs** suggests the ones in the host's timers and cron tables. Nightgrid never opens a repository or runs a backup.
 - **sudo**: asked each time by default. Tick "remember for this host" to keep it in the keychain. The password is sent on sudo's input, never on a command line.
 
@@ -139,6 +140,11 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - Nightgrid restarts afterwards.
 - **Sync folder**: pick a Syncthing, cloud-drive or git folder, and export and import use `nightgrid-backup.age` there in one click. The passphrase is never stored, so keep it somewhere safe. Without it the file can't be opened.
 - **Profiles**: an export is your profile. It imports on macOS, Windows and Linux (**Export profile…** / **Import profile…** in the command palette). A reminder card appears when your last export from this computer is older than a week; change the interval or turn it off under **Remind me to export**.
+
+## Phone status page and snapshots
+
+- **Settings → Status page · Snapshot → Serve the phone status page** (off by default) shows a read-only page with your hosts, alerts and service checks at a secret link while Nightgrid runs. Pick where it listens: this computer's **LAN address**, **Tailscale only**, or **every interface** (avoid that one on a machine with a public address). **Copy** the link, open it on your phone and add it to the home screen; it refreshes every 30 seconds. **New link** makes the old one stop working.
+- **Save snapshot…** writes the same page as one HTML file you can attach or archive. Host addresses are only included if you tick them.
 
 ## Handhelds (ROG Ally, Steam Deck) and controllers
 

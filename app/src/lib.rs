@@ -17,6 +17,7 @@ mod notes_cmd;
 mod platform;
 mod services_cmd;
 mod state;
+mod status_cmd;
 mod system_cmd;
 mod term_cmd;
 mod tray;
@@ -180,6 +181,13 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         backup_jobs_cmd::backup_job_delete,
         backup_jobs_cmd::backup_jobs_check,
         backup_jobs_cmd::backup_jobs_detect,
+        system_cmd::system_vms,
+        system_cmd::system_vm_action,
+        term_cmd::term_open_vm_console,
+        status_cmd::status_page_get,
+        status_cmd::status_page_set,
+        status_cmd::status_page_new_token,
+        status_cmd::dashboard_export,
         update_cmd::update_check,
         update_cmd::update_install,
     ])
@@ -226,6 +234,7 @@ pub fn run() {
             app.manage(state);
             tray::apply(app.handle());
             alerts_cmd::start(app.handle());
+            status_cmd::apply(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {

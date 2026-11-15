@@ -26,6 +26,7 @@ pub mod services;
 pub mod settings;
 pub mod ssh;
 pub mod stack_dirs;
+pub mod status_page;
 pub mod store;
 pub mod system;
 pub mod term;

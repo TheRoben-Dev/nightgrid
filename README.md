@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing M10h (VMs, status page, snapshot)
+
+1. On a Proxmox or libvirt host: **System → VMs** lists the guests. If **Read as root** shows, click it and enter the sudo password: the rest appear. **Start** a stopped guest; **Shut down** asks first with the guest and host named; **Force stop** needs the name typed.
+2. On a running guest, **Console** (VM) or **Shell** (Proxmox container) opens a terminal tab. If it asks, type the sudo password in the terminal itself.
+3. **Settings → Status page · Snapshot**: turn on **Serve the phone status page**. A masked link appears; **Reveal link**, **Copy**, and open it on a phone on the same Wi-Fi: hosts, alerts and services, refreshing every 30 s. macOS may ask whether Nightgrid can accept incoming connections: allow it. A wrong token returns "Not found."; **New link** stops the old one working.
+4. **Save snapshot…**: pick a file, open it in a browser. Host addresses appear only when **Include host addresses** is on.
+
 ### macOS: testing M10g (backup board, proxy routes, log alerts)
 
 1. On a test host with a restic, borg or rsync job in a systemd timer or crontab: **System → Backups → Find jobs on …** lists it. **Add…**, keep the defaults and **Save**: the row shows the last run, size and **OK** (a timer) or the newest file time and `du` size (a path).

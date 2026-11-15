@@ -20,6 +20,7 @@ use nightgrid_core::system::security::{self, SecurityReport};
 use nightgrid_core::system::smart::{self, DisksReport};
 use nightgrid_core::system::sudo::{self, Stream, SudoAuth, SudoState};
 use nightgrid_core::system::systemd::{self, Unit, UnitAction};
+use nightgrid_core::system::vms::{self, VmAction, VmKind, VmReport};
 use nightgrid_core::system::SystemError;
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -436,4 +437,41 @@ pub async fn system_disks(app: AppHandle, host_id: HostId, sudo: Option<SudoInpu
     let conn = connect_host(&app, host_id).await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     Ok(smart::scan(&conn, &auth).await?)
+}
+
+/// VMs and containers on a libvirt or Proxmox host. `elevate` reads as root
+/// (when this login may not use virsh / qm / pct).
+#[tauri::command]
+#[specta::specta]
+pub async fn system_vms(
+    app: AppHandle,
+    host_id: HostId,
+    elevate: bool,
+    sudo: Option<SudoInput>,
+) -> SysResult<VmReport> {
+    let conn = connect_host(&app, host_id).await?;
+    let auth = if elevate { resolve_sudo(&app, host_id, &conn, sudo).await? } else { SudoAuth::User };
+    Ok(vms::scan(&conn, &auth).await?)
+}
+
+/// Starts, shuts down, reboots or stops a guest. Everything but start was
+/// confirmed in the UI with the guest and host named (security rule 5).
+#[tauri::command]
+#[specta::specta]
+pub async fn system_vm_action(
+    app: AppHandle,
+    host_id: HostId,
+    kind: VmKind,
+    id: String,
+    action: VmAction,
+    elevate: bool,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    if !vms::valid_id(kind, &id) {
+        return Err(SystemError::other(format!("invalid guest id {id:?}")).into());
+    }
+    let conn = connect_host(&app, host_id).await?;
+    let auth = if elevate { resolve_sudo(&app, host_id, &conn, sudo).await? } else { SudoAuth::User };
+    tracing::info!(host = %host_id, guest = %id, ?kind, ?action, "vm action");
+    Ok(vms::act(&conn, &auth, kind, &id, action).await?)
 }

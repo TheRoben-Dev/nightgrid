@@ -156,6 +156,12 @@ import {
   type BackupSource,
   type BackupResult,
   type ProxyReport_Serialize as ProxyReport,
+  type Vm_Serialize as Vm,
+  type VmKind,
+  type VmAction,
+  type VmReport_Serialize as VmReport,
+  type StatusPageInfo_Serialize as StatusPageInfo,
+  type StatusPageSettings_Serialize as StatusPageSettings,
   type ProxyRoute_Serialize as ProxyRoute,
   type ProxyFound,
   type ProxyKind,
@@ -332,6 +338,12 @@ export type {
   BackupSource,
   BackupResult,
   ProxyReport,
+  Vm,
+  VmKind,
+  VmAction,
+  VmReport,
+  StatusPageInfo,
+  StatusPageSettings,
   ProxyRoute,
   ProxyFound,
   ProxyKind,
@@ -406,6 +418,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   profileReminderDays: 7,
   lastProfileExport: null,
   profileReminderSnooze: null,
+  statusPage: { enabled: false, bind: "lan", port: 8787 },
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -413,7 +426,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.6-web",
+      version: "0.10.7-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -670,6 +683,15 @@ export const api = {
     T() ? commands.systemReboot(hostId, sudo) : mockSystem.reboot(hostId, sudo),
   systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
     T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
+  systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null): Promise<VmReport> =>
+    T() ? commands.systemVms(hostId, elevate, sudo) : mockOps.vms(hostId, elevate),
+  systemVmAction: (hostId: number, kind: VmKind, id: string, action: VmAction, elevate: boolean, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.systemVmAction(hostId, kind, id, action, elevate, sudo) : mockOps.vmAction(kind, id, action),
+  statusPageGet: (): Promise<StatusPageInfo> => (T() ? commands.statusPageGet() : mockOps.statusGet()),
+  statusPageSet: (s: StatusPageSettings): Promise<StatusPageInfo> => (T() ? commands.statusPageSet(s) : mockOps.statusSet(s)),
+  statusPageNewToken: (): Promise<StatusPageInfo> => (T() ? commands.statusPageNewToken() : mockOps.statusNewToken()),
+  dashboardExport: (withAddresses: boolean): Promise<string | null> =>
+    T() ? commands.dashboardExport(withAddresses) : Promise.resolve("/Users/you/Downloads/nightgrid-status.html"),
   integrationsList: (): Promise<IntegrationView[]> => (T() ? commands.integrationsList() : mockIntegrations.list()),
   integrationCreate: (i: IntegrationInput, secret: string | null): Promise<IntegrationView> =>
     T() ? commands.integrationCreate(i, secret) : mockIntegrations.create(i, secret),
@@ -758,6 +780,10 @@ export const api = {
   termOpenDockerExec: (hostId: number, container: string, cols: number, rows: number, on: TermListener): Promise<TermOpen> =>
     T()
       ? commands.termOpenDockerExec(hostId, container, cols, rows, channel(on))
+      : mockBackend.termOpenSsh(hostId, on),
+  termOpenVmConsole: (hostId: number, kind: VmKind, id: string, asRoot: boolean, cols: number, rows: number, on: TermListener): Promise<TermOpen> =>
+    T()
+      ? commands.termOpenVmConsole(hostId, kind, id, asRoot, cols, rows, channel(on))
       : mockBackend.termOpenSsh(hostId, on),
 };
 

@@ -1,5 +1,6 @@
 import { leaf, leaves, neighbour, removeLeaf, setRatio, splitLeaf, type Dir, type LayoutNode } from "../term/layout";
 import { TermSession, type Origin } from "../term/session.svelte";
+import type { VmKind } from "../api";
 import { hosts } from "./hosts.svelte";
 import { ui } from "./ui.svelte";
 
@@ -85,6 +86,11 @@ class TermsStore {
     this.openTab({ ...this.originFor(hostId), container } as Origin);
   }
 
+  /** Opens a tab on a VM / container guest's console on `hostId`. */
+  openVmConsole(hostId: number, vm: { kind: VmKind; id: string; name: string; asRoot: boolean }) {
+    this.openTab({ ...this.originFor(hostId), vm } as Origin);
+  }
+
   /**
    * Types `text` at the prompt of a shell on `hostId` (null = whatever shell
    * is focused, else a new local one): the focused pane if it fits, else
@@ -93,7 +99,7 @@ class TermsStore {
    */
   send(text: string, hostId: number | null): string {
     const fits = (s: TermSession | undefined): s is TermSession =>
-      !!s && s.state !== "exited" && s.state !== "failed" && (hostId === null || (s.origin.kind === "ssh" && s.origin.hostId === hostId && !s.origin.container));
+      !!s && s.state !== "exited" && s.state !== "failed" && (hostId === null || (s.origin.kind === "ssh" && s.origin.hostId === hostId && !s.origin.container && !s.origin.vm));
     let target = this.currentSession;
     if (!fits(target)) target = [...this.sessions.values()].find(fits);
     if (target) {

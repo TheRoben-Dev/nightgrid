@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-11-15
+
+### Added: VMs, a phone status page and dashboard snapshots (M10h)
+- **System → VMs**: libvirt/KVM domains (`virsh`) and Proxmox VE VMs and LXC containers (`qm`, `pct`) on the host, with state, vCPUs, memory and autostart. **Start**, **Shut down** (clean, via ACPI), **Reboot** and **Force stop**. Every action except start asks first, naming the guest and the host, and force stop needs the guest's name typed. **Console** opens the guest's serial console (`virsh console`, `qm terminal`) and **Shell** opens `pct enter` for containers, in a terminal tab. When this login may not use the tools, **Read as root** goes through the usual sudo prompt.
+- **Settings → Status page · Snapshot → Serve the phone status page** (off by default): a read-only page with every host's state, CPU, memory, fullest disk, temperature and uptime, plus active alerts and service checks. It refreshes every 30 seconds and is served by the app on this machine's LAN address, its Tailscale address or every interface, behind a secret link (masked until **Reveal link**, **New link** invalidates the old one). The page has no buttons, scripts or commands.
+- **Save snapshot…** writes the same page as one static HTML file. Host addresses are left out unless you tick them. Both are also in the command palette.
+
 ## [0.10.6] - 2026-11-15
 
 ### Added: backup board, proxy routes and log anomaly alerts (M10g)
