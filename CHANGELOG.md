@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.13] - 2026-11-15
+
+### Fixed
+- **Built-in Tailscale: public names that point at tailnet addresses** (for example a DNS record for `app.example.com` that points at a 100.x tailnet node) timed out in service checks, SSH and tunnels when the Tailscale app wasn't running. While the built-in client runs, Nightgrid now looks such names up first and connects through the tailnet when every address is a tailnet address. TLS and the Host header still use the name. With the built-in client off nothing changes.
+
 ## [0.10.12] - 2026-11-15
 
 ### Added: power states and Wake-on-LAN (M10k, part 1)
