@@ -171,7 +171,11 @@ pub fn sweep_range(iface: &Iface) -> Option<(Ipv4Addr, u32)> {
 /// The discovery script. `sweep` is the subnet to ping (from [`sweep_range`]
 /// of an earlier run), or none.
 pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
-    let mut s = String::from("export LC_ALL=C\n");
+    // `t N cmd`: `timeout` where it exists (macOS and BSDs don't ship it).
+    let mut s = String::from(
+        "export LC_ALL=C\nt() { if command -v timeout >/dev/null 2>&1; then timeout \"$@\"; else shift; \"$@\"; fi; }\n\
+         case $(uname 2>/dev/null) in Darwin|*BSD) pw='-t 1' ;; *) pw='-W 1' ;; esac\n",
+    );
     let sec = |s: &mut String, name: &str, body: &str| {
         s.push_str(&format!("echo '{MARK} {name}'\n{body}\n"));
     };
@@ -191,7 +195,7 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
             &format!("sweep {net}/{}", 32 - (n + 1).next_power_of_two().trailing_zeros()),
             &format!(
                 "if command -v fping >/dev/null 2>&1; then fping -a -q -r 0 -t 300 -g {}.{}.{}.{} {} 2>/dev/null; \
-                 else i=1; while [ $i -le {n} ]; do ip=\"{}.{}.{}.$(( {} + i ))\"; (ping -c 1 -W 1 \"$ip\" >/dev/null 2>&1 && echo \"$ip\") & \
+                 else i=1; while [ $i -le {n} ]; do ip=\"{}.{}.{}.$(( {} + i ))\"; (ping -c 1 $pw \"$ip\" >/dev/null 2>&1 && echo \"$ip\") & \
                  i=$((i+1)); if [ $((i % 64)) -eq 0 ]; then wait; fi; done; wait; fi",
                 o[0],
                 o[1],
@@ -209,22 +213,22 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
     sec(
         &mut s,
         "mdns",
-        "if command -v avahi-browse >/dev/null 2>&1; then timeout 5 avahi-browse -aprt 2>/dev/null | grep '^=' | head -n 400; else echo 'missing'; fi",
+        "if command -v avahi-browse >/dev/null 2>&1; then t 5 avahi-browse -aprt 2>/dev/null | grep '^=' | head -n 400; else echo 'missing'; fi",
     );
     sec(
         &mut s,
         "tailscale",
-        "if command -v tailscale >/dev/null 2>&1; then timeout 5 tailscale status --json 2>/dev/null | head -c 400000; else echo 'missing'; fi",
+        "if command -v tailscale >/dev/null 2>&1; then t 5 tailscale status --json 2>/dev/null | head -c 400000; else echo 'missing'; fi",
     );
     sec(
         &mut s,
         "funnel",
-        "command -v tailscale >/dev/null 2>&1 && timeout 5 tailscale funnel status 2>/dev/null | head -n 50",
+        "command -v tailscale >/dev/null 2>&1 && t 5 tailscale funnel status 2>/dev/null | head -n 50",
     );
     sec(
         &mut s,
         "upnp",
-        "if command -v upnpc >/dev/null 2>&1; then timeout 8 upnpc -l 2>/dev/null | head -n 120; else echo 'missing'; fi",
+        "if command -v upnpc >/dev/null 2>&1; then t 8 upnpc -l 2>/dev/null | head -n 120; else echo 'missing'; fi",
     );
     sec(
         &mut s,
@@ -500,7 +504,9 @@ pub fn parse_discovery(out: &str) -> Discovery {
             }
             "mdns" => {
                 if body.first().is_some_and(|l| l.trim() == "missing") {
-                    d.notes.push("avahi-browse isn't installed: no mDNS names (apt install avahi-utils).".into());
+                    d.notes.push(
+                        "No mDNS names: avahi-browse isn't installed (on Linux: apt install avahi-utils).".into(),
+                    );
                 }
                 for (ip, n, svc) in parse_mdns(&body) {
                     let e = add(&mut devs, &ip, Seen::Mdns);
@@ -608,9 +614,45 @@ fn ip_sort_key(ip: &str) -> (u8, u128) {
 
 /// Runs discovery on `conn`, optionally sweeping its LAN subnet.
 pub async fn discover(conn: &Connection, sweep: bool) -> Result<Discovery, String> {
+    discover_with(sweep, |script| async move {
+        let (_, out, _) = conn.exec(&script).await.map_err(|e| e.to_string())?;
+        Ok(String::from_utf8_lossy(&out).into_owned())
+    })
+    .await
+}
+
+/// Runs discovery on this computer (macOS, Linux and BSDs; `sh` with the same script).
+#[cfg(unix)]
+pub async fn discover_local(sweep: bool) -> Result<Discovery, String> {
+    discover_with(sweep, |script| async move {
+        let run = tokio::process::Command::new("/bin/sh")
+            .arg("-c")
+            .arg(&script)
+            .stdin(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .output();
+        let out = tokio::time::timeout(std::time::Duration::from_secs(90), run)
+            .await
+            .map_err(|_| "discovery took too long".to_string())?
+            .map_err(|e| e.to_string())?;
+        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    })
+    .await
+}
+
+#[cfg(not(unix))]
+pub async fn discover_local(_sweep: bool) -> Result<Discovery, String> {
+    Err("Scanning from this computer works on macOS and Linux. On Windows, scan from one of your hosts.".into())
+}
+
+async fn discover_with<F, Fut>(sweep: bool, exec: F) -> Result<Discovery, String>
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = Result<String, String>>,
+{
     let range = if sweep {
-        let (_, out, _) = conn.exec(&discover_command(None)).await.map_err(|e| e.to_string())?;
-        let first = parse_discovery(&String::from_utf8_lossy(&out));
+        let out = exec(discover_command(None)).await?;
+        let first = parse_discovery(&out);
         let gw = first.gateway.as_deref().and_then(|g| g.parse::<Ipv4Addr>().ok());
         // The interface that holds the gateway, else the first private /24.
         first
@@ -624,8 +666,8 @@ pub async fn discover(conn: &Connection, sweep: bool) -> Result<Discovery, Strin
     } else {
         None
     };
-    let (_, out, _) = conn.exec(&discover_command(range)).await.map_err(|e| e.to_string())?;
-    let mut d = parse_discovery(&String::from_utf8_lossy(&out));
+    let out = exec(discover_command(range)).await?;
+    let mut d = parse_discovery(&out);
     if sweep && range.is_none() {
         d.notes.push("No private /24 (or smaller) subnet to sweep on this host.".into());
     }
@@ -646,6 +688,15 @@ mod tests {
         assert_eq!(k("fe80::1"), AddrKind::Private);
         assert_eq!(k("fd7a:115c:a1e0::5"), AddrKind::Tailnet);
         assert_eq!(k("127.0.0.1"), AddrKind::Loopback);
+    }
+
+    /// The same script runs on this computer (macOS on CI, Linux here).
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn runs_locally() {
+        let d = discover_local(false).await.expect("local discovery");
+        assert!(d.swept.is_none());
+        assert!(d.ifaces.iter().all(|i| i.kind != AddrKind::Loopback));
     }
 
     #[test]

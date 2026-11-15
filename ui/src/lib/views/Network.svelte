@@ -82,8 +82,9 @@
   <header class="bar">
     <label class="from">
       <span class="lbl">SCAN FROM</span>
-      <select class="input" value={netmap.from ?? ""} onchange={(e) => (netmap.scanHost = Number(e.currentTarget.value))} aria-label="Scan from host" disabled={!hosts.hosts.length}>
-        {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
+      <select class="input" value={String(netmap.from)} onchange={(e) => (netmap.scanHost = e.currentTarget.value === "local" ? "local" : Number(e.currentTarget.value))} aria-label="Scan from">
+        {#each hosts.hosts as h (h.id)}<option value={String(h.id)}>{h.name}</option>{/each}
+        <option value="local">This computer</option>
       </select>
     </label>
     <div class="sweep">
@@ -94,7 +95,7 @@
         onchange={(v) => (netmap.sweep = v)}
       />
     </div>
-    <button type="button" class="btn primary" data-guide="netmap-scan" onclick={() => netmap.scan()} disabled={netmap.loading || netmap.from === null}>
+    <button type="button" class="btn primary" data-guide="netmap-scan" onclick={() => netmap.scan()} disabled={netmap.loading}>
       {netmap.loading ? "SCANNING…" : "SCAN"}
     </button>
     <button type="button" class="btn ghost" data-guide="netmap-ports" onclick={() => system.scanAllPorts()} disabled={system.portMapLoading || !hosts.hosts.length} title="Runs the System → Security port check on every host">
@@ -108,18 +109,18 @@
   {#if netmap.error}<p class="err" role="alert">{netmap.error}</p>{/if}
   {#if netmap.result}
     <p class="meta muted">
-      Scanned from <strong>{hosts.byId(netmap.resultHost ?? -1)?.name ?? "?"}</strong> at {ago(netmap.scannedAt)}
+      Scanned from <strong>{netmap.resultHost === "local" ? "this computer" : (hosts.byId(netmap.resultHost ?? -1)?.name ?? "?")}</strong> at {ago(netmap.scannedAt)}
       · {netmap.result.devices.length} devices{#if netmap.result.swept} · swept {netmap.result.swept}{/if}
       {#each netmap.result.notes as n (n)}<span class="note"> · {n}</span>{/each}
     </p>
-  {:else if hosts.hosts.length}
+  {:else}
     <p class="meta muted">Nothing is scanned until you click <strong>Scan</strong>. Discovery reads the chosen host's neighbour table, mDNS, Tailscale peers and router port forwards; it doesn't probe anything outside your network.</p>
   {/if}
 
   <div class="body">
     <div class="canvas" data-guide="netmap-graph">
-      {#if !hosts.hosts.length}
-        <p class="empty muted">Add a host first; the map is drawn from your hosts and scans run from one of them.</p>
+      {#if !hosts.hosts.length && !netmap.result}
+        <p class="empty muted">Scan from this computer, or add hosts to see them on the map and scan from them.</p>
       {:else}
         <svg {width} {height} viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Network map">
           {#each HEADS as h, i (h)}
@@ -190,6 +191,20 @@
             {:else}
               <li class="muted">No peers in the last scan.</li>
             {/each}
+          </ul>
+        {:else if n.id === "local" && netmap.result}
+          <p>The computer Nightgrid runs on. The scan ran here with its own tools.</p>
+          {#if n.exposures.length}
+            <h4 class="danger-h">INTERNET-FACING</h4>
+            <ul class="exp">
+              {#each n.exposures as e, i (i)}
+                <li><strong>{EXPOSURE[e.kind]}</strong><span class="mono">{e.public}</span><span class="muted">→ {e.target}</span></li>
+              {/each}
+            </ul>
+          {/if}
+          <h4>INTERFACES</h4>
+          <ul class="plain mono">
+            {#each netmap.result.ifaces as f (f.name + f.addr)}<li>{f.name} {f.addr}/{f.prefix} <span class="muted">{f.kind}</span></li>{/each}
           </ul>
         {:else if n.kind === "host" && n.hostId !== undefined}
           {@const hid = n.hostId}

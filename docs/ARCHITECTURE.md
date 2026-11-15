@@ -169,6 +169,13 @@ _Last updated: M2 (SFTP + editor)._
 - **Custom scheme** (D-084): `theme/themes.ts` `SURFACES`, `TEXTS`, `COLOURS`, `resolveCustom`; `applyTheme(el, id, custom)`; `components/CustomThemeEditor.svelte`. Rust: `settings::THEME_TOKENS`, `AppSettings.custom_theme` validation.
 - **Notes in DRIFT** (D-083): `helper/knowledge.ts` `notesIndex` / `noteRefs`; `helper/prompt.ts` puts notes in their own block; migration `0014_note_drift.sql` adds `notes.hide_from_drift`.
 
+## Terminal key hints (M10j)
+
+- **Hook** (`core/src/edit_hook.rs`): `HookOptions { edit, hints }` → `bootstrap_command`; `OSC_HINT` 7767. `term_open_ssh` takes `edit` and `hints` with the session token.
+- **Local**: `TermHandle::foreground` (PTY `process_group_leader` + `ps`), command `term_foreground`.
+- **UI**: `term/keyhints.ts` (maps, `programFromCommand`, `parseHint`, `keymapDocs`), `TermSession.command` / `hintId`, `components/terminal/KeyHints.svelte`; DRIFT gets `keymapDocs` in `guideIndex` and `HelperContext.program`.
+- **Local network discovery**: `netmap::discover_local` / `netmap_discover_local` (same script via `/bin/sh`).
+
 ## Backups (M9)
 
 - **Core** (`core/src/backup.rs`): `snapshot` copies the config tables into a JSON `Bundle` (history tables left out), `collect_secrets` adds keychain entries on request, `encrypt`/`decrypt` wrap it in an age scrypt passphrase file, `import` merges (natural keys, id remapping) or replaces in one transaction, and `restore_secrets` moves keychain entries to the new ids (D-057, D-058).

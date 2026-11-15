@@ -98,8 +98,10 @@ export function buildGraph(
   hosts: HostLike[],
   audits: Record<number, SecurityReport | string>,
   disc: Discovery | null,
-  scanHostId: number | null,
+  /** Where the scan ran: a host id, "local" (this computer), or null. */
+  scanFrom: number | "local" | null,
 ): NetGraph {
+  const scanHostId = typeof scanFrom === "number" ? scanFrom : null;
   const nodes: MapNode[] = [];
   const links: MapLink[] = [];
   const hostNode = new Map<number, MapNode>();
@@ -135,13 +137,20 @@ export function buildGraph(
     else if (kind === "internet") old.kind = kind; // an exposed path wins over the plain LAN link
   };
 
+  // Scanned from this computer: it gets a node of its own under the hosts.
+  if (scanFrom === "local" && disc) {
+    const addr = disc.ifaces.find((i) => i.kind === "private" && !i.addr.includes(":"))?.addr ?? disc.ifaces[0]?.addr ?? "";
+    const n: MapNode = { id: "local", kind: "host", label: "This computer", sub: addr, col: 2, row: hosts.length, ip: addr || undefined, exposures: [] };
+    nodes.push(n);
+  }
+
   const gw = disc?.gateway ?? null;
   const hasTailnet = tailnetIface || devices.some((d) => d.seen.includes("tailscale"));
   if (gw) nodes.push({ id: "gw", kind: "gateway", label: "Router", sub: gw, col: 1, row: 0, ip: gw, exposures: [] });
   if (hasTailnet) nodes.push({ id: "ts", kind: "tailnet", label: "Tailnet", sub: "Tailscale peers", col: 1, row: gw ? 1 : 0, exposures: [] });
 
   // The scanned host sits on the networks its interfaces are on.
-  const scanNode = scanHostId !== null ? hostNode.get(scanHostId) : undefined;
+  const scanNode = scanFrom === "local" ? nodes.find((n) => n.id === "local") : scanHostId !== null ? hostNode.get(scanHostId) : undefined;
   if (scanNode && disc) {
     scanNode.unseen = false;
     if (gw && lanIface) link("gw", scanNode.id, "lan");

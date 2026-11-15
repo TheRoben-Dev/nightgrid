@@ -73,3 +73,15 @@ describe("network map graph", () => {
     expect(serviceLabel("_foo._tcp")).toBe("foo");
   });
 });
+
+describe("scanning from this computer", () => {
+  it("adds a node for it and lands local exposures there", async () => {
+    const d = await mockOps.discover(0, false);
+    const g = buildGraph([], {}, d, "local");
+    const me = g.nodes.find((n) => n.id === "local");
+    expect(me?.label).toBe("This computer");
+    expect(me?.sub).toBe("192.168.1.40");
+    expect(g.links).toContainEqual({ from: "gw", to: "local", kind: "internet" });
+    expect(me?.exposures.map((e) => e.kind).sort()).toEqual(["funnel", "tunnel", "upnp"]);
+  });
+});

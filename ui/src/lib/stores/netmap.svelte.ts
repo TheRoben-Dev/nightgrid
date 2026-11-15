@@ -8,11 +8,12 @@ import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
 class NetmapStore {
-  scanHost = $state<number | null>(null);
+  /** A host id, "local" (this computer), or null for the default. */
+  scanHost = $state<number | "local" | null>(null);
   sweep = $state(false);
   result = $state<Discovery | null>(null);
-  /** Host the current result was scanned from. */
-  resultHost = $state<number | null>(null);
+  /** Where the current result was scanned from. */
+  resultHost = $state<number | "local" | null>(null);
   scannedAt = $state<number | null>(null);
   loading = $state(false);
   error = $state<string | null>(null);
@@ -22,19 +23,20 @@ class NetmapStore {
   readonly graph: NetGraph = $derived(buildGraph(hosts.hosts, system.portMap, this.result, this.resultHost));
   readonly current = $derived(this.graph.nodes.find((n) => n.id === this.selected) ?? null);
 
-  /** The host to scan from: the user's pick, else the first host. */
-  get from(): number | null {
+  /** Where to scan from: the user's pick, else the first host, else this computer. */
+  get from(): number | "local" {
+    if (this.scanHost === "local") return "local";
     if (this.scanHost !== null && hosts.byId(this.scanHost)) return this.scanHost;
-    return hosts.hosts[0]?.id ?? null;
+    return hosts.hosts[0]?.id ?? "local";
   }
 
   async scan() {
     const id = this.from;
-    if (id === null || this.loading) return;
+    if (this.loading) return;
     this.loading = true;
     this.error = null;
     try {
-      this.result = await api.netmapDiscover(id, this.sweep);
+      this.result = id === "local" ? await api.netmapDiscoverLocal(this.sweep) : await api.netmapDiscover(id, this.sweep);
       this.resultHost = id;
       this.scannedAt = Date.now();
     } catch (e) {

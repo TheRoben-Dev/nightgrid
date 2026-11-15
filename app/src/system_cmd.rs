@@ -199,6 +199,15 @@ pub async fn netmap_discover(
     nightgrid_core::netmap::discover(&conn, sweep).await.map_err(|e| SystemError::other(e).into())
 }
 
+/// Network discovery run on this computer (macOS and Linux), for the map's
+/// "This computer" option. Same script as on a host, run with the local `sh`.
+#[tauri::command]
+#[specta::specta]
+pub async fn netmap_discover_local(sweep: bool) -> SysResult<nightgrid_core::netmap::Discovery> {
+    tracing::info!(sweep, "network discovery from this computer");
+    nightgrid_core::netmap::discover_local(sweep).await.map_err(|e| SystemError::other(e).into())
+}
+
 /// Searches the login user's shell history (opt-in setting). Secret-looking
 /// lines are dropped in core; nothing is stored.
 #[tauri::command]

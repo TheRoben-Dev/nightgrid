@@ -442,7 +442,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.9-web",
+      version: "0.10.10-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -706,6 +706,8 @@ export const api = {
     T() ? commands.systemVmAction(hostId, kind, id, action, elevate, sudo) : mockOps.vmAction(kind, id, action),
   netmapDiscover: (hostId: number, sweep: boolean): Promise<Discovery> =>
     T() ? commands.netmapDiscover(hostId, sweep) : mockOps.discover(hostId, sweep),
+  netmapDiscoverLocal: (sweep: boolean): Promise<Discovery> =>
+    T() ? commands.netmapDiscoverLocal(sweep) : mockOps.discover(0, sweep),
   statusPageGet: (): Promise<StatusPageInfo> => (T() ? commands.statusPageGet() : mockOps.statusGet()),
   statusPageSet: (s: StatusPageSettings): Promise<StatusPageInfo> => (T() ? commands.statusPageSet(s) : mockOps.statusSet(s)),
   statusPageNewToken: (): Promise<StatusPageInfo> => (T() ? commands.statusPageNewToken() : mockOps.statusNewToken()),

@@ -362,6 +362,11 @@ export const commands = {
 	 */
 	netmapDiscover: (hostId: number, sweep: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover", { hostId, sweep }, options),
 	/**
+	 *  Network discovery run on this computer (macOS and Linux), for the map's
+	 *  "This computer" option. Same script as on a host, run with the local `sh`.
+	 */
+	netmapDiscoverLocal: (sweep: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover_local", { sweep }, options),
+	/**
 	 *  Starts, shuts down, reboots or stops a guest. Everything but start was
 	 *  confirmed in the UI with the guest and host named (security rule 5).
 	 */
