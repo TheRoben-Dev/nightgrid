@@ -6,6 +6,7 @@
   import { files } from "../../stores/files.svelte";
   import { composeFile, envFile, opConsequence, opLabel, stacks } from "../../stores/stacks.svelte";
   import { layout } from "../../stores/layout.svelte";
+  import ExplainButton from "../helper/ExplainButton.svelte";
   import Modal from "../Modal.svelte";
   import Resizer from "../Resizer.svelte";
 
@@ -130,6 +131,15 @@
           >{runState}</span
         >
         <span class="spacer"></span>
+        {#if !run.running && run.lines.length}
+          <ExplainButton
+            source={`compose ${run.op}: ${run.stack.name}${runState === "DONE" ? "" : `, ${runState.toLowerCase()}`}`}
+            text={() => [...(run.error ? [`Error: ${run.error}`] : []), ...run.lines.slice(-200)].join("\n")}
+            within={consoleEl}
+            host={hostName || null}
+            question={runState === "DONE" ? "Explain this docker compose output." : "This docker compose run failed. What went wrong, and how do I fix it?"}
+          />
+        {/if}
         {#if run.running}
           <button type="button" class="btn ghost tiny" onclick={() => stacks.cancel()}>Cancel (Ctrl-C)</button>
         {:else}

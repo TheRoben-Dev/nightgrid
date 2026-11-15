@@ -81,7 +81,7 @@
   </div>
   <div class="body">
     {#if tab === "logs"}
-      <ContainerLogs {hostId} containerId={container.id} running={isUp(container)} />
+      <ContainerLogs {hostId} containerId={container.id} name={container.name} running={isUp(container)} />
     {:else if error}
       <p class="error-text pad">{error}</p>
     {:else if !detail}

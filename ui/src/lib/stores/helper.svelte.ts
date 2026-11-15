@@ -27,6 +27,8 @@ export interface ChatMessage {
   sent?: Turn[];
   sources?: string[];
   stats?: string;
+  /** What was attached to a question ("Docker logs: web · 150 lines"). */
+  attached?: string;
 }
 
 export interface Spotlight {
@@ -82,6 +84,8 @@ class HelperStore {
   /** A brief mood after something happened (success / confused). */
   mood = $state<DriftState | null>(null);
   typing = $state(false);
+  /** Text put in the question box for the user to send or edit. */
+  draft = $state("");
   private seq = 0;
   private spotTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -115,7 +119,22 @@ class HelperStore {
   /** Re-reads what the current view offers as context. */
   captureContext() {
     const selection = currentSelection();
-    this.context = { view: ui.section, host: currentHost(), selection: selection.trim() ? selection : null };
+    this.context = { view: ui.section, host: currentHost(), selection: selection.trim() ? selection : null, source: null };
+  }
+
+  /**
+   * Opens DRIFT with text a view attached (logs, a journal, compose output,
+   * a file) and asks `question` about it once the model is ready. If it
+   * isn't, the question waits in the box.
+   */
+  async explain(o: { source: string; text: string; question: string; host?: string | null }) {
+    const text = o.text.trim();
+    if (!text) return;
+    this.context = { view: ui.section, host: o.host ?? currentHost(), selection: text, source: o.source };
+    this.open = true;
+    await this.refresh();
+    if (this.enabled && this.ready && !this.busy) await this.ask(o.question);
+    else this.draft = o.question;
   }
 
   toggle(force?: boolean) {
@@ -128,7 +147,7 @@ class HelperStore {
   }
 
   dropContext(part: "host" | "selection") {
-    this.context = { ...this.context, [part]: null };
+    this.context = part === "selection" ? { ...this.context, selection: null, source: null } : { ...this.context, host: null };
   }
 
   clear() {
@@ -188,11 +207,14 @@ class HelperStore {
       .filter((m) => !m.error && m.text)
       .map((m) => ({ role: m.role, content: m.text }));
     const sent = buildTurns(history, q, ctx, docs);
-    this.messages.push({ id: ++this.seq, role: "user", text: q, actions: [] });
+    const sel = ctx.selection?.trim();
+    const n = sel ? sel.split("\n").length : 0;
+    const attached = sel ? `${ctx.source ?? "selection"} · ${n} line${n === 1 ? "" : "s"}` : undefined;
+    this.messages.push({ id: ++this.seq, role: "user", text: q, actions: [], attached });
     this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title) });
     const msg = this.messages[this.messages.length - 1];
     // Selection is used once; the view context stays.
-    this.context = { ...this.context, selection: null };
+    this.context = { ...this.context, selection: null, source: null };
     this.busy = true;
     this.mood = null;
     this.clearSpotlight();

@@ -29,6 +29,14 @@
     if (list) void tick().then(() => list && (list.scrollTop = list.scrollHeight));
   });
 
+  // A view's Explain button can leave a question waiting.
+  $effect(() => {
+    if (helper.draft) {
+      input = helper.draft;
+      helper.draft = "";
+    }
+  });
+
   $effect(() => {
     if (helper.open && helper.enabled) void tick().then(() => field?.focus());
   });
@@ -99,6 +107,7 @@
         <div class="msg {m.role}">
           {#if m.role === "user"}
             <p class="q">{m.text}</p>
+            {#if m.attached}<p class="att micro">+ {m.attached.toUpperCase()}</p>{/if}
           {:else}
             {#if !m.text && m.streaming}
               <p class="muted thinking">{helper.loading ? "Loading the model (first question only)…" : "Thinking…"}</p>
@@ -145,7 +154,7 @@
         <span class="tag">{sectionById(helper.context.view).label.toUpperCase()}</span>
         {#if helper.context.host}<button type="button" class="tag rm" title="Don't send" onclick={() => helper.dropContext("host")}>{helper.context.host} ✕</button>{/if}
         {#if helper.context.selection}<button type="button" class="tag rm sel" title="Don't send" onclick={() => helper.dropContext("selection")}
-            >SELECTION · {helper.context.selection.split("\n").length} line{helper.context.selection.split("\n").length === 1 ? "" : "s"} ✕</button
+            >{helper.context.source ? helper.context.source.toUpperCase() : "SELECTION"} · {helper.context.selection.split("\n").length} line{helper.context.selection.split("\n").length === 1 ? "" : "s"} ✕</button
           >{/if}
         <button type="button" class="tag ghost" title="Use the current view and selection" onclick={() => helper.captureContext()}>↻</button>
       </div>
@@ -278,6 +287,14 @@
     border-left: 2px solid var(--magenta);
     color: var(--text-0);
     white-space: pre-wrap;
+  }
+  .att {
+    margin: 2px 0 0 12px;
+    color: var(--cyan);
+    opacity: 0.8;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .msg code {
     color: var(--cyan);
