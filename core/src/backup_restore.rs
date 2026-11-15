@@ -73,6 +73,9 @@ trap 'rm -rf "$tmp"' EXIT INT TERM
 mkdir "$tmp/r"
 RUNAS=root
 as_user() { if [ "$RUNAS" = root ]; then "$@"; else runuser -u "$RUNAS" -- "$@"; fi; }
+lim() { if command -v timeout >/dev/null 2>&1; then timeout "$@"; else shift; "$@"; fi; }
+fsize() { stat -c %s "$1" 2>/dev/null || stat -f %z "$1" 2>/dev/null || wc -c <"$1" | tr -d ' '; }
+sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi | cut -d' ' -f1; }
 pick() { awk -v max="$MAX" 'BEGIN { srand() } $1 > 0 && $1 < max { n++; if (rand() * n < 1) l = $0 } END { print l }'; }
 "#;
 
@@ -92,19 +95,19 @@ const RESTIC: &str = r#"command -v restic >/dev/null 2>&1 || fail "restic isn't 
 [ -n "$RESTIC_REPOSITORY$RESTIC_REPOSITORY_FILE" ] || fail "no RESTIC_REPOSITORY in the unit's environment"
 [ -n "$RESTIC_PASSWORD$RESTIC_PASSWORD_FILE$RESTIC_PASSWORD_COMMAND" ] || fail "no repository password in the unit's environment (RESTIC_PASSWORD_FILE or RESTIC_PASSWORD_COMMAND); for a path job, test the unit job instead"
 say "reading the latest snapshot"
-as_user timeout 300 restic snapshots --latest 1 --json --no-lock --no-cache </dev/null >"$tmp/snap" 2>"$tmp/err" || fail "couldn't read snapshots: $(last "$tmp/err")"
+as_user lim 300 restic snapshots --latest 1 --json --no-lock --no-cache </dev/null >"$tmp/snap" 2>"$tmp/err" || fail "couldn't read snapshots: $(last "$tmp/err")"
 snap=$(grep -o '"short_id":"[^"]*"' "$tmp/snap" | tail -n 1 | cut -d'"' -f4)
 when=$(grep -o '"time":"[^"]*"' "$tmp/snap" | tail -n 1 | cut -d'"' -f4)
 [ -n "$snap" ] || fail "the repository has no snapshots"
 echo "@snap $snap $when"
 say "listing snapshot $snap"
-as_user timeout 300 restic ls --json --no-lock --no-cache "$snap" </dev/null >"$tmp/ls" 2>"$tmp/err" || fail "couldn't list the snapshot: $(last "$tmp/err")"
+as_user lim 300 restic ls --json --no-lock --no-cache "$snap" </dev/null >"$tmp/ls" 2>"$tmp/err" || fail "couldn't list the snapshot: $(last "$tmp/err")"
 p=$(grep '"type":"file"' "$tmp/ls" | grep -v '\\' | sed -n 's/.*"path":"\([^"]*\)".*"size":\([0-9]*\).*/\2 \1/p' | pick)
 [ -n "$p" ] || fail "no small regular file found in the snapshot"
 size=${p%% *}; path=${p#* }
 echo "@file $size $path"
 say "restoring it into a temporary folder"
-as_user timeout 600 restic restore "$snap" --target "$tmp/r" --include "$path" --no-lock --no-cache </dev/null >"$tmp/out" 2>&1 || fail "restore failed: $(last "$tmp/out")"
+as_user lim 600 restic restore "$snap" --target "$tmp/r" --include "$path" --no-lock --no-cache </dev/null >"$tmp/out" 2>&1 || fail "restore failed: $(last "$tmp/out")"
 got="$tmp/r$path"
 "#;
 
@@ -113,37 +116,37 @@ const BORG: &str = r#"command -v borg >/dev/null 2>&1 || fail "borg isn't instal
 [ -n "$BORG_REPO" ] || fail "no BORG_REPO in the unit's environment (borgmatic jobs can't be tested yet)"
 export BORG_RELOCATED_REPO_ACCESS_IS_OK=yes BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=yes
 say "reading the latest archive"
-as_user timeout 300 borg list --last 1 --format '{archive} {time}{NL}' </dev/null >"$tmp/a" 2>"$tmp/err" || fail "couldn't read archives: $(last "$tmp/err")"
+as_user lim 300 borg list --last 1 --format '{archive} {time}{NL}' </dev/null >"$tmp/a" 2>"$tmp/err" || fail "couldn't read archives: $(last "$tmp/err")"
 line=$(tail -n 1 "$tmp/a"); snap=${line%% *}
 [ -n "$snap" ] || fail "the repository has no archives"
 echo "@snap $line"
 say "listing archive $snap"
-as_user timeout 300 borg list --format '{type} {size} {path}{NL}' "::$snap" </dev/null >"$tmp/ls" 2>"$tmp/err" || fail "couldn't list the archive: $(last "$tmp/err")"
+as_user lim 300 borg list --format '{type} {size} {path}{NL}' "::$snap" </dev/null >"$tmp/ls" 2>"$tmp/err" || fail "couldn't list the archive: $(last "$tmp/err")"
 p=$(awk '$1 == "-" { sub(/^- /, ""); print }' "$tmp/ls" | pick)
 [ -n "$p" ] || fail "no small regular file found in the archive"
 size=${p%% *}; path=${p#* }
 echo "@file $size $path"
 say "extracting it into a temporary folder"
-(cd "$tmp/r" && as_user timeout 600 borg extract "::$snap" "$path" </dev/null >"$tmp/out" 2>&1) || fail "extract failed: $(last "$tmp/out")"
+(cd "$tmp/r" && as_user lim 600 borg extract "::$snap" "$path" </dev/null >"$tmp/out" 2>&1) || fail "extract failed: $(last "$tmp/out")"
 got="$tmp/r/$path"
 "#;
 
 const COPY: &str = r#"[ -d "$TARGET" ] || fail "the target isn't a folder"
 say "picking a file in $TARGET"
-p=$(timeout 60 find "$TARGET" -type f -size +0 2>/dev/null | head -n 5000 | while IFS= read -r f; do echo "$(stat -c %s "$f" 2>/dev/null || echo 0) $f"; done | pick)
+p=$(lim 60 find "$TARGET" -type f -size +0 2>/dev/null | head -n 5000 | while IFS= read -r f; do echo "$(fsize "$f" || echo 0) $f"; done | pick)
 [ -n "$p" ] || fail "no small file found in the target"
 size=${p%% *}; path=${p#* }
 echo "@file $size $path"
 say "copying it into a temporary folder"
 cp -p "$path" "$tmp/r/f" 2>"$tmp/err" || fail "couldn't read it: $(last "$tmp/err")"
 got="$tmp/r/f"
-want=$(sha256sum <"$path" | cut -d' ' -f1)
+want=$(sha <"$path")
 "#;
 
 const VERIFY: &str = r#"[ -f "$got" ] || fail "the restored file isn't there"
-have=$(stat -c %s "$got")
+have=$(fsize "$got")
 [ "$have" = "$size" ] || fail "restored $have bytes, the backup lists $size"
-sum=$(sha256sum <"$got" | cut -d' ' -f1)
+sum=$(sha <"$got")
 [ -z "$want" ] || [ "$want" = "$sum" ] || fail "the copy's checksum differs from the file in the target"
 echo "@ok $sum"
 "#;
