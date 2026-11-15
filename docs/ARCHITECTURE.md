@@ -85,6 +85,21 @@ _Last updated: M2 (SFTP + editor)._
 - CI: with the `TAURI_SIGNING_PRIVATE_KEY` secret set, builds add `createUpdaterArtifacts` (signed `.app.tar.gz`, NSIS `.exe.sig`, AppImage `.sig`). The release job runs `scripts/updater-manifest.mjs` to write `latest.json` and publishes a regular (latest) release.
 - UI: `stores/updates.svelte.ts` (launch check, skip, install), `components/update/UpdateDialog.svelte`, Settings → Updates.
 
+## Services (M5)
+
+- **Model** (`core/src/services/mod.rs`, migration 0006): `services` (URL, group, optional host, check settings, `source`/`source_key` for imports) and `service_checks` (one row per check, 30 days).
+- **Checks** (`core/src/services/check.rs`): `check(url, expect, allow_untrusted, timeout)` → `CheckResult` (up, status, latency, error, `TlsInfo`). TCP + rustls (`rustls-platform-verifier` wrapped by a capturing verifier) + hyper HTTP/1.1, no redirects (D-045).
+- **Homepage** (`core/src/services/homepage.rs`): `parse_services`, `parse_layout_order`, `Store::import_homepage` (sync keyed on `group/name`, D-046).
+- **App** (`app/src/services_cmd.rs`): `ServicesHub` runs one checker task (interval from settings, 8 parallel, woken on edits) and pushes `ServiceEvent`s over a `Channel`. Homepage commands read files through the same `Fs` as the Files view; `homepage_detect` uses the Docker client.
+- **UI**: `stores/services.svelte.ts`, `views/Services.svelte`, `components/services/` (`ServiceCard`, `ServiceEditor`, `HomepageImport`); `mockServices.ts` for browser dev.
+
+## Tunnels (M5)
+
+- **Model** (`core/src/tunnels/mod.rs`, migration 0007): `tunnels` per host (kind, bind, destination, auto-start).
+- **Forwarding** (`core/src/tunnels/forward.rs`): `listen`, `serve_local` (`direct-tcpip` per connection), `serve_dynamic` (SOCKS5 from `socks.rs`, then `direct-tcpip`), `request_remote` + `serve_remote` (`tcpip-forward`; incoming `forwarded-tcpip` channels are routed by the russh handler through `Connection::forwards`). `Stats` counts bytes at the local end. Each loop ends when the SSH connection closes or the future is dropped.
+- **App** (`app/src/tunnels_cmd.rs`): `TunnelHub` holds one task per running tunnel (connect via the pool → serve → backoff and retry), the states, temporary forwards (negative ids) and a 1 s stats ticker. `connect_host` calls `host_connected` so auto-start tunnels follow reconnects (D-047).
+- **UI**: `stores/tunnels.svelte.ts` (states, traffic, per-second rates, `openThrough`), `views/Tunnels.svelte`, `components/tunnels/TunnelEditor.svelte`; `mockTunnels.ts` for browser dev.
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.
@@ -99,7 +114,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Keyboard:** all shortcuts are defined in `DEFAULT_KEYMAP` (`ui/src/lib/keys.ts`) using `Mod` = Cmd on macOS / Ctrl elsewhere, so a rebinding UI can override them later.
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
-## Security posture (M4)
+## Security posture (M5)
 
 - CSP: `default-src 'self'`, no inline script/style, no remote origins; `connect-src` limited to Tauri IPC. Runtime `<style>` elements (xterm) are mirrored into constructable stylesheets instead of relaxing the CSP (D-013).
 - Capabilities: `core:default`, clipboard read/write text (terminal copy/paste) and `opener:allow-open-url` limited to `http(s)://` (links in terminal output) on the `main` window only. App commands are registered explicitly via tauri-specta.
@@ -109,6 +124,8 @@ _Last updated: M2 (SFTP + editor)._
 - Files: delete confirms with the exact target list (and the host name typed for multi-item deletes on a host); overwrites in the transfer queue name the target; overwriting a file changed on the server needs a confirmation. File contents are never logged; logs record paths of deletes and saves only.
 - Docker: stop/restart/kill/remove confirm with the exact containers (removing several also needs the host name typed); destructive actions are logged with their targets. Env values are masked in the UI and raw JSON and never logged (bollard debug output filtered). Container references are validated before they reach a URL or shell. Compose down/restart/update confirm with the stack and host named, and are logged; stack names and paths are validated and shell-quoted. No sudo: socket permission problems surface as a docker-group hint.
 - Metrics: read-only commands only, no sudo, nothing written on the host. Background pollers never prompt for passwords or host keys; they wait for a connection the user made (D-038). History holds numbers only.
+- Services: checks are plain GETs to URLs the user entered or imported (rule 7: their own hosts); URLs with credentials are rejected; untrusted certificates count as down unless allowed per service; imported icons are never fetched. Homepage import only reads files.
+- Tunnels: listeners default to loopback, other bind addresses are flagged as public; SOCKS has no auth for that reason. Auto-start never prompts; a host that needs a login fails with that reason. Remote-forward channels for ports nobody asked for are rejected.
 
 ## Platform notes
 
