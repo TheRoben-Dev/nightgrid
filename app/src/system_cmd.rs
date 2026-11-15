@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::secrets::{Secret, SecretKind, SecretRef, SecretStore};
 use nightgrid_core::ssh::client::{ConnectError, Connection};
+use nightgrid_core::system::history::{self, HistoryResult};
 use nightgrid_core::system::journal::{self, JournalEntry, JournalQuery};
 use nightgrid_core::system::packages::{self, Manager, UpdatesReport, UpgradeOp};
 use nightgrid_core::system::schedule::{self, Schedules};
@@ -180,6 +181,21 @@ pub async fn system_units(app: AppHandle, host_id: HostId) -> SysResult<Vec<Unit
 pub async fn system_security(app: AppHandle, host_id: HostId) -> SysResult<SecurityReport> {
     let conn = connect_host(&app, host_id).await?;
     Ok(security::audit(&conn).await?)
+}
+
+/// Searches the login user's shell history (opt-in setting). Secret-looking
+/// lines are dropped in core; nothing is stored.
+#[tauri::command]
+#[specta::specta]
+pub async fn system_history_search(app: AppHandle, host_id: HostId, query: String) -> SysResult<HistoryResult> {
+    let enabled = nightgrid_core::settings::AppSettings::load(&app.state::<AppState>().store())
+        .map(|s| s.history_search)
+        .unwrap_or(false);
+    if !enabled {
+        return Err(SystemError::other("History search is off. Turn it on in Settings → Terminal.").into());
+    }
+    let conn = connect_host(&app, host_id).await?;
+    Ok(history::search(&conn, &query).await?)
 }
 
 /// Systemd timers and cron jobs (read-only).

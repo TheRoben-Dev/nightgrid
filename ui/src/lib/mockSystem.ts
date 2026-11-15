@@ -10,6 +10,7 @@ import type {
   JournalQuery_Deserialize as JournalQuery,
   Manager,
   RunEvent_Serialize as RunEvent,
+  HistoryResult_Serialize as HistoryResult,
   Schedules_Serialize as Schedules,
   SecurityReport_Serialize as SecurityReport,
   SudoInput,
@@ -151,6 +152,29 @@ export const mockSystem = {
         L(9100, "vpn", "node-exporter", "node_exporter"),
         L(32400, "address", "plex", null),
       ],
+    };
+  },
+  async history(_hostId: number, query: string): Promise<HistoryResult> {
+    const all = [
+      "docker compose -f /opt/stacks/media/compose.yaml restart",
+      "docker logs -f --tail 200 web",
+      "journalctl -u nginx --since -1h",
+      "export API_TOKEN=abc123456789def",
+      "sudo systemctl restart nginx",
+      "df -h /srv",
+      "zpool status -v tank",
+      "git -C /opt/stacks pull",
+      "htop",
+    ];
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const hits = all.filter((c) => words.every((w) => c.toLowerCase().includes(w)));
+    const secret = hits.filter((c) => /token=|password=/i.test(c));
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      entries: hits.filter((c) => !secret.includes(c)).map((command, i) => ({ command, shell: i % 3 ? "bash" : "zsh", when: i % 3 ? null : now - i * 3600 })),
+      shells: ["bash", "zsh"],
+      hidden: secret.length,
+      truncated: false,
     };
   },
   async schedules(_hostId: number): Promise<Schedules> {

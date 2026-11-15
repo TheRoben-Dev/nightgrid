@@ -6,6 +6,8 @@
   import { hosts } from "../stores/hosts.svelte";
   import { terms } from "../stores/terms.svelte";
   import { leaves } from "../term/layout";
+  import HistorySearch from "../components/terminal/HistorySearch.svelte";
+  import { settings } from "../stores/settings.svelte";
 
   const tab = $derived(terms.current);
 
@@ -21,6 +23,14 @@
     const t = terms.tabs.find((x) => x.id === id);
     return (t && terms.session(t.active)?.state) || "idle";
   }
+
+  let historyOpen = $state(false);
+  const cur = $derived(terms.currentSession);
+  /** Host whose history can be searched: a plain SSH shell (not a container). */
+  const histHost = $derived(cur && cur.origin.kind === "ssh" && !cur.origin.container ? cur.origin.hostId : null);
+  $effect(() => {
+    if (histHost === null || !settings.value.historySearch) historyOpen = false;
+  });
 
   const k = (a: keyof typeof DEFAULT_KEYMAP) => formatChord(DEFAULT_KEYMAP[a]);
   const recent = $derived(hosts.hosts.filter((h) => h.favorite).concat(hosts.hosts.filter((h) => !h.favorite)).slice(0, 6));
@@ -66,6 +76,17 @@
             if (s) s.searchOpen = true;
           }}>⌕</button
         >
+        {#if settings.value.historySearch && histHost !== null}
+          <button
+            type="button"
+            class="tool hist"
+            class:on={historyOpen}
+            title="Search this host's shell history"
+            aria-pressed={historyOpen}
+            data-guide="terminal-history"
+            onclick={() => (historyOpen = !historyOpen)}>HIST</button
+          >
+        {/if}
       </div>
     {/if}
   </div>
@@ -78,6 +99,9 @@
         </div>
       {/if}
     {/each}
+    {#if historyOpen && cur && histHost !== null}
+      {#key cur.paneId}<HistorySearch session={cur} hostId={histHost} onclose={() => (historyOpen = false)} />{/key}
+    {/if}
     {#if !tab}
       <div class="empty">
         <div class="card">
@@ -222,6 +246,17 @@
   }
   .tool:hover {
     color: var(--text-0);
+    border-color: var(--mint);
+  }
+  .tool.hist {
+    width: auto;
+    padding: 0 6px;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.08em;
+  }
+  .tool.on {
+    color: var(--bg-0);
+    background: var(--mint);
     border-color: var(--mint);
   }
   .stage {

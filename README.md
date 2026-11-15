@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing M10e (notes, history search)
+
+1. `Cmd+9` → **New**. Title "Restart stack", host = a test host, body with a ```` ```sh ```` block containing `docker ps`. **Save**: the note renders with **Send to terminal** under the block; clicking it opens (or reuses) a terminal on that host with `docker ps` typed at the prompt, not run.
+2. **Edit**, add a line `DB_PASSWORD=hunter22`: a warning appears and **Save** is refused. **Mask them** turns it into `DB_PASSWORD=••••` and it saves.
+3. **Settings → Terminal → Shell history search** on. In an SSH terminal, **HIST** appears top right; type `docker`: recent matching commands show with their shell. ↑/↓ and Enter type one at the prompt. Run `export TEST_TOKEN=abc123456789` in that shell, `history -a`, and search `export`: it is counted as hidden, not shown.
+4. **Settings → Backup → Export** then open the file in **Import**: the summary lists the notes.
+
 ### macOS: testing M10d (security, port map)
 
 1. **System → Security** on a Linux host: a grade and score appear with a list of checks; failures and warnings are on top with what to do and **Copy** buttons. Nothing asks for sudo.

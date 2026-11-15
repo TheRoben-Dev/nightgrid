@@ -122,7 +122,7 @@
                 <p>
                   {#each b.lines as line, li (li)}{#if li}<br />{/if}{#each line as t, ti (ti)}{#if t.kind === "code"}<code>{t.text}</code>{:else if t.kind === "bold"}<b>{t.text}</b>{:else if t.kind === "em"}<i>{t.text}</i>{:else}{t.text}{/if}{/each}{/each}
                 </p>
-              {:else}
+              {:else if b.kind === "ul" || b.kind === "ol"}
                 <svelte:element this={b.kind}>
                   {#each b.items as item, ii (ii)}<li>{#each item as t, ti (ti)}{#if t.kind === "code"}<code>{t.text}</code>{:else if t.kind === "bold"}<b>{t.text}</b>{:else if t.kind === "em"}<i>{t.text}</i>{:else}{t.text}{/if}{/each}</li>{/each}
                 </svelte:element>

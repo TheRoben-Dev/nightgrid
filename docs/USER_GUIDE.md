@@ -32,6 +32,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - Switch tabs with `Ctrl+Tab`.
   - Find with `Ctrl+Shift+F`.
 - Dropped connections reconnect on request. Links in the output open in your browser.
+- **History search** (turn on under **Settings → Terminal**): **HIST** on an SSH terminal searches the host's bash, zsh and fish history. Enter or a click types the command at the prompt; **+ Note** starts a runbook with it. Lines that look like they hold a password or token are left out, and nothing is saved.
 - **Edit server files in Nightgrid** (Settings → Terminal): `nano FILE` and `$EDITOR` open the file in Nightgrid's editor instead.
 
 ## Files
@@ -91,6 +92,12 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - Values are quoted safely, so don't wrap placeholders in quotes yourself.
 - **Playbooks** run steps in order: commands, file uploads, wait for a port, and Docker start, stop, restart or pull.
 - Anything destructive (`rm`, `prune`, `kill`, `compose down`, `reboot`, `upgrade`, `> file`, ...) is confirmed with the targets named. On several hosts you also type the group name or the number of hosts.
+
+## Notes
+
+- `Mod+9` opens **Notes**: markdown notes and runbooks, optionally tied to a host, with tags and pins. Search and the host and tag filters narrow the list.
+- Put commands in ``` code blocks. In the note each block gets **Send to terminal** (typed at the prompt of a shell on the note's host, opening one if needed; you press Enter) and **Copy**.
+- Notes never store passwords or tokens: saving refuses them, and **Mask them** swaps the values for `••••`. Notes travel in encrypted backups.
 
 ## DRIFT helper
 

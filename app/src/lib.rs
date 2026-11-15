@@ -12,6 +12,7 @@ mod hosts_cmd;
 mod integrations_cmd;
 mod logging;
 mod metrics_cmd;
+mod notes_cmd;
 mod platform;
 mod services_cmd;
 mod state;
@@ -114,6 +115,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::system_sudo_forget,
         system_cmd::system_units,
         system_cmd::system_schedules,
+        system_cmd::system_history_search,
         system_cmd::system_security,
         system_cmd::system_unit_status,
         system_cmd::system_unit_action,
@@ -131,6 +133,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         integrations_cmd::integration_status,
         integrations_cmd::integration_test,
         integrations_cmd::amp_instance_action,
+        notes_cmd::notes_list,
+        notes_cmd::note_save,
+        notes_cmd::note_delete,
         automation_cmd::snippets_list,
         automation_cmd::snippet_save,
         automation_cmd::snippet_delete,

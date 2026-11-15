@@ -17,6 +17,8 @@ pub mod hosts;
 pub mod http;
 pub mod integrations;
 pub mod metrics;
+pub mod notes;
+pub mod redact;
 pub mod secrets;
 pub mod services;
 pub mod settings;
