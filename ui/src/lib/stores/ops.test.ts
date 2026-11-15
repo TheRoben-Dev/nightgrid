@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Alert, BackupStatus, ProxyRoute } from "../api";
 import { logSource, targetLabel } from "./alerts.svelte";
-import { backups, bytes, jobState, staleWords } from "./backups.svelte";
+import { backups, bytes, jobState, staleWords, testUnsupported } from "./backups.svelte";
+import { system } from "./system.svelte";
 import { certDays, certTone } from "./proxy.svelte";
 
 const st = (o: Partial<BackupStatus>): BackupStatus => ({
@@ -42,6 +43,19 @@ describe("backup board", () => {
     const job = backups.jobs.at(-1)!;
     await backups.checkHost(1);
     expect(jobState(backups.status[job.id])).toBe("ok");
+    // Test restore: asks for sudo (answered here), then records the result.
+    const run = backups.testRestore(job);
+    await vi.waitFor(() => expect(system.sudoAsk?.reason).toBe(`test-restore ${job.name}`));
+    expect(system.sudoAsk?.host).toBeTruthy();
+    system.answerSudo({ password: "pw", remember: false });
+    await run;
+    expect(backups.testResult?.ok).toBe(true);
+    expect(backups.tests[job.id]?.note).toMatch(/^restored /);
+    await backups.loadTests();
+    expect(backups.tests[job.id]?.ok).toBe(true);
+    expect(testUnsupported({ ...job, tool: "rclone" })).toMatch(/rclone/);
+    expect(testUnsupported({ ...job, tool: "rsync", source: "unit" })).toMatch(/path job/);
+    expect(testUnsupported(job)).toBeNull();
     backups.edit(job);
     backups.editing!.input.source = "path";
     backups.editing!.input.target = "relative";
@@ -83,7 +97,7 @@ describe("log alerts", () => {
     expect(logSource(alert("logs:2:journal/sshd:new", "logNewError"))).toBe("journal/sshd");
     expect(targetLabel(alert("logs:2:container/web:burst", "logBurst"))).toBe("Docker logs");
     expect(targetLabel(alert("logs:2:journal/sshd:new", "logNewError"))).toBe("Journal");
-    expect(targetLabel(alert("backup:2:1", "backupStale"))).toBe("Backups");
+    expect(targetLabel(alert("backup:2:1", "backupStale"))).toBe("Fleet backups");
   });
 });
 

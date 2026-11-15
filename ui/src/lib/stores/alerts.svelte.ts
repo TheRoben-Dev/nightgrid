@@ -49,7 +49,7 @@ export function targetLabel(a: Alert): string {
       return "Fleet disks";
     case "backupFailed":
     case "backupStale":
-      return "Backups";
+      return "Fleet backups";
     case "logBurst":
     case "logNewError":
       return logSource(a)?.startsWith("container/") ? "Docker logs" : "Journal";
@@ -136,8 +136,8 @@ class AlertsStore {
         break;
       case "backupFailed":
       case "backupStale":
-        void system.openTab("backups");
-        ui.go("system");
+        fleet.openBackups();
+        ui.go("fleet");
         break;
       case "logBurst":
       case "logNewError": {

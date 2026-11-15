@@ -7,6 +7,7 @@
  */
 import { api, errorText, systemError, type PoolsReport } from "../api";
 import type { FleetTab, HostDisks, HostRun, HostUpdates, ImageRow } from "../fleet";
+import { backups } from "./backups.svelte";
 import { hosts } from "./hosts.svelte";
 
 /** Hosts read at once. */
@@ -47,6 +48,13 @@ class FleetStore {
   disks = $state<Record<number, HostDisks>>({});
   disksChecking = $state(false);
   disksAt = $state<number | null>(null);
+
+  /** Opens the BACKUPS tab, reading the board once per session. */
+  openBackups() {
+    this.tab = "backups";
+    if (!backups.loaded) void backups.load().then(() => backups.checkAll());
+    void backups.loadTests();
+  }
 
   /** Opening the DISKS tab: forecasts right away (local), pools and SMART when stale. */
   ensureDisks() {

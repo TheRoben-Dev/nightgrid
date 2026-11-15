@@ -5,7 +5,7 @@
 
   const ask = $derived(system.sudoAsk);
   const host = $derived(system.host);
-  const who = $derived(host ? `${host.username ? host.username + "@" : ""}${host.name}` : "this host");
+  const who = $derived(ask?.host ?? (host ? `${host.username ? host.username + "@" : ""}${host.name}` : "this host"));
 
   let password = $state("");
   let remember = $state(false);

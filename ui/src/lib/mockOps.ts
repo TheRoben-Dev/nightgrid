@@ -16,6 +16,9 @@ import type {
   BackupJobInput,
   BackupStatus_Serialize as BackupStatus,
   BackupSuggestion,
+  LastTest,
+  RestoreTest_Serialize as RestoreTest,
+  SudoInput,
   ProxyReport_Serialize as ProxyReport,
   StatusPageInfo_Serialize as StatusPageInfo,
   StatusPageSettings_Serialize as StatusPageSettings,
@@ -34,6 +37,7 @@ let labels: DeviceLabel[] = [
 
 let nextId = 1;
 let jobs: BackupJob[] = [];
+let tests: LastTest[] = [];
 
 const now = () => Date.now() / 1000;
 const delay = <T>(v: T, ms = 300) => new Promise<T>((r) => setTimeout(() => r(v), ms));
@@ -323,6 +327,30 @@ export const mockOps = {
         }),
       400,
     );
+  },
+  testsList: async (): Promise<LastTest[]> => [...tests],
+  testRestore: async (jobId: number, sudo: SudoInput | null): Promise<RestoreTest> => {
+    if (!sudo) throw { message: "sudo needs your password", connect: null, system: { kind: "sudoRequired", retry: false } };
+    const j = jobs.find((x) => x.id === jobId);
+    if (!j) throw { message: "backup job not found", connect: null, system: null };
+    const at = now();
+    const fail = j.name.includes("offsite");
+    const t: RestoreTest = fail
+      ? { jobId, ok: false, file: null, size: null, sha256: null, snapshot: null, snapshotTime: null, steps: ["using the environment of borg-offsite.service", "reading the latest archive"], error: "couldn't read archives: Repository is already locked", at }
+      : {
+          jobId,
+          ok: true,
+          file: "/srv/appdata/homepage/config/services.yaml",
+          size: 4182,
+          sha256: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+          snapshot: "4f1a9c2e",
+          snapshotTime: "2026-11-15T03:00:12Z",
+          steps: ["using the environment of restic-backup.service", "reading the latest snapshot", "listing snapshot 4f1a9c2e", "restoring it into a temporary folder"],
+          error: null,
+          at,
+        };
+    tests = [...tests.filter((x) => x.jobId !== jobId), { jobId, at, ok: t.ok, note: t.ok ? `restored ${t.file} from ${t.snapshot}` : (t.error ?? "failed") }];
+    return delay(t, 1500);
   },
   jobsDetect: (_hostId: number): Promise<BackupSuggestion[]> =>
     delay(

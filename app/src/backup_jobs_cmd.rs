@@ -2,14 +2,16 @@
 //! run one read-only script per host (no sudo, no repository passwords).
 
 use nightgrid_core::backup_jobs::{self, BackupJob, BackupJobId, BackupJobInput, BackupStatus, BackupSuggestion};
+use nightgrid_core::backup_restore;
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::services::check::now_unix;
+use nightgrid_core::system::sudo;
 use nightgrid_core::system::SystemError;
 use tauri::{AppHandle, Manager as _, State};
 
 use crate::commands::CmdResult;
 use crate::state::AppState;
-use crate::system_cmd::SysResult;
+use crate::system_cmd::{SudoInput, SysResult};
 use crate::term_cmd::connect_host;
 
 #[tauri::command]
@@ -86,4 +88,40 @@ pub fn device_label_save(state: State<'_, AppState>, label: DeviceLabel) -> CmdR
 #[specta::specta]
 pub fn device_label_delete(state: State<'_, AppState>, key: String) -> CmdResult<()> {
     Ok(state.store().delete_device_label(&key)?)
+}
+
+/// The last test restore of every job that has one.
+#[tauri::command]
+#[specta::specta]
+pub fn backup_tests_list(state: State<'_, AppState>) -> CmdResult<Vec<backup_restore::LastTest>> {
+    Ok(state.store().backup_tests()?)
+}
+
+/// Restores one file from the job's latest backup into a temporary folder on
+/// its host, checks it and deletes the folder. Runs as root with the backup
+/// unit's own environment, so the repository password never leaves the host.
+#[tauri::command]
+#[specta::specta]
+pub async fn backup_test_restore(
+    app: AppHandle,
+    job_id: BackupJobId,
+    sudo: Option<SudoInput>,
+) -> SysResult<backup_restore::RestoreTest> {
+    let job = app.state::<AppState>().store().get_backup_job(job_id).map_err(SystemError::other)?;
+    if let Some(why) = backup_restore::unsupported(&job) {
+        return Err(SystemError::other(why).into());
+    }
+    let cmd = backup_restore::test_command(&job).ok_or_else(|| SystemError::other("can't be tested"))?;
+    let conn = connect_host(&app, job.host_id).await?;
+    let auth = crate::system_cmd::resolve_sudo(&app, job.host_id, &conn, sudo).await?;
+    tracing::info!(host = %job.host_id, job = job.id, tool = job.tool.as_str(), "test restore");
+    let out = tokio::time::timeout(std::time::Duration::from_secs(20 * 60), sudo::run(&conn, &auth, &cmd))
+        .await
+        .map_err(|_| SystemError::other("the test restore took longer than 20 minutes"))??;
+    let t = backup_restore::parse_test(job.id, &out.stdout, now_unix());
+    let state = app.state::<AppState>();
+    if let Err(e) = state.store().backup_test_save(&t) {
+        tracing::warn!("couldn't save the test result: {e}");
+    }
+    Ok(t)
 }

@@ -12,7 +12,6 @@
   import SudoPrompt from "../components/system/SudoPrompt.svelte";
   import UnitsPanel from "../components/system/UnitsPanel.svelte";
   import UpdatesPanel from "../components/system/UpdatesPanel.svelte";
-  import BackupsPanel from "../components/system/BackupsPanel.svelte";
   import VmsPanel from "../components/system/VmsPanel.svelte";
   import { hosts } from "../stores/hosts.svelte";
   import { actionVerb, system, UNIT_CONSEQUENCE, type SystemTab } from "../stores/system.svelte";
@@ -34,7 +33,6 @@
     { id: "updates", label: "UPDATES" },
     { id: "disks", label: "DISKS" },
     { id: "vms", label: "VMS" },
-    { id: "backups", label: "BACKUPS" },
   ];
 
   const SUDO_WORD = { root: "ROOT", noPassword: "SUDO · NOPASSWD", password: "SUDO · PASSWORD", missing: "NO SUDO" } as const;
@@ -132,8 +130,6 @@
         <p class="muted">Add a host first; its services, journal, timers, cron jobs, updates and disks show up here.</p>
         <button type="button" class="btn primary" onclick={() => (hosts.editing = 0)}>Add host</button>
       </div>
-    {:else if system.tab === "backups"}
-      <BackupsPanel />
     {:else if system.prompt}
       <div class="overlay">
         {#if system.prompt.kind === "hostKeyUnknown" || system.prompt.kind === "hostKeyChanged"}

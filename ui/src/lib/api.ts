@@ -182,6 +182,8 @@ import {
   type TailnetPeer_Serialize as TailnetPeer,
   type BackupJobInput,
   type BackupStatus_Serialize as BackupStatus,
+  type LastTest,
+  type RestoreTest_Serialize as RestoreTest,
   type BackupSuggestion,
   type BackupTool,
   type BackupSource,
@@ -404,6 +406,8 @@ export type {
   TailnetStatus,
   TailnetPeer,
   BackupStatus,
+  LastTest,
+  RestoreTest,
   BackupSuggestion,
   BackupTool,
   BackupSource,
@@ -514,7 +518,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.19-web",
+      version: "0.10.20-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -742,6 +746,9 @@ export const api = {
   backupJobSave: (id: number | null, i: BackupJobInput): Promise<BackupJob> => (T() ? commands.backupJobSave(id, i) : mockOps.jobSave(id, i)),
   backupJobDelete: (id: number): Promise<null> => (T() ? commands.backupJobDelete(id) : mockOps.jobDelete(id)),
   backupJobsCheck: (hostId: number): Promise<BackupStatus[]> => (T() ? commands.backupJobsCheck(hostId) : mockOps.jobsCheck(hostId)),
+  backupTestsList: (): Promise<LastTest[]> => (T() ? commands.backupTestsList() : mockOps.testsList()),
+  backupTestRestore: (jobId: number, sudo: SudoInput | null): Promise<RestoreTest> =>
+    T() ? commands.backupTestRestore(jobId, sudo) : mockOps.testRestore(jobId, sudo),
   backupJobsDetect: (hostId: number): Promise<BackupSuggestion[]> => (T() ? commands.backupJobsDetect(hostId) : mockOps.jobsDetect(hostId)),
   systemSchedules: (hostId: number): Promise<Schedules> => (T() ? commands.systemSchedules(hostId) : mockSystem.schedules(hostId)),
   systemUnitStatus: (hostId: number, unit: string): Promise<string> =>

@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.20] - 2026-11-15
+
+### Added: backup monitor with test restores (completes M10m)
+- The backup board moved from System → BACKUPS to **Fleet → BACKUPS**, next to updates and disks, with a host picker for **Find jobs**. A failed or stale alert now opens it there.
+- **Test restore** on a restic or borg job restores one random file under 20 MB from the latest snapshot or archive into a new folder under `/tmp` on the host. It checks the file's size against the backup's listing, shows its SHA-256 and deletes the folder. It runs as root with the backup unit's own `EnvironmentFile=`, `Environment=` and `User=`, so the repository location and password stay on the host. For rsync and other copies to a folder (path jobs), it copies a random file out and compares checksums. You confirm first, and sudo asks for a password when the host needs one.
+- Each job shows when its restore was last tested and whether that passed. The result is kept with the job.
+
 ## [0.10.19] - 2026-11-15
 
 ### Added: disk health and fill-up forecast (M10m, part 2)

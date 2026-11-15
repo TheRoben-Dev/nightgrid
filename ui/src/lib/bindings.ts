@@ -456,6 +456,14 @@ export const commands = {
 	backupJobsCheck: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<BackupStatus_Serialize[]>("backup_jobs_check", { hostId }, options),
 	/**  Backup jobs found in the host's systemd timers and cron tables. */
 	backupJobsDetect: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<BackupSuggestion[]>("backup_jobs_detect", { hostId }, options),
+	/**  The last test restore of every job that has one. */
+	backupTestsList: (options?: InvokeOptions) => __TAURI_INVOKE<LastTest[]>("backup_tests_list", undefined, options),
+	/**
+	 *  Restores one file from the job's latest backup into a temporary folder on
+	 *  its host, checks it and deletes the folder. Runs as root with the backup
+	 *  unit's own environment, so the repository password never leaves the host.
+	 */
+	backupTestRestore: (jobId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<RestoreTest_Serialize>("backup_test_restore", { jobId, sudo }, options),
 	/**
 	 *  VMs and containers on a libvirt or Proxmox host. `elevate` reads as root
 	 *  (when this login may not use virsh / qm / pct).
@@ -2730,6 +2738,14 @@ export type KumaStatus_Serialize = {
 	down: number,
 };
 
+/**  The last test of a job, as stored. */
+export type LastTest = {
+	jobId: number,
+	at: number,
+	ok: boolean,
+	note: string,
+};
+
 export type Level = "info" | 
 /**  Something went back to normal. */
 "ok" | "warn" | "critical";
@@ -3449,6 +3465,40 @@ export type RemoteImage_Serialize = {
 	env: string[],
 	source: string | null,
 	description: string | null,
+};
+
+export type RestoreTest = RestoreTest_Serialize | RestoreTest_Deserialize;
+
+export type RestoreTest_Deserialize = {
+	jobId: number,
+	ok: boolean,
+	/**  The file that was restored (its path inside the backup). */
+	file?: string | null,
+	size?: number | null,
+	sha256?: string | null,
+	/**  Snapshot or archive id, and its time as the tool prints it. */
+	snapshot?: string | null,
+	snapshotTime?: string | null,
+	/**  What happened, step by step. */
+	steps: string[],
+	error?: string | null,
+	at: number,
+};
+
+export type RestoreTest_Serialize = {
+	jobId: number,
+	ok: boolean,
+	/**  The file that was restored (its path inside the backup). */
+	file: string | null,
+	size: number | null,
+	sha256: string | null,
+	/**  Snapshot or archive id, and its time as the tool prints it. */
+	snapshot: string | null,
+	snapshotTime: string | null,
+	/**  What happened, step by step. */
+	steps: string[],
+	error: string | null,
+	at: number,
 };
 
 /**  What an upgrade run's channel carries. */
