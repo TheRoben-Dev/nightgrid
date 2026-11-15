@@ -499,6 +499,10 @@ export type AppSettings_Deserialize = {
 	uiScale?: number,
 	/**  Collapse the left rail to icons. */
 	railCollapsed?: boolean,
+	/**  Handheld (Ally, Steam Deck) layout: larger touch targets. */
+	handheld?: boolean,
+	/**  Move focus and act with a game controller when one is connected. */
+	controllerNav?: boolean,
 	/**  Terminal font size in px. */
 	termFontSize?: number,
 	/**  Terminal scrollback lines. */
@@ -557,6 +561,10 @@ export type AppSettings_Serialize = {
 	uiScale: number,
 	/**  Collapse the left rail to icons. */
 	railCollapsed: boolean,
+	/**  Handheld (Ally, Steam Deck) layout: larger touch targets. */
+	handheld: boolean,
+	/**  Move focus and act with a game controller when one is connected. */
+	controllerNav: boolean,
 	/**  Terminal font size in px. */
 	termFontSize: number,
 	/**  Terminal scrollback lines. */

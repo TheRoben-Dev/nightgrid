@@ -161,7 +161,7 @@
   }
   .item {
     width: 100%;
-    min-height: 32px;
+    min-height: max(32px, var(--hit));
     display: flex;
     align-items: center;
     gap: 10px;

@@ -103,6 +103,18 @@
         onchange={(v) => settings.update({ scanlines: v })}
       />
       <Toggle
+        label="Handheld layout"
+        hint="For the ROG Ally, Steam Deck and touch screens: finger-sized buttons, 130% scale and an icon-only sidebar."
+        checked={settings.value.handheld}
+        onchange={(v) => settings.setHandheld(v)}
+      />
+      <Toggle
+        label="Controller navigation"
+        hint="With a gamepad connected: D-pad or stick moves focus, A selects, B goes back, LB/RB switch views, Start opens the command palette, Select toggles the sidebar."
+        checked={settings.value.controllerNav}
+        onchange={(v) => settings.update({ controllerNav: v })}
+      />
+      <Toggle
         label="Collapse sidebar"
         checked={settings.value.railCollapsed}
         onchange={(v) => settings.update({ railCollapsed: v })}

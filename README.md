@@ -2,16 +2,16 @@
 
 Agentless homelab command center: SSH terminals, SFTP, Docker, monitoring, services and tunnels in one native-feeling desktop app. Built with Tauri 2, Rust and Svelte 5.
 
-> Status: **M4 — monitoring**. Hosts + terminals, SFTP + editor, Docker + compose stacks and live host monitoring are in; the rest lands milestone by milestone (see [`PROJECT_PROMPT.md`](PROJECT_PROMPT.md) §9).
+> Status: **M9 — polish & ship**. Hosts + terminals, SFTP + editor, Docker, monitoring, services, tunnels, system tasks, alerts, integrations, automation, encrypted backups and a handheld/controller layout are in. Next: the local LLM helper (M10) and the offline knowledge base (M11). How to use it: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md).
 
 ## Repository layout
 
 | Path | What |
 |---|---|
-| `core/` | `nightgrid-core` Rust library: storage, secrets, and (later) SSH/SFTP/Docker/metrics. UI-agnostic, unit tested. |
+| `core/` | `nightgrid-core` Rust library: storage, secrets, SSH/SFTP, Docker, metrics, services, automation, backups. UI-agnostic, unit tested. |
 | `app/` | Tauri 2 crate: window, commands, logging, platform workarounds. |
 | `ui/` | Svelte 5 + TypeScript frontend (Vite root). |
-| `docs/` | `ARCHITECTURE.md`, `DECISIONS.md`. |
+| `docs/` | `USER_GUIDE.md`, `ARCHITECTURE.md`, `DECISIONS.md`. |
 
 ## Prerequisites
 
@@ -51,7 +51,7 @@ pnpm tauri build                       # all bundle targets for the current OS
 pnpm tauri build --bundles app,dmg     # macOS
 ```
 
-Prereleases with all installers are on the [Releases](https://github.com/TheRoben-Dev/nightgrid/releases) page. CI also builds an NSIS installer + portable zip (Windows), a `.dmg` (macOS arm64) and `.deb`/`.rpm`/AppImage (Linux) on every PR; grab them from the run's artifacts. Flatpak and the AUR package come in M9.
+Prereleases with all installers are on the [Releases](https://github.com/TheRoben-Dev/nightgrid/releases) page. CI also builds an NSIS installer + portable zip (Windows), a `.dmg` (macOS arm64) and `.deb`/`.rpm`/AppImage (Linux) on every PR; grab them from the run's artifacts. Flatpak and AUR packages are skipped on purpose (D-061); the AppImage runs on Arch/CachyOS.
 
 ### Updates
 
@@ -150,6 +150,12 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Delete a snippet, then **Import…**, enter the passphrase and pick the file. The preview lists what's inside; choose **Merge**: only the missing snippet comes back and the app restarts.
 4. **Import…** again and choose **Replace**: you have to type `replace`. Everything matches the backup afterwards, including the theme.
 5. **Choose folder…** under SYNC FOLDER (e.g. a Syncthing or iCloud Drive folder). **Export to sync folder** and **Import from sync folder** now skip the file dialog, and the panel shows when the last backup was written.
+
+### macOS: testing M9b (handheld layout + controller)
+
+1. **Settings → Display → Handheld layout**: buttons, fields and sidebar items get taller, the scale jumps to 130 % and the sidebar collapses to icons. Switch it off: scale returns to 100 %.
+2. Pair a controller (Xbox, PlayStation or 8BitDo) over Bluetooth and press any button with Nightgrid in front. The D-pad moves a yellow outline between buttons, A presses, B closes a dialog, LB/RB switch views and Start opens the command palette.
+3. Open **Import…** under Backup and use the D-pad: focus stays inside the dialog until you close it with B.
 
 ### macOS: testing ASCII host icons
 

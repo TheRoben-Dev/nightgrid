@@ -148,6 +148,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Effects** are gated by `data-effects="on|off"` on `<html>`, computed as `theme.effects && !reduceEffects && !prefers-reduced-motion`. Off zeroes durations and glow, hides scanlines and skips the scramble effect.
 - **Visual language:** sharp 1px hairline boxes with wide-tracked uppercase labels; magenta = selected/active (with glow), mint = completed/neutral highlight, yellow = primary action and keyboard focus, cyan = data and prefixes. Chamfers are reserved for primary buttons and the palette. Decorative barcodes/hex IDs appear only in headers, margins and the status strip.
 - **Keyboard:** all shortcuts are defined in `DEFAULT_KEYMAP` (`ui/src/lib/keys.ts`) using `Mod` = Cmd on macOS / Ctrl elsewhere, so a rebinding UI can override them later.
+- **Handheld and controllers:** `data-handheld="on"` on `<html>` raises `--hit` (every button, field, toggle and rail item uses it as its minimum size); `ui/src/lib/gamepad.ts` turns Gamepad API snapshots into actions (`PadReader`) and moves focus spatially (`pickNext`, `moveFocus`), started from `App.svelte` with hooks for view switching, the palette and the sidebar (D-060).
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
 ## Security posture (M9)

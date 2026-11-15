@@ -31,6 +31,10 @@ pub struct AppSettings {
     pub ui_scale: u16,
     /// Collapse the left rail to icons.
     pub rail_collapsed: bool,
+    /// Handheld (Ally, Steam Deck) layout: larger touch targets.
+    pub handheld: bool,
+    /// Move focus and act with a game controller when one is connected.
+    pub controller_nav: bool,
     /// Terminal font size in px.
     pub term_font_size: u16,
     /// Terminal scrollback lines.
@@ -150,6 +154,8 @@ impl Default for AppSettings {
             tray_enabled: true,
             close_to_tray: false,
             backup_folder: None,
+            handheld: false,
+            controller_nav: true,
         }
     }
 }
