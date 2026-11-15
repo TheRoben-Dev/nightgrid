@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+- **Notes** fills the window: the list and the note scroll on their own, so **Save** stays in view however many notes you have. **Mod+S** saves a note while editing.
+
 ## [0.10.7] - 2026-11-15
 
 ### Added: VMs, a phone status page and dashboard snapshots (M10h)

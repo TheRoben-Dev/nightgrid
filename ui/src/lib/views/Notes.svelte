@@ -13,6 +13,7 @@
   import { hosts } from "../stores/hosts.svelte";
   import { hasSecret, notes, parseTags } from "../stores/notes.svelte";
   import { terms } from "../stores/terms.svelte";
+  import { formatChord } from "../keys";
 
   onMount(() => {
     void notes.load();
@@ -121,7 +122,16 @@
 
   <section class="main" data-guide="notes-view">
     {#if draft}
-      <form class="editor" onsubmit={onSave}>
+      <form
+        class="editor"
+        onsubmit={onSave}
+        onkeydown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+            e.preventDefault();
+            e.currentTarget.requestSubmit();
+          }
+        }}
+      >
         <div class="row">
           <input class="input title" placeholder="Title" aria-label="Title" maxlength="120" bind:value={draft.input.title} />
           <label class="pinbox"><input type="checkbox" bind:checked={draft.input.pinned} /> Pin</label>
@@ -148,7 +158,7 @@
         {/if}
         {#if notes.saveError}<p class="error-text">{notes.saveError}</p>{/if}
         <div class="row end">
-          <span class="muted small">Markdown: # headings, - lists, **bold**, `code`, ``` blocks.</span>
+          <span class="muted small">Markdown: # headings, - lists, **bold**, `code`, ``` blocks. {formatChord("Mod+S")} saves.</span>
           <span class="spacer"></span>
           <button type="button" class="btn ghost" onclick={() => notes.cancel()}>Cancel</button>
           <button type="submit" class="btn primary" disabled={notes.saving || !draft.input.title.trim()}>{notes.saving ? "Saving…" : "Save"}</button>
@@ -212,6 +222,8 @@
     height: 100%;
     display: grid;
     grid-template-columns: minmax(240px, 320px) 1fr;
+    /* One row the height of the view: the list and the editor scroll inside it. */
+    grid-template-rows: minmax(0, 1fr);
     gap: 12px;
     min-height: 0;
   }
@@ -387,7 +399,7 @@
   }
   .body {
     flex: 1;
-    min-height: 200px;
+    min-height: 120px;
     resize: none;
     font-family: var(--font-mono);
     font-size: var(--fs-sm);
