@@ -61,6 +61,14 @@
     return `${Math.floor(s / 86400)}d ago`;
   }
 
+  /** Mod+S in any editor field submits the form. */
+  function saveKey(e: KeyboardEvent) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      (e.currentTarget as HTMLElement).closest("form")?.requestSubmit();
+    }
+  }
+
   async function onSave(e: SubmitEvent) {
     e.preventDefault();
     if (!notes.draft) return;
@@ -122,18 +130,9 @@
 
   <section class="main" data-guide="notes-view">
     {#if draft}
-      <form
-        class="editor"
-        onsubmit={onSave}
-        onkeydown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-            e.preventDefault();
-            e.currentTarget.requestSubmit();
-          }
-        }}
-      >
+      <form class="editor" onsubmit={onSave}>
         <div class="row">
-          <input class="input title" placeholder="Title" aria-label="Title" maxlength="120" bind:value={draft.input.title} />
+          <input class="input title" placeholder="Title" aria-label="Title" maxlength="120" bind:value={draft.input.title} onkeydown={saveKey} />
           <label class="pinbox"><input type="checkbox" bind:checked={draft.input.pinned} /> Pin</label>
         </div>
         <div class="row">
@@ -141,13 +140,14 @@
             <option value={null}>Not tied to a host</option>
             {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
           </select>
-          <input class="input grow" placeholder="Tags, e.g. docker, backup" aria-label="Tags" bind:value={tagText} />
+          <input class="input grow" placeholder="Tags, e.g. docker, backup" aria-label="Tags" bind:value={tagText} onkeydown={saveKey} />
         </div>
         <textarea
           class="input body"
           aria-label="Note text (markdown)"
           placeholder="Markdown. Use ``` code blocks for commands: each gets a button to type it into a terminal on this note's host."
           bind:value={draft.input.body}
+          onkeydown={saveKey}
           spellcheck="false"
         ></textarea>
         {#if secret}
