@@ -758,3 +758,55 @@ async fn openssh_sudo_password_on_stdin() {
     let err = sudo::stream(&conn, &wrong, "echo never", None, &mut |_, _| true).await.unwrap_err();
     assert_eq!(err, SystemError::SudoRequired { retry: true });
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn openssh_automation_steps() {
+    use nightgrid_core::automation::run::{self, OutStream};
+    use nightgrid_core::system::sudo::SudoAuth;
+    if !enabled() {
+        return;
+    }
+    let _serial = SERIAL.lock().await;
+    let sshd = start_sshd("host_ed25519", None, None);
+    let o = opts(sshd.dir.path());
+    let conn = Arc::new(connect_trusting(&key_target(&sshd), &[], &o).await);
+    let (_tx, rx) = tokio::sync::watch::channel(false);
+
+    // Command: lines from both streams and the exit code.
+    let mut lines = Vec::new();
+    let code = run::command(&conn, &SudoAuth::User, "echo out; echo err >&2; exit 3", rx.clone(), &mut |s, l| {
+        lines.push((s, l))
+    })
+    .await
+    .unwrap();
+    assert_eq!(code, Some(3));
+    assert!(lines.contains(&(OutStream::Out, "out".into())) && lines.contains(&(OutStream::Err, "err".into())));
+
+    // Stop: a long command ends with None.
+    let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+    let c2 = conn.clone();
+    let h = tokio::spawn(async move { run::command(&c2, &SudoAuth::User, "sleep 30", stop_rx, &mut |_, _| {}).await });
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    stop_tx.send(true).unwrap();
+    assert_eq!(tokio::time::timeout(Duration::from_secs(5), h).await.unwrap().unwrap().unwrap(), None);
+
+    // Upload with permissions.
+    let local = sshd.dir.path().join("payload.txt");
+    std::fs::write(&local, b"hello automation\n").unwrap();
+    let remote = sshd.dir.path().join("uploaded.txt");
+    let n = run::upload(conn.clone(), &local, remote.to_str().unwrap(), Some(0o600)).await.unwrap();
+    assert_eq!(n, 17);
+    assert_eq!(std::fs::read(&remote).unwrap(), b"hello automation\n");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(&remote).unwrap().permissions().mode() & 0o777, 0o600);
+    }
+
+    // Wait for port: open at once, and a closed one times out.
+    let port = echo_server().await;
+    assert!(run::wait_port(&conn, "127.0.0.1", port, Duration::from_secs(5), rx.clone()).await.unwrap().is_some());
+    let closed = free_port();
+    let err = run::wait_port(&conn, "127.0.0.1", closed, Duration::from_secs(1), rx.clone()).await.unwrap_err();
+    assert!(err.contains("didn't accept connections"), "{err}");
+}

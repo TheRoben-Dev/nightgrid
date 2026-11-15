@@ -214,6 +214,24 @@ export const commands = {
 	 *  restart with the instance named.
 	 */
 	ampInstanceAction: (id: number, instance: string, action: AmpAction, options?: InvokeOptions) => __TAURI_INVOKE<null>("amp_instance_action", { id, instance, action }, options),
+	snippetsList: (options?: InvokeOptions) => __TAURI_INVOKE<Snippet[]>("snippets_list", undefined, options),
+	/**  Creates (`id` = null) or updates a snippet. */
+	snippetSave: (id: number | null, input: SnippetInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Snippet>("snippet_save", { id, input }, options),
+	snippetDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("snippet_delete", { id }, options),
+	playbooksList: (options?: InvokeOptions) => __TAURI_INVOKE<Playbook_Serialize[]>("playbooks_list", undefined, options),
+	playbookSave: (id: number | null, input: PlaybookInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Playbook_Serialize>("playbook_save", { id, input }, options),
+	playbookDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("playbook_delete", { id }, options),
+	/**
+	 *  Variables, destructive actions and a preview, for the run form. Danger is
+	 *  checked on the text as typed and as rendered, so a value can't hide it.
+	 */
+	automationInspect: (spec: RunSpec, values: { [key in string]: string }, hostId: number | null, options?: InvokeOptions) => __TAURI_INVOKE<RunInspect_Serialize>("automation_inspect", { spec, values, hostId }, options),
+	/**
+	 *  Runs `spec` on `host_ids`. Destructive plans were confirmed in the UI
+	 *  with the hosts named (and the group or host count typed for several).
+	 */
+	automationRun: (spec: RunSpec, hostIds: number[], values: { [key in string]: string }, sudoPassword: string | null, onEvent: Channel<AutomationEvent_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("automation_run", { spec, hostIds, values, sudoPassword, onEvent }, options),
+	automationStop: (run: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("automation_stop", { run }, options),
 	/**  Registers the UI channel and sends the current snapshot. */
 	alertsSubscribe: (onEvent: Channel<AlertsSnapshot_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_subscribe", { onEvent }, options),
 	/**  Re-evaluates now (after alert settings change). */
@@ -557,6 +575,19 @@ export type AuthMethod =
 /**  Password, from the keychain (opt-in) or a prompt. */
 "password";
 
+/**  What a run's channel carries. */
+export type AutomationEvent = AutomationEvent_Serialize | AutomationEvent_Deserialize;
+
+/**  What a run's channel carries. */
+export type AutomationEvent_Deserialize = { kind: "hostStart"; hostId: number } | { kind: "stepStart"; hostId: number; step: number; label: string } | { kind: "lines"; hostId: number; lines: OutLine[] } | { kind: "stepEnd"; hostId: number; step: number; code?: number | null; error?: string | null; ms: number } | { kind: "hostEnd"; hostId: number; ok: boolean; 
+/**  Exit code of the last command step that ran. */
+code?: number | null; error?: string | null; needs?: HostNeeds | null; ms: number; stopped: boolean } | { kind: "done"; stopped: boolean };
+
+/**  What a run's channel carries. */
+export type AutomationEvent_Serialize = { kind: "hostStart"; hostId: number } | { kind: "stepStart"; hostId: number; step: number; label: string } | { kind: "lines"; hostId: number; lines: OutLine[] } | { kind: "stepEnd"; hostId: number; step: number; code: number | null; error: string | null; ms: number } | { kind: "hostEnd"; hostId: number; ok: boolean; 
+/**  Exit code of the last command step that ran. */
+code: number | null; error: string | null; needs: HostNeeds | null; ms: number; stopped: boolean } | { kind: "done"; stopped: boolean };
+
 export type Bookmark = Bookmark_Serialize | Bookmark_Deserialize;
 
 export type Bookmark_Deserialize = {
@@ -822,6 +853,10 @@ export type DisksReport_Serialize = {
 	health: Health,
 };
 
+export type DockerAction = "start" | "stop" | "restart" | 
+/**  `docker pull <image>`. */
+"pull";
+
 /**
  *  Docker command error: a message plus the structured cause, so the UI can
  *  show a host-key / password prompt or the docker-group hint.
@@ -1083,6 +1118,13 @@ export type HostKeyInfo = {
 	/**  Full OpenSSH public key line (`ssh-ed25519 AAAA...`), used to accept it. */
 	openssh: string,
 };
+
+/**  Why a host couldn't start, when the user can fix it. */
+export type HostNeeds = 
+/**  Connect once from a terminal (host key or password prompt). */
+"login" | 
+/**  A sudo password: type one for the run or remember it in System. */
+"sudo";
 
 export type HostPing = HostPing_Serialize | HostPing_Deserialize;
 
@@ -1613,6 +1655,15 @@ export type NvmeHealth = {
 	bytesWritten: number,
 };
 
+export type OutLine = {
+	stream: OutStream,
+	text: string,
+};
+
+export type OutStream = "out" | "err" | 
+/**  Nightgrid's own notes ("uploaded 2.1 KB", "port open after 3 s"). */
+"info";
+
 export type PackageUpdate = PackageUpdate_Serialize | PackageUpdate_Deserialize;
 
 export type PackageUpdate_Deserialize = {
@@ -1629,6 +1680,40 @@ export type PackageUpdate_Serialize = {
 	available: string,
 	/**  apt suite / dnf repository. */
 	repo: string | null,
+};
+
+export type Playbook = Playbook_Serialize | Playbook_Deserialize;
+
+export type PlaybookInput = PlaybookInput_Serialize | PlaybookInput_Deserialize;
+
+export type PlaybookInput_Deserialize = {
+	name?: string,
+	description?: string,
+	steps?: Step_Deserialize[],
+	stopOnError?: boolean,
+};
+
+export type PlaybookInput_Serialize = {
+	name: string,
+	description: string,
+	steps: Step_Serialize[],
+	stopOnError: boolean,
+};
+
+export type Playbook_Deserialize = {
+	id: number,
+	name: string,
+	description: string,
+	steps: Step_Deserialize[],
+	stopOnError: boolean,
+};
+
+export type Playbook_Serialize = {
+	id: number,
+	name: string,
+	description: string,
+	steps: Step_Serialize[],
+	stopOnError: boolean,
 };
 
 export type PlexStatus = PlexStatus_Serialize | PlexStatus_Deserialize;
@@ -1789,6 +1874,39 @@ export type RunEvent_Deserialize = { kind: "lines"; lines: string[] } | { kind: 
 
 /**  What an upgrade run's channel carries. */
 export type RunEvent_Serialize = { kind: "lines"; lines: string[] } | { kind: "done"; code: number | null; error: string | null };
+
+export type RunInspect = RunInspect_Serialize | RunInspect_Deserialize;
+
+export type RunInspect_Deserialize = {
+	name: string,
+	variables: Variable_Deserialize[],
+	/**  What the plan destroys or overwrites, "step N: ..." for playbooks. */
+	destructive: string[],
+	needsSudo: boolean,
+	/**  Step labels, rendered for `host_id` where values allow. */
+	steps: string[],
+	/**  The first command rendered for `host_id` (commands and snippets). */
+	preview?: string | null,
+	/**  Variables still without a value. */
+	missing: string[],
+};
+
+export type RunInspect_Serialize = {
+	name: string,
+	variables: Variable_Serialize[],
+	/**  What the plan destroys or overwrites, "step N: ..." for playbooks. */
+	destructive: string[],
+	needsSudo: boolean,
+	/**  Step labels, rendered for `host_id` where values allow. */
+	steps: string[],
+	/**  The first command rendered for `host_id` (commands and snippets). */
+	preview: string | null,
+	/**  Variables still without a value. */
+	missing: string[],
+};
+
+/**  What to run. */
+export type RunSpec = { kind: "command"; command: string; sudo: boolean } | { kind: "snippet"; id: number } | { kind: "playbook"; id: number };
 
 /**  One processed sample: what the UI shows. */
 export type Sample = Sample_Serialize | Sample_Deserialize;
@@ -2004,6 +2122,37 @@ export type SmartAttr_Serialize = {
 	health: Health,
 };
 
+export type Snippet = {
+	id: number,
+	name: string,
+	command: string,
+	description: string,
+	scope: SnippetScope,
+	/**  Run as root through sudo (password typed per run or remembered per host). */
+	sudo: boolean,
+};
+
+export type SnippetInput = SnippetInput_Serialize | SnippetInput_Deserialize;
+
+export type SnippetInput_Deserialize = {
+	name?: string,
+	command?: string,
+	description?: string,
+	scope?: SnippetScope,
+	sudo?: boolean,
+};
+
+export type SnippetInput_Serialize = {
+	name: string,
+	command: string,
+	description: string,
+	scope: SnippetScope,
+	sudo: boolean,
+};
+
+/**  Where a snippet shows up: everywhere, on one host, or on a group's hosts. */
+export type SnippetScope = { kind: "global" } | { kind: "host"; hostId: number } | { kind: "group"; groupId: number };
+
 export type SshConfigCandidate = SshConfigCandidate_Serialize | SshConfigCandidate_Deserialize;
 
 export type SshConfigCandidate_Deserialize = {
@@ -2092,6 +2241,31 @@ export type StatsView = {
 	active: number,
 	total: number,
 };
+
+/**  One playbook step. Text fields may use `{{variables}}`. */
+export type Step = Step_Serialize | Step_Deserialize;
+
+/**  One playbook step. Text fields may use `{{variables}}`. */
+export type Step_Deserialize = { type: "command"; command: string; sudo?: boolean } | 
+/**  Copies a file from this computer over SFTP, as the login user. */
+{ type: "upload"; localPath: string; remotePath: string; 
+/**  Permissions for the uploaded file, e.g. 0o644. */
+mode?: number | null } | 
+/**  Waits until a TCP port accepts connections, as seen from the host. */
+{ type: "waitPort"; host?: string; port: number; timeoutSecs?: number } | { type: "docker"; action: DockerAction; 
+/**  Container name/id, or image for pull. */
+target: string };
+
+/**  One playbook step. Text fields may use `{{variables}}`. */
+export type Step_Serialize = { type: "command"; command: string; sudo: boolean } | 
+/**  Copies a file from this computer over SFTP, as the login user. */
+{ type: "upload"; localPath: string; remotePath: string; 
+/**  Permissions for the uploaded file, e.g. 0o644. */
+mode: number | null } | 
+/**  Waits until a TCP port accepts connections, as seen from the host. */
+{ type: "waitPort"; host: string; port: number; timeoutSecs: number } | { type: "docker"; action: DockerAction; 
+/**  Container name/id, or image for pull. */
+target: string };
 
 /**  The sudo password typed into the prompt. Never logged. */
 export type SudoInput = {
@@ -2430,6 +2604,20 @@ export type UpgradeOp =
 "refresh" | 
 /**  Install all available upgrades. */
 "upgrade";
+
+export type Variable = Variable_Serialize | Variable_Deserialize;
+
+export type Variable_Deserialize = {
+	name: string,
+	/**  From `{{name=default}}`, if any. */
+	default?: string | null,
+};
+
+export type Variable_Serialize = {
+	name: string,
+	/**  From `{{name=default}}`, if any. */
+	default: string | null,
+};
 
 export type WebhookInfo = WebhookInfo_Serialize | WebhookInfo_Deserialize;
 

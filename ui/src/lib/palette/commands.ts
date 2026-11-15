@@ -1,5 +1,6 @@
 import { openExternal } from "../clipboard";
 import { SECTIONS } from "../sections";
+import { automation } from "../stores/automation.svelte";
 import { docker } from "../stores/docker.svelte";
 import { files } from "../stores/files.svelte";
 import { hosts } from "../stores/hosts.svelte";
@@ -250,6 +251,59 @@ export function buildCommands(): PaletteCommand[] {
     })),
   );
 
-  return [...connect, ...browse, ...dockerHosts, ...tunnelCmds, ...systemCmds,
+  // Snippets: offered for the host of the terminal in front, if any.
+  const session = terms.currentSession;
+  const termHostId = session?.origin.kind === "ssh" ? session.origin.hostId : undefined;
+  const termHost = termHostId !== undefined ? hosts.byId(termHostId) : undefined;
+  const inTerminal = ui.section === "terminal" && session?.state === "connected";
+  const snippetCmds: PaletteCommand[] = automation.snippetsFor(termHost).flatMap((s) => {
+    const out: PaletteCommand[] = [
+      {
+        id: `snippet.${s.id}`,
+        title: `Snippet: ${s.name}${termHost ? ` on ${termHost.name}` : ""}`,
+        group: "SNIPPETS",
+        keywords: ["run", "automation", s.command, s.description],
+        run: () => automation.openSnippet(s.id, termHostId),
+      },
+    ];
+    // Plain snippets can go straight to the prompt (Enter still runs them).
+    if (inTerminal && session && !s.sudo && !s.command.includes("{{")) {
+      out.push({
+        id: `snippet.type.${s.id}`,
+        title: `Type into terminal: ${s.name}`,
+        group: "SNIPPETS",
+        keywords: ["paste", "insert", s.command],
+        run: () => session.paste(s.command),
+      });
+    }
+    return out;
+  });
+  const automationCmds: PaletteCommand[] = [
+    {
+      id: "automation.command",
+      title: "Run a command on several hosts",
+      group: "AUTOMATION",
+      keywords: ["multi-host", "parallel", "broadcast", "ssh", "exec"],
+      run: () => {
+        automation.pick({ kind: "command" });
+        if (termHostId !== undefined) automation.setTargets([termHostId]);
+        ui.go("automation");
+      },
+    },
+    { id: "automation.newSnippet", title: "New snippet", group: "AUTOMATION", keywords: ["save command"], run: () => (automation.editingSnippet = 0) },
+    { id: "automation.newPlaybook", title: "New playbook", group: "AUTOMATION", keywords: ["steps", "deploy"], run: () => (automation.editingPlaybook = 0) },
+    ...automation.playbooks.map((p) => ({
+      id: `playbook.${p.id}`,
+      title: `Playbook: ${p.name}`,
+      group: "AUTOMATION",
+      keywords: ["run", "deploy", p.description],
+      run: () => {
+        automation.pick({ kind: "playbook", id: p.id });
+        ui.go("automation");
+      },
+    })),
+  ];
+
+  return [...snippetCmds, ...automationCmds, ...connect, ...browse, ...dockerHosts, ...tunnelCmds, ...systemCmds,
     ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...themes];
 }

@@ -12,6 +12,20 @@ import {
   type AlertsSnapshot_Serialize as AlertsSnapshot,
   type Severity,
   type AmpAction,
+  type AutomationEvent_Serialize as AutomationEvent,
+  type DockerAction as AutomationDockerAction,
+  type HostNeeds,
+  type OutLine,
+  type OutStream,
+  type Playbook_Serialize as Playbook,
+  type PlaybookInput_Serialize as PlaybookInput,
+  type RunInspect_Serialize as RunInspect,
+  type RunSpec,
+  type Snippet,
+  type SnippetInput_Serialize as SnippetInput,
+  type SnippetScope,
+  type Step_Serialize as Step,
+  type Variable_Serialize as Variable,
   type AmpInstance_Serialize as AmpInstance,
   type Integration_Serialize as Integration,
   type IntegrationInput_Serialize as IntegrationInput,
@@ -115,6 +129,7 @@ import {
   type UpgradeOp,
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
+import { mockAutomation } from "./mockAutomation";
 import { mockIntegrations } from "./mockIntegrations";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
@@ -125,6 +140,20 @@ import { mockTunnels } from "./mockTunnels";
 import { mockSystem } from "./mockSystem";
 
 export type {
+  AutomationEvent,
+  AutomationDockerAction,
+  HostNeeds,
+  OutLine,
+  OutStream,
+  Playbook,
+  PlaybookInput,
+  RunInspect,
+  RunSpec,
+  Snippet,
+  SnippetInput,
+  SnippetScope,
+  Step,
+  Variable,
   AmpAction,
   AmpInstance,
   Integration,
@@ -280,7 +309,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.7.1-web",
+      version: "0.8.0-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -521,6 +550,30 @@ export const api = {
     T() ? commands.integrationTest(id, i, secret) : mockIntegrations.test(i),
   ampInstanceAction: (id: number, instance: string, action: AmpAction): Promise<null> =>
     T() ? commands.ampInstanceAction(id, instance, action) : mockIntegrations.ampAction(id, instance, action),
+  snippetsList: (): Promise<Snippet[]> => (T() ? commands.snippetsList() : mockAutomation.snippets()),
+  snippetSave: (id: number | null, i: SnippetInput): Promise<Snippet> =>
+    T() ? commands.snippetSave(id, i) : mockAutomation.saveSnippet(id, i),
+  snippetDelete: (id: number): Promise<null> => (T() ? commands.snippetDelete(id) : mockAutomation.deleteSnippet(id)),
+  playbooksList: (): Promise<Playbook[]> => (T() ? commands.playbooksList() : mockAutomation.playbooks()),
+  playbookSave: (id: number | null, i: PlaybookInput): Promise<Playbook> =>
+    T() ? commands.playbookSave(id, i) : mockAutomation.savePlaybook(id, i),
+  playbookDelete: (id: number): Promise<null> => (T() ? commands.playbookDelete(id) : mockAutomation.deletePlaybook(id)),
+  /** `hostName` is only used by the browser mock. */
+  automationInspect: (spec: RunSpec, values: Record<string, string>, hostId: number | null, hostName: string | null): Promise<RunInspect> =>
+    T() ? commands.automationInspect(spec, values, hostId) : mockAutomation.inspect(spec, values, hostName),
+  automationRun: (
+    spec: RunSpec,
+    hostIds: number[],
+    values: Record<string, string>,
+    sudoPassword: string | null,
+    on: (e: AutomationEvent) => void,
+  ): Promise<number> => {
+    if (!T()) return mockAutomation.run(spec, hostIds, values, on);
+    const ch = new Channel<AutomationEvent>();
+    ch.onmessage = on;
+    return commands.automationRun(spec, hostIds, values, sudoPassword, ch as unknown as Parameters<typeof commands.automationRun>[4]);
+  },
+  automationStop: (run: number): Promise<null> => (T() ? commands.automationStop(run) : mockAutomation.stop(run)),
   alertsSubscribe: (on: (s: AlertsSnapshot) => void): Promise<null> => {
     if (!T()) return mockAlerts.subscribe(on);
     const ch = new Channel<AlertsSnapshot>();
