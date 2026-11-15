@@ -224,7 +224,10 @@ impl AppSettings {
         for (k, v) in &self.custom_theme {
             let hex = v.len() == 7 && v.starts_with('#') && v[1..].chars().all(|c| c.is_ascii_hexdigit());
             if !THEME_TOKENS.contains(&k.as_str()) || !hex {
-                return Err(Error::Invalid { field: "customTheme", reason: format!("{k}: expected a known token and #RRGGBB") });
+                return Err(Error::Invalid {
+                    field: "customTheme",
+                    reason: format!("{k}: expected a known token and #RRGGBB"),
+                });
             }
         }
         if !(UI_SCALE_MIN..=UI_SCALE_MAX).contains(&self.ui_scale) {

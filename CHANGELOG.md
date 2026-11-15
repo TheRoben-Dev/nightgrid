@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.9] - 2026-11-15
+
+### Added: network map, a custom colour scheme and DRIFT reads your notes (M10i)
+- **Network** view (`Mod+0`): a map of the internet, your router and tailnet, your hosts and the other devices on the network. **Scan** runs from a host you pick and reads its neighbour table, mDNS announcements, Tailscale peers, router port forwards (UPnP), Tailscale Funnel and cloudflared tunnels; **Ping sweep** also pings each address in its subnet. Nothing is scanned until you click, and nothing outside your network is contacted.
+- **Internet-facing** paths are drawn in red and counted on each host, separately from LAN and tailnet links. Selecting a host lists how the internet reaches it and its listening ports (from **Audit ports**), with exposed ports marked. Selecting an unknown device shows its address, MAC, names, services and how it was seen; **Add as host** opens the host editor with them filled in.
+- **Settings → Theme → CUSTOM** replaces PLAIN DARK: pick surfaces, text, accent, info, active, danger, OK, warning and the neutral highlight from curated swatches that all stay readable together. **Start from** any built-in scheme, or **Reset**. Saved with your settings and included in profiles.
+- **DRIFT reads your notes**: questions search your notes alongside the guide, and replies show which notes they used (click to open). Tick **Hide from DRIFT** on a note to keep it out.
+
 ## [0.10.8] - 2026-11-15
 
 ### Fixed

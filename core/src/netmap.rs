@@ -384,9 +384,12 @@ pub fn parse_tailscale(json: &str) -> Vec<(String, String, Option<String>, Optio
         .collect()
 }
 
+/// One UPnP mapping: protocol, external port, internal address, internal port, description.
+pub type UpnpMapping = (String, u16, String, u16, String);
+
 /// `upnpc -l` lines: ` 0 TCP  8443->192.168.1.5:443  'nas' '' 0`, plus
 /// `ExternalIPAddress = 203.0.113.7`.
-pub fn parse_upnp(lines: &[&str]) -> (Option<String>, Vec<(String, u16, String, u16, String)>) {
+pub fn parse_upnp(lines: &[&str]) -> (Option<String>, Vec<UpnpMapping>) {
     let mut external = None;
     let mut maps = Vec::new();
     for l in lines {

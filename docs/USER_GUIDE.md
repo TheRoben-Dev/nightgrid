@@ -7,7 +7,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 ## Getting around
 
 - **Sidebar**: your hosts (with favorites and groups) at the top, the views below. `Mod+B` collapses it to icons.
-- **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Settings `Mod+,`.
+- **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Notes `Mod+9`, Network `Mod+0`, Settings `Mod+,`.
 - **Command palette** `Mod+K` (also `Ctrl+Shift+K` inside a terminal): jump to any host, view, snippet, playbook or action by typing.
 - **DRIFT helper** `Mod+J`: ask a question in the side panel (see below).
 - **Settings → Keybindings** lists every shortcut.
@@ -104,6 +104,15 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - `Mod+9` opens **Notes**: markdown notes and runbooks, optionally tied to a host, with tags and pins. Search and the host and tag filters narrow the list.
 - Put commands in ``` code blocks. In the note each block gets **Send to terminal** (typed at the prompt of a shell on the note's host, opening one if needed; you press Enter) and **Copy**.
 - Notes never store passwords or tokens: saving refuses them, and **Mask them** swaps the values for `••••`. Notes travel in encrypted backups.
+- DRIFT searches your notes along with its guide and says which notes it used. Tick **Hide from DRIFT** on a note to keep it out.
+
+## Network map
+
+- `Mod+0` opens **Network**: a map with the internet on the left, then your router and tailnet, your hosts, and other devices on the network.
+- Pick a host under **Scan from** and click **Scan**. It reads that host's neighbour table, mDNS announcements (`avahi-browse`), Tailscale peers, router port forwards (`upnpc`), Tailscale Funnel and cloudflared tunnels; tools that aren't installed are listed as notes. **Ping sweep** also pings each address in its subnet (private /24 or smaller) to find quiet devices. Nothing is scanned until you click.
+- **Red** lines and the ▲ count mark ways in from the internet: a public address on the host, a port forward on the router, a Funnel or a tunnel. Nightgrid finds these from your own machines and never asks an outside service. Cyan lines are the LAN, dashed lines the tailnet; a host with a dashed outline wasn't seen in the last scan.
+- Select a host to see how the internet reaches it and its listening ports. **Audit ports** (or **Audit ports on all hosts**) runs the same check as System → Security; exposed ports are marked INTERNET. **Scan from here** rescans from that host.
+- Select another device to see its address, MAC, names, services and how it was found. **Add as host** opens the host editor with the address filled in.
 
 ## DRIFT helper
 

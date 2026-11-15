@@ -160,6 +160,13 @@ import {
   type VmKind,
   type VmAction,
   type VmReport_Serialize as VmReport,
+  type Discovery_Serialize as Discovery,
+  type Device_Serialize as Device,
+  type Exposure_Serialize as Exposure,
+  type ExposureKind,
+  type Iface,
+  type AddrKind,
+  type Seen,
   type StatusPageInfo_Serialize as StatusPageInfo,
   type StatusPageSettings_Serialize as StatusPageSettings,
   type ProxyRoute_Serialize as ProxyRoute,
@@ -342,6 +349,13 @@ export type {
   VmKind,
   VmAction,
   VmReport,
+  Discovery,
+  Device,
+  Exposure,
+  ExposureKind,
+  Iface,
+  AddrKind,
+  Seen,
   StatusPageInfo,
   StatusPageSettings,
   ProxyRoute,
@@ -427,7 +441,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.8-web",
+      version: "0.10.9-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -688,6 +702,8 @@ export const api = {
     T() ? commands.systemVms(hostId, elevate, sudo) : mockOps.vms(hostId, elevate),
   systemVmAction: (hostId: number, kind: VmKind, id: string, action: VmAction, elevate: boolean, sudo: SudoInput | null): Promise<null> =>
     T() ? commands.systemVmAction(hostId, kind, id, action, elevate, sudo) : mockOps.vmAction(kind, id, action),
+  netmapDiscover: (hostId: number, sweep: boolean): Promise<Discovery> =>
+    T() ? commands.netmapDiscover(hostId, sweep) : mockOps.discover(hostId, sweep),
   statusPageGet: (): Promise<StatusPageInfo> => (T() ? commands.statusPageGet() : mockOps.statusGet()),
   statusPageSet: (s: StatusPageSettings): Promise<StatusPageInfo> => (T() ? commands.statusPageSet(s) : mockOps.statusSet(s)),
   statusPageNewToken: (): Promise<StatusPageInfo> => (T() ? commands.statusPageNewToken() : mockOps.statusNewToken()),

@@ -39,6 +39,7 @@
     "nav.system": "System",
     "nav.automation": "Automation",
     "nav.notes": "Notes",
+    "nav.network": "Network map",
     "effects.toggle": "Toggle effects",
     "palette.openAlt": "Command palette (works in terminal)",
     "term.newLocal": "New local terminal",
