@@ -719,6 +719,27 @@ pub async fn system_disks(app: AppHandle, host_id: HostId, sudo: Option<SudoInpu
     Ok(smart::scan(&conn, &auth).await?)
 }
 
+/// ZFS pools, RAID arrays and btrfs filesystems (no root needed).
+#[tauri::command]
+#[specta::specta]
+pub async fn system_pools(app: AppHandle, host_id: HostId) -> SysResult<nightgrid_core::system::pools::PoolsReport> {
+    let conn = connect_host(&app, host_id).await?;
+    Ok(nightgrid_core::system::pools::scan(&conn).await?)
+}
+
+/// Usage trend and "full in about X days" per mount, from usage recorded
+/// while the host was monitored (local only, no connection).
+#[tauri::command]
+#[specta::specta]
+pub fn disk_forecasts(
+    state: State<'_, AppState>,
+    host_id: HostId,
+) -> CmdResult<Vec<nightgrid_core::diskforecast::MountForecast>> {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+    let list = state.store().disk_forecasts(host_id, now)?;
+    Ok(list)
+}
+
 /// VMs and containers on a libvirt or Proxmox host. `elevate` reads as root
 /// (when this login may not use virsh / qm / pct).
 #[tauri::command]

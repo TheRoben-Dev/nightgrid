@@ -151,6 +151,14 @@ pub struct AlertSettings {
     pub smart_warning: bool,
     /// Failed or stale backup jobs (checked every 30 minutes on connected hosts).
     pub backup_stale: bool,
+    /// Mounts forecast to be full within `forecast_days` at their current
+    /// growth (from usage recorded while monitoring).
+    pub disk_forecast: bool,
+    /// 1–90.
+    pub forecast_days: u16,
+    /// Degraded ZFS pools, RAID arrays and btrfs filesystems (read every 30
+    /// minutes on connected hosts, no root needed).
+    pub pool_degraded: bool,
     /// Error bursts and new error patterns in container logs and the journal
     /// (read every 10 minutes on connected hosts). Off by default.
     pub log_anomaly: bool,
@@ -179,6 +187,9 @@ impl Default for AlertSettings {
             cert_days: 14,
             smart_warning: true,
             backup_stale: true,
+            disk_forecast: true,
+            forecast_days: 14,
+            pool_degraded: true,
             log_anomaly: false,
             native: true,
             quiet_hours: false,
@@ -301,6 +312,7 @@ impl AppSettings {
         let a = &self.alerts;
         range("alerts.diskPercent", u16::from(a.disk_percent), 50, 99)?;
         range("alerts.certDays", a.cert_days, 1, 90)?;
+        range("alerts.forecastDays", a.forecast_days, 1, 90)?;
         range("alerts.quietStart", a.quiet_start, 0, 24 * 60 - 1)?;
         range("alerts.quietEnd", a.quiet_end, 0, 24 * 60 - 1)?;
         if !WEBHOOK_KINDS.contains(&a.webhook.as_str()) {

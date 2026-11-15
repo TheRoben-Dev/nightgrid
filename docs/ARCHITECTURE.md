@@ -218,6 +218,13 @@ _Last updated: M2 (SFTP + editor)._
 - **App**: no new commands. The update center reuses `system_updates`, `system_upgrade_run`, `docker_stacks` and `docker_stack_check_updates` per host.
 - **UI**: `views/Fleet.svelte` (new `fleet` section, `nav.fleet`), `components/fleet/UpdateCenter.svelte`, `stores/fleet.svelte.ts` (three-at-a-time pool, batch upgrade with `sudo: null`, so hosts without NOPASSWD or a remembered password are skipped), pure helpers in `fleet.ts` (rows, totals, `confirmPhrase`, DRIFT text) (D-102).
 
+## Fleet: disk health (M10m)
+
+- **Pools** (`core/src/system/pools.rs`): `scan_command` (no root: `zpool list -H -p` and `zpool status`, `/proc/mdstat`, `/sys/fs/btrfs/*/devinfo/*/{missing,error_stats}`, degraded btrfs mounts) → `parse_zfs` / `parse_mdstat` / `parse_btrfs` → `PoolsReport`; `conditions` → `AlertKind::PoolDegraded` (key `pool:<host>:<kind>:<name>`). Command `system_pools`.
+- **Forecast** (`core/src/diskforecast.rs`, migration 0020 `disk_usage`): `Store::disk_usage_record` (hourly bucket, `INSERT OR REPLACE`, 90-day prune), called by the metrics poller at most every 10 minutes per host; `trend` (least squares over 14 days, needs a day and six points), `days_left`, `forecasts`, `conditions` → `AlertKind::DiskFilling` (key `fill:<host>:<mount>`, clears after 3 h). Command `disk_forecasts` (local only).
+- **Alerts** (`alerts_cmd.rs`): source `fill` every loop from the local table; source `pool` every 30 minutes per connected host; settings `diskForecast`, `forecastDays`, `poolDegraded`.
+- **UI**: `components/fleet/DiskHealth.svelte`, `fleet.checkDisks` / `checkDisksHost` (forecasts, then pools, then SMART with `sudo: null`), helpers in `fleet.ts` (`fillText`, `rateText`, `sparkPath`, `diskRows`, `disksText`) (D-103).
+
 ## SSH key manager (M10k)
 
 - **Core** (`core/src/ssh/keys.rs`, D-097): `SshKey`, `scan_dir`, `agent_keys`, `merge_agent`, `generate` (ed25519, optional passphrase, never overwrites), `AuthorizedKey` / `parse_authorized` / `find_authorized`, and the shell commands `READ_AUTHORIZED`, `add_command`, `remove_command` (+ `parse_removed`).

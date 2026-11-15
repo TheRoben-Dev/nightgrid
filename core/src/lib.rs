@@ -11,6 +11,7 @@ pub mod backup_jobs;
 pub mod bookmarks;
 pub mod confdiff;
 pub mod device_labels;
+pub mod diskforecast;
 pub mod docker;
 pub mod edit_hook;
 pub mod error;

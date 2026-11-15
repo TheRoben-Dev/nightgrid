@@ -320,6 +320,13 @@ export const commands = {
 	confdiffFile: (hostId: number, other: number | null, path: string, options?: InvokeOptions) => __TAURI_INVOKE<FileDiff_Serialize>("confdiff_file", { hostId, other, path }, options),
 	/**  SMART health of every disk (needs root). */
 	systemDisks: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<DisksReport_Serialize>("system_disks", { hostId, sudo }, options),
+	/**  ZFS pools, RAID arrays and btrfs filesystems (no root needed). */
+	systemPools: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<PoolsReport_Serialize>("system_pools", { hostId }, options),
+	/**
+	 *  Usage trend and "full in about X days" per mount, from usage recorded
+	 *  while the host was monitored (local only, no connection).
+	 */
+	diskForecasts: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<MountForecast_Serialize[]>("disk_forecasts", { hostId }, options),
 	integrationsList: (options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize[]>("integrations_list", undefined, options),
 	integrationCreate: (input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize>("integration_create", { input, secret }, options),
 	integrationUpdate: (id: number, input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize>("integration_update", { id, input, secret }, options),
@@ -519,7 +526,11 @@ export type Alert = Alert_Serialize | Alert_Deserialize;
 
 export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceDown" | "certExpiring" | "smartWarning" | "backupFailed" | "backupStale" | "logBurst" | "logNewError" | 
 /**  A watched certificate file, domain, token or licence (M10l). */
-"expirySoon";
+"expirySoon" | 
+/**  A mount forecast to be full soon at its current growth (M10m). */
+"diskFilling" | 
+/**  A ZFS pool, RAID array or btrfs filesystem lost a device or has errors (M10m). */
+"poolDegraded";
 
 /**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
 export type AlertSettings = AlertSettings_Serialize | AlertSettings_Deserialize;
@@ -543,6 +554,18 @@ export type AlertSettings_Deserialize = {
 	smartWarning?: boolean,
 	/**  Failed or stale backup jobs (checked every 30 minutes on connected hosts). */
 	backupStale?: boolean,
+	/**
+	 *  Mounts forecast to be full within `forecast_days` at their current
+	 *  growth (from usage recorded while monitoring).
+	 */
+	diskForecast?: boolean,
+	/**  1–90. */
+	forecastDays?: number,
+	/**
+	 *  Degraded ZFS pools, RAID arrays and btrfs filesystems (read every 30
+	 *  minutes on connected hosts, no root needed).
+	 */
+	poolDegraded?: boolean,
 	/**
 	 *  Error bursts and new error patterns in container logs and the journal
 	 *  (read every 10 minutes on connected hosts). Off by default.
@@ -579,6 +602,18 @@ export type AlertSettings_Serialize = {
 	smartWarning: boolean,
 	/**  Failed or stale backup jobs (checked every 30 minutes on connected hosts). */
 	backupStale: boolean,
+	/**
+	 *  Mounts forecast to be full within `forecast_days` at their current
+	 *  growth (from usage recorded while monitoring).
+	 */
+	diskForecast: boolean,
+	/**  1–90. */
+	forecastDays: number,
+	/**
+	 *  Degraded ZFS pools, RAID arrays and btrfs filesystems (read every 30
+	 *  minutes on connected hosts, no root needed).
+	 */
+	poolDegraded: boolean,
 	/**
 	 *  Error bursts and new error patterns in container logs and the journal
 	 *  (read every 10 minutes on connected hosts). Off by default.
@@ -2812,6 +2847,48 @@ export type MetricsEvent_Deserialize = { kind: "sample"; hostId: number; sample:
 
 export type MetricsEvent_Serialize = { kind: "sample"; hostId: number; sample: Sample_Serialize } | { kind: "state"; hostId: number; state: PollState; message: string | null; retrySecs: number | null };
 
+export type MountForecast = MountForecast_Serialize | MountForecast_Deserialize;
+
+export type MountForecast_Deserialize = {
+	mount: string,
+	/**  Usable size (used + available), bytes. */
+	size: number,
+	used: number,
+	/**  When the newest point was recorded. */
+	at: number,
+	/**
+	 *  Growth in bytes per day over the window (negative when shrinking);
+	 *  `None` until there is enough history.
+	 */
+	perDay?: number | null,
+	/**  Days until full at that rate; `None` when not growing or not known. */
+	daysLeft?: number | null,
+	/**  How many days of history the trend is based on. */
+	spanDays: number | null,
+	/**  The last sample of each day, oldest first, for a sparkline. */
+	daily: UsagePoint[],
+};
+
+export type MountForecast_Serialize = {
+	mount: string,
+	/**  Usable size (used + available), bytes. */
+	size: number,
+	used: number,
+	/**  When the newest point was recorded. */
+	at: number,
+	/**
+	 *  Growth in bytes per day over the window (negative when shrinking);
+	 *  `None` until there is enough history.
+	 */
+	perDay: number | null,
+	/**  Days until full at that rate; `None` when not growing or not known. */
+	daysLeft: number | null,
+	/**  How many days of history the trend is based on. */
+	spanDays: number | null,
+	/**  The last sample of each day, oldest first, for a sparkline. */
+	daily: UsagePoint[],
+};
+
 /**  Usage of one mounted filesystem. */
 export type MountUsage = {
 	device: string,
@@ -3149,6 +3226,80 @@ export type PollState =
 "shuttingDown" | 
 /**  Doesn't answer inside its expected sleep window. */
 "asleep";
+
+export type Pool = Pool_Serialize | Pool_Deserialize;
+
+export type PoolDevice = PoolDevice_Serialize | PoolDevice_Deserialize;
+
+export type PoolDevice_Deserialize = {
+	name: string,
+	/**  `ONLINE`, `DEGRADED`, `FAULTED`, `failed`, `spare`, `missing`, ... */
+	state: string,
+	/**  Read/write/checksum (ZFS) or btrfs error counters, when not all zero. */
+	errors?: string | null,
+};
+
+export type PoolDevice_Serialize = {
+	name: string,
+	/**  `ONLINE`, `DEGRADED`, `FAULTED`, `failed`, `spare`, `missing`, ... */
+	state: string,
+	/**  Read/write/checksum (ZFS) or btrfs error counters, when not all zero. */
+	errors: string | null,
+};
+
+export type PoolKind = "zfs" | "mdraid" | "btrfs";
+
+export type Pool_Deserialize = {
+	kind: PoolKind,
+	name: string,
+	/**  Mount point (btrfs) or RAID level (mdraid), for context. */
+	detail?: string | null,
+	/**  The tool's own word: `ONLINE`, `DEGRADED`, `active`, ... */
+	state: string,
+	health: Health,
+	size?: number | null,
+	used?: number | null,
+	devices: PoolDevice_Deserialize[],
+	/**  Plain-language problems, worst first. */
+	issues: string[],
+	/**  Scrub, resilver, resync or recovery: what and when. */
+	activity?: string | null,
+	/**  Percent done of a running resilver, resync or recovery. */
+	progress?: number | null,
+};
+
+export type Pool_Serialize = {
+	kind: PoolKind,
+	name: string,
+	/**  Mount point (btrfs) or RAID level (mdraid), for context. */
+	detail: string | null,
+	/**  The tool's own word: `ONLINE`, `DEGRADED`, `active`, ... */
+	state: string,
+	health: Health,
+	size: number | null,
+	used: number | null,
+	devices: PoolDevice_Serialize[],
+	/**  Plain-language problems, worst first. */
+	issues: string[],
+	/**  Scrub, resilver, resync or recovery: what and when. */
+	activity: string | null,
+	/**  Percent done of a running resilver, resync or recovery. */
+	progress: number | null,
+};
+
+export type PoolsReport = PoolsReport_Serialize | PoolsReport_Deserialize;
+
+export type PoolsReport_Deserialize = {
+	pools: Pool_Deserialize[],
+	/**  Worst health over all pools (`Ok` when there are none). */
+	health: Health,
+};
+
+export type PoolsReport_Serialize = {
+	pools: Pool_Serialize[],
+	/**  Worst health over all pools (`Ok` when there are none). */
+	health: Health,
+};
 
 export type PortView = PortView_Serialize | PortView_Deserialize;
 
@@ -4425,6 +4576,11 @@ export type UpgradeOp =
 "refresh" | 
 /**  Install all available upgrades. */
 "upgrade";
+
+export type UsagePoint = {
+	ts: number,
+	used: number,
+};
 
 export type Variable = Variable_Serialize | Variable_Deserialize;
 

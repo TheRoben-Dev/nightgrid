@@ -12,6 +12,7 @@
 
   const DISK_STEPS = [80, 85, 90, 95, 98] as const;
   const CERT_STEPS = [3, 7, 14, 21, 30] as const;
+  const FORECAST_STEPS = [3, 7, 14, 30, 60] as const;
   const WEBHOOKS = [
     { id: "none", label: "Off" },
     { id: "ntfy", label: "ntfy" },
@@ -81,10 +82,27 @@
   <div class="rules" class:off={!a.enabled}>
     <Toggle label="Host offline" hint="Unreachable for 2 minutes (needs host metrics on)." checked={a.hostOffline} disabled={!a.enabled} onchange={(v) => set({ hostOffline: v })} />
     <Toggle label="Container stopped or unhealthy" hint="A container that was running exits with an error, restarts in a loop, or turns unhealthy." checked={a.containerDown} disabled={!a.enabled} onchange={(v) => set({ containerDown: v })} />
-    <Toggle label="Disk filling up" checked={a.diskFull} disabled={!a.enabled} onchange={(v) => set({ diskFull: v })} />
+    <Toggle label="Disk almost full" checked={a.diskFull} disabled={!a.enabled} onchange={(v) => set({ diskFull: v })} />
     {#if a.diskFull}
       <SegmentSlider label="DISK FULL AT" steps={DISK_STEPS} value={a.diskPercent} format={(v) => `${v}%`} onchange={(v) => set({ diskPercent: v })} />
     {/if}
+    <Toggle
+      label="Disk full soon (forecast)"
+      hint="From each mount's growth over the last two weeks, recorded while hosts are monitored. Shown on Fleet → DISKS."
+      checked={a.diskForecast}
+      disabled={!a.enabled}
+      onchange={(v) => set({ diskForecast: v })}
+    />
+    {#if a.diskForecast}
+      <SegmentSlider label="FULL WITHIN" steps={FORECAST_STEPS} value={a.forecastDays} format={(v) => `${v}d`} onchange={(v) => set({ forecastDays: v })} />
+    {/if}
+    <Toggle
+      label="Storage pool degraded"
+      hint="ZFS pools, RAID arrays and btrfs filesystems, read every 30 minutes on connected hosts (no root needed)."
+      checked={a.poolDegraded}
+      disabled={!a.enabled}
+      onchange={(v) => set({ poolDegraded: v })}
+    />
     <Toggle label="Service down" hint="Health check failing for about 90 seconds." checked={a.serviceDown} disabled={!a.enabled} onchange={(v) => set({ serviceDown: v })} />
     <Toggle label="Certificate or watched item expiring" hint="Service and proxy certificates within the days below; items on Services → Expiry watch within their own warning days." checked={a.certExpiring} disabled={!a.enabled} onchange={(v) => set({ certExpiring: v })} />
     {#if a.certExpiring}

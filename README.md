@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.19 (disk health and forecast)
+
+1. **Fleet → DISKS**: every host lists its mounts with usage and growth. A host that was just added says the forecast is still learning. After a day or more of monitoring, mounts show "+X GB/day" and "full in about N days" (or "not growing").
+2. On a host with ZFS (`zpool status`), mdraid (`cat /proc/mdstat`) or btrfs: the pools appear with state, devices and any scrub or resync progress. On a test VM with a mirror, detach one disk: within 30 minutes (or right away with **Check**) the pool turns red and a **POOL DEGRADED** alert appears. Clicking it opens Fleet → DISKS.
+3. Fill a test mount quickly (`fallocate -l 5G /srv/fill` once an hour for a few hours) with **Settings → Alerts → Disk full soon** at 7 days: a **FILLING UP** alert appears when the line says it will be full within that window.
+4. A host whose sudo needs a password shows "SMART: needs a sudo password". Read it once from System → DISKS with remember ticked, then **Check**: the SMART chip appears.
+
 ### macOS: testing 0.10.18 (update center)
 
 1. **Fleet** (`Cmd+Shift+U`): every host is checked; hosts with security updates or a pending reboot are listed first with red/orange marks. Click a host name for its packages.

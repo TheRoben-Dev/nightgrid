@@ -5,8 +5,8 @@
  * isn't remembered are reported, not prompted for (one prompt per host would
  * be easy to click through).
  */
-import { api, errorText, systemError } from "../api";
-import type { FleetTab, HostRun, HostUpdates, ImageRow } from "../fleet";
+import { api, errorText, systemError, type PoolsReport } from "../api";
+import type { FleetTab, HostDisks, HostRun, HostUpdates, ImageRow } from "../fleet";
 import { hosts } from "./hosts.svelte";
 
 /** Hosts read at once. */
@@ -44,6 +44,65 @@ class FleetStore {
   runs = $state<Record<number, HostRun>>({});
   /** Host whose package list / run log is open. */
   open = $state<number | null>(null);
+  disks = $state<Record<number, HostDisks>>({});
+  disksChecking = $state(false);
+  disksAt = $state<number | null>(null);
+
+  /** Opening the DISKS tab: forecasts right away (local), pools and SMART when stale. */
+  ensureDisks() {
+    if (this.disksChecking) return;
+    if (this.disksAt === null || Date.now() - this.disksAt > FRESH_MS) void this.checkDisks();
+  }
+
+  async checkDisks() {
+    if (this.disksChecking) return;
+    this.disksChecking = true;
+    try {
+      await pool(
+        hosts.hosts.map((h) => h.id),
+        (id) => this.checkDisksHost(id),
+      );
+      this.disksAt = Date.now();
+    } finally {
+      this.disksChecking = false;
+    }
+  }
+
+  /**
+   * Forecasts come from this computer's history; pools are read without
+   * root; SMART only where sudo needs no prompt (never asks here).
+   */
+  async checkDisksHost(id: number) {
+    const prev = this.disks[id];
+    const forecasts = await api.diskForecasts(id).catch(() => prev?.forecasts ?? []);
+    this.disks = {
+      ...this.disks,
+      [id]: { status: "checking", error: null, pools: prev?.pools ?? null, smart: prev?.smart ?? null, smartNote: prev?.smartNote ?? null, forecasts, checkedAt: prev?.checkedAt ?? null },
+    };
+    let pools: PoolsReport;
+    try {
+      pools = await api.systemPools(id);
+    } catch (e) {
+      this.disks = { ...this.disks, [id]: { ...this.disks[id], status: "error", error: hostError(e), checkedAt: Date.now() } };
+      return;
+    }
+    let smart = null;
+    let smartNote: string | null = null;
+    try {
+      smart = await api.systemDisks(id, null);
+    } catch (e) {
+      const { system } = systemError(e);
+      smartNote =
+        system?.kind === "sudoRequired"
+          ? "needs a sudo password: read it once from System → DISKS and tick remember"
+          : system?.kind === "missing"
+            ? "smartctl isn't installed (smartmontools)"
+            : system?.kind === "noSudo"
+              ? "this login can't use sudo"
+              : errorText(e);
+    }
+    this.disks = { ...this.disks, [id]: { status: "ok", error: null, pools, smart, smartNote, forecasts, checkedAt: Date.now() } };
+  }
 
   /** On opening the view: check unless a recent result is there. */
   ensure() {

@@ -37,6 +37,10 @@ pub enum AlertKind {
     LogNewError,
     /// A watched certificate file, domain, token or licence (M10l).
     ExpirySoon,
+    /// A mount forecast to be full soon at its current growth (M10m).
+    DiskFilling,
+    /// A ZFS pool, RAID array or btrfs filesystem lost a device or has errors (M10m).
+    PoolDegraded,
 }
 
 impl AlertKind {
@@ -56,6 +60,8 @@ impl AlertKind {
     pub fn clear_after(self) -> i64 {
         match self {
             AlertKind::DiskFull => 300,
+            // A forecast wobbles around the threshold as usage moves.
+            AlertKind::DiskFilling => 3 * 3600,
             _ => 0,
         }
     }
@@ -73,6 +79,8 @@ impl AlertKind {
             AlertKind::LogBurst => "ERROR BURST",
             AlertKind::LogNewError => "NEW ERROR",
             AlertKind::ExpirySoon => "EXPIRING",
+            AlertKind::DiskFilling => "FILLING UP",
+            AlertKind::PoolDegraded => "POOL DEGRADED",
         }
     }
 }

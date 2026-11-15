@@ -163,6 +163,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         confdiff_cmd::confdiff_compare,
         confdiff_cmd::confdiff_file,
         system_cmd::system_disks,
+        system_cmd::system_pools,
+        system_cmd::disk_forecasts,
         integrations_cmd::integrations_list,
         integrations_cmd::integration_create,
         integrations_cmd::integration_update,

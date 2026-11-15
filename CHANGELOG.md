@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.19] - 2026-11-15
+
+### Added: disk health and fill-up forecast (M10m, part 2)
+- **Fleet → DISKS** shows every host's storage in one list, worst first. It covers **ZFS pools** (state, size, scrub or resilver progress, devices with errors), **software RAID** (`/proc/mdstat`: degraded arrays, failed or spare members, resync and recovery progress) and **btrfs** filesystems (missing devices, error counters, degraded mounts). None of these need root. **SMART** is read too where sudo needs no prompt, and **SMART details** opens System → DISKS.
+- Each mount shows its usage, its growth per day over the last two weeks, a 30-day sparkline and **full in about N days**. Usage is recorded on this computer while a host is monitored, one point an hour, kept 90 days. It isn't part of exports.
+- New alerts: **FILLING UP** when a mount is forecast to be full within 14 days (3, 7, 30 or 60 in Settings → Alerts; critical inside 3 days), and **POOL DEGRADED** for a ZFS pool, RAID array or btrfs filesystem that lost a device or has errors (checked every 30 minutes on connected hosts). Clicking either opens Fleet → DISKS. **✦ Explain** asks DRIFT what to fix first.
+
 ## [0.10.18] - 2026-11-15
 
 ### Added: update center (M10m, part 1)

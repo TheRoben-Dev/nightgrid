@@ -5,6 +5,8 @@
  */
 import type {
   DisksReport_Serialize as DisksReport,
+  MountForecast_Serialize as MountForecast,
+  PoolsReport_Serialize as PoolsReport,
   JournalEntry_Serialize as JournalEntry,
   JournalEvent_Serialize as JournalEvent,
   JournalQuery_Deserialize as JournalQuery,
@@ -76,7 +78,87 @@ function entry(ts: number, i: number, unit: string | null): JournalEntry {
 const streams = new Map<number, ReturnType<typeof setInterval>>();
 let nextRun = 1;
 
+const GB = 1_000_000_000;
+
+/** A mount that grew `perDay` GB a day for three weeks. */
+function forecastOf(mount: string, size: number, used: number, perDay: number): MountForecast {
+  const now = Math.floor(Date.now() / 1000);
+  const daily = Array.from({ length: 21 }, (_, i) => ({ ts: now - (20 - i) * 86_400, used: Math.max(0, used - (20 - i) * perDay * GB + ((i * 7919) % 5) * 0.2 * GB) }));
+  const rate = perDay * GB;
+  return { mount, size, used, at: now, perDay: rate, daysLeft: rate > size * 0.0001 ? (size - used) / rate : null, spanDays: 14, daily };
+}
+
 export const mockSystem = {
+  async pools(hostId: number): Promise<PoolsReport> {
+    await new Promise((r) => setTimeout(r, 300));
+    if (hostId % 3 === 2) return { pools: [], health: "ok" };
+    if (hostId % 3 === 0)
+      return {
+        health: "ok",
+        pools: [
+          {
+            kind: "btrfs",
+            name: "data",
+            detail: "/srv",
+            state: "mounted",
+            health: "ok",
+            size: null,
+            used: null,
+            devices: [
+              { name: "sdb", state: "present", errors: null },
+              { name: "sdc", state: "present", errors: null },
+            ],
+            issues: [],
+            activity: null,
+            progress: null,
+          },
+        ],
+      };
+    return {
+      health: "bad",
+      pools: [
+        {
+          kind: "zfs",
+          name: "tank",
+          detail: null,
+          state: "DEGRADED",
+          health: "bad",
+          size: 3985 * GB,
+          used: 1992 * GB,
+          devices: [
+            { name: "mirror-0", state: "DEGRADED", errors: null },
+            { name: "sda", state: "ONLINE", errors: "0/0/2" },
+            { name: "sdb", state: "UNAVAIL", errors: null },
+          ],
+          issues: ["degraded: a device is missing or failing, redundancy is reduced", "sdb is unavail", "sda has read/write/checksum errors (0/0/2)"],
+          activity: "resilver in progress since Fri Nov 15 10:00:00 2026",
+          progress: 32.5,
+        },
+        {
+          kind: "mdraid",
+          name: "md0",
+          detail: "raid1",
+          state: "active",
+          health: "ok",
+          size: 976 * GB,
+          used: null,
+          devices: [
+            { name: "nvme0n1p1", state: "active", errors: null },
+            { name: "nvme1n1p1", state: "active", errors: null },
+          ],
+          issues: [],
+          activity: "check running, about 12.4min left",
+          progress: 61.2,
+        },
+      ],
+    };
+  },
+  async forecasts(hostId: number): Promise<MountForecast[]> {
+    if (hostId % 3 === 2) return [];
+    return hostId % 3 === 1
+      ? [forecastOf("/", 250 * GB, 61 * GB, 0.05), forecastOf("/srv", 4000 * GB, 3710 * GB, 31)]
+      : [forecastOf("/", 120 * GB, 98 * GB, 1.6), forecastOf("/var/lib/docker", 500 * GB, 210 * GB, 0)];
+  },
   async info(_hostId: number): Promise<SystemInfo> {
     return { sudo: "password", remembered };
   },
