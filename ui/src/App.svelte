@@ -30,6 +30,9 @@
   import ServiceEditor from "./lib/components/services/ServiceEditor.svelte";
   import HomepageImport from "./lib/components/services/HomepageImport.svelte";
   import { services } from "./lib/stores/services.svelte";
+  import Tunnels from "./lib/views/Tunnels.svelte";
+  import TunnelEditor from "./lib/components/tunnels/TunnelEditor.svelte";
+  import { tunnels } from "./lib/stores/tunnels.svelte";
 
   let info = $state<AppInfo | null>(null);
   /** Files stays mounted after the first visit so open editors survive section switches. */
@@ -46,6 +49,7 @@
       booted = true;
       metrics.start();
       services.start();
+      tunnels.start();
       updates.startLaunchCheck();
     });
     api
@@ -142,6 +146,8 @@
         <div class="view-fill"><Docker /></div>
       {:else if section.id === "services"}
         <Services />
+      {:else if section.id === "tunnels"}
+        <Tunnels />
       {:else if section.id === "overview"}
         <Overview {info} />
       {:else if section.id === "settings"}
@@ -161,6 +167,7 @@
 <UpdateDialog />
 <ServiceEditor />
 <HomepageImport />
+<TunnelEditor />
 
 <style>
   .shell {

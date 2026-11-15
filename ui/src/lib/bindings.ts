@@ -154,6 +154,21 @@ export const commands = {
 	 *  ties new services to the host the file was read from.
 	 */
 	homepageImport: (side: Side, dir: string, linkHost: boolean, prune: boolean, options?: InvokeOptions) => __TAURI_INVOKE<ImportSummary>("homepage_import", { side, dir, linkHost, prune }, options),
+	tunnelsSubscribe: (onEvent: Channel<TunnelEvent>, options?: InvokeOptions) => __TAURI_INVOKE<null>("tunnels_subscribe", { onEvent }, options),
+	tunnelsList: (options?: InvokeOptions) => __TAURI_INVOKE<TunnelView[]>("tunnels_list", undefined, options),
+	tunnelCreate: (input: TunnelInput_Deserialize, startNow: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Tunnel>("tunnel_create", { input, startNow }, options),
+	/**  Saves changes; a running tunnel restarts with them. */
+	tunnelUpdate: (id: number, input: TunnelInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Tunnel>("tunnel_update", { id, input }, options),
+	tunnelDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("tunnel_delete", { id }, options),
+	tunnelStart: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("tunnel_start", { id }, options),
+	/**  Stops a tunnel. Temporary ones are removed. */
+	tunnelStop: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("tunnel_stop", { id }, options),
+	/**
+	 *  "Open through tunnel": forwards `dest_host:dest_port` (as the host sees
+	 *  it) to a free local port and returns that port once it's listening. An
+	 *  existing temporary tunnel to the same place is reused.
+	 */
+	tunnelOpenTemporary: (hostId: number, destHost: string, destPort: number, options?: InvokeOptions) => __TAURI_INVOKE<number>("tunnel_open_temporary", { hostId, destHost, destPort }, options),
 	updateCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateStatus_Serialize>("update_check", undefined, options),
 	/**
 	 *  Downloads, verifies and installs the update from the last check, then
@@ -1412,6 +1427,17 @@ export type Stamp_Serialize = {
 	mtime: number | null,
 };
 
+/**
+ *  u64 counters are typed `u32` for TypeScript (plain `number`); values above
+ *  4 GiB still serialize exactly up to 2^53.
+ */
+export type StatsView = {
+	rx: number,
+	tx: number,
+	active: number,
+	total: number,
+};
+
 /**  One temperature sensor. */
 export type Temp = {
 	/**  hwmon chip (`coretemp`, `k10temp`, `nvme`, `cpu_thermal`) or thermal zone type. */
@@ -1483,6 +1509,79 @@ export type TlsInfo_Serialize = {
 	subject: string | null,
 	issuer: string | null,
 };
+
+export type Tunnel = {
+	id: number,
+	hostId: number,
+	name: string,
+	kind: TunnelKind,
+	bindAddr: string,
+	/**  0 = any free port (local/dynamic), or let the server pick (remote). */
+	bindPort: number,
+	destHost: string,
+	destPort: number,
+	autoStart: boolean,
+};
+
+export type TunnelEvent = { kind: "state"; id: number; state: TunnelState } | { kind: "stats"; stats: TunnelStats[] } | 
+/**  Temporary tunnels were added or removed: reload the list. */
+{ kind: "changed" };
+
+export type TunnelInput = TunnelInput_Serialize | TunnelInput_Deserialize;
+
+export type TunnelInput_Deserialize = {
+	hostId: number,
+	name?: string,
+	kind: TunnelKind,
+	bindAddr?: string,
+	bindPort: number,
+	destHost?: string,
+	destPort?: number,
+	autoStart?: boolean,
+};
+
+export type TunnelInput_Serialize = {
+	hostId: number,
+	name: string,
+	kind: TunnelKind,
+	bindAddr: string,
+	bindPort: number,
+	destHost: string,
+	destPort: number,
+	autoStart: boolean,
+};
+
+export type TunnelKind = 
+/**  Listen here, connect from the server (`ssh -L`). */
+"local" | 
+/**  Listen on the server, connect from here (`ssh -R`). */
+"remote" | 
+/**  SOCKS5 proxy here, connections leave from the server (`ssh -D`). */
+"dynamic";
+
+export type TunnelState = { kind: "stopped" } | { kind: "starting" } | { kind: "running"; 
+/**  The port actually listening (useful when 0 = "any" was saved). */
+boundPort: number } | 
+/**  Lost or couldn't reach the host; trying again. */
+{ kind: "retrying"; message: string; retrySecs: number } | 
+/**
+ *  Won't retry on its own: port in use, server refused, or the host needs
+ *  a login (open a terminal on it once, then start again).
+ */
+{ kind: "failed"; message: string; needsLogin: boolean };
+
+export type TunnelStats = {
+	id: number,
+	stats: StatsView,
+};
+
+/**  A tunnel as the UI lists it: saved ones, then temporary ones (negative ids). */
+export type TunnelView = {
+	temporary: boolean,
+	spec: string,
+	public: boolean,
+	state: TunnelState,
+} & Tunnel;
 
 export type UpdateInfo = UpdateInfo_Serialize | UpdateInfo_Deserialize;
 

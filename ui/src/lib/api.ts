@@ -72,12 +72,20 @@ import {
   type HomepageEntry_Serialize as HomepageEntry,
   type HomepagePreview_Serialize as HomepagePreview,
   type ImportSummary,
+  type Tunnel,
+  type TunnelInput_Deserialize as TunnelInput,
+  type TunnelView,
+  type TunnelEvent,
+  type TunnelState,
+  type TunnelKind,
+  type StatsView as TunnelTraffic,
 } from "./bindings";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
 import { mockFiles } from "./mockFiles";
 import { mockMetrics } from "./mockMetrics";
 import { mockServices } from "./mockServices";
+import { mockTunnels } from "./mockTunnels";
 
 export type {
   AppInfo,
@@ -138,6 +146,13 @@ export type {
   HomepageEntry,
   HomepagePreview,
   ImportSummary,
+  Tunnel,
+  TunnelInput,
+  TunnelView,
+  TunnelEvent,
+  TunnelState,
+  TunnelKind,
+  TunnelTraffic,
   UpdateProgress,
   UpdateStatus,
   MountUsage,
@@ -356,6 +371,21 @@ export const api = {
     T() ? commands.homepagePreview(side, dir) : mockServices.preview(side, dir),
   homepageImport: (side: Side, dir: string, linkHost: boolean, prune: boolean): Promise<ImportSummary> =>
     T() ? commands.homepageImport(side, dir, linkHost, prune) : mockServices.importHomepage(side, dir, linkHost, prune),
+  tunnelsSubscribe: (on: (e: TunnelEvent) => void): Promise<null> => {
+    if (!T()) return mockTunnels.subscribe(on);
+    const ch = new Channel<TunnelEvent>();
+    ch.onmessage = on;
+    return commands.tunnelsSubscribe(ch as unknown as Parameters<typeof commands.tunnelsSubscribe>[0]);
+  },
+  tunnelsList: (): Promise<TunnelView[]> => (T() ? commands.tunnelsList() : mockTunnels.list()),
+  tunnelCreate: (i: TunnelInput, startNow: boolean): Promise<Tunnel> =>
+    T() ? commands.tunnelCreate(i, startNow) : mockTunnels.create(i, startNow),
+  tunnelUpdate: (id: number, i: TunnelInput): Promise<Tunnel> => (T() ? commands.tunnelUpdate(id, i) : mockTunnels.update(id, i)),
+  tunnelDelete: (id: number): Promise<null> => (T() ? commands.tunnelDelete(id) : mockTunnels.remove(id)),
+  tunnelStart: (id: number): Promise<null> => (T() ? commands.tunnelStart(id) : mockTunnels.start(id)),
+  tunnelStop: (id: number): Promise<null> => (T() ? commands.tunnelStop(id) : mockTunnels.stop(id)),
+  tunnelOpenTemporary: (hostId: number, destHost: string, destPort: number): Promise<number> =>
+    T() ? commands.tunnelOpenTemporary(hostId, destHost, destPort) : mockTunnels.openTemporary(hostId, destHost, destPort),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));

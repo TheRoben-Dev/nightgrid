@@ -111,7 +111,8 @@ pub fn is_public_bind(addr: &str) -> bool {
     !matches!(addr, "127.0.0.1" | "localhost" | "::1") && !addr.starts_with("127.")
 }
 
-fn normalize(i: &TunnelInput) -> Result<TunnelInput> {
+/// Validates and fills defaults (bind address per kind, trimmed fields).
+pub fn normalize(i: &TunnelInput) -> Result<TunnelInput> {
     let inv = |field: &'static str, reason: &str| Error::Invalid { field, reason: reason.into() };
     let mut t = i.clone();
     t.name = t.name.trim().chars().take(80).collect();

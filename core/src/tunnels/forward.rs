@@ -38,13 +38,15 @@ pub struct Stats {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
+/// u64 counters are typed `u32` for TypeScript (plain `number`); values above
+/// 4 GiB still serialize exactly up to 2^53.
 pub struct StatsView {
-    #[cfg_attr(feature = "specta", specta(type = f64))]
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub rx: u64,
-    #[cfg_attr(feature = "specta", specta(type = f64))]
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub tx: u64,
     pub active: u32,
-    #[cfg_attr(feature = "specta", specta(type = f64))]
+    #[cfg_attr(feature = "specta", specta(type = u32))]
     pub total: u64,
 }
 

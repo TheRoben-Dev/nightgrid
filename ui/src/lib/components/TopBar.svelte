@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tunnels } from "../stores/tunnels.svelte";
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
   import { sectionById } from "../sections";
   import { terms } from "../stores/terms.svelte";
@@ -30,11 +31,21 @@
 
   <div class="indicators" aria-label="Connections">
     <span class="ind" title="Active SSH sessions"><span class="glyph" aria-hidden="true">◇</span> SSH <b>{terms.stats.ssh}</b></span>
-    <span class="ind" title="Active tunnels"><span class="glyph" aria-hidden="true">⇄</span> TUN <b>0</b></span>
+    <button type="button" class="ind tun" class:on={tunnels.activeCount > 0} title="Active tunnels" onclick={() => ui.go("tunnels")}><span class="glyph" aria-hidden="true">⇄</span> TUN <b>{tunnels.activeCount}</b></button>
   </div>
 </header>
 
 <style>
+  .tun {
+    all: unset;
+    cursor: pointer;
+  }
+  .tun:focus-visible {
+    outline: 1px solid var(--accent);
+  }
+  .tun.on b {
+    color: var(--ok);
+  }
   .topbar {
     height: var(--topbar-h);
     flex: none;

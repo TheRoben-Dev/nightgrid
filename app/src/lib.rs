@@ -11,6 +11,7 @@ mod platform;
 mod services_cmd;
 mod state;
 mod term_cmd;
+mod tunnels_cmd;
 mod update_cmd;
 
 use tauri::Manager;
@@ -94,6 +95,14 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         services_cmd::homepage_detect,
         services_cmd::homepage_preview,
         services_cmd::homepage_import,
+        tunnels_cmd::tunnels_subscribe,
+        tunnels_cmd::tunnels_list,
+        tunnels_cmd::tunnel_create,
+        tunnels_cmd::tunnel_update,
+        tunnels_cmd::tunnel_delete,
+        tunnels_cmd::tunnel_start,
+        tunnels_cmd::tunnel_stop,
+        tunnels_cmd::tunnel_open_temporary,
         update_cmd::update_check,
         update_cmd::update_install,
     ])

@@ -4,6 +4,8 @@
   import { hosts } from "../../stores/hosts.svelte";
   import { CERT_WARN_DAYS, certDays, healthOf, hostOfUrl, nowSecs, services, uptime } from "../../stores/services.svelte";
   import Sparkline from "../metrics/Sparkline.svelte";
+  import { errorText } from "../../api";
+  import { tunnels } from "../../stores/tunnels.svelte";
 
   interface Props {
     service: Service;
@@ -20,6 +22,21 @@
   const days = $derived(certDays(tls));
   const host = $derived(service.hostId != null ? hosts.byId(service.hostId) : undefined);
   const busy = $derived(services.checking.includes(service.id));
+  let viaBusy = $state(false);
+  let viaError = $state<string | null>(null);
+
+  async function viaTunnel() {
+    if (service.hostId == null) return;
+    viaBusy = true;
+    viaError = null;
+    try {
+      await tunnels.openThrough(service.hostId, service.url);
+    } catch (e) {
+      viaError = errorText(e);
+    } finally {
+      viaBusy = false;
+    }
+  }
   const monogram = $derived(
     service.name
       .split(/\s+/)
@@ -107,6 +124,7 @@
   {#if st && !st.result.up && st.result.error}
     <p class="err" role="status">{st.result.error}</p>
   {/if}
+  {#if viaError}<p class="err" role="alert">{viaError}</p>{/if}
 
   <footer>
     {#if showHost && host}<span class="chip" title="Runs on {host.name}">{host.name}</span>{/if}
@@ -117,6 +135,15 @@
       <button type="button" class="btn ghost tiny" disabled={busy} onclick={() => services.checkNow(service.id)}>
         {busy ? "…" : "Check"}
       </button>
+    {/if}
+    {#if service.hostId != null}
+      <button
+        type="button"
+        class="btn ghost tiny"
+        disabled={viaBusy}
+        title="Forward {hostOfUrl(service.url)} from {host?.name ?? 'its host'} to this computer and open it"
+        onclick={viaTunnel}>{viaBusy ? "…" : "Tunnel"}</button
+      >
     {/if}
     <button type="button" class="btn ghost tiny" onclick={() => (services.editing = service.id)}>Edit</button>
   </footer>

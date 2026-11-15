@@ -6,6 +6,7 @@ import { hosts } from "../stores/hosts.svelte";
 import { layout } from "../stores/layout.svelte";
 import { metrics } from "../stores/metrics.svelte";
 import { services } from "../stores/services.svelte";
+import { isActive, tunnels } from "../stores/tunnels.svelte";
 import { settings } from "../stores/settings.svelte";
 import { terms } from "../stores/terms.svelte";
 import { ui } from "../stores/ui.svelte";
@@ -201,6 +202,33 @@ export function buildCommands(): PaletteCommand[] {
     })),
   ];
 
-  return [...connect, ...browse, ...dockerHosts,
+  const tunnelCmds: PaletteCommand[] = [
+    ...(hosts.hosts.length
+      ? [
+          {
+            id: "tunnels.add",
+            title: "Add tunnel (port forward)",
+            group: "TUNNELS",
+            keywords: ["ssh -L", "-R", "-D", "socks", "forward", "port"],
+            run: () => {
+              ui.go("tunnels");
+              tunnels.openNew(hosts.hosts[0].id);
+            },
+          },
+        ]
+      : []),
+    ...tunnels.tunnels.map((t) => {
+      const on = isActive(tunnels.stateOf(t.id));
+      return {
+        id: `tunnels.toggle.${t.id}`,
+        title: `${on ? "Stop" : "Start"} tunnel ${t.name || t.spec}`,
+        group: "TUNNELS",
+        keywords: [t.spec, hosts.byId(t.hostId)?.name ?? ""],
+        run: () => void tunnels.toggle(t.id),
+      };
+    }),
+  ];
+
+  return [...connect, ...browse, ...dockerHosts, ...tunnelCmds,
     ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...themes];
 }
