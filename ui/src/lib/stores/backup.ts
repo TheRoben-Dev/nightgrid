@@ -19,6 +19,7 @@ export function summaryLines(s: BackupSummary): string[] {
     [s.tags, "tag"],
     [s.snippets, "snippet"],
     [s.playbooks, "playbook"],
+    [s.notes ?? 0, "note"],
     [s.services, "service"],
     [s.tunnels, "tunnel"],
     [s.integrations, "integration"],

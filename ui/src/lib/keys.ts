@@ -88,6 +88,7 @@ export const DEFAULT_KEYMAP = {
   "nav.tunnels": "Mod+6",
   "nav.system": "Mod+7",
   "nav.automation": "Mod+8",
+  "nav.notes": "Mod+9",
   "effects.toggle": "Mod+Shift+E",
   "palette.openAlt": "Mod+Shift+K",
   "term.newLocal": "Mod+Shift+T",

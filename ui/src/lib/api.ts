@@ -136,6 +136,10 @@ import {
   type SystemInfo,
   type Unit_Serialize as Unit,
   type Schedules_Serialize as Schedules,
+  type HistoryEntry_Serialize as HistoryEntry,
+  type HistoryResult_Serialize as HistoryResult,
+  type Note_Serialize as Note,
+  type NoteInput_Serialize as NoteInput,
   type SecurityReport_Serialize as SecurityReport,
   type Check_Serialize as SecurityCheck,
   type CheckStatus,
@@ -151,6 +155,7 @@ import {
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockAutomation } from "./mockAutomation";
+import { mockNotes } from "./mockNotes";
 import { mockHelper } from "./mockHelper";
 import { mockBackup } from "./mockBackup";
 import { mockIntegrations } from "./mockIntegrations";
@@ -286,6 +291,10 @@ export type {
   Unit,
   Schedules,
   SecurityReport,
+  HistoryEntry,
+  HistoryResult,
+  Note,
+  NoteInput,
   SecurityCheck,
   CheckStatus,
   Listener,
@@ -350,6 +359,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   handheld: false,
   controllerNav: true,
   helperEnabled: false,
+  historySearch: false,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -357,7 +367,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.3-web",
+      version: "0.10.4-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -557,6 +567,11 @@ export const api = {
   systemSudoForget: (hostId: number): Promise<null> => (T() ? commands.systemSudoForget(hostId) : mockSystem.forget(hostId)),
   systemUnits: (hostId: number): Promise<Unit[]> => (T() ? commands.systemUnits(hostId) : mockSystem.units(hostId)),
   systemSecurity: (hostId: number): Promise<SecurityReport> => (T() ? commands.systemSecurity(hostId) : mockSystem.security(hostId)),
+  systemHistorySearch: (hostId: number, query: string): Promise<HistoryResult> =>
+    T() ? commands.systemHistorySearch(hostId, query) : mockSystem.history(hostId, query),
+  notesList: (): Promise<Note[]> => (T() ? commands.notesList() : mockNotes.list()),
+  noteSave: (id: number | null, i: NoteInput): Promise<Note> => (T() ? commands.noteSave(id, i) : mockNotes.save(id, i)),
+  noteDelete: (id: number): Promise<null> => (T() ? commands.noteDelete(id) : mockNotes.delete(id)),
   systemSchedules: (hostId: number): Promise<Schedules> => (T() ? commands.systemSchedules(hostId) : mockSystem.schedules(hostId)),
   systemUnitStatus: (hostId: number, unit: string): Promise<string> =>
     T() ? commands.systemUnitStatus(hostId, unit) : mockSystem.unitStatus(hostId, unit),

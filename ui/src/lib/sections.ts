@@ -1,6 +1,6 @@
 import type { ActionId } from "./keys";
 
-export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "automation" | "settings";
+export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "automation" | "notes" | "settings";
 
 export interface Section {
   id: SectionId;
@@ -19,6 +19,7 @@ export const SECTIONS: Section[] = [
   { id: "tunnels", label: "Tunnels", code: "TUN", action: "nav.tunnels", milestone: "M5" },
   { id: "system", label: "System", code: "SYS", action: "nav.system", milestone: "M6" },
   { id: "automation", label: "Automation", code: "AUT", action: "nav.automation", milestone: "M8" },
+  { id: "notes", label: "Notes", code: "NTS", action: "nav.notes", milestone: "M10e" },
   { id: "settings", label: "Settings", code: "CFG", action: "nav.settings", milestone: "M0" },
 ];
 

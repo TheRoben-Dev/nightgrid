@@ -49,6 +49,10 @@ pub struct AppSettings {
     /// SSH terminals: `nano FILE` and `$EDITOR` open the file in the app's
     /// editor (session-only shell hook, see `edit_hook`).
     pub term_edit_in_app: bool,
+    /// Search the shell history (bash, zsh, fish) of hosts from the terminal.
+    /// Off by default; lines that look like they hold a secret are dropped and
+    /// nothing is stored.
+    pub history_search: bool,
     /// Collect host metrics (CPU, memory, disks, network, temps) over SSH.
     pub metrics_enabled: bool,
     /// Seconds between samples for hosts on screen.
@@ -144,6 +148,7 @@ impl Default for AppSettings {
             term_right_click_paste: true,
             term_cursor_blink: true,
             term_edit_in_app: false,
+            history_search: false,
             metrics_enabled: true,
             metrics_interval_secs: 2,
             metrics_background_secs: 60,

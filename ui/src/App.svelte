@@ -37,6 +37,7 @@
   import { services } from "./lib/stores/services.svelte";
   import Tunnels from "./lib/views/Tunnels.svelte";
   import Automation from "./lib/views/Automation.svelte";
+  import Notes from "./lib/views/Notes.svelte";
   import SnippetEditor from "./lib/components/automation/SnippetEditor.svelte";
   import PlaybookEditor from "./lib/components/automation/PlaybookEditor.svelte";
   import { automation } from "./lib/stores/automation.svelte";
@@ -153,7 +154,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.3"} />
+  <LeftRail version={info?.version ?? "0.10.4"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system"} aria-label={section.label}>
@@ -185,6 +186,8 @@
         <Tunnels />
       {:else if section.id === "automation"}
         <Automation />
+      {:else if section.id === "notes"}
+        <div class="view-fill"><Notes /></div>
       {:else if section.id === "overview"}
         <Overview {info} />
       {:else if section.id === "settings"}

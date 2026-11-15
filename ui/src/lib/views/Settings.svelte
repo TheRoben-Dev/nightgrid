@@ -36,6 +36,7 @@
     "nav.tunnels": "Tunnels",
     "nav.system": "System",
     "nav.automation": "Automation",
+    "nav.notes": "Notes",
     "effects.toggle": "Toggle effects",
     "palette.openAlt": "Command palette (works in terminal)",
     "term.newLocal": "New local terminal",
@@ -162,6 +163,12 @@
         hint="In SSH terminals, nano FILE and $EDITOR (git commit, crontab -e, sudoedit) open the file in the editor tab with normal shortcuts instead of nano. Nothing is installed on the server; applies to new terminals."
         checked={settings.value.termEditInApp}
         onchange={(v) => settings.update({ termEditInApp: v })}
+      />
+      <Toggle
+        label="Shell history search"
+        hint="Adds a HIST button to SSH terminals that searches the host's bash, zsh and fish history. Lines that look like they hold a password or token are left out, and nothing is saved."
+        checked={settings.value.historySearch}
+        onchange={(v) => settings.update({ historySearch: v })}
       />
     </div>
   </Panel>

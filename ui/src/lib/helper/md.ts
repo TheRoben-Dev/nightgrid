@@ -8,8 +8,14 @@
 export type Inline = { kind: "text" | "code" | "bold" | "em"; text: string };
 export type Block =
   | { kind: "p"; lines: Inline[][] }
-  | { kind: "ul" | "ol"; items: Inline[][] }
-  | { kind: "code"; lang: string; text: string; open?: boolean };
+  | { kind: "ul" | "ol"; items: Inline[][]; start?: number }
+  | { kind: "code"; lang: string; text: string; open?: boolean }
+  | { kind: "h"; level: number; text: Inline[] };
+
+export interface MdOptions {
+  /** Keep `#` headings as heading blocks (notes); DRIFT folds them into text. */
+  headings?: boolean;
+}
 
 export function inline(s: string): Inline[] {
   const out: Inline[] = [];
@@ -24,7 +30,8 @@ export function inline(s: string): Inline[] {
   return out;
 }
 
-export function parseMd(src: string): Block[] {
+export function parseMd(src: string, opts: MdOptions = {}): Block[] {
+  const heading = /^\s{0,3}(#{1,4})\s+(.*?)\s*#*\s*$/;
   const blocks: Block[] = [];
   const lines = src.replace(/\r\n/g, "\n").split("\n");
   let i = 0;
@@ -44,17 +51,31 @@ export function parseMd(src: string): Block[] {
       i++;
       continue;
     }
+    const h = opts.headings ? heading.exec(line) : null;
+    if (h) {
+      blocks.push({ kind: "h", level: h[1].length, text: inline(h[2]) });
+      i++;
+      continue;
+    }
     const bullet = /^\s*[-*•]\s+(.*)$/;
     const num = /^\s*\d+[.)]\s+(.*)$/;
     if (bullet.test(line) || num.test(line)) {
       const re = bullet.test(line) ? bullet : num;
+      const start = re === num ? parseInt(line, 10) : undefined;
       const items: Inline[][] = [];
       while (i < lines.length && re.test(lines[i])) items.push(inline(re.exec(lines[i++])![1]));
-      blocks.push({ kind: re === bullet ? "ul" : "ol", items });
+      blocks.push(re === bullet ? { kind: "ul", items } : { kind: "ol", items, start });
       continue;
     }
     const para: Inline[][] = [];
-    while (i < lines.length && lines[i].trim() && !/^\s*```/.test(lines[i]) && !bullet.test(lines[i]) && !num.test(lines[i])) {
+    while (
+      i < lines.length &&
+      lines[i].trim() &&
+      !/^\s*```/.test(lines[i]) &&
+      !bullet.test(lines[i]) &&
+      !num.test(lines[i]) &&
+      !(opts.headings && heading.test(lines[i]))
+    ) {
       para.push(inline(lines[i++].replace(/^#+\s+/, "")));
     }
     blocks.push({ kind: "p", lines: para });

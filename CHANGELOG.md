@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-11-15
+
+### Added: notes, runbooks and history search (M10e)
+- **Notes** (`Mod+9`): markdown notes and runbooks, optionally tied to a host, with tags, pins, search and host/tag filters. Each code block in a note has **Send to terminal** (types it at the prompt of a shell on that host, opening one if needed; you press Enter) and **Copy**. **✦ Explain** asks DRIFT to walk through a runbook.
+- Notes never hold secrets: text that looks like a password, token, private key or a password in a URL is refused on save, and **Mask them** replaces those values with `••••`. Notes are included in encrypted backups.
+- **Shell history search** (off by default, **Settings → Terminal**): a **HIST** button on SSH terminals searches the host's bash, zsh and fish history. Picking a result types it at the prompt; **+ Note** starts a runbook from it. Lines that look like they hold a secret are left out (and counted), and nothing is saved.
+
 ## [0.10.3] - 2026-11-15
 
 ### Added: security hygiene and port map (M10d)

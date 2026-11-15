@@ -85,6 +85,36 @@ class TermsStore {
     this.openTab({ ...this.originFor(hostId), container } as Origin);
   }
 
+  /**
+   * Types `text` at the prompt of a shell on `hostId` (null = whatever shell
+   * is focused, else a new local one): the focused pane if it fits, else
+   * another open shell on that host, else a new tab once it has connected.
+   * Nothing runs until the user presses Enter. Returns the pane's title.
+   */
+  send(text: string, hostId: number | null): string {
+    const fits = (s: TermSession | undefined): s is TermSession =>
+      !!s && s.state !== "exited" && s.state !== "failed" && (hostId === null || (s.origin.kind === "ssh" && s.origin.hostId === hostId && !s.origin.container));
+    let target = this.currentSession;
+    if (!fits(target)) target = [...this.sessions.values()].find(fits);
+    if (target) {
+      target.reveal?.();
+      target.paste(text);
+      return target.title;
+    }
+    if (hostId === null) this.openLocal();
+    else this.openHost(hostId);
+    const fresh = this.currentSession;
+    if (!fresh) return "";
+    const started = Date.now();
+    const tick = setInterval(() => {
+      if (fresh.state === "connected") {
+        clearInterval(tick);
+        fresh.paste(text);
+      } else if (Date.now() - started > 60_000 || fresh.state === "failed" || fresh.state === "exited") clearInterval(tick);
+    }, 250);
+    return fresh.title;
+  }
+
   /** Splits the focused pane, opening the same kind of session next to it. */
   split(dir: Dir) {
     const tab = this.current;

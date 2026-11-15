@@ -175,6 +175,11 @@ export const commands = {
 	systemUnits: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Unit_Serialize[]>("system_units", { hostId }, options),
 	/**  Systemd timers and cron jobs (read-only). */
 	systemSchedules: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Schedules_Serialize>("system_schedules", { hostId }, options),
+	/**
+	 *  Searches the login user's shell history (opt-in setting). Secret-looking
+	 *  lines are dropped in core; nothing is stored.
+	 */
+	systemHistorySearch: (hostId: number, query: string, options?: InvokeOptions) => __TAURI_INVOKE<HistoryResult_Serialize>("system_history_search", { hostId, query }, options),
 	/**  Security checks and listening ports (read-only, no sudo). */
 	systemSecurity: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<SecurityReport_Serialize>("system_security", { hostId }, options),
 	systemUnitStatus: (hostId: number, unit: string, options?: InvokeOptions) => __TAURI_INVOKE<string>("system_unit_status", { hostId, unit }, options),
@@ -218,6 +223,10 @@ export const commands = {
 	 *  restart with the instance named.
 	 */
 	ampInstanceAction: (id: number, instance: string, action: AmpAction, options?: InvokeOptions) => __TAURI_INVOKE<null>("amp_instance_action", { id, instance, action }, options),
+	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
+	/**  Creates (`id` = null) or updates a note. */
+	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
+	noteDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("note_delete", { id }, options),
 	snippetsList: (options?: InvokeOptions) => __TAURI_INVOKE<Snippet[]>("snippets_list", undefined, options),
 	/**  Creates (`id` = null) or updates a snippet. */
 	snippetSave: (id: number | null, input: SnippetInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Snippet>("snippet_save", { id, input }, options),
@@ -245,7 +254,7 @@ export const commands = {
 	 *  Picks a backup (dialog or sync folder), decrypts it and returns what it
 	 *  holds. The path is remembered for [`backup_import`].
 	 */
-	backupOpen: (passphrase: string, fromFolder: boolean, options?: InvokeOptions) => __TAURI_INVOKE<BackupPreview | null>("backup_open", { passphrase, fromFolder }, options),
+	backupOpen: (passphrase: string, fromFolder: boolean, options?: InvokeOptions) => __TAURI_INVOKE<BackupPreview_Serialize | null>("backup_open", { passphrase, fromFolder }, options),
 	/**
 	 *  Imports the backup picked with [`backup_open`]. The app should restart
 	 *  afterwards so every view and background task reloads.
@@ -538,6 +547,12 @@ export type AppSettings_Deserialize = {
 	 *  editor (session-only shell hook, see `edit_hook`).
 	 */
 	termEditInApp?: boolean,
+	/**
+	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
+	 *  Off by default; lines that look like they hold a secret are dropped and
+	 *  nothing is stored.
+	 */
+	historySearch?: boolean,
 	/**  Collect host metrics (CPU, memory, disks, network, temps) over SSH. */
 	metricsEnabled?: boolean,
 	/**  Seconds between samples for hosts on screen. */
@@ -602,6 +617,12 @@ export type AppSettings_Serialize = {
 	 *  editor (session-only shell hook, see `edit_hook`).
 	 */
 	termEditInApp: boolean,
+	/**
+	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
+	 *  Off by default; lines that look like they hold a secret are dropped and
+	 *  nothing is stored.
+	 */
+	historySearch: boolean,
 	/**  Collect host metrics (CPU, memory, disks, network, temps) over SSH. */
 	metricsEnabled: boolean,
 	/**  Seconds between samples for hosts on screen. */
@@ -686,13 +707,23 @@ export type BackupImported_Serialize = {
 	secretsError: string | null,
 };
 
-export type BackupPreview = {
+export type BackupPreview = BackupPreview_Serialize | BackupPreview_Deserialize;
+
+export type BackupPreview_Deserialize = {
 	path: string,
-	summary: BackupSummary,
+	summary: BackupSummary_Deserialize,
+};
+
+export type BackupPreview_Serialize = {
+	path: string,
+	summary: BackupSummary_Serialize,
 };
 
 /**  What a backup holds, shown before importing. */
-export type BackupSummary = {
+export type BackupSummary = BackupSummary_Serialize | BackupSummary_Deserialize;
+
+/**  What a backup holds, shown before importing. */
+export type BackupSummary_Deserialize = {
 	appVersion: string,
 	/**  Unix seconds. */
 	createdAt: number | null,
@@ -701,6 +732,26 @@ export type BackupSummary = {
 	tags: number,
 	snippets: number,
 	playbooks: number,
+	notes?: number,
+	services: number,
+	tunnels: number,
+	integrations: number,
+	bookmarks: number,
+	settings: boolean,
+	secrets: number,
+};
+
+/**  What a backup holds, shown before importing. */
+export type BackupSummary_Serialize = {
+	appVersion: string,
+	/**  Unix seconds. */
+	createdAt: number | null,
+	hosts: number,
+	groups: number,
+	tags: number,
+	snippets: number,
+	playbooks: number,
+	notes: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -1286,6 +1337,48 @@ export type HelperStatus = {
 	loaded: boolean,
 	/**  The build offloads to the GPU (Metal on macOS); otherwise CPU. */
 	gpu: boolean,
+};
+
+export type HistoryEntry = HistoryEntry_Serialize | HistoryEntry_Deserialize;
+
+export type HistoryEntry_Deserialize = {
+	command: string,
+	/**  `bash`, `zsh` or `fish`. */
+	shell: string,
+	/**  Unix seconds, when the history file records it. */
+	when?: number | null,
+};
+
+export type HistoryEntry_Serialize = {
+	command: string,
+	/**  `bash`, `zsh` or `fish`. */
+	shell: string,
+	/**  Unix seconds, when the history file records it. */
+	when: number | null,
+};
+
+export type HistoryResult = HistoryResult_Serialize | HistoryResult_Deserialize;
+
+export type HistoryResult_Deserialize = {
+	/**  Newest first, duplicates folded into their latest use. */
+	entries: HistoryEntry_Deserialize[],
+	/**  Shells whose history file was found. */
+	shells: string[],
+	/**  Matching lines left out because they looked like they held a secret. */
+	hidden: number,
+	/**  More matches than [`MAX_RESULTS`]. */
+	truncated: boolean,
+};
+
+export type HistoryResult_Serialize = {
+	/**  Newest first, duplicates folded into their latest use. */
+	entries: HistoryEntry_Serialize[],
+	/**  Shells whose history file was found. */
+	shells: string[],
+	/**  Matching lines left out because they looked like they held a secret. */
+	hidden: number,
+	/**  More matches than [`MAX_RESULTS`]. */
+	truncated: boolean,
 };
 
 export type HomepageCandidate = {
@@ -1959,6 +2052,52 @@ export type NewJob_Serialize = {
 	/**  Directory the item is copied into. */
 	dstDir: string,
 	policy: ConflictPolicy,
+};
+
+export type Note = Note_Serialize | Note_Deserialize;
+
+export type NoteInput = NoteInput_Serialize | NoteInput_Deserialize;
+
+export type NoteInput_Deserialize = {
+	title?: string,
+	body?: string,
+	hostId?: number | null,
+	tags?: string[],
+	pinned?: boolean,
+};
+
+export type NoteInput_Serialize = {
+	title: string,
+	body: string,
+	hostId: number | null,
+	tags: string[],
+	pinned: boolean,
+};
+
+export type Note_Deserialize = {
+	id: number,
+	title: string,
+	/**  Markdown. */
+	body: string,
+	/**  `None` = not tied to a host. */
+	hostId?: number | null,
+	tags: string[],
+	pinned: boolean,
+	/**  Unix seconds. */
+	updatedAt: number,
+};
+
+export type Note_Serialize = {
+	id: number,
+	title: string,
+	/**  Markdown. */
+	body: string,
+	/**  `None` = not tied to a host. */
+	hostId: number | null,
+	tags: string[],
+	pinned: boolean,
+	/**  Unix seconds. */
+	updatedAt: number,
 };
 
 export type NvmeHealth = {

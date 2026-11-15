@@ -5,6 +5,7 @@
 //! (nothing is installed there). Commands that need root go through
 //! [`sudo`], which feeds the password on stdin and never on a command line.
 
+pub mod history;
 pub mod journal;
 pub mod packages;
 pub mod schedule;

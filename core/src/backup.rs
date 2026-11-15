@@ -91,6 +91,7 @@ const TABLES: &[Table] = &[
         keys: &[&["name"]],
     },
     Table { name: "playbooks", id: true, fks: &[], keys: &[&["name"]] },
+    Table { name: "notes", id: true, fks: &[("host_id", "hosts", Missing::Null)], keys: &[&["title"]] },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];
 
@@ -147,6 +148,8 @@ pub struct BackupSummary {
     pub tags: u32,
     pub snippets: u32,
     pub playbooks: u32,
+    #[serde(default)]
+    pub notes: u32,
     pub services: u32,
     pub tunnels: u32,
     pub integrations: u32,
@@ -345,6 +348,7 @@ impl Bundle {
             tags: self.count("tags"),
             snippets: self.count("snippets"),
             playbooks: self.count("playbooks"),
+            notes: self.count("notes"),
             services: self.count("services"),
             tunnels: self.count("tunnels"),
             integrations: self.count("integrations"),

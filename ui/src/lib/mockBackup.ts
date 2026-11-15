@@ -17,6 +17,7 @@ const summary = {
   tags: 3,
   snippets: 4,
   playbooks: 1,
+  notes: 2,
   services: 6,
   tunnels: 2,
   integrations: 1,

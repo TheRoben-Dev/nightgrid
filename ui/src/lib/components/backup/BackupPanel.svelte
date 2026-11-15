@@ -116,7 +116,7 @@
 
 <Panel title="BACKUP" guide="settings-backup">
   <p class="muted lead">
-    Moves your setup between machines: hosts, groups, tags, snippets, playbooks, services, tunnels, integrations,
+    Moves your setup between machines: hosts, groups, tags, snippets, playbooks, notes, services, tunnels, integrations,
     bookmarks and settings, in one file encrypted with a passphrase (age). Metric and check history stay here.
   </p>
 
@@ -210,7 +210,7 @@
         </button>
         <button type="button" role="radio" aria-checked={mode === "replace"} class="mode" class:active={mode === "replace"} class:danger={mode === "replace"} onclick={() => (mode = "replace")}>
           <span class="name">REPLACE</span>
-          <span class="muted small">Delete all hosts, groups, snippets, playbooks, services, tunnels, integrations, bookmarks and settings here, with their saved secrets and history, then load the backup.</span>
+          <span class="muted small">Delete all hosts, groups, snippets, playbooks, notes, services, tunnels, integrations, bookmarks and settings here, with their saved secrets and history, then load the backup.</span>
         </button>
       </div>
       {#if mode === "replace"}
