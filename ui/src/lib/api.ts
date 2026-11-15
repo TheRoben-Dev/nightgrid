@@ -426,7 +426,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.7-web",
+      version: "0.10.8-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
