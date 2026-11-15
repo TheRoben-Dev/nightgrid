@@ -12,6 +12,7 @@ pub mod docker;
 pub mod edit_hook;
 pub mod error;
 pub mod files;
+pub mod helper;
 pub mod hosts;
 pub mod http;
 pub mod integrations;

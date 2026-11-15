@@ -7,6 +7,7 @@ mod backup_cmd;
 mod commands;
 mod docker_cmd;
 mod files_cmd;
+mod helper_cmd;
 mod hosts_cmd;
 mod integrations_cmd;
 mod logging;
@@ -144,6 +145,13 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         backup_cmd::backup_folder,
         backup_cmd::backup_clear_folder,
         backup_cmd::app_restart,
+        helper_cmd::helper_status,
+        helper_cmd::helper_download,
+        helper_cmd::helper_cancel_download,
+        helper_cmd::helper_delete_model,
+        helper_cmd::helper_unload,
+        helper_cmd::helper_ask,
+        helper_cmd::helper_stop,
         alerts_cmd::alerts_subscribe,
         alerts_cmd::alerts_refresh,
         alerts_cmd::alerts_clear_history,
@@ -181,6 +189,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().pubkey(update_cmd::PUBKEY.trim()).build())
         .manage(update_cmd::PendingUpdate::default())
+        .manage(helper_cmd::Helper::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);

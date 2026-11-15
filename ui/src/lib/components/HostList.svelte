@@ -34,10 +34,10 @@
   <div class="head">
     <div class="label"><span class="cyan">&gt;</span> NODES <span class="muted">[{total}]</span></div>
     <div class="tools">
-      <button type="button" class="tool" title="Import from ~/.ssh/config" onclick={() => (hosts.importOpen = true)}
+      <button type="button" class="tool" data-guide="hosts-import" title="Import from ~/.ssh/config" onclick={() => (hosts.importOpen = true)}
         >IMP</button
       >
-      <button type="button" class="tool add" title="Add host" aria-label="Add host" onclick={() => (hosts.editing = 0)}
+      <button type="button" class="tool add" data-guide="hosts-add" title="Add host" aria-label="Add host" onclick={() => (hosts.editing = 0)}
         >+</button
       >
     </div>

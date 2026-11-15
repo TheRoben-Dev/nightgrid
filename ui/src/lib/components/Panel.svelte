@@ -12,13 +12,15 @@
     reveal?: boolean;
     children: Snippet;
     actions?: Snippet;
+    /** Stable id the helper's "show me" can point at. */
+    guide?: string;
   }
 
-  let { title, prefix = "//", count, reveal = true, children, actions }: Props = $props();
+  let { title, prefix = "//", count, reveal = true, children, actions, guide }: Props = $props();
   const id = $derived(hexId(title));
 </script>
 
-<section class="panel">
+<section class="panel" data-guide={guide}>
   <span class="bracket tl" aria-hidden="true"></span>
   <span class="bracket br" aria-hidden="true"></span>
   <header>

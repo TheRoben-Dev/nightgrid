@@ -45,7 +45,7 @@
     </label>
     <div class="tabs" role="tablist" aria-label="System view">
       {#each TABS as t (t.id)}
-        <button type="button" role="tab" class:on={system.tab === t.id} aria-selected={system.tab === t.id} onclick={() => system.openTab(t.id)}>
+        <button type="button" role="tab" data-guide="system-tab-{t.id}" class:on={system.tab === t.id} aria-selected={system.tab === t.id} onclick={() => system.openTab(t.id)}>
           {t.label}{#if t.id === "updates" && upCount}<span class="badge">{upCount}</span>{/if}{#if t.id === "disks" && system.disks && (system.disks.health === "warn" || system.disks.health === "bad")}<span
               class="badge {system.disks.health}">!</span
             >{/if}

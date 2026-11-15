@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-15
+
+### Added: DRIFT, the local helper (M10)
+- **DRIFT** (`Cmd+J`, the DRIFT button in the top bar, or *Ask DRIFT* in the palette) answers questions about Nightgrid and your servers in a side panel. Select log lines, an error or a compose file first and ask what's wrong: the selection goes along with the current view and host. You can remove either before asking.
+- **Runs on this computer.** Turn it on under **Settings → Helper** and download the model once (Qwen3 4B Instruct, 2.5 GB, Apache-2.0; resumable and checked against its SHA-256). It uses the GPU (Metal) on macOS and the CPU on Windows and Linux. Nothing you ask leaves the machine.
+- **Show me**: when DRIFT explains where something is, *Show me* switches to the view and outlines the control with magenta brackets and a note. It only points; it never clicks.
+- Answers come from the bundled user guide. Each reply lists the guide sections it used and can show exactly what the model was given. Values that look like passwords or tokens are masked first.
+- Code blocks have a copy button; DRIFT never runs commands itself.
+
 ## [0.9.2] - 2026-11-15
 
 ### Changed

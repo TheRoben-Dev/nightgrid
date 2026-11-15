@@ -111,10 +111,10 @@
       </select>
     </label>
     <div class="tabs" role="tablist" aria-label="Docker view">
-      <button type="button" role="tab" class:on={docker.tab === "containers"} aria-selected={docker.tab === "containers"} onclick={() => (docker.tab = "containers")}
+      <button type="button" role="tab" data-guide="docker-containers" class:on={docker.tab === "containers"} aria-selected={docker.tab === "containers"} onclick={() => (docker.tab = "containers")}
         >CONTAINERS</button
       >
-      <button type="button" role="tab" class:on={docker.tab === "stacks"} aria-selected={docker.tab === "stacks"} onclick={() => (docker.tab = "stacks")}
+      <button type="button" role="tab" data-guide="docker-stacks" class:on={docker.tab === "stacks"} aria-selected={docker.tab === "stacks"} onclick={() => (docker.tab = "stacks")}
         >STACKS</button
       >
     </div>

@@ -64,9 +64,26 @@ jobs:
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: OpenSSH server for integration tests
         run: sudo apt-get install -y openssh-server && sudo mkdir -p /run/sshd
+      # A tiny pinned model for the llama.cpp inference test (the app's own
+      # model is 2.5 GB and only downloaded on the user's machine).
+      - name: Test model (cache)
+        uses: actions/cache@v4
+        with:
+          path: ~/test-models
+          key: llm-qwen3-0.6b-q4_0-afe8ad35
+      - name: Test model (download + verify)
+        run: |
+          mkdir -p ~/test-models && cd ~/test-models
+          f=Qwen3-0.6B-Q4_0.gguf
+          sum=da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4
+          if ! echo "$sum  $f" | sha256sum -c --quiet 2>/dev/null; then
+            curl -fsSL --retry 3 -o "$f" "https://huggingface.co/ggml-org/Qwen3-0.6B-GGUF/resolve/afe8ad3577aa22500b3cd1c880f153b3b0e1cae8/$f"
+            echo "$sum  $f" | sha256sum -c
+          fi
       - name: cargo test
         run: cargo test --workspace --locked
         env:
+          NIGHTGRID_TEST_LLM_MODEL: /home/runner/test-models/Qwen3-0.6B-Q4_0.gguf
           NIGHTGRID_TEST_OPENSSH: "1"
           # Docker-over-SSH test against the runner's own dockerd.
           NIGHTGRID_TEST_DOCKER: "1"

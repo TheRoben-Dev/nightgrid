@@ -12,6 +12,7 @@ import { system, type SystemTab } from "../stores/system.svelte";
 import { settings } from "../stores/settings.svelte";
 import { terms } from "../stores/terms.svelte";
 import { ui } from "../stores/ui.svelte";
+import { helper } from "../stores/helper.svelte";
 import { THEME_IDS, THEMES } from "../theme/themes";
 import type { PaletteCommand } from "./types";
 
@@ -38,6 +39,14 @@ export function buildCommands(): PaletteCommand[] {
   }));
 
   const view: PaletteCommand[] = [
+    {
+      id: "helper.toggle",
+      title: helper.open ? "Close DRIFT helper" : "Ask DRIFT (helper)",
+      group: "VIEW",
+      keywords: ["help", "assistant", "ai", "llm", "explain", "question", "chat"],
+      action: "helper.toggle",
+      run: () => helper.toggle(),
+    },
     {
       id: "layout.reset",
       title: "Reset layout (panel sizes)",

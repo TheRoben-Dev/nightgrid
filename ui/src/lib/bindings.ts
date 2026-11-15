@@ -255,6 +255,21 @@ export const commands = {
 	backupClearFolder: (options?: InvokeOptions) => __TAURI_INVOKE<null>("backup_clear_folder", undefined, options),
 	/**  Restarts the app (after an import). */
 	appRestart: (options?: InvokeOptions) => __TAURI_INVOKE<void>("app_restart", undefined, options),
+	helperStatus: (options?: InvokeOptions) => __TAURI_INVOKE<HelperStatus>("helper_status", undefined, options),
+	/**
+	 *  Downloads (or resumes) the model, then verifies its checksum. Returns
+	 *  `false` if it was cancelled.
+	 */
+	helperDownload: (onProgress: Channel<DownloadProgress>, options?: InvokeOptions) => __TAURI_INVOKE<boolean>("helper_download", { onProgress }, options),
+	helperCancelDownload: (options?: InvokeOptions) => __TAURI_INVOKE<void>("helper_cancel_download", undefined, options),
+	/**  Unloads and deletes the model (and any partial download). */
+	helperDeleteModel: (options?: InvokeOptions) => __TAURI_INVOKE<null>("helper_delete_model", undefined, options),
+	/**  Frees the model's memory (it loads again on the next question). */
+	helperUnload: (options?: InvokeOptions) => __TAURI_INVOKE<void>("helper_unload", undefined, options),
+	/**  Generates DRIFT's reply to `messages`, streaming it over `on_event`. */
+	helperAsk: (messages: ChatTurn[], onEvent: Channel<HelperEvent>, options?: InvokeOptions) => __TAURI_INVOKE<HelperReply>("helper_ask", { messages, onEvent }, options),
+	/**  Stops the reply being generated (what's there so far is kept). */
+	helperStop: (options?: InvokeOptions) => __TAURI_INVOKE<void>("helper_stop", undefined, options),
 	/**  Registers the UI channel and sends the current snapshot. */
 	alertsSubscribe: (onEvent: Channel<AlertsSnapshot_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_subscribe", { onEvent }, options),
 	/**  Re-evaluates now (after alert settings change). */
@@ -503,6 +518,8 @@ export type AppSettings_Deserialize = {
 	handheld?: boolean,
 	/**  Move focus and act with a game controller when one is connected. */
 	controllerNav?: boolean,
+	/**  The DRIFT helper (local model). Off until the user turns it on. */
+	helperEnabled?: boolean,
 	/**  Terminal font size in px. */
 	termFontSize?: number,
 	/**  Terminal scrollback lines. */
@@ -565,6 +582,8 @@ export type AppSettings_Serialize = {
 	handheld: boolean,
 	/**  Move focus and act with a game controller when one is connected. */
 	controllerNav: boolean,
+	/**  The DRIFT helper (local model). Off until the user turns it on. */
+	helperEnabled: boolean,
 	/**  Terminal font size in px. */
 	termFontSize: number,
 	/**  Terminal scrollback lines. */
@@ -708,6 +727,12 @@ export type Bookmark_Serialize = {
 	hostId: number | null,
 	path: string,
 	label: string,
+};
+
+export type ChatTurn = {
+	/**  `system`, `user` or `assistant`. */
+	role: string,
+	content: string,
 };
 
 /**  One stored check result (for uptime and the latency trend). */
@@ -989,6 +1014,11 @@ export type DockerCmdError_Serialize = {
 
 export type DockerError = { kind: "notInstalled" } | { kind: "permissionDenied"; socket: string; user: string } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
 
+export type DownloadProgress = {
+	done: number | null,
+	total: number | null,
+};
+
 /**  Engine summary shown in the Docker view header. */
 export type EngineInfo = {
 	version: string,
@@ -1114,6 +1144,38 @@ export type Health = "ok" |
 "warn" | 
 /**  Failing or failed. */
 "bad";
+
+export type HelperEvent = 
+/**  The model is being loaded (first question after start). */
+{ kind: "loading" } | 
+/**  The model is reading the prompt. */
+{ kind: "thinking" } | 
+/**  More of the reply. */
+{ kind: "text"; text: string };
+
+export type HelperReply = {
+	text: string,
+	/**  `done`, `length` or `stopped`. */
+	finish: string,
+	promptTokens: number,
+	tokens: number,
+	seconds: number | null,
+};
+
+export type HelperStatus = {
+	model: string,
+	license: string,
+	/**  Full size of the model file in bytes. */
+	bytes: number | null,
+	/**  `missing`, `partial` or `ready`. */
+	state: string,
+	/**  Bytes already on disk for a partial download. */
+	have: number | null,
+	downloading: boolean,
+	loaded: boolean,
+	/**  The build offloads to the GPU (Metal on macOS); otherwise CPU. */
+	gpu: boolean,
+};
 
 export type HomepageCandidate = {
 	container: string,
