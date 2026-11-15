@@ -130,6 +130,12 @@ _Last updated: M2 (SFTP + editor)._
 - **App** (`app/src/automation_cmd.rs`): CRUD, `automation_inspect` (variables, destructive list, preview for the first host), `automation_run` (hosts in parallel behind a semaphore, events batched onto one channel) and `automation_stop` (shares the stop switches with System runs).
 - **UI**: `stores/automation.svelte.ts` (source, targets, values, run state and event reducer, confirmation word), `views/Automation.svelte`, `components/automation/SnippetEditor.svelte` and `PlaybookEditor.svelte`; palette entries in `palette/commands.ts`; `mockAutomation.ts` for browser dev.
 
+## Backups (M9)
+
+- **Core** (`core/src/backup.rs`): `snapshot` copies the config tables into a JSON `Bundle` (history tables left out), `collect_secrets` adds keychain entries on request, `encrypt`/`decrypt` wrap it in an age scrypt passphrase file, `import` merges (natural keys, id remapping) or replaces in one transaction, and `restore_secrets` moves keychain entries to the new ids (D-057, D-058).
+- **App** (`app/src/backup_cmd.rs`): `backup_export`, `backup_open` (decrypt + summary, remembers the picked path), `backup_import`, sync folder commands and `app_restart`. Native file dialogs run in Rust via `tauri-plugin-dialog`, with no webview permission (D-059).
+- **UI**: `components/backup/BackupPanel.svelte` in Settings, helpers in `stores/backup.ts`, `mockBackup.ts` for browser dev.
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.
@@ -144,7 +150,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Keyboard:** all shortcuts are defined in `DEFAULT_KEYMAP` (`ui/src/lib/keys.ts`) using `Mod` = Cmd on macOS / Ctrl elsewhere, so a rebinding UI can override them later.
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
-## Security posture (M8)
+## Security posture (M9)
 
 - CSP: `default-src 'self'`, no inline script/style, no remote origins; `connect-src` limited to Tauri IPC. Runtime `<style>` elements (xterm) are mirrored into constructable stylesheets instead of relaxing the CSP (D-013).
 - Capabilities: `core:default`, clipboard read/write text (terminal copy/paste) and `opener:allow-open-url` limited to `http(s)://` (links in terminal output) on the `main` window only. App commands are registered explicitly via tauri-specta.
@@ -159,6 +165,7 @@ _Last updated: M2 (SFTP + editor)._
 - Alerts (M7): background checks never open connections or prompt; SMART only runs where sudo needs no password. The webhook URL is kept in the keychain only and shown back as scheme + host; webhook requests verify certificates before sending and go only to the URL the user saved. Notifications are sent from Rust, so the webview has no notification permission. The tray only emits events; connecting still goes through the UI's normal prompts.
 - Integrations (M7): tokens and passwords live in the keychain only, masked in the editor with click to reveal; status is read only while Services is open and only from URLs the user entered; AMP stop/restart confirm with the instance named and are logged; instance names are validated; untrusted certificates are refused unless allowed per integration. Portainer is used for links only, with no token.
 - Automation (M8): runs never prompt for SSH logins or host keys (those hosts fail with a Connect button); sudo passwords typed for a run go to sudo's stdin and are dropped, never remembered from here; variable values are shell-quoted into commands; destructive commands (rule 5's list plus `>` overwrites, uploads and Docker stop/restart steps) need a confirmation naming the targets, with the group name or host count typed for several hosts; every run is logged with its hosts, never its output.
+- Backups (M9): exports are always age-encrypted with a passphrase (no plaintext option); keychain secrets are included only when ticked, and the plaintext buffer is zeroized; files are written atomically with mode 600; replace needs `replace` typed and first deletes keychain entries of the rows it removes; file dialogs run in Rust, so the webview gained no permission; the passphrase is never stored or logged.
 - Tunnels: listeners default to loopback, other bind addresses are flagged as public; SOCKS has no auth for that reason. Auto-start never prompts; a host that needs a login fails with that reason. Remote-forward channels for ports nobody asked for are rejected.
 
 ## Platform notes

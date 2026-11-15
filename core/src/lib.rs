@@ -6,6 +6,7 @@
 
 pub mod alerts;
 pub mod automation;
+pub mod backup;
 pub mod bookmarks;
 pub mod docker;
 pub mod edit_hook;

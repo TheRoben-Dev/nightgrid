@@ -6,6 +6,12 @@
 import { Channel, isTauri } from "@tauri-apps/api/core";
 import {
   commands,
+  type BackupFolder_Serialize as BackupFolder,
+  type BackupImported,
+  type BackupPreview,
+  type BackupSummary,
+  type BackupWritten,
+  type ImportMode,
   type Alert_Serialize as Alert,
   type AlertKind,
   type AlertSettings_Serialize as AlertSettings,
@@ -130,6 +136,7 @@ import {
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockAutomation } from "./mockAutomation";
+import { mockBackup } from "./mockBackup";
 import { mockIntegrations } from "./mockIntegrations";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
@@ -140,6 +147,12 @@ import { mockTunnels } from "./mockTunnels";
 import { mockSystem } from "./mockSystem";
 
 export type {
+  BackupFolder,
+  BackupImported,
+  BackupPreview,
+  BackupSummary,
+  BackupWritten,
+  ImportMode,
   AutomationEvent,
   AutomationDockerAction,
   HostNeeds,
@@ -302,6 +315,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   trayEnabled: true,
   closeToTray: false,
+  backupFolder: null,
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -309,7 +323,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.8.0-web",
+      version: "0.9.0-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -574,6 +588,16 @@ export const api = {
     return commands.automationRun(spec, hostIds, values, sudoPassword, ch as unknown as Parameters<typeof commands.automationRun>[4]);
   },
   automationStop: (run: number): Promise<null> => (T() ? commands.automationStop(run) : mockAutomation.stop(run)),
+  backupExport: (passphrase: string, includeSecrets: boolean, toFolder: boolean): Promise<BackupWritten | null> =>
+    T() ? commands.backupExport(passphrase, includeSecrets, toFolder) : mockBackup.export(passphrase, includeSecrets, toFolder),
+  backupOpen: (passphrase: string, fromFolder: boolean): Promise<BackupPreview | null> =>
+    T() ? commands.backupOpen(passphrase, fromFolder) : mockBackup.open(passphrase, fromFolder),
+  backupImport: (passphrase: string, mode: ImportMode): Promise<BackupImported> =>
+    T() ? commands.backupImport(passphrase, mode) : mockBackup.import(passphrase, mode),
+  backupPickFolder: (): Promise<BackupFolder | null> => (T() ? commands.backupPickFolder() : mockBackup.pickFolder()),
+  backupFolder: (): Promise<BackupFolder | null> => (T() ? commands.backupFolder() : mockBackup.folder()),
+  backupClearFolder: (): Promise<null> => (T() ? commands.backupClearFolder() : mockBackup.clearFolder()),
+  appRestart: (): Promise<void> => (T() ? commands.appRestart() : Promise.resolve(location.reload())),
   alertsSubscribe: (on: (s: AlertsSnapshot) => void): Promise<null> => {
     if (!T()) return mockAlerts.subscribe(on);
     const ch = new Channel<AlertsSnapshot>();

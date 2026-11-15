@@ -87,9 +87,14 @@ pub fn settings_get(state: State<'_, AppState>) -> CmdResult<AppSettings> {
 pub fn settings_set(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
-    settings: AppSettings,
+    mut settings: AppSettings,
 ) -> CmdResult<AppSettings> {
-    settings.save(&state.store())?;
+    let store = state.store();
+    // The sync folder is only changed through the backup commands, so a stale
+    // copy in the UI can't clear it.
+    settings.backup_folder = AppSettings::load(&store)?.backup_folder;
+    settings.save(&store)?;
+    drop(store);
     crate::tray::apply(&app);
     state.alerts.wake();
     tracing::debug!(theme = %settings.theme, "settings saved");

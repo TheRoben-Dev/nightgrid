@@ -33,13 +33,22 @@ pub enum SecretKind {
 }
 
 impl SecretKind {
-    fn as_str(self) -> &'static str {
+    /// Kinds stored per host.
+    pub const HOST: [SecretKind; 3] = [Self::HostPassword, Self::KeyPassphrase, Self::SudoPassword];
+
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::HostPassword => "host-password",
             Self::KeyPassphrase => "key-passphrase",
             Self::SudoPassword => "sudo-password",
             Self::IntegrationToken => "integration-token",
         }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        [Self::HostPassword, Self::KeyPassphrase, Self::SudoPassword, Self::IntegrationToken]
+            .into_iter()
+            .find(|k| k.as_str() == s)
     }
 }
 
@@ -53,6 +62,21 @@ pub struct SecretRef {
 impl SecretRef {
     pub fn new(kind: SecretKind, owner: impl Into<String>) -> Self {
         Self { kind, owner: owner.into() }
+    }
+
+    /// A per-host secret (password, key passphrase, sudo password).
+    pub fn host(kind: SecretKind, id: crate::hosts::HostId) -> Self {
+        Self::new(kind, id.to_string())
+    }
+
+    /// An integration's token or password.
+    pub fn integration(id: crate::integrations::IntegrationId) -> Self {
+        Self::new(SecretKind::IntegrationToken, format!("integration-{id}"))
+    }
+
+    /// The alerts webhook URL (it can carry a token).
+    pub fn alerts_webhook() -> Self {
+        Self::new(SecretKind::IntegrationToken, "alerts-webhook")
     }
 
     /// The keychain "account"/"username" field, e.g. `host-password:42`.

@@ -89,7 +89,7 @@ impl SystemRuns {
 }
 
 fn sudo_ref(host_id: HostId) -> SecretRef {
-    SecretRef::new(SecretKind::SudoPassword, host_id.to_string())
+    SecretRef::host(SecretKind::SudoPassword, host_id)
 }
 
 /// How to become root on `host_id`, checking any password before use.

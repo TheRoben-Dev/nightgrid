@@ -3,6 +3,7 @@
 
 mod alerts_cmd;
 mod automation_cmd;
+mod backup_cmd;
 mod commands;
 mod docker_cmd;
 mod files_cmd;
@@ -136,6 +137,13 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         automation_cmd::automation_inspect,
         automation_cmd::automation_run,
         automation_cmd::automation_stop,
+        backup_cmd::backup_export,
+        backup_cmd::backup_open,
+        backup_cmd::backup_import,
+        backup_cmd::backup_pick_folder,
+        backup_cmd::backup_folder,
+        backup_cmd::backup_clear_folder,
+        backup_cmd::app_restart,
         alerts_cmd::alerts_subscribe,
         alerts_cmd::alerts_refresh,
         alerts_cmd::alerts_clear_history,
@@ -170,6 +178,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().pubkey(update_cmd::PUBKEY.trim()).build())
         .manage(update_cmd::PendingUpdate::default())
         .invoke_handler(builder.invoke_handler())
