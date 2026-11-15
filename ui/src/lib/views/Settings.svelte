@@ -4,6 +4,7 @@
   import BackupPanel from "../components/backup/BackupPanel.svelte";
   import StatusPagePanel from "../components/status/StatusPagePanel.svelte";
   import TailnetPanel from "../components/tailnet/TailnetPanel.svelte";
+  import KeysPanel from "../components/keys/KeysPanel.svelte";
   import HelperSettings from "../components/helper/HelperSettings.svelte";
   import Barcode from "../components/Barcode.svelte";
   import CustomThemeEditor from "../components/CustomThemeEditor.svelte";
@@ -244,6 +245,7 @@
   </Panel>
 
   <TailnetPanel />
+  <KeysPanel />
 
   <AlertSettings />
 

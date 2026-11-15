@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.14] - 2026-11-15
+
+### Added: SSH key manager (M10k, part 2)
+- **Settings → SSH keys** lists your key pairs (`~/.ssh`) and SSH agent keys with fingerprints, passphrase and agent badges, and which saved hosts use each one. **Copy public key** copies the `.pub` line.
+- **NEW KEY…** makes an ed25519 key pair in `~/.ssh`, optionally passphrase protected. Existing files are never overwritten, and the passphrase isn't stored.
+- **CHECK HOSTS** reads every host's `authorized_keys` and shows which of your keys each host accepts. You can add a key to a host in one click (skipped if it's already there) or remove one (you confirm by typing the host's name). Keys on a host that aren't yours are listed too.
+- **ROTATE A KEY** across hosts, one host at a time: add the new key, log in with only the new key, switch the host's saved settings to it, then remove the old key. A host where a step fails keeps its old key. Removing the old key needs its name typed to confirm.
+
 ## [0.10.13] - 2026-11-15
 
 ### Fixed

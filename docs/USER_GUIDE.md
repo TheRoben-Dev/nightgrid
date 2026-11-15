@@ -153,6 +153,14 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - **Advanced**: the device name Nightgrid uses in your tailnet, and a self-hosted control server (Headscale). Saving restarts the client.
 - With Built-in Tailscale off, tailnet addresses are reached through the Tailscale app if it's connected, as before.
 
+## SSH keys
+
+- **Settings → SSH keys** lists your key pairs in `~/.ssh` and the keys your SSH agent holds, with their fingerprints, whether a file has a passphrase, and which hosts Nightgrid is set to log in with each. **Copy public key** copies the `.pub` line.
+- **NEW KEY…** makes an ed25519 key in `~/.ssh` (file name, comment, optional passphrase). It never overwrites a file. The passphrase only encrypts the file; Nightgrid asks for it when it connects and can remember it in the OS keychain then.
+- **CHECK HOSTS** reads `~/.ssh/authorized_keys` on every saved host and fills **WHERE THEY WORK**: a table of hosts and your keys. **+** adds a key to that host (it's skipped if the key is already there), **●** means the host accepts it and removing it asks you to type the host's name. A ringed **●** is the key Nightgrid uses for that host. **OTHER** counts keys on the host that aren't yours; click it to see and remove them.
+- **ROTATE A KEY**: pick the key to replace, the new key, and the hosts (the hosts that accept the old key are picked for you). For each host in turn Nightgrid adds the new key, logs in with only the new key, points the host's saved settings at it, and then removes the old key. If a step fails on a host, that host stops there and keeps its old key. With **Remove the old key** on, you confirm by typing the old key's name.
+- Nightgrid never edits your `~/.ssh/config`, and private keys never leave this computer.
+
 ## Alerts and the tray
 
 - Alerts fire for these conditions:

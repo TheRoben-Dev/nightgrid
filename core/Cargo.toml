@@ -15,12 +15,14 @@ base64 = "0.23.1"
 bollard = { version = "0.21", default-features = false }
 bytes = "1"
 futures-util = "0.3"
+getrandom = { version = "0.4", features = ["sys_rng"] }
 hmac = "0.13"
 http-body-util = "0.1"
 hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 keyring = "4.2.0"
 portable-pty = "0.9"
+rand_core = "0.10"
 rusqlite = { version = "0.41", features = ["bundled"] }
 rusqlite_migration = "2.7.0"
 russh = { version = "0.65", default-features = false, features = ["ring", "rsa", "flate2"] }

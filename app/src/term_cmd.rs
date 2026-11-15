@@ -83,24 +83,30 @@ pub enum TermOpen {
 #[allow(clippy::result_large_err)]
 pub(crate) async fn connect_host(app: &AppHandle, host_id: HostId) -> Result<Arc<client::Connection>, ConnectError> {
     let state = app.state::<AppState>();
-    let (hop, jumps) = {
-        let store = state.store();
-        let remembering: HashSet<HostId> = store
-            .list_hosts()
-            .map_err(|e| ConnectError::Other { message: e.to_string() })?
-            .into_iter()
-            .filter(|h| h.remember_secret)
-            .map(|h| h.id)
-            .collect();
-        let lookup = |h: Option<HostId>, k: SecretKind, label: &str| state.lookup_secret(&remembering, h, k, label);
-        resolve(&store, host_id, state.home.as_deref(), &lookup)
-            .map_err(|e| ConnectError::Other { message: e.to_string() })?
-    };
+    let (hop, jumps) = resolve_host(&state, host_id)?;
     let opts = state.connect_options();
     let jump_targets: Vec<_> = jumps.into_iter().map(|h| h.target).collect();
     let conn = state.pool.get(host_id, || client::connect(&hop.target, &jump_targets, &opts)).await?;
     crate::tunnels_cmd::host_connected(app, host_id, &conn);
     Ok(conn)
+}
+
+/// The host's final hop and its ProxyJump chain, with remembered secrets.
+#[allow(clippy::result_large_err)]
+pub(crate) fn resolve_host(
+    state: &AppState,
+    host_id: HostId,
+) -> Result<(nightgrid_core::ssh::resolve::Hop, Vec<nightgrid_core::ssh::resolve::Hop>), ConnectError> {
+    let store = state.store();
+    let remembering: HashSet<HostId> = store
+        .list_hosts()
+        .map_err(|e| ConnectError::Other { message: e.to_string() })?
+        .into_iter()
+        .filter(|h| h.remember_secret)
+        .map(|h| h.id)
+        .collect();
+    let lookup = |h: Option<HostId>, k: SecretKind, label: &str| state.lookup_secret(&remembering, h, k, label);
+    resolve(&store, host_id, state.home.as_deref(), &lookup).map_err(|e| ConnectError::Other { message: e.to_string() })
 }
 
 /// Builds the reconnect-capable connector for a stored host.
