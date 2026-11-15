@@ -10,7 +10,16 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Terminal key hints**: a strip under the terminal shows the keys of the program in front (nano, vim, less/man, htop, top, btop, tmux, screen, watch, mc, nested ssh, and `journalctl -f` / `tail -f` / `docker logs -f`). SSH shells report the command through the session-only hook (bash, zsh, fish); local terminals ask the terminal which program is in front. Hide hints per program, or turn the strip off in **Settings → Terminal**. DRIFT knows the same keys and sees what's running.
 - **Network → Scan from → This computer** (macOS and Linux): discovery, including the ping sweep, runs on the machine Nightgrid runs on, which appears on the map as its own node.
 
+### Changed
+- **Clicking a host in the sidebar** (or the tray, or **SSH:** in the palette) jumps to its open terminal; it only opens a new one when the host has none. Alt-click (or Cmd-click) always opens a new one.
+- **+ NEW** in the terminal tab bar (was **+ LOCAL**) opens a picker: this computer or any saved host (type to filter by name, address or #tag), as a new tab, split right or split down.
+- **Terminal background**: the app's backdrop now shows through behind terminal text. **Settings → Terminal → Solid background** brings back the solid panel.
+- **Find in terminal** has previous, next and **×** buttons; Esc closes it and returns to the terminal, and the toolbar button and `Mod+Shift+F` toggle it.
+- The rolling CRT band of the scanline overlay is much fainter and softer; the lines, flicker and vignette are unchanged.
+
 ### Fixed
+- **Terminal panes going black after closing a split**: closing a pane crashed the hand-off of the terminal to the pane that stays, so that pane was left empty until the tab was reloaded. Panes now keep what they were opened with while they close.
+- **Terminal text drifting out of its columns** (garbled banners, misaligned `htop`): terminals no longer use the GPU renderer, which WebKit could blank when a pane moved; the regular renderer is used everywhere. Cells are measured again when a font finishes loading or a pane comes back on screen, fits wait for the layout to settle, and bold and accented text use bundled faces instead of synthesized ones.
 - Network discovery works on macOS and BSD hosts: the ping sweep used a Linux-only timeout flag, and tools were wrapped in `timeout`, which macOS doesn't have.
 
 ## [0.10.9] - 2026-11-15

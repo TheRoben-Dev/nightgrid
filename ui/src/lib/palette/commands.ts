@@ -115,7 +115,7 @@ export function buildCommands(): PaletteCommand[] {
     title: `SSH: ${h.name}`,
     group: "CONNECT",
     keywords: [h.hostname, h.username ?? "", ...h.tags],
-    run: () => terms.openHost(h.id),
+    run: () => terms.goToHost(h.id),
   }));
 
   const browse: PaletteCommand[] = hosts.hosts.map((h) => ({

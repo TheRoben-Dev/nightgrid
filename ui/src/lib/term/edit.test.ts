@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-// The session module pulls in xterm addons that need a canvas; only the parser is under test.
-vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class {} }));
+// Only the parser is under test.
 
 const { parseEditRequest } = await import("./session.svelte");
 

@@ -3,8 +3,13 @@ import type { ITheme } from "@xterm/xterm";
 /** Appends an alpha byte to a #RRGGBB colour; other formats pass through. */
 const alpha = (c: string, a: string) => (/^#[0-9a-f]{6}$/i.test(c) ? c + a : c);
 
-/** Builds an xterm theme from the current CSS design tokens. */
-export function xtermTheme(root: Element = document.documentElement): ITheme {
+/**
+ * Builds an xterm theme from the current CSS design tokens. Unless `solid`,
+ * the background is the panel colour at zero alpha, so the app's backdrop
+ * shows through while reverse video (which xterm draws with the background
+ * made opaque) still reads on every scheme.
+ */
+export function xtermTheme(solid = false, root: Element = document.documentElement): ITheme {
   const css = getComputedStyle(root);
   const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
   const bg = v("--bg-0", "#07080B");
@@ -18,7 +23,7 @@ export function xtermTheme(root: Element = document.documentElement): ITheme {
   const mint = v("--mint", "#BDF5EC");
   const line = v("--bg-2", "#141821");
   return {
-    background: bg,
+    background: solid ? bg : alpha(bg, "00"),
     foreground: fg,
     cursor: magenta,
     cursorAccent: bg,

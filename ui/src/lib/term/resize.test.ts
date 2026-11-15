@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@xterm/addon-webgl", () => ({ WebglAddon: class {} }));
-
 let release: (id: number) => void = () => {};
 const termResize = vi.fn((_id: number, _c: number, _r: number) => Promise.resolve(null));
 const termOpenLocal = vi.fn((_c: number, _r: number) => new Promise<number>((r) => (release = r)));

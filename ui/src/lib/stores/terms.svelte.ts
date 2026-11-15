@@ -62,7 +62,11 @@ class TermsStore {
 
   private originFor(hostId: number | null): Origin {
     if (hostId === null) return { kind: "local" };
-    return { kind: "ssh", hostId, name: hosts.byId(hostId)?.name ?? `host ${hostId}` };
+    return {
+      kind: "ssh",
+      hostId,
+      name: hosts.byId(hostId)?.name ?? `host ${hostId}`,
+    };
   }
 
   private openTab(origin: Origin) {
@@ -79,6 +83,22 @@ class TermsStore {
 
   openHost(hostId: number) {
     this.openTab(this.originFor(hostId));
+  }
+
+  /** The newest plain shell (not a container or console) on `hostId` that is still usable. */
+  shellFor(hostId: number): TermSession | undefined {
+    const open = [...this.sessions.values()].filter(
+      (s) => s.origin.kind === "ssh" && s.origin.hostId === hostId && !s.origin.container && !s.origin.vm,
+    );
+    const live = open.filter((s) => s.state !== "exited" && s.state !== "failed");
+    return (live.length ? live : open).at(-1);
+  }
+
+  /** Jumps to the host's open terminal, or opens one (`fresh`: always a new tab). */
+  goToHost(hostId: number, fresh = false) {
+    const s = fresh ? undefined : this.shellFor(hostId);
+    if (s?.reveal) s.reveal();
+    else this.openHost(hostId);
   }
 
   /** Opens a tab with a shell inside a container on `hostId`. */
@@ -121,14 +141,20 @@ class TermsStore {
     return fresh.title;
   }
 
-  /** Splits the focused pane, opening the same kind of session next to it. */
-  split(dir: Dir) {
+  /**
+   * Splits the focused pane. `target` picks the new pane's shell (null: this
+   * computer, a number: that host); left out, the same kind of session.
+   */
+  split(dir: Dir, target?: number | null) {
     const tab = this.current;
-    if (!tab) return this.openLocal();
+    if (!tab) return target ? this.openHost(target) : this.openLocal();
     const src = this.sessions.get(tab.active);
-    const origin = src?.origin ?? { kind: "local" as const };
+    const origin = target === undefined ? (src?.origin ?? { kind: "local" as const }) : this.originFor(target);
     const pane = this.newSession(origin);
-    this.update(tab.id, { root: splitLeaf(tab.root, tab.active, pane, dir), active: pane });
+    this.update(tab.id, {
+      root: splitLeaf(tab.root, tab.active, pane, dir),
+      active: pane,
+    });
   }
 
   /** Marks a pane active without moving keyboard focus. */

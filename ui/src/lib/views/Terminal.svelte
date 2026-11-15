@@ -8,6 +8,7 @@
   import { leaves } from "../term/layout";
   import HistorySearch from "../components/terminal/HistorySearch.svelte";
   import KeyHints from "../components/terminal/KeyHints.svelte";
+  import NewTermMenu from "../components/terminal/NewTermMenu.svelte";
   import { settings } from "../stores/settings.svelte";
 
   const tab = $derived(terms.current);
@@ -26,6 +27,8 @@
   }
 
   let historyOpen = $state(false);
+  let menuOpen = $state(false);
+  let anchor = $state<DOMRect | null>(null);
   const cur = $derived(terms.currentSession);
   /** Host whose history can be searched: a plain SSH shell (not a container). */
   const histHost = $derived(cur && cur.origin.kind === "ssh" && !cur.origin.container ? cur.origin.hostId : null);
@@ -56,9 +59,18 @@
         >
       </div>
     {/each}
-    <button type="button" class="new" title="New local terminal ({k('term.newLocal')})" onclick={() => terms.openLocal()}
-      >+ LOCAL</button
-    >
+    <button
+        type="button"
+        class="new"
+        data-newterm
+        title="New terminal: this computer or a saved host (local shell: {k('term.newLocal')})"
+        aria-haspopup="dialog"
+        aria-expanded={menuOpen}
+        onclick={(e) => {
+          anchor = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          menuOpen = !menuOpen;
+        }}>+ NEW</button
+      >
     <div class="spacer"></div>
     {#if tab}
       <div class="tools">
@@ -71,10 +83,17 @@
         <button
           type="button"
           class="tool"
+          class:on={cur?.searchOpen}
           title="Find ({k('term.find')})"
+          aria-pressed={!!cur?.searchOpen}
           onclick={() => {
             const s = terms.currentSession;
-            if (s) s.searchOpen = true;
+            if (!s) return;
+            s.searchOpen = !s.searchOpen;
+            if (!s.searchOpen) {
+              s.search.clearDecorations();
+              s.focus();
+            }
           }}>⌕</button
         >
         {#if settings.value.historySearch && histHost !== null}
@@ -91,6 +110,8 @@
       </div>
     {/if}
   </div>
+
+  {#if menuOpen && anchor}<NewTermMenu {anchor} onclose={() => (menuOpen = false)} />{/if}
 
   <div class="stage">
     {#each terms.tabs as t (t.id)}

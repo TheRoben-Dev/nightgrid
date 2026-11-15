@@ -58,6 +58,9 @@ pub struct AppSettings {
     pub term_edit_in_app: bool,
     /// Show the keys of the program in front of a terminal (htop, vim, less …).
     pub term_key_hints: bool,
+    /// Paint terminals on a solid background instead of letting the app's
+    /// backdrop show through.
+    pub term_solid_bg: bool,
     /// Search the shell history (bash, zsh, fish) of hosts from the terminal.
     /// Off by default; lines that look like they hold a secret are dropped and
     /// nothing is stored.
@@ -195,6 +198,7 @@ impl Default for AppSettings {
             term_cursor_blink: true,
             term_edit_in_app: false,
             term_key_hints: true,
+            term_solid_bg: false,
             history_search: false,
             metrics_enabled: true,
             metrics_interval_secs: 2,

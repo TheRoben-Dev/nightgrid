@@ -27,7 +27,6 @@ describe("freezeSafe", () => {
   // Guards xterm upgrades: every such assignment in the shipped files must be rewritable.
   it.each([
     ["@xterm/xterm", "lib/xterm.mjs"],
-    ["@xterm/addon-webgl", "lib/addon-webgl.mjs"],
     ["@xterm/addon-fit", "lib/addon-fit.mjs"],
     ["@xterm/addon-search", "lib/addon-search.mjs"],
     ["@xterm/addon-web-links", "lib/addon-web-links.mjs"],

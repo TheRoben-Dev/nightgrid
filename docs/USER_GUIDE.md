@@ -25,12 +25,14 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 ## Terminal
 
-- Click a host or press `Mod+2` to open a terminal. Use `Ctrl+Shift+T` for a local shell.
+- Click a host to go to its terminal (a new one opens if it has none; Alt-click or Cmd-click always opens a new one), or press `Mod+2`. Use `Ctrl+Shift+T` for a local shell.
+- **+ NEW** in the tab bar opens this computer or any saved host, as a new tab or split next to the focused pane. Type to filter, arrows and Enter to pick.
 - Panes and tabs:
   - Split right with `Ctrl+Shift+D` and split down with `Ctrl+Shift+S`.
   - Close a pane with `Ctrl+Shift+W`.
   - Switch tabs with `Ctrl+Tab`.
-  - Find with `Ctrl+Shift+F`.
+  - Find with `Ctrl+Shift+F` (again, Esc or **×** closes it).
+- Terminal text sits on the app's backdrop; **Settings → Terminal → Solid background** gives it a solid panel instead.
 - Dropped connections reconnect on request. Links in the output open in your browser.
 - **History search** (turn on under **Settings → Terminal**): **HIST** on an SSH terminal searches the host's bash, zsh and fish history. Enter or a click types the command at the prompt; **+ Note** starts a runbook with it. Lines that look like they hold a password or token are left out, and nothing is saved.
 - **Edit server files in Nightgrid** (Settings → Terminal): `nano FILE` and `$EDITOR` open the file in Nightgrid's editor instead.

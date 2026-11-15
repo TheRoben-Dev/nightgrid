@@ -397,6 +397,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   termCursorBlink: true,
   termEditInApp: false,
   termKeyHints: true,
+  termSolidBg: false,
   metricsEnabled: true,
   metricsIntervalSecs: 2,
   metricsBackgroundSecs: 60,

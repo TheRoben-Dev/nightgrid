@@ -666,6 +666,11 @@ export type AppSettings_Deserialize = {
 	/**  Show the keys of the program in front of a terminal (htop, vim, less …). */
 	termKeyHints?: boolean,
 	/**
+	 *  Paint terminals on a solid background instead of letting the app's
+	 *  backdrop show through.
+	 */
+	termSolidBg?: boolean,
+	/**
 	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
 	 *  Off by default; lines that look like they hold a secret are dropped and
 	 *  nothing is stored.
@@ -753,6 +758,11 @@ export type AppSettings_Serialize = {
 	termEditInApp: boolean,
 	/**  Show the keys of the program in front of a terminal (htop, vim, less …). */
 	termKeyHints: boolean,
+	/**
+	 *  Paint terminals on a solid background instead of letting the app's
+	 *  backdrop show through.
+	 */
+	termSolidBg: boolean,
 	/**
 	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
 	 *  Off by default; lines that look like they hold a secret are dropped and

@@ -149,6 +149,12 @@
     />
     <div class="toggles">
       <Toggle
+        label="Solid background"
+        hint="Paint terminals on a solid panel. Off, the app's backdrop shows through behind the text."
+        checked={settings.value.termSolidBg}
+        onchange={(v) => settings.update({ termSolidBg: v })}
+      />
+      <Toggle
         label="Copy on select"
         hint="Selecting text copies it to the clipboard."
         checked={settings.value.termCopyOnSelect}
