@@ -7,6 +7,7 @@
 pub mod alerts;
 pub mod automation;
 pub mod backup;
+pub mod backup_jobs;
 pub mod bookmarks;
 pub mod docker;
 pub mod edit_hook;
@@ -16,6 +17,7 @@ pub mod helper;
 pub mod hosts;
 pub mod http;
 pub mod integrations;
+pub mod logwatch;
 pub mod metrics;
 pub mod notes;
 pub mod redact;

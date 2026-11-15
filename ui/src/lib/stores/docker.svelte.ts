@@ -34,7 +34,7 @@ export const isUp = (c: ContainerView): boolean => c.state === "running" || c.st
 class DockerStore {
   hostId = $state<number | null>(null);
   /** Containers list or compose stacks. */
-  tab = $state<"containers" | "stacks">("containers");
+  tab = $state<"containers" | "stacks" | "routes">("containers");
   info = $state<EngineInfo | null>(null);
   containers = $state<ContainerView[]>([]);
   stats = $state<Record<string, ContainerStats>>({});

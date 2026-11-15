@@ -129,6 +129,11 @@ export const commands = {
 	 */
 	dockerImageLookup: (hostId: number, image: string, options?: InvokeOptions) => __TAURI_INVOKE<RemoteImage_Serialize>("docker_image_lookup", { hostId, image }, options),
 	/**
+	 *  Reverse proxy routes (Caddy, Traefik, Nginx Proxy Manager) on the host,
+	 *  mapped to containers, with certificate expiry. Read-only.
+	 */
+	dockerProxyRoutes: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<ProxyReport_Serialize>("docker_proxy_routes", { hostId }, options),
+	/**
 	 *  Deploy wizard: creates `<parent>/<name>/`, writes compose.yaml (and .env,
 	 *  mode 600) and checks it with `docker compose config -q`. Existing files
 	 *  are only replaced with `overwrite`, which the UI confirms naming them
@@ -327,6 +332,19 @@ export const commands = {
 	 *  Ignores quiet hours. Returns a line per channel describing what happened.
 	 */
 	alertsTest: (options?: InvokeOptions) => __TAURI_INVOKE<TestResult_Serialize>("alerts_test", undefined, options),
+	/**
+	 *  Recent error lines behind a log alert (key `logs:<host>:<source>:…`),
+	 *  for "what broke". Secret-looking lines were never kept.
+	 */
+	alertsLogSamples: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<string[]>("alerts_log_samples", { key }, options),
+	backupJobsList: (options?: InvokeOptions) => __TAURI_INVOKE<BackupJob[]>("backup_jobs_list", undefined, options),
+	/**  Creates (`id` = null) or updates a job. */
+	backupJobSave: (id: number | null, input: BackupJobInput, options?: InvokeOptions) => __TAURI_INVOKE<BackupJob>("backup_job_save", { id, input }, options),
+	backupJobDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("backup_job_delete", { id }, options),
+	/**  Status of every job on one host. */
+	backupJobsCheck: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<BackupStatus_Serialize[]>("backup_jobs_check", { hostId }, options),
+	/**  Backup jobs found in the host's systemd timers and cron tables. */
+	backupJobsDetect: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<BackupSuggestion[]>("backup_jobs_detect", { hostId }, options),
 	updateCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateStatus_Serialize>("update_check", undefined, options),
 	/**
 	 *  Downloads, verifies and installs the update from the last check, then
@@ -352,7 +370,7 @@ export type ActionResult_Serialize = {
 
 export type Alert = Alert_Serialize | Alert_Deserialize;
 
-export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceDown" | "certExpiring" | "smartWarning";
+export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceDown" | "certExpiring" | "smartWarning" | "backupFailed" | "backupStale" | "logBurst" | "logNewError";
 
 /**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
 export type AlertSettings = AlertSettings_Serialize | AlertSettings_Deserialize;
@@ -374,6 +392,13 @@ export type AlertSettings_Deserialize = {
 	 *  prompt: root, NOPASSWD or a remembered password).
 	 */
 	smartWarning?: boolean,
+	/**  Failed or stale backup jobs (checked every 30 minutes on connected hosts). */
+	backupStale?: boolean,
+	/**
+	 *  Error bursts and new error patterns in container logs and the journal
+	 *  (read every 10 minutes on connected hosts). Off by default.
+	 */
+	logAnomaly?: boolean,
 	/**  Native desktop notifications. */
 	native?: boolean,
 	quietHours?: boolean,
@@ -403,6 +428,13 @@ export type AlertSettings_Serialize = {
 	 *  prompt: root, NOPASSWD or a remembered password).
 	 */
 	smartWarning: boolean,
+	/**  Failed or stale backup jobs (checked every 30 minutes on connected hosts). */
+	backupStale: boolean,
+	/**
+	 *  Error bursts and new error patterns in container logs and the journal
+	 *  (read every 10 minutes on connected hosts). Off by default.
+	 */
+	logAnomaly: boolean,
 	/**  Native desktop notifications. */
 	native: boolean,
 	quietHours: boolean,
@@ -738,6 +770,27 @@ export type BackupImported_Serialize = {
 	secretsError: string | null,
 };
 
+export type BackupJob = {
+	id: number,
+	hostId: number,
+	name: string,
+	tool: BackupTool,
+	source: BackupSource,
+	/**  Unit name or absolute path. */
+	target: string,
+	/**  The job counts as stale when its last good run is older than this. */
+	staleHours: number,
+};
+
+export type BackupJobInput = {
+	hostId: number,
+	name: string,
+	tool: BackupTool,
+	source: BackupSource,
+	target: string,
+	staleHours: number,
+};
+
 export type BackupPreview = BackupPreview_Serialize | BackupPreview_Deserialize;
 
 export type BackupPreview_Deserialize = {
@@ -748,6 +801,65 @@ export type BackupPreview_Deserialize = {
 export type BackupPreview_Serialize = {
 	path: string,
 	summary: BackupSummary_Serialize,
+};
+
+export type BackupResult = "ok" | "failed" | "running" | 
+/**  Never ran, not found or not readable. */
+"unknown";
+
+export type BackupSource = 
+/**  A systemd timer or service. */
+"unit" | 
+/**  A repository, target folder or marker file. */
+"path";
+
+export type BackupStatus = BackupStatus_Serialize | BackupStatus_Deserialize;
+
+export type BackupStatus_Deserialize = {
+	jobId: number,
+	result: BackupResult,
+	/**  When the last run finished, or the newest file's time (unix seconds). */
+	lastRun?: number | null,
+	/**  When the last good run finished; drives "stale". */
+	lastOk?: number | null,
+	exitCode?: number | null,
+	/**  Size of the data backed up (or of the path on disk). */
+	size?: number | null,
+	/**  What the last run added or transferred. */
+	added?: number | null,
+	/**  One line about the last run (snapshot id, error). */
+	summary?: string | null,
+	stale: boolean,
+	error?: string | null,
+};
+
+export type BackupStatus_Serialize = {
+	jobId: number,
+	result: BackupResult,
+	/**  When the last run finished, or the newest file's time (unix seconds). */
+	lastRun: number | null,
+	/**  When the last good run finished; drives "stale". */
+	lastOk: number | null,
+	exitCode: number | null,
+	/**  Size of the data backed up (or of the path on disk). */
+	size: number | null,
+	/**  What the last run added or transferred. */
+	added: number | null,
+	/**  One line about the last run (snapshot id, error). */
+	summary: string | null,
+	stale: boolean,
+	error: string | null,
+};
+
+/**  A job Nightgrid found on the host, for the user to add. */
+export type BackupSuggestion = {
+	name: string,
+	tool: BackupTool,
+	source: BackupSource,
+	/**  Empty when the user has to fill it in (a cron job without a local target). */
+	target: string,
+	/**  Where it was found and what it runs (masked if it looks secret). */
+	detail: string,
 };
 
 /**  What a backup holds, shown before importing. */
@@ -764,6 +876,7 @@ export type BackupSummary_Deserialize = {
 	snippets: number,
 	playbooks: number,
 	notes?: number,
+	backupJobs?: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -783,6 +896,7 @@ export type BackupSummary_Serialize = {
 	snippets: number,
 	playbooks: number,
 	notes: number,
+	backupJobs: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -790,6 +904,8 @@ export type BackupSummary_Serialize = {
 	settings: boolean,
 	secrets: number,
 };
+
+export type BackupTool = "restic" | "borg" | "rsync" | "rclone" | "other";
 
 export type BackupWritten = {
 	path: string,
@@ -813,6 +929,22 @@ export type Bookmark_Serialize = {
 	hostId: number | null,
 	path: string,
 	label: string,
+};
+
+export type CertInfo = CertInfo_Serialize | CertInfo_Deserialize;
+
+export type CertInfo_Deserialize = {
+	/**  Unix seconds. */
+	notAfter?: number | null,
+	issuer?: string | null,
+	error?: string | null,
+};
+
+export type CertInfo_Serialize = {
+	/**  Unix seconds. */
+	notAfter: number | null,
+	issuer: string | null,
+	error: string | null,
 };
 
 export type ChatTurn = {
@@ -2428,6 +2560,76 @@ export type PortainerStatus_Serialize = {
 };
 
 export type PromptKind = "password" | "passphrase";
+
+export type ProxyFound = ProxyFound_Serialize | ProxyFound_Deserialize;
+
+export type ProxyFound_Deserialize = {
+	kind: ProxyKind,
+	name: string,
+	routes: number,
+	/**  Why its routes couldn't be read. */
+	error?: string | null,
+};
+
+export type ProxyFound_Serialize = {
+	kind: ProxyKind,
+	name: string,
+	routes: number,
+	/**  Why its routes couldn't be read. */
+	error: string | null,
+};
+
+export type ProxyKind = "caddy" | "traefik" | "npm";
+
+export type ProxyReport = ProxyReport_Serialize | ProxyReport_Deserialize;
+
+export type ProxyReport_Deserialize = {
+	proxies: ProxyFound_Deserialize[],
+	routes: ProxyRoute_Deserialize[],
+	/**  The host's clock (unix seconds) when certificates were read. */
+	now: number | null,
+};
+
+export type ProxyReport_Serialize = {
+	proxies: ProxyFound_Serialize[],
+	routes: ProxyRoute_Serialize[],
+	/**  The host's clock (unix seconds) when certificates were read. */
+	now: number | null,
+};
+
+export type ProxyRoute = ProxyRoute_Serialize | ProxyRoute_Deserialize;
+
+export type ProxyRoute_Deserialize = {
+	proxy: ProxyKind,
+	/**  The proxy's container name, or "host" for a Caddy installed on the host. */
+	proxyName: string,
+	domains: string[],
+	/**  Where it forwards, as written in the config ("app:8080", "http://10.0.0.5:3000"). */
+	upstream: string,
+	/**  The container that upstream resolves to on this host, if any. */
+	container?: string | null,
+	tls: boolean,
+	/**  Certificate of the first domain (TLS routes only). */
+	cert?: CertInfo_Deserialize | null,
+	/**  Router, file or label it came from. */
+	origin: string,
+};
+
+export type ProxyRoute_Serialize = {
+	proxy: ProxyKind,
+	/**  The proxy's container name, or "host" for a Caddy installed on the host. */
+	proxyName: string,
+	domains: string[],
+	/**  Where it forwards, as written in the config ("app:8080", "http://10.0.0.5:3000"). */
+	upstream: string,
+	/**  The container that upstream resolves to on this host, if any. */
+	container: string | null,
+	tls: boolean,
+	/**  Certificate of the first domain (TLS routes only). */
+	cert: CertInfo_Serialize | null,
+	/**  Router, file or label it came from. */
+	origin: string,
+};
 
 /**  Throughput of one network interface or block device, in bytes/s. */
 export type Rate = {

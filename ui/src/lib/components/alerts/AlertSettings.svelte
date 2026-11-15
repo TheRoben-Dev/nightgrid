@@ -91,6 +91,14 @@
       <SegmentSlider label="WARN WITHIN" steps={CERT_STEPS} value={a.certDays} format={(v) => `${v}d`} onchange={(v) => set({ certDays: v })} />
     {/if}
     <Toggle label="SMART warning" hint="Reads disk health every 6 hours on connected hosts with root, passwordless sudo or a remembered sudo password." checked={a.smartWarning} disabled={!a.enabled} onchange={(v) => set({ smartWarning: v })} />
+    <Toggle label="Backup failed or stale" hint="Checks the jobs on System → Backups every 30 minutes on connected hosts." checked={a.backupStale} disabled={!a.enabled} onchange={(v) => set({ backupStale: v })} />
+    <Toggle
+      label="Log anomalies"
+      hint="Every 10 minutes, reads new error lines from running containers and the journal on connected hosts, and alerts on bursts and errors never seen before. Off by default: it reads more over SSH."
+      checked={a.logAnomaly}
+      disabled={!a.enabled}
+      onchange={(v) => set({ logAnomaly: v })}
+    />
   </div>
 </Panel>
 

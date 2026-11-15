@@ -31,6 +31,10 @@ pub enum AlertKind {
     ServiceDown,
     CertExpiring,
     SmartWarning,
+    BackupFailed,
+    BackupStale,
+    LogBurst,
+    LogNewError,
 }
 
 impl AlertKind {
@@ -62,6 +66,10 @@ impl AlertKind {
             AlertKind::ServiceDown => "SERVICE DOWN",
             AlertKind::CertExpiring => "CERT EXPIRING",
             AlertKind::SmartWarning => "SMART WARNING",
+            AlertKind::BackupFailed => "BACKUP FAILED",
+            AlertKind::BackupStale => "BACKUP STALE",
+            AlertKind::LogBurst => "ERROR BURST",
+            AlertKind::LogNewError => "NEW ERROR",
         }
     }
 }
@@ -260,6 +268,64 @@ impl Tracker {
 }
 
 // ---- condition builders ----
+
+/// A failed or stale backup job.
+pub fn backup(
+    job: &crate::backup_jobs::BackupJob,
+    host_name: &str,
+    st: &crate::backup_jobs::BackupStatus,
+) -> Option<Condition> {
+    use crate::backup_jobs::BackupResult;
+    let base = |kind, severity, detail: String| Condition {
+        key: format!("backup:{}:{}", job.host_id, job.id),
+        kind,
+        severity,
+        title: format!("{} on {host_name}", job.name),
+        detail,
+        host_id: Some(job.host_id),
+    };
+    if st.result == BackupResult::Failed {
+        let why = st.summary.clone().unwrap_or_else(|| "the last run failed".into());
+        return Some(base(AlertKind::BackupFailed, Severity::Critical, why));
+    }
+    st.stale.then(|| {
+        base(
+            AlertKind::BackupStale,
+            Severity::Warn,
+            format!("no good run in the last {}", crate::backup_jobs::stale_words(job.stale_hours)),
+        )
+    })
+}
+
+/// An error burst or new error pattern in one log source of a host.
+pub fn log_anomaly(host: HostId, host_name: &str, source: &str, finding: &crate::logwatch::Finding) -> Vec<Condition> {
+    let mut out = Vec::new();
+    let label = source.split_once('/').map_or(source, |(_, n)| n);
+    if let Some((n, usual)) = finding.burst {
+        out.push(Condition {
+            key: format!("logs:{host}:{source}:burst"),
+            kind: AlertKind::LogBurst,
+            severity: Severity::Warn,
+            title: format!("{label} on {host_name}"),
+            detail: format!("{n} error lines since the last check (usually about {:.0})", usual.max(0.0)),
+            host_id: Some(host),
+        });
+    }
+    if let Some(first) = finding.new_patterns.first() {
+        let more = finding.new_patterns.len() - 1;
+        let sample = first.sample.clone().unwrap_or_else(|| first.pattern.clone());
+        let sample: String = sample.chars().take(160).collect();
+        out.push(Condition {
+            key: format!("logs:{host}:{source}:new"),
+            kind: AlertKind::LogNewError,
+            severity: Severity::Warn,
+            title: format!("{label} on {host_name}"),
+            detail: if more > 0 { format!("{sample} (+{more} more new)") } else { sample },
+            host_id: Some(host),
+        });
+    }
+    out
+}
 
 /// A host the metrics poller can't reach.
 pub fn host_offline(host: HostId, name: &str, message: Option<&str>) -> Condition {

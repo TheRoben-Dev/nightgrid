@@ -100,6 +100,11 @@ pub struct AlertSettings {
     /// Background SMART reads (every 6 h, only on hosts where sudo needs no
     /// prompt: root, NOPASSWD or a remembered password).
     pub smart_warning: bool,
+    /// Failed or stale backup jobs (checked every 30 minutes on connected hosts).
+    pub backup_stale: bool,
+    /// Error bursts and new error patterns in container logs and the journal
+    /// (read every 10 minutes on connected hosts). Off by default.
+    pub log_anomaly: bool,
     /// Native desktop notifications.
     pub native: bool,
     pub quiet_hours: bool,
@@ -124,6 +129,8 @@ impl Default for AlertSettings {
             cert_expiring: true,
             cert_days: 14,
             smart_warning: true,
+            backup_stale: true,
+            log_anomaly: false,
             native: true,
             quiet_hours: false,
             quiet_start: 22 * 60,

@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-11-15
+
+### Added: backup board, proxy routes and log anomaly alerts (M10g)
+- **System → Backups**: a status board for restic, borg, rsync and rclone jobs on every host, with last run, last good run, size (and what the last run added), result and a **STALE** flag after an age you pick per job. A job points at a **systemd timer or service** (last run, exit status and the totals the tool printed in the journal) or a **path** such as a repository or rsync target (newest file and size on disk). **Find jobs** looks through the host's timers and cron tables and pre-fills them. Nightgrid never opens a repository, needs its password or runs a backup.
+- **Docker → Routes**: every domain Traefik (router labels), Caddy (Caddyfile, in a container or on the host, and caddy-docker-proxy labels) or Nginx Proxy Manager serves on the host, where it forwards, the container behind it, and when its certificate expires (yellow inside your alert window, red when expired or missing).
+- **Alerts**: *Backup failed or stale* (on by default, checked every 30 minutes) and *Log anomalies* (off by default): every 10 minutes, new error lines from running containers and the journal are grouped into patterns, and an error never seen before or a burst of several times the usual count raises an alert. Log alerts have **✦ What broke?**, which hands the recent error lines to DRIFT on this computer.
+
 ## [0.10.5] - 2026-11-15
 
 ### Added: stack snapshots, image changelogs and a deploy wizard (M10f)

@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use nightgrid_core::docker::compose::DeployInput;
 use nightgrid_core::docker::compose::{ComposeOp, ImageChange, Stack};
+use nightgrid_core::docker::proxy::ProxyReport;
 use nightgrid_core::docker::registry::{self, ImageUpdate, RemoteImage};
 use nightgrid_core::docker::snapshot::{Snapshot, SnapshotId};
 use nightgrid_core::docker::{
@@ -407,6 +408,15 @@ pub async fn docker_stack_check_updates(
     let locals = d.local_images(&stack.name).await?;
     let checks = locals.iter().map(registry::check);
     Ok(futures_util::future::join_all(checks).await)
+}
+
+/// Reverse proxy routes (Caddy, Traefik, Nginx Proxy Manager) on the host,
+/// mapped to containers, with certificate expiry. Read-only.
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_proxy_routes(app: AppHandle, host_id: HostId) -> DockerResult<ProxyReport> {
+    let d = docker_for(&app, host_id).await?;
+    Ok(d.proxy_routes().await?)
 }
 
 /// An image's declared ports, volumes and env names from its registry, for

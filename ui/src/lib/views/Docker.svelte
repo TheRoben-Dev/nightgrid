@@ -3,6 +3,7 @@
   import { onMount } from "svelte";
   import type { ContainerView, DockerAction } from "../api";
   import ContainerPanel from "../components/docker/ContainerPanel.svelte";
+  import RoutesPanel from "../components/docker/RoutesPanel.svelte";
   import StacksPanel from "../components/docker/StacksPanel.svelte";
   import Modal from "../components/Modal.svelte";
   import Resizer from "../components/Resizer.svelte";
@@ -117,6 +118,9 @@
       <button type="button" role="tab" data-guide="docker-stacks" class:on={docker.tab === "stacks"} aria-selected={docker.tab === "stacks"} onclick={() => (docker.tab = "stacks")}
         >STACKS</button
       >
+      <button type="button" role="tab" data-guide="docker-routes-tab" class:on={docker.tab === "routes"} aria-selected={docker.tab === "routes"} onclick={() => (docker.tab = "routes")}
+        >ROUTES</button
+      >
     </div>
     {#if docker.info}
       <span class="engine" title={docker.info.route}>ENGINE {docker.info.version} · API {docker.info.apiVersion}</span>
@@ -128,7 +132,7 @@
     <input
       class="input filter"
       type="search"
-      placeholder={docker.tab === "stacks" ? "Filter stacks" : "Filter name, image, project"}
+      placeholder={docker.tab === "stacks" ? "Filter stacks" : docker.tab === "routes" ? "Filter domains" : "Filter name, image, project"}
       bind:value={docker.filter}
       aria-label="Filter"
     />
@@ -210,6 +214,8 @@
         <p class="muted pad">Connecting to Docker on {hostName}…</p>
       {:else if docker.tab === "stacks"}
         <StacksPanel />
+      {:else if docker.tab === "routes"}
+        <RoutesPanel />
       {:else if !docker.groups.length}
         <p class="muted pad">{docker.containers.length ? "No containers match." : "No containers on this host."}</p>
       {:else}

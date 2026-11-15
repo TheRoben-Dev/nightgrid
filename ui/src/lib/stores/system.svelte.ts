@@ -17,9 +17,10 @@ import {
   type UpdatesReport,
   type UpgradeOp,
 } from "../api";
+import { backups } from "./backups.svelte";
 import { hosts } from "./hosts.svelte";
 
-export type SystemTab = "units" | "journal" | "schedules" | "security" | "updates" | "disks";
+export type SystemTab = "units" | "journal" | "schedules" | "security" | "updates" | "disks" | "backups";
 export type UnitFilter = "all" | "running" | "failed" | "inactive";
 
 /** Journal rows kept in memory; older ones scroll off. */
@@ -209,6 +210,7 @@ class SystemStore {
     else if (tab === "schedules" && !this.schedules) await this.loadSchedules();
     else if (tab === "security" && !this.security) await this.loadSecurity();
     else if (tab === "updates" && !this.updates) await this.checkUpdates();
+    else if (tab === "backups" && !backups.loaded) await backups.load().then(() => backups.checkAll());
     else if (tab === "disks" && !this.disks && !this.sudoNeedsPassword && this.info) await this.loadDisks();
   }
 

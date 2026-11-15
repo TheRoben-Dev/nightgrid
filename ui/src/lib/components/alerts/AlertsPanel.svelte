@@ -2,8 +2,26 @@
   import { onMount } from "svelte";
   import Modal from "../Modal.svelte";
   import { scramble } from "../../scramble";
-  import { ago, alerts, KIND_LABEL, targetLabel } from "../../stores/alerts.svelte";
+  import type { Alert } from "../../api";
+  import { ago, alerts, isLogAlert, KIND_LABEL, logSource, targetLabel } from "../../stores/alerts.svelte";
+  import { helper } from "../../stores/helper.svelte";
+  import { hosts } from "../../stores/hosts.svelte";
   import { ui } from "../../stores/ui.svelte";
+
+  /** "What broke?": the alert plus its recent error lines go to DRIFT (local). */
+  async function whatBroke(a: Alert) {
+    const lines = await alerts.samples(a).catch(() => [] as string[]);
+    const host = hosts.hosts.find((h) => h.id === a.hostId)?.name ?? null;
+    const src = logSource(a) ?? a.title;
+    const text = [`${KIND_LABEL[a.kind]}: ${a.title}`, a.detail, "", ...lines].join("\n");
+    alerts.open = false;
+    void helper.explain({
+      source: `Error lines: ${src} · ${lines.length} lines`,
+      text,
+      question: "What broke here, what is the likely cause, and how do I check and fix it?",
+      host,
+    });
+  }
 
   let now = $state(Math.floor(Date.now() / 1000));
   onMount(() => {
@@ -30,12 +48,17 @@
             <span class="detail">{a.detail}</span>
           </div>
           <span class="when" title="Since {new Date(a.since * 1000).toLocaleString()}">{ago(a.since, now)}</span>
+          {#if helper.enabled && isLogAlert(a)}
+            <button type="button" class="btn ghost tiny" title="Ask DRIFT what broke (stays on this computer)" disabled={helper.busy} onclick={() => void whatBroke(a)}
+              ><span aria-hidden="true">✦ </span>What broke?</button
+            >
+          {/if}
           <button type="button" class="btn ghost tiny" onclick={() => alerts.go(a)}>{targetLabel(a)}</button>
         </li>
       {/each}
     </ul>
   {:else}
-    <p class="muted clear">Nothing needs attention. Hosts, disks, containers, services, certificates and SMART are watched in the background.</p>
+    <p class="muted clear">Nothing needs attention. Hosts, disks, containers, services, certificates, SMART and backups are watched in the background (and logs, if turned on).</p>
   {/if}
 
   {#if alerts.history.length}

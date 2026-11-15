@@ -13,7 +13,10 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use nightgrid_core::alerts::{self, Alert, Change, ContainerWatch, Scope, Severity, Tracker};
+use nightgrid_core::backup_jobs;
+use nightgrid_core::docker::LogQuery;
 use nightgrid_core::hosts::HostId;
+use nightgrid_core::logwatch::{self, Detector};
 use nightgrid_core::secrets::{Secret, SecretRef, SecretStore};
 use nightgrid_core::services::check::now_unix;
 use nightgrid_core::settings::AppSettings;
@@ -32,6 +35,12 @@ use crate::state::AppState;
 const TICK: Duration = Duration::from_secs(15);
 const DOCKER_EVERY: i64 = 60;
 const SMART_EVERY: i64 = 6 * 3600;
+const BACKUP_EVERY: i64 = 30 * 60;
+const LOGS_EVERY: i64 = 10 * 60;
+/// The first log read on a host learns from this far back.
+const LOGS_LEARN: i64 = 3600;
+/// Containers whose logs are read per host and round.
+const LOGS_MAX_CONTAINERS: usize = 60;
 /// After Docker fails on a host (not installed, no permission), wait this long.
 const DOCKER_BACKOFF: i64 = 600;
 /// More fired alerts than this in one round become one summary notification.
@@ -57,6 +66,9 @@ pub struct AlertsHub {
     wake: Notify,
     docker_skip: Mutex<HashMap<HostId, i64>>,
     smart_last: Mutex<HashMap<HostId, i64>>,
+    backup_last: Mutex<i64>,
+    logs_last: Mutex<HashMap<HostId, i64>>,
+    logs: Mutex<Detector>,
 }
 
 impl AlertsHub {
@@ -167,6 +179,8 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
         for gone in t.hosts().into_iter().filter(|h| !hosts.contains_key(h)) {
             t.forget_host(gone);
             hub.containers.lock().expect("poisoned").forget_host(gone);
+            hub.logs.lock().expect("poisoned").forget(&format!("{gone}|"));
+            hub.logs_last.lock().expect("poisoned").remove(&gone);
         }
         if !rules.enabled {
             t.drop_active();
@@ -298,7 +312,116 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
             now,
         ));
     }
+
+    // Backup jobs on connected hosts, every 30 minutes.
+    if !rules.backup_stale {
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "backup", hosts: None },
+            vec![],
+            now,
+        ));
+    } else if now - *hub.backup_last.lock().expect("poisoned") >= BACKUP_EVERY {
+        *hub.backup_last.lock().expect("poisoned") = now;
+        let jobs = state.store().list_backup_jobs().unwrap_or_default();
+        let mut covered = HashSet::new();
+        let mut conds = Vec::new();
+        for id in &connected {
+            let mine: Vec<_> = jobs.iter().filter(|j| j.host_id == *id).cloned().collect();
+            if mine.is_empty() {
+                covered.insert(*id);
+                continue;
+            }
+            let run = async {
+                let conn = crate::term_cmd::connect_host(app, *id).await.ok()?;
+                backup_jobs::check(&conn, &mine, now as f64).await.ok()
+            };
+            if let Ok(Some(statuses)) = tokio::time::timeout(Duration::from_secs(60), run).await {
+                covered.insert(*id);
+                for (j, st) in mine.iter().zip(&statuses) {
+                    conds.extend(alerts::backup(j, &name(*id), st));
+                }
+            }
+        }
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "backup", hosts: Some(&covered) },
+            conds,
+            now,
+        ));
+    }
+
+    // Log anomalies on connected hosts, every 10 minutes each (opt-in).
+    if !rules.log_anomaly {
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "logs", hosts: None },
+            vec![],
+            now,
+        ));
+    } else {
+        let mut covered = HashSet::new();
+        let mut conds = Vec::new();
+        for id in &connected {
+            let since = hub.logs_last.lock().expect("poisoned").get(id).copied();
+            if since.is_some_and(|t| now - t < LOGS_EVERY) {
+                continue;
+            }
+            let since = since.unwrap_or(now - LOGS_LEARN);
+            let read = read_error_lines(app, *id, since, now);
+            let Ok(Some(by_source)) = tokio::time::timeout(Duration::from_secs(90), read).await else { continue };
+            hub.logs_last.lock().expect("poisoned").insert(*id, now);
+            covered.insert(*id);
+            let mut det = hub.logs.lock().expect("poisoned");
+            let prefix = format!("{id}|");
+            let mut sources: Vec<String> = by_source.keys().cloned().collect();
+            for known in det.sources_with_prefix(&prefix) {
+                if !sources.contains(&known) {
+                    sources.push(known);
+                }
+            }
+            for key in sources {
+                let lines = by_source.get(&key).cloned().unwrap_or_default();
+                let finding = det.observe(&key, &lines);
+                let source = key.strip_prefix(&prefix).unwrap_or(&key);
+                conds.extend(alerts::log_anomaly(*id, &name(*id), source, &finding));
+            }
+        }
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "logs", hosts: Some(&covered) },
+            conds,
+            now,
+        ));
+    }
     changes
+}
+
+/// Error lines since `since` per source, keyed `<host>|journal/<ident>` and
+/// `<host>|container/<name>`. `None` if the host couldn't be read at all.
+async fn read_error_lines(app: &AppHandle, id: HostId, since: i64, now: i64) -> Option<HashMap<String, Vec<String>>> {
+    let conn = crate::term_cmd::connect_host(app, id).await.ok()?;
+    let mut out: HashMap<String, Vec<String>> = HashMap::new();
+    if let Ok((_, text, _)) = conn.exec(&logwatch::journal_command(since)).await {
+        for (ident, msg) in logwatch::parse_journal(&String::from_utf8_lossy(&text)) {
+            out.entry(format!("{id}|journal/{ident}")).or_default().push(msg);
+        }
+    }
+    let hub = app.state::<AppState>().alerts.clone();
+    if hub.docker_skip.lock().expect("poisoned").get(&id).is_some_and(|until| *until > now) {
+        return Some(out);
+    }
+    if let Ok(d) = crate::docker_cmd::docker_for(app, id).await {
+        if let Ok(list) = d.containers().await {
+            for c in list.iter().filter(|c| c.state == "running").take(LOGS_MAX_CONTAINERS) {
+                let mut lines = Vec::new();
+                let q = LogQuery { follow: false, tail: Some(500), since: Some(since.max(0) as u32) };
+                let read = d.logs(&c.id, q, |batch| {
+                    lines.extend(batch.into_iter().map(|l| l.text).filter(|t| logwatch::is_error_line(t)));
+                    true
+                });
+                let _ = tokio::time::timeout(Duration::from_secs(10), read).await;
+                out.insert(format!("{id}|container/{}", c.name), lines);
+            }
+        }
+    }
+    Some(out)
 }
 
 fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], quiet: bool) {
@@ -387,6 +510,19 @@ pub fn alerts_clear_history(app: AppHandle, state: State<'_, AppState>) -> CmdRe
     state.alerts.tracker.lock().expect("poisoned").clear_history();
     state.alerts.push(&settings(&app));
     Ok(())
+}
+
+/// Recent error lines behind a log alert (key `logs:<host>:<source>:…`),
+/// for "what broke". Secret-looking lines were never kept.
+#[tauri::command]
+#[specta::specta]
+pub fn alerts_log_samples(state: State<'_, AppState>, key: String) -> CmdResult<Vec<String>> {
+    let mut parts = key.splitn(3, ':');
+    let (Some("logs"), Some(host), Some(rest)) = (parts.next(), parts.next(), parts.next()) else {
+        return Ok(Vec::new());
+    };
+    let source = rest.rsplit_once(':').map_or(rest, |(s, _)| s);
+    Ok(state.alerts.logs.lock().expect("poisoned").samples(&format!("{host}|{source}")))
 }
 
 #[derive(Debug, Serialize, Type)]
