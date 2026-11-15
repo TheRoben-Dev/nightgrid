@@ -32,9 +32,14 @@ export const commands = {
 	/**  TCP-connect check to each host's SSH port (no ICMP, no auth). */
 	hostsPing: (ids: number[], options?: InvokeOptions) => __TAURI_INVOKE<HostPing_Serialize[]>("hosts_ping", { ids }, options),
 	termOpenLocal: (cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("term_open_local", { cols, rows, onEvent }, options),
-	termOpenSsh: (hostId: number, cols: number, rows: number, editToken: string | null, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_ssh", { hostId, cols, rows, editToken, onEvent }, options),
+	termOpenSsh: (hostId: number, cols: number, rows: number, editToken: string | null, edit: boolean, hints: boolean, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_ssh", { hostId, cols, rows, editToken, edit, hints, onEvent }, options),
 	termWrite: (id: number, data: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_write", { id, data }, options),
 	termResize: (id: number, cols: number, rows: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_resize", { id, cols, rows }, options),
+	/**
+	 *  The program in front of a local terminal (key hints); `None` for SSH,
+	 *  whose shell hook reports it instead.
+	 */
+	termForeground: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("term_foreground", { id }, options),
 	termReconnect: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_reconnect", { id }, options),
 	termClose: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_close", { id }, options),
 	/**
@@ -653,6 +658,8 @@ export type AppSettings_Deserialize = {
 	 *  editor (session-only shell hook, see `edit_hook`).
 	 */
 	termEditInApp?: boolean,
+	/**  Show the keys of the program in front of a terminal (htop, vim, less …). */
+	termKeyHints?: boolean,
 	/**
 	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
 	 *  Off by default; lines that look like they hold a secret are dropped and
@@ -739,6 +746,8 @@ export type AppSettings_Serialize = {
 	 *  editor (session-only shell hook, see `edit_hook`).
 	 */
 	termEditInApp: boolean,
+	/**  Show the keys of the program in front of a terminal (htop, vim, less …). */
+	termKeyHints: boolean,
 	/**
 	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
 	 *  Off by default; lines that look like they hold a secret are dropped and

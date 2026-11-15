@@ -396,6 +396,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   termRightClickPaste: true,
   termCursorBlink: true,
   termEditInApp: false,
+  termKeyHints: true,
   metricsEnabled: true,
   metricsIntervalSecs: 2,
   metricsBackgroundSecs: 60,
@@ -519,8 +520,9 @@ export const api = {
 
   termOpenLocal: (cols: number, rows: number, on: TermListener): Promise<number> =>
     T() ? commands.termOpenLocal(cols, rows, channel(on)) : mockBackend.termOpenLocal(on),
-  termOpenSsh: (hostId: number, cols: number, rows: number, editToken: string | null, on: TermListener): Promise<TermOpen> =>
-    T() ? commands.termOpenSsh(hostId, cols, rows, editToken, channel(on)) : mockBackend.termOpenSsh(hostId, on),
+  termOpenSsh: (hostId: number, cols: number, rows: number, token: string | null, edit: boolean, hints: boolean, on: TermListener): Promise<TermOpen> =>
+    T() ? commands.termOpenSsh(hostId, cols, rows, token, edit, hints, channel(on)) : mockBackend.termOpenSsh(hostId, on),
+  termForeground: (id: number): Promise<string | null> => (T() ? commands.termForeground(id) : mockBackend.termForeground(id)),
   termWrite: (id: number, data: string): Promise<null> =>
     T() ? commands.termWrite(id, data) : mockBackend.termWrite(id, data),
   termResize: (id: number, cols: number, rows: number): Promise<null> =>

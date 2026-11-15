@@ -53,6 +53,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         term_cmd::term_open_ssh,
         term_cmd::term_write,
         term_cmd::term_resize,
+        term_cmd::term_foreground,
         term_cmd::term_reconnect,
         term_cmd::term_close,
         term_cmd::ssh_trust_host_key,

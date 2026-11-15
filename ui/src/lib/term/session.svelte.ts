@@ -8,6 +8,7 @@ import { SearchAddon } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { parseHint, programFromCommand } from "./keyhints";
 import { Terminal } from "@xterm/xterm";
 import { api, errorText, type ConnectError, type PromptKind, type TermMessage, type TermState, type VmKind } from "../api";
 import { openExternal, readClipboard, writeClipboard } from "../clipboard";
@@ -33,6 +34,10 @@ export type Origin =
 
 /** OSC number the remote edit helper uses (see core `edit_hook`). */
 export const EDIT_OSC = 7766;
+/** OSC number the shell hook reports the command about to run with (key hints). */
+export const HINT_OSC = 7767;
+/** How often a local terminal's foreground program is checked while visible. */
+const FOREGROUND_POLL_MS = 1200;
 
 function newToken(): string {
   const b = new Uint8Array(16);
@@ -70,6 +75,10 @@ export class TermSession {
   /** Something the user must answer before connecting (host key, password). */
   prompt = $state<ConnectError | null>(null);
   searchOpen = $state(false);
+  /** Command line (SSH hook) or process name (local) in front; null at the prompt. */
+  command = $state<string | null>(null);
+  /** Key map for what's in front (see `keyhints.ts`). */
+  readonly hintId = $derived(programFromCommand(this.command));
 
   readonly el: HTMLDivElement;
   readonly term: Terminal;
@@ -87,6 +96,8 @@ export class TermSession {
   private disposed = false;
   /** Per-start secret for the "edit in Nightgrid" hook (null when off). */
   private editToken: string | null = null;
+  private editOn = false;
+  private fgTimer: ReturnType<typeof setInterval> | null = null;
   /** Brings this pane to the front (set by the terminal store). */
   reveal: (() => void) | null = null;
 
@@ -122,6 +133,12 @@ export class TermSession {
     });
     this.term.attachCustomKeyEventHandler((e) => this.onKey(e));
     this.term.parser.registerOscHandler(EDIT_OSC, (data) => this.onEditRequest(data));
+    this.term.parser.registerOscHandler(HINT_OSC, (data) => {
+      const token = this.editToken;
+      const cmd = token ? parseHint(data, token) : undefined;
+      if (cmd !== undefined) this.command = cmd;
+      return true;
+    });
     // Repaint when the window comes back or a font (e.g. the icon font) finishes loading.
     document.addEventListener("visibilitychange", this.onDocEvent);
     document.fonts?.addEventListener?.("loadingdone", this.onDocEvent);
@@ -228,7 +245,7 @@ export class TermSession {
    */
   private onEditRequest(data: string): boolean {
     const token = this.editToken;
-    if (!token || this.origin.kind !== "ssh") return true;
+    if (!token || !this.editOn || this.origin.kind !== "ssh") return true;
     const path = parseEditRequest(data, token);
     if (!path) return true;
     const { hostId, name } = this.origin;
@@ -297,6 +314,7 @@ export class TermSession {
         case "exit":
           this.exitCode = m.code;
           this.state = "exited";
+          this.command = null;
           this.term.write(`\r\n\x1b[2m[process exited${m.code !== null ? ` with code ${m.code}` : ""}]\x1b[0m\r\n`);
           this.backendId = null;
           break;
@@ -313,20 +331,25 @@ export class TermSession {
     this.exitCode = null;
     this.state = "connecting";
     this.message = null;
+    this.command = null;
     const { cols, rows } = this.term;
     try {
       if (this.origin.kind === "local") {
         this.backendId = await api.termOpenLocal(cols, rows, this.listener(gen));
         this.sentSize = { cols, rows };
         this.syncSize();
+        this.watchForeground();
       } else {
         const o = this.origin;
-        this.editToken = !o.container && !o.vm && settings.value.termEditInApp ? newToken() : null;
+        const plain = !o.container && !o.vm;
+        this.editOn = plain && settings.value.termEditInApp;
+        const hints = plain && settings.value.termKeyHints;
+        this.editToken = this.editOn || hints ? newToken() : null;
         const res = o.container
           ? await api.termOpenDockerExec(o.hostId, o.container.id, cols, rows, this.listener(gen))
           : o.vm
             ? await api.termOpenVmConsole(o.hostId, o.vm.kind, o.vm.id, o.vm.asRoot, cols, rows, this.listener(gen))
-            : await api.termOpenSsh(o.hostId, cols, rows, this.editToken, this.listener(gen));
+            : await api.termOpenSsh(o.hostId, cols, rows, this.editToken, this.editOn, hints, this.listener(gen));
         if (gen !== this.generation) return;
         if (res.kind === "opened") {
           this.backendId = res.id;
@@ -388,7 +411,23 @@ export class TermSession {
     }
   }
 
+  /** Local terminals: ask the PTY which program is in front, while the pane is on screen. */
+  private watchForeground() {
+    if (this.fgTimer) clearInterval(this.fgTimer);
+    this.fgTimer = setInterval(() => {
+      const id = this.backendId;
+      if (id === null || !settings.value.termKeyHints || !this.el.isConnected || document.visibilityState === "hidden") return;
+      void api.termForeground(id).then(
+        (name) => {
+          if (this.backendId === id) this.command = name;
+        },
+        () => {},
+      );
+    }, FOREGROUND_POLL_MS);
+  }
+
   dispose() {
+    if (this.fgTimer) clearInterval(this.fgTimer);
     this.disposed = true;
     this.generation++;
     if (this.fitFrame) cancelAnimationFrame(this.fitFrame);

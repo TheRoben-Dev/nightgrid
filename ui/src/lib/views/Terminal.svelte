@@ -7,6 +7,7 @@
   import { terms } from "../stores/terms.svelte";
   import { leaves } from "../term/layout";
   import HistorySearch from "../components/terminal/HistorySearch.svelte";
+  import KeyHints from "../components/terminal/KeyHints.svelte";
   import { settings } from "../stores/settings.svelte";
 
   const tab = $derived(terms.current);
@@ -133,6 +134,7 @@
       </div>
     {/if}
   </div>
+  {#if tab && settings.value.termKeyHints}<KeyHints session={cur ?? null} />{/if}
 </div>
 
 <style>

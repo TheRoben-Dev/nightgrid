@@ -472,7 +472,7 @@ async fn openssh_compose_stacks() {
 #[tokio::test(flavor = "multi_thread")]
 async fn openssh_edit_hook() {
     use base64::Engine;
-    use nightgrid_core::edit_hook::{bootstrap_command, parse_request};
+    use nightgrid_core::edit_hook::{bootstrap_command, parse_request, HookOptions};
 
     if !enabled() {
         return;
@@ -497,7 +497,10 @@ async fn openssh_edit_hook() {
         let (t, o) = (t.clone(), o.clone());
         Box::pin(async move { connect(&t, &[], &o).await.map(Arc::new) })
     });
-    let h = spawn_ssh(connector, Some(bootstrap_command(token)), 120, 30, sink).await.unwrap();
+    let h =
+        spawn_ssh(connector, Some(bootstrap_command(token, HookOptions { edit: true, hints: true })), 120, 30, sink)
+            .await
+            .unwrap();
     let wait_for = |needle: String| {
         let data = data.clone();
         async move {

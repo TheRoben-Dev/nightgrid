@@ -44,6 +44,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "automation-run", view: "automation", what: "Run button for a multi-host command" },
   { id: "automation-new-snippet", view: "automation", what: "create a snippet (saved command)" },
   { id: "automation-new-playbook", view: "automation", what: "create a playbook" },
+  { id: "term-key-hints", view: "terminal", what: "key hint strip under the terminal: keys of the program in front (nano, vim, less, htop, tmux …); turn off in Settings → Terminal" },
   { id: "netmap-scan", view: "network", what: "scan the network from the chosen host (neighbours, mDNS, Tailscale peers, router port forwards; optional ping sweep)" },
   { id: "netmap-ports", view: "network", what: "audit listening ports on every host for the map" },
   { id: "netmap-graph", view: "network", what: "network map: internet, router and tailnet, your hosts, other devices; red lines are internet-facing" },

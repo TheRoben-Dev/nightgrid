@@ -4,6 +4,7 @@
  * embeddings model is needed, so retrieval is instant and works offline.
  */
 import guideMd from "../../../../docs/USER_GUIDE.md?raw";
+import { keymapDocs } from "../term/keyhints";
 
 export interface Chunk {
   /** "Section › Subsection" path, for the prompt and the sources list. */
@@ -104,7 +105,8 @@ export class Index {
 let index: Index | null = null;
 /** The index over the bundled user guide (built on first use). */
 export function guideIndex(): Index {
-  return (index ??= new Index(chunkMarkdown(guideMd)));
+  // The terminal key maps are part of the guide, so "how do I quit vim" finds them.
+  return (index ??= new Index([...chunkMarkdown(guideMd), ...keymapDocs().map((d) => ({ title: d.title, text: d.text }))]));
 }
 
 /** A note as DRIFT needs it (the store's `Note` has more). */

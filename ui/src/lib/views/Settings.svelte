@@ -171,6 +171,12 @@
         onchange={(v) => settings.update({ termEditInApp: v })}
       />
       <Toggle
+        label="Key hints"
+        hint="A strip under the terminal shows the keys of the program in front (nano, vim, less, htop, tmux, journalctl -f …). SSH shells report it through the same session-only hook; nothing is installed."
+        checked={settings.value.termKeyHints}
+        onchange={(v) => settings.update({ termKeyHints: v })}
+      />
+      <Toggle
         label="Shell history search"
         hint="Adds a HIST button to SSH terminals that searches the host's bash, zsh and fish history. Lines that look like they hold a password or token are left out, and nothing is saved."
         checked={settings.value.historySearch}
