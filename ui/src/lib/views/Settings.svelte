@@ -149,6 +149,12 @@
     />
     <div class="toggles">
       <Toggle
+        label="Solid background"
+        hint="Paint terminals on a solid panel. Off, the app's backdrop shows through behind the text."
+        checked={settings.value.termSolidBg}
+        onchange={(v) => settings.update({ termSolidBg: v })}
+      />
+      <Toggle
         label="Copy on select"
         hint="Selecting text copies it to the clipboard."
         checked={settings.value.termCopyOnSelect}
@@ -169,6 +175,12 @@
         hint="In SSH terminals, nano FILE and $EDITOR (git commit, crontab -e, sudoedit) open the file in the editor tab with normal shortcuts instead of nano. Nothing is installed on the server; applies to new terminals."
         checked={settings.value.termEditInApp}
         onchange={(v) => settings.update({ termEditInApp: v })}
+      />
+      <Toggle
+        label="Key hints"
+        hint="A strip under the terminal shows the keys of the program in front (nano, vim, less, htop, tmux, journalctl -f …). SSH shells report it through the same session-only hook; nothing is installed."
+        checked={settings.value.termKeyHints}
+        onchange={(v) => settings.update({ termKeyHints: v })}
       />
       <Toggle
         label="Shell history search"

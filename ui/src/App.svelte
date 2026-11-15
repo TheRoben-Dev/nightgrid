@@ -82,7 +82,7 @@
     // Tray menu: quick connect and "open alerts".
     const unlisten: Promise<() => void>[] = [];
     if (inTauri()) {
-      unlisten.push(listen<{ hostId: number }>("tray://connect", (e) => terms.openHost(e.payload.hostId)));
+      unlisten.push(listen<{ hostId: number }>("tray://connect", (e) => terms.goToHost(e.payload.hostId)));
       unlisten.push(listen("tray://alerts", () => (alerts.open = true)));
     }
     api
@@ -103,7 +103,7 @@
   // Terminal settings and theme changes apply to open panes live.
   $effect(() => {
     const s = settings.value;
-    void [s.theme, s.termFontSize, s.termScrollback, s.termCursorBlink];
+    void [s.theme, s.customTheme, s.termFontSize, s.termScrollback, s.termCursorBlink, s.termSolidBg];
     queueMicrotask(() => terms.applySettings());
   });
 
@@ -127,7 +127,13 @@
     "term.splitDown": () => ui.section === "terminal" && terms.split("col"),
     "term.find": () => {
       const s = terms.currentSession;
-      if (s && ui.section === "terminal") s.searchOpen = true;
+      if (s && ui.section === "terminal") {
+        s.searchOpen = !s.searchOpen;
+        if (!s.searchOpen) {
+          s.search.clearDecorations();
+          s.focus();
+        }
+      }
     },
     "term.nextTab": () => ui.section === "terminal" && terms.cycle(1),
     "term.prevTab": () => ui.section === "terminal" && terms.cycle(-1),
@@ -156,7 +162,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.9"} />
+  <LeftRail version={info?.version ?? "0.10.10"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network"} aria-label={section.label}>

@@ -7,7 +7,10 @@ import { guideTarget } from "../helper/guide";
 import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
 import { buildTurns, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
 import { sectionById } from "../sections";
+import { labelLines } from "../netmap/graph";
+import { keymap } from "../term/keyhints";
 import { docker } from "./docker.svelte";
+import { netmap } from "./netmap.svelte";
 import { notes } from "./notes.svelte";
 import { settings } from "./settings.svelte";
 import { system } from "./system.svelte";
@@ -50,6 +53,13 @@ export function currentSelection(): string {
   } catch {
     return "";
   }
+}
+
+/** The known program in front of the active terminal, with its keys (key hints). */
+export function currentProgram(): HelperContext["program"] {
+  if (ui.section !== "terminal") return null;
+  const m = keymap(terms.currentSession?.hintId ?? null);
+  return m ? { name: m.name, keys: m.hints.map((h) => `${h.keys}: ${h.does}`).join("; ") } : null;
 }
 
 /** The host the current view is about, if it has one. */
@@ -122,7 +132,7 @@ class HelperStore {
   /** Re-reads what the current view offers as context. */
   captureContext() {
     const selection = currentSelection();
-    this.context = { view: ui.section, host: currentHost(), selection: selection.trim() ? selection : null, source: null };
+    this.context = { view: ui.section, host: currentHost(), selection: selection.trim() ? selection : null, source: null, program: currentProgram() };
   }
 
   /**
@@ -133,7 +143,7 @@ class HelperStore {
   async explain(o: { source: string; text: string; question: string; host?: string | null }) {
     const text = o.text.trim();
     if (!text) return;
-    this.context = { view: ui.section, host: o.host ?? currentHost(), selection: text, source: o.source };
+    this.context = { view: ui.section, host: o.host ?? currentHost(), selection: text, source: o.source, program: currentProgram() };
     this.open = true;
     await this.refresh();
     if (this.enabled && this.ready && !this.busy) await this.ask(o.question);
@@ -206,6 +216,8 @@ class HelperStore {
     if (!q || this.busy) return;
     const ctx = { ...this.context, view: this.context.view ?? ui.section };
     if (!notes.loaded) await notes.load();
+    if (!netmap.labelsLoaded) await netmap.loadLabels();
+    ctx.devices = labelLines(netmap.labels, netmap.result?.devices ?? [], q, ctx.view === "network");
     const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, 4), ...notesIndex(notes.notes).search(q, 2)];
     const history: Turn[] = this.messages
       .filter((m) => !m.error && m.text)

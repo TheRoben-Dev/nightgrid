@@ -20,7 +20,7 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
-    // xterm.js (+ WebGL renderer) is most of the bundle; it is loaded locally, so size is not a network cost.
+    // xterm.js is most of the bundle; it is loaded locally, so size is not a network cost.
     chunkSizeWarningLimit: 900,
     // Tauri webviews: WebView2 (Chromium), WKWebView (Safari 15+), WebKitGTK.
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome110" : "safari15",

@@ -94,6 +94,8 @@ function startTerm(on: (m: TermMessage) => void, label: string, banner: string):
   return id;
 }
 
+const fg = new Map<number, string | null>();
+
 export const mockBackend = {
   async hostsList(): Promise<Host[]> {
     return sorted(db.hosts);
@@ -217,6 +219,9 @@ export const mockBackend = {
     }
     return { kind: "opened", id: startTerm(on, label, `Connected to ${h.name} (mock).\r\n`) };
   },
+  async termForeground(id: number): Promise<string | null> {
+    return fg.get(id) ?? null;
+  },
   async termWrite(id: number, data: string): Promise<null> {
     const t = terms.get(id);
     if (!t) return null;
@@ -224,6 +229,8 @@ export const mockBackend = {
     for (const ch of data) {
       if (ch === "\r") {
         const cmd = t.line.trim();
+        // The last command "stays in front" so key hints can be previewed.
+        fg.set(id, cmd || null);
         out += "\r\n" + (cmd ? `mock: ${cmd}\r\n` : "") + PROMPT;
         t.line = "";
       } else if (ch === "\x7f") {

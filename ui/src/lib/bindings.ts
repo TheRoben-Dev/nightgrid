@@ -32,9 +32,14 @@ export const commands = {
 	/**  TCP-connect check to each host's SSH port (no ICMP, no auth). */
 	hostsPing: (ids: number[], options?: InvokeOptions) => __TAURI_INVOKE<HostPing_Serialize[]>("hosts_ping", { ids }, options),
 	termOpenLocal: (cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("term_open_local", { cols, rows, onEvent }, options),
-	termOpenSsh: (hostId: number, cols: number, rows: number, editToken: string | null, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_ssh", { hostId, cols, rows, editToken, onEvent }, options),
+	termOpenSsh: (hostId: number, cols: number, rows: number, editToken: string | null, edit: boolean, hints: boolean, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_ssh", { hostId, cols, rows, editToken, edit, hints, onEvent }, options),
 	termWrite: (id: number, data: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_write", { id, data }, options),
 	termResize: (id: number, cols: number, rows: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_resize", { id, cols, rows }, options),
+	/**
+	 *  The program in front of a local terminal (key hints); `None` for SSH,
+	 *  whose shell hook reports it instead.
+	 */
+	termForeground: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("term_foreground", { id }, options),
 	termReconnect: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_reconnect", { id }, options),
 	termClose: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_close", { id }, options),
 	/**
@@ -338,6 +343,10 @@ export const commands = {
 	 */
 	alertsLogSamples: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<string[]>("alerts_log_samples", { key }, options),
 	backupJobsList: (options?: InvokeOptions) => __TAURI_INVOKE<BackupJob[]>("backup_jobs_list", undefined, options),
+	deviceLabelsList: (options?: InvokeOptions) => __TAURI_INVOKE<DeviceLabel[]>("device_labels_list", undefined, options),
+	/**  Saves a label; returns null when every field was empty and it was removed. */
+	deviceLabelSave: (label: DeviceLabel, options?: InvokeOptions) => __TAURI_INVOKE<DeviceLabel | null>("device_label_save", { label }, options),
+	deviceLabelDelete: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("device_label_delete", { key }, options),
 	/**  Creates (`id` = null) or updates a job. */
 	backupJobSave: (id: number | null, input: BackupJobInput, options?: InvokeOptions) => __TAURI_INVOKE<BackupJob>("backup_job_save", { id, input }, options),
 	backupJobDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("backup_job_delete", { id }, options),
@@ -356,6 +365,11 @@ export const commands = {
 	 *  also pings the host's own LAN subnet (/24 or smaller). Only on a click.
 	 */
 	netmapDiscover: (hostId: number, sweep: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover", { hostId, sweep }, options),
+	/**
+	 *  Network discovery run on this computer (macOS and Linux), for the map's
+	 *  "This computer" option. Same script as on a host, run with the local `sh`.
+	 */
+	netmapDiscoverLocal: (sweep: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover_local", { sweep }, options),
 	/**
 	 *  Starts, shuts down, reboots or stops a guest. Everything but start was
 	 *  confirmed in the UI with the guest and host named (security rule 5).
@@ -653,6 +667,13 @@ export type AppSettings_Deserialize = {
 	 *  editor (session-only shell hook, see `edit_hook`).
 	 */
 	termEditInApp?: boolean,
+	/**  Show the keys of the program in front of a terminal (htop, vim, less …). */
+	termKeyHints?: boolean,
+	/**
+	 *  Paint terminals on a solid background instead of letting the app's
+	 *  backdrop show through.
+	 */
+	termSolidBg?: boolean,
 	/**
 	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
 	 *  Off by default; lines that look like they hold a secret are dropped and
@@ -739,6 +760,13 @@ export type AppSettings_Serialize = {
 	 *  editor (session-only shell hook, see `edit_hook`).
 	 */
 	termEditInApp: boolean,
+	/**  Show the keys of the program in front of a terminal (htop, vim, less …). */
+	termKeyHints: boolean,
+	/**
+	 *  Paint terminals on a solid background instead of letting the app's
+	 *  backdrop show through.
+	 */
+	termSolidBg: boolean,
 	/**
 	 *  Search the shell history (bash, zsh, fish) of hosts from the terminal.
 	 *  Off by default; lines that look like they hold a secret are dropped and
@@ -947,6 +975,7 @@ export type BackupSummary_Deserialize = {
 	playbooks: number,
 	notes?: number,
 	backupJobs?: number,
+	deviceLabels?: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -967,6 +996,7 @@ export type BackupSummary_Serialize = {
 	playbooks: number,
 	notes: number,
 	backupJobs: number,
+	deviceLabels: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -1309,6 +1339,15 @@ export type DeployInput_Serialize = {
 };
 
 export type Device = Device_Serialize | Device_Deserialize;
+
+export type DeviceLabel = {
+	/**  Lower-case MAC (`aa:bb:cc:dd:ee:ff`), or `ip:<address>`. */
+	key: string,
+	name: string,
+	kind: string,
+	tags: string[],
+	note: string,
+};
 
 export type Device_Deserialize = {
 	ip: string,

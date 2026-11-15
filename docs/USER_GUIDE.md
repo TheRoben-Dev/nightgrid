@@ -25,15 +25,18 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 ## Terminal
 
-- Click a host or press `Mod+2` to open a terminal. Use `Ctrl+Shift+T` for a local shell.
+- Click a host to go to its terminal (a new one opens if it has none; Alt-click or Cmd-click always opens a new one), or press `Mod+2`. Use `Ctrl+Shift+T` for a local shell.
+- **+ NEW** in the tab bar opens this computer or any saved host, as a new tab or split next to the focused pane. Type to filter, arrows and Enter to pick.
 - Panes and tabs:
   - Split right with `Ctrl+Shift+D` and split down with `Ctrl+Shift+S`.
   - Close a pane with `Ctrl+Shift+W`.
   - Switch tabs with `Ctrl+Tab`.
-  - Find with `Ctrl+Shift+F`.
+  - Find with `Ctrl+Shift+F` (again, Esc or **×** closes it).
+- Terminal text sits on the app's backdrop; **Settings → Terminal → Solid background** gives it a solid panel instead.
 - Dropped connections reconnect on request. Links in the output open in your browser.
 - **History search** (turn on under **Settings → Terminal**): **HIST** on an SSH terminal searches the host's bash, zsh and fish history. Enter or a click types the command at the prompt; **+ Note** starts a runbook with it. Lines that look like they hold a password or token are left out, and nothing is saved.
 - **Edit server files in Nightgrid** (Settings → Terminal): `nano FILE` and `$EDITOR` open the file in Nightgrid's editor instead.
+- **Key hints**: a strip under the terminal shows the keys of the program in front of the active pane: nano, vim, less and `man`, htop, top, btop, tmux, screen, watch, Midnight Commander, a nested `ssh`, and anything that follows output (`journalctl -f`, `tail -f`, `docker logs -f`). On SSH terminals the shell reports the command through the same session-only hook as editing in Nightgrid (bash, zsh and fish; nothing is installed and it's gone when the shell exits). On local terminals Nightgrid asks the terminal which program is in front. **×** hides the hints for that program; **Show hidden** brings them back. Turn the strip off under **Settings → Terminal → Key hints**. DRIFT knows the same keys ("how do I quit vim?").
 
 ## Files
 
@@ -109,10 +112,11 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 ## Network map
 
 - `Mod+0` opens **Network**: a map with the internet on the left, then your router and tailnet, your hosts, and other devices on the network.
-- Pick a host under **Scan from** and click **Scan**. It reads that host's neighbour table, mDNS announcements (`avahi-browse`), Tailscale peers, router port forwards (`upnpc`), Tailscale Funnel and cloudflared tunnels; tools that aren't installed are listed as notes. **Ping sweep** also pings each address in its subnet (private /24 or smaller) to find quiet devices. Nothing is scanned until you click.
+- Pick a host under **Scan from**, or **This computer** (macOS and Linux), and click **Scan**. It reads that machine's neighbour table, mDNS announcements (`avahi-browse`), Tailscale peers, router port forwards (`upnpc`), Tailscale Funnel and cloudflared tunnels; tools that aren't installed are listed as notes. **Ping sweep** also pings each address in its subnet (private /24 or smaller) to find quiet devices. Nothing is scanned until you click.
 - **Red** lines and the ▲ count mark ways in from the internet: a public address on the host, a port forward on the router, a Funnel or a tunnel. Nightgrid finds these from your own machines and never asks an outside service. Cyan lines are the LAN, dashed lines the tailnet; a host with a dashed outline wasn't seen in the last scan.
 - Select a host to see how the internet reaches it and its listening ports. **Audit ports** (or **Audit ports on all hosts**) runs the same check as System → Security; exposed ports are marked INTERNET. **Scan from here** rescans from that host.
 - Select another device to see its address, MAC, names, services and how it was found. **Add as host** opens the host editor with the address filled in.
+- **Label** devices that aren't hosts (a TV, a phone, a printer): a name, a type, `#tags` and a note. The label follows the device by its MAC address (or its address when the scan saw no MAC), shows on the map and in **Labelled devices** (with nothing selected), is included in profile exports, and DRIFT can read it ("what is 192.168.1.44?"). The router can be labelled too. **Clear** removes a label.
 
 ## DRIFT helper
 

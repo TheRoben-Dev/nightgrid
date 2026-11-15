@@ -16,7 +16,12 @@ import type {
   VmReport_Serialize as VmReport,
   Discovery_Serialize as Discovery,
   Device_Serialize as Device,
+  DeviceLabel,
 } from "./bindings";
+
+let labels: DeviceLabel[] = [
+  { key: "3c:22:fb:00:00:52", name: "Kid's Switch", kind: "console", tags: ["kids", "wifi"], note: "Parental controls on the router." },
+];
 
 let nextId = 1;
 let jobs: BackupJob[] = [];
@@ -83,6 +88,21 @@ const statusInfo = (): StatusPageInfo => ({
 });
 
 export const mockOps = {
+  labelsList: async (): Promise<DeviceLabel[]> => labels.map((l) => ({ ...l, tags: [...l.tags] })),
+  labelSave: async (l: DeviceLabel): Promise<DeviceLabel | null> => {
+    const key = l.key.trim().toLowerCase();
+    const tags = [...new Set(l.tags.map((t) => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean))];
+    if (tags.some((t) => /\s/.test(t))) throw new Error("tags are single words of at most 32 characters");
+    const v = { key, name: l.name.trim(), kind: l.kind, tags, note: l.note.trim() };
+    labels = labels.filter((x) => x.key !== key);
+    if (!v.name && !v.tags.length && !v.note && v.kind === "other") return null;
+    labels = [...labels, v];
+    return v;
+  },
+  labelDelete: async (key: string): Promise<null> => {
+    labels = labels.filter((x) => x.key !== key);
+    return null;
+  },
   discover: (_hostId: number, sweep: boolean): Promise<Discovery> => delay(discovery(sweep), sweep ? 1200 : 500),
   vms: (_hostId: number, elevate: boolean): Promise<VmReport> =>
     delay(

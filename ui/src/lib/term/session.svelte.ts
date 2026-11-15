@@ -7,7 +7,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { SearchAddon } from "@xterm/addon-search";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebLinksAddon } from "@xterm/addon-web-links";
-import { WebglAddon } from "@xterm/addon-webgl";
+import { parseHint, programFromCommand } from "./keyhints";
 import { Terminal } from "@xterm/xterm";
 import { api, errorText, type ConnectError, type PromptKind, type TermMessage, type TermState, type VmKind } from "../api";
 import { openExternal, readClipboard, writeClipboard } from "../clipboard";
@@ -33,6 +33,14 @@ export type Origin =
 
 /** OSC number the remote edit helper uses (see core `edit_hook`). */
 export const EDIT_OSC = 7766;
+/** OSC number the shell hook reports the command about to run with (key hints). */
+export const HINT_OSC = 7767;
+/** "NG Symbols" (bundled Nerd Font symbols) only covers icon code points, so text stays in JetBrains Mono. */
+const FONT = '"NG Symbols", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+/** The same stack spelled differently: assigning it makes xterm measure the font again. */
+const FONT_ALT = FONT.replace("Menlo, ", "Menlo,");
+/** How often a local terminal's foreground program is checked while visible. */
+const FOREGROUND_POLL_MS = 1200;
 
 function newToken(): string {
   const b = new Uint8Array(16);
@@ -70,6 +78,10 @@ export class TermSession {
   /** Something the user must answer before connecting (host key, password). */
   prompt = $state<ConnectError | null>(null);
   searchOpen = $state(false);
+  /** Command line (SSH hook) or process name (local) in front; null at the prompt. */
+  command = $state<string | null>(null);
+  /** Key map for what's in front (see `keyhints.ts`). */
+  readonly hintId = $derived(programFromCommand(this.command));
 
   readonly el: HTMLDivElement;
   readonly term: Terminal;
@@ -80,13 +92,15 @@ export class TermSession {
   private opened = false;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
   private fitFrame = 0;
-  private gl: WebglAddon | null = null;
   /** Size the backend PTY was last told (null until the session is open). */
   private sentSize: { cols: number; rows: number } | null = null;
-  private readonly onDocEvent = () => this.redraw();
+  private readonly onVisible = () => this.redraw();
+  private readonly onFonts = () => this.remeasure();
   private disposed = false;
   /** Per-start secret for the "edit in Nightgrid" hook (null when off). */
   private editToken: string | null = null;
+  private editOn = false;
+  private fgTimer: ReturnType<typeof setInterval> | null = null;
   /** Brings this pane to the front (set by the terminal store). */
   reveal: (() => void) | null = null;
 
@@ -98,14 +112,16 @@ export class TermSession {
     const s = settings.value;
     this.term = new Terminal({
       allowProposedApi: true,
-      // "NG Symbols" (bundled Nerd Font symbols) only covers icon code points, so text stays in JetBrains Mono.
-      fontFamily: '"NG Symbols", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+      // xterm's DOM renderer: unlike WebGL it survives being moved between
+      // panes in WebKit and lets the app backdrop show through.
+      allowTransparency: true,
+      fontFamily: FONT,
       fontSize: s.termFontSize,
       scrollback: s.termScrollback,
       cursorBlink: s.termCursorBlink,
       cursorStyle: "bar",
       macOptionIsMeta: true,
-      theme: xtermTheme(),
+      theme: xtermTheme(s.termSolidBg),
     });
     this.term.loadAddon(this.fit);
     this.term.loadAddon(this.search);
@@ -122,9 +138,15 @@ export class TermSession {
     });
     this.term.attachCustomKeyEventHandler((e) => this.onKey(e));
     this.term.parser.registerOscHandler(EDIT_OSC, (data) => this.onEditRequest(data));
-    // Repaint when the window comes back or a font (e.g. the icon font) finishes loading.
-    document.addEventListener("visibilitychange", this.onDocEvent);
-    document.fonts?.addEventListener?.("loadingdone", this.onDocEvent);
+    this.term.parser.registerOscHandler(HINT_OSC, (data) => {
+      const token = this.editToken;
+      const cmd = token ? parseHint(data, token) : undefined;
+      if (cmd !== undefined) this.command = cmd;
+      return true;
+    });
+    // Repaint when the window comes back; measure again when a font finishes loading.
+    document.addEventListener("visibilitychange", this.onVisible);
+    document.fonts?.addEventListener?.("loadingdone", this.onFonts);
     this.el.addEventListener("contextmenu", (e) => {
       if (!settings.value.termRightClickPaste) return;
       e.preventDefault();
@@ -145,41 +167,36 @@ export class TermSession {
     if (this.el.parentElement !== host) host.appendChild(this.el);
     if (!this.opened) {
       this.term.open(this.el);
-      this.loadWebgl();
       this.opened = true;
     }
     resyncStyles(this.el);
-    this.refit();
-    // Splitting re-parents the pane; WebKit can drop the canvas contents on a move.
-    if (moved) requestAnimationFrame(() => this.redraw());
+    // Fonts may have finished loading while the pane was off screen (another
+    // tab), when xterm can't measure; measure again whenever it comes back.
+    if (moved) this.remeasure();
+    else this.refit();
   }
 
-  private loadWebgl() {
-    try {
-      const gl = new WebglAddon();
-      // WebKit caps live WebGL contexts and may drop one (many panes, sleep, GPU switch):
-      // fall back to xterm's DOM renderer and repaint instead of going blank.
-      gl.onContextLoss(() => {
-        gl.dispose();
-        if (this.gl === gl) this.gl = null;
-        this.redraw();
-      });
-      this.term.loadAddon(gl);
-      this.gl = gl;
-    } catch {
-      /* no WebGL: xterm keeps its DOM renderer */
-    }
-  }
-
-  /** Repaints every row (and rebuilds the glyph atlas). */
+  /** Repaints every row. */
   redraw() {
     if (!this.opened || this.disposed || document.visibilityState === "hidden") return;
     try {
-      this.gl?.clearTextureAtlas();
       this.term.refresh(0, this.term.rows - 1);
     } catch {
       /* disposed mid-frame */
     }
+  }
+
+  /**
+   * Makes xterm measure the font again (cell size), then fits. Needed after a
+   * web font loads: until then cells are sized for the fallback font and text
+   * drifts out of its columns.
+   */
+  remeasure() {
+    if (!this.opened || this.disposed) return;
+    if (this.el.isConnected && this.el.clientWidth > 0) {
+      this.term.options.fontFamily = this.term.options.fontFamily === FONT ? FONT_ALT : FONT;
+    }
+    this.refit();
   }
 
   /** Takes the terminal out of `host` without disposing it. */
@@ -187,18 +204,25 @@ export class TermSession {
     if (this.el.parentElement === host) host.removeChild(this.el);
   }
 
-  /** Fits to the pane once layout has settled (one fit per frame, however many resizes). */
+  /**
+   * Fits to the pane once layout has settled: two frames later, so a split
+   * that just collapsed or a tab that just appeared has its final size. One
+   * fit per frame however many resizes; then the PTY size, then a repaint.
+   */
   refit() {
     if (this.fitFrame) return;
     this.fitFrame = requestAnimationFrame(() => {
-      this.fitFrame = 0;
-      if (!this.opened || this.disposed || !this.el.isConnected || this.el.clientWidth === 0 || this.el.clientHeight === 0) return;
-      try {
-        this.fit.fit();
-      } catch {
-        /* not laid out yet */
-      }
-      this.syncSize();
+      this.fitFrame = requestAnimationFrame(() => {
+        this.fitFrame = 0;
+        if (!this.opened || this.disposed || !this.el.isConnected || this.el.clientWidth === 0 || this.el.clientHeight === 0) return;
+        try {
+          this.fit.fit();
+        } catch {
+          /* not laid out yet */
+        }
+        this.syncSize();
+        this.redraw();
+      });
     });
   }
 
@@ -217,7 +241,7 @@ export class TermSession {
     this.term.options.fontSize = s.termFontSize;
     this.term.options.scrollback = s.termScrollback;
     this.term.options.cursorBlink = s.termCursorBlink;
-    this.term.options.theme = xtermTheme();
+    this.term.options.theme = xtermTheme(s.termSolidBg);
     this.refit();
   }
 
@@ -228,7 +252,7 @@ export class TermSession {
    */
   private onEditRequest(data: string): boolean {
     const token = this.editToken;
-    if (!token || this.origin.kind !== "ssh") return true;
+    if (!token || !this.editOn || this.origin.kind !== "ssh") return true;
     const path = parseEditRequest(data, token);
     if (!path) return true;
     const { hostId, name } = this.origin;
@@ -297,6 +321,7 @@ export class TermSession {
         case "exit":
           this.exitCode = m.code;
           this.state = "exited";
+          this.command = null;
           this.term.write(`\r\n\x1b[2m[process exited${m.code !== null ? ` with code ${m.code}` : ""}]\x1b[0m\r\n`);
           this.backendId = null;
           break;
@@ -313,20 +338,25 @@ export class TermSession {
     this.exitCode = null;
     this.state = "connecting";
     this.message = null;
+    this.command = null;
     const { cols, rows } = this.term;
     try {
       if (this.origin.kind === "local") {
         this.backendId = await api.termOpenLocal(cols, rows, this.listener(gen));
         this.sentSize = { cols, rows };
         this.syncSize();
+        this.watchForeground();
       } else {
         const o = this.origin;
-        this.editToken = !o.container && !o.vm && settings.value.termEditInApp ? newToken() : null;
+        const plain = !o.container && !o.vm;
+        this.editOn = plain && settings.value.termEditInApp;
+        const hints = plain && settings.value.termKeyHints;
+        this.editToken = this.editOn || hints ? newToken() : null;
         const res = o.container
           ? await api.termOpenDockerExec(o.hostId, o.container.id, cols, rows, this.listener(gen))
           : o.vm
             ? await api.termOpenVmConsole(o.hostId, o.vm.kind, o.vm.id, o.vm.asRoot, cols, rows, this.listener(gen))
-            : await api.termOpenSsh(o.hostId, cols, rows, this.editToken, this.listener(gen));
+            : await api.termOpenSsh(o.hostId, cols, rows, this.editToken, this.editOn, hints, this.listener(gen));
         if (gen !== this.generation) return;
         if (res.kind === "opened") {
           this.backendId = res.id;
@@ -388,12 +418,28 @@ export class TermSession {
     }
   }
 
+  /** Local terminals: ask the PTY which program is in front, while the pane is on screen. */
+  private watchForeground() {
+    if (this.fgTimer) clearInterval(this.fgTimer);
+    this.fgTimer = setInterval(() => {
+      const id = this.backendId;
+      if (id === null || !settings.value.termKeyHints || !this.el.isConnected || document.visibilityState === "hidden") return;
+      void api.termForeground(id).then(
+        (name) => {
+          if (this.backendId === id) this.command = name;
+        },
+        () => {},
+      );
+    }, FOREGROUND_POLL_MS);
+  }
+
   dispose() {
+    if (this.fgTimer) clearInterval(this.fgTimer);
     this.disposed = true;
     this.generation++;
     if (this.fitFrame) cancelAnimationFrame(this.fitFrame);
-    document.removeEventListener("visibilitychange", this.onDocEvent);
-    document.fonts?.removeEventListener?.("loadingdone", this.onDocEvent);
+    document.removeEventListener("visibilitychange", this.onVisible);
+    document.fonts?.removeEventListener?.("loadingdone", this.onFonts);
     this.closeBackend();
     this.term.dispose();
     this.el.remove();

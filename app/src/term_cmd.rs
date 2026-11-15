@@ -113,6 +113,7 @@ fn connector_for(app: AppHandle, host_id: HostId) -> Connector {
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)] // a Tauri command: arguments come from the UI
 pub async fn term_open_ssh(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -120,14 +121,18 @@ pub async fn term_open_ssh(
     cols: u16,
     rows: u16,
     edit_token: Option<String>,
+    edit: bool,
+    hints: bool,
     on_event: Channel<TermMessage>,
 ) -> CmdResult<TermOpen> {
-    // With a token, `nano FILE` / `$EDITOR` open files in the app's editor
-    // (session-only hook, nothing installed on the host).
+    // With a token, the session-only hook (nothing installed on the host)
+    // makes `nano FILE` / `$EDITOR` open files in the app's editor and/or
+    // reports the program in front for key hints.
+    let opts = edit_hook::HookOptions { edit, hints };
     let command = match edit_token {
-        Some(t) if edit_hook::valid_token(&t) => Some(edit_hook::bootstrap_command(&t)),
-        Some(_) => return Err(CommandError::msg("invalid edit token")),
-        None => None,
+        Some(t) if edit_hook::valid_token(&t) && opts.any() => Some(edit_hook::bootstrap_command(&t, opts)),
+        Some(_) if opts.any() => return Err(CommandError::msg("invalid session token")),
+        _ => None,
     };
     let connector = connector_for(app.clone(), host_id);
     match term::spawn_ssh(connector, command, cols, rows, sink_for(on_event)).await {
@@ -222,6 +227,18 @@ pub fn term_write(state: State<'_, AppState>, id: TermId, data: String) -> CmdRe
 #[specta::specta]
 pub fn term_resize(state: State<'_, AppState>, id: TermId, cols: u16, rows: u16) -> CmdResult<()> {
     with_term(&state, id, |h| h.resize(cols, rows))
+}
+
+/// The program in front of a local terminal (key hints); `None` for SSH,
+/// whose shell hook reports it instead.
+#[tauri::command]
+#[specta::specta]
+pub async fn term_foreground(state: State<'_, AppState>, id: TermId) -> CmdResult<Option<String>> {
+    let handle = state.terms.lock().expect("poisoned").get(&id).cloned();
+    Ok(match handle {
+        Some(h) => h.foreground().await,
+        None => None,
+    })
 }
 
 #[tauri::command]

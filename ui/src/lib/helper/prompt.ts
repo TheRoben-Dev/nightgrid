@@ -20,6 +20,10 @@ export interface HelperContext {
   selection?: string | null;
   /** What the attached text is, when a view attached it ("Docker logs: web"). */
   source?: string | null;
+  /** Terminal view: the known program in front of the active pane, with its keys. */
+  program?: { name: string; keys: string } | null;
+  /** The user's labels for network devices that matter to the question (one line each). */
+  devices?: string[] | null;
 }
 
 export type HelperAction = { kind: "show"; view: SectionId } | { kind: "point"; id: string; note: string };
@@ -70,6 +74,8 @@ Use at most one show and three points, in the order the user should follow.`;
 export function contextBlock(ctx: HelperContext, docs: Chunk[]): string {
   const parts: string[] = [];
   parts.push(`Current view: ${viewLabel(ctx.view)}${ctx.host ? `, host "${ctx.host}"` : ""}.`);
+  if (ctx.program) parts.push(`Running in the terminal: ${ctx.program.name}. Its keys: ${ctx.program.keys}.`);
+  if (ctx.devices?.length) parts.push("NETWORK DEVICES (the user's own labels):\n" + ctx.devices.map((d) => `- ${d}`).join("\n"));
   const guide = docs.filter((d) => d.noteId === undefined);
   const mine = docs.filter((d) => d.noteId !== undefined);
   if (guide.length) {

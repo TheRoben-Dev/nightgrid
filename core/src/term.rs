@@ -43,6 +43,8 @@ enum Cmd {
     Resize(u16, u16),
     Reconnect,
     Close,
+    /// Local PTYs: name of the program in the foreground (None for SSH).
+    Foreground(tokio::sync::oneshot::Sender<Option<String>>),
 }
 
 /// Input side of a running terminal. Dropping it closes the session.
@@ -65,6 +67,22 @@ impl TermHandle {
     pub fn close(&self) {
         let _ = self.tx.send(Cmd::Close);
     }
+    /// The program in the foreground of a local terminal (`htop`, `vim`), or
+    /// the shell itself at the prompt. `None` for SSH sessions and on Windows.
+    pub async fn foreground(&self) -> Option<String> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.tx.send(Cmd::Foreground(tx)).ok()?;
+        rx.await.ok().flatten()
+    }
+}
+
+/// Process name for a pid, via `ps` (macOS and Linux).
+#[cfg(unix)]
+fn process_name(pid: i32) -> Option<String> {
+    let out = std::process::Command::new("ps").args(["-o", "comm=", "-p", &pid.to_string()]).output().ok()?;
+    let name = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    let base = name.rsplit('/').next().unwrap_or(&name).trim_start_matches('-').to_string();
+    (!base.is_empty()).then_some(base)
 }
 
 // ───────────────────────────── local shells ─────────────────────────────
@@ -148,6 +166,13 @@ pub fn spawn_local(
                     let _ = master.resize(pty_size(c, r));
                 }
                 Cmd::Reconnect => {}
+                Cmd::Foreground(reply) => {
+                    #[cfg(unix)]
+                    let name = master.process_group_leader().and_then(process_name);
+                    #[cfg(not(unix))]
+                    let name = None;
+                    let _ = reply.send(name);
+                }
                 Cmd::Close => break,
             }
         }
@@ -251,6 +276,10 @@ async fn pump(
                     let _ = channel.window_change(c.into(), r.into(), 0, 0).await;
                 }
                 Some(Cmd::Reconnect) => {}
+                Some(Cmd::Foreground(reply)) => {
+                    // SSH sessions report through the shell hook instead.
+                    let _ = reply.send(None);
+                }
                 Some(Cmd::Close) | None => {
                     let _ = channel.close().await;
                     return Outcome::Closed;

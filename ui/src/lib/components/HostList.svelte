@@ -26,7 +26,9 @@
           : p.state === "offline"
             ? "unreachable"
             : "behind a jump host";
-    return `${target} · ${state}${h.tags.length ? ` · #${h.tags.join(" #")}` : ""}`;
+    const tags = h.tags.length ? ` · #${h.tags.join(" #")}` : "";
+    const open = terms.shellFor(h.id) ? "Click: go to its terminal · Alt-click: new terminal" : "Click: open a terminal";
+    return `${target} · ${state}${tags}\n${open}`;
   }
 </script>
 
@@ -80,7 +82,7 @@
                   type="button"
                   class="host"
                   title={title(h)}
-                  onclick={() => terms.openHost(h.id)}
+                  onclick={(e) => terms.goToHost(h.id, e.altKey || e.metaKey || e.ctrlKey)}
                   aria-label="Connect to {h.name} ({st})"
                 >
                   <span class="stripe" style:background={h.color ?? "transparent"} aria-hidden="true"></span>

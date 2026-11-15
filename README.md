@@ -164,6 +164,17 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.10 (terminal fixes, key hints, scan from this computer)
+
+1. Open an SSH terminal and run `htop`: the strip under the terminal shows htop's keys; quit and it clears. Try `vim`, `less /etc/hosts`, `journalctl -f`, `tmux`. In a local terminal (`Cmd+Shift+T`), run `top` or `vim`: the strip follows within a second or so.
+2. Click **×** on the strip: hints for that program stay hidden; **Show hidden** brings them back. **Settings → Terminal → Key hints** off removes the strip.
+3. Ask DRIFT "how do I quit vim?" with vim open: the reply uses the key map.
+4. **Network → Scan from → This computer**, tick **Ping sweep**, **Scan**: devices on your Wi-Fi appear, and "This computer" is a node under your hosts.
+5. **Terminal stress**: split right and down a few times (`Cmd+Shift+D` / `Cmd+Shift+S`), run `htop` or `fastfetch` in each, then close panes in different orders and switch tabs: every remaining pane keeps its text and fits its space. The app backdrop shows behind the text; **Settings → Terminal → Solid background** switches back.
+6. Open a terminal on a host, then click that host in the sidebar from another view: it jumps back to that terminal. Alt-click opens a second one. **+ NEW** lists your hosts; pick one with **Split right**.
+7. `Cmd+Shift+F` opens Find; Esc, **×** or the ⌕ button closes it.
+8. **Network**: scan, select a device that isn't a host, fill in **Label** (name, type, `#tags`, note) and **Save label**: the map shows the name and type. Rescan: the label sticks. With nothing selected, **Labelled devices** lists it. Ask DRIFT "what is <its address>?".
+
 ### macOS: testing M10i (network map, custom scheme, notes in DRIFT)
 
 1. Press `Cmd+0`: **Network** shows your hosts. Pick a host under **Scan from** and click **Scan**: the router, tailnet peers and other devices appear, and any router port forward, Funnel or cloudflared tunnel shows as a red line with a ▲ count on the host it lands on. Turn on **Ping sweep** and scan again to find quiet devices.

@@ -54,7 +54,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Streams:** each terminal gets a `tauri::ipc::Channel<TermMessage>`; output is base64 bytes (not always UTF-8), plus status and exit events. Input goes back through `term_write`.
 - **Reconnect:** when the transport drops, the shell task retries with backoff (1–30 s) and writes `[nightgrid] reconnected` into the terminal. Errors that need the user stop retries until "Retry".
 - **Edit in Nightgrid:** with the setting on, `term_open_ssh` gets a per-start token and runs `edit_hook::bootstrap_command` instead of a plain shell. xterm's OSC 7766 handler in `TermSession` opens the requested path with `files.openFromTerminal`, and closing that tab writes the token back to the PTY so the remote helper returns (D-030).
-- **Panes:** each pane is a `TermSession` owning an xterm instance whose DOM element outlives Svelte components, so splitting/moving panes or switching tabs/sections keeps scrollback. The Terminal view stays mounted while hidden.
+- **Panes:** each pane is a `TermSession` owning an xterm instance whose DOM element outlives Svelte components, so splitting/moving panes or switching tabs/sections keeps scrollback. The Terminal view stays mounted while hidden. xterm uses its DOM renderer (no WebGL) with a transparent theme background; `TermPane` attaches the element on mount and detaches it in a teardown that uses only values captured at mount. `refit()` waits two frames, fits, sends the PTY size, then repaints; `remeasure()` (font loads, re-attach) makes xterm measure cells again (D-089). `terms.goToHost` reuses a host's open shell; the **+ NEW** menu (`NewTermMenu`) opens a host or local shell as a tab or split.
 
 ## Files (M2)
 
@@ -168,6 +168,14 @@ _Last updated: M2 (SFTP + editor)._
 - **UI**: `views/Network.svelte` + `stores/netmap.svelte.ts`; `netmap/graph.ts` builds columns (internet, router/tailnet, hosts, other devices) and links from the host list, `system.portMap` audits and the last discovery, matching devices to hosts by address or name stem. **Add as host** uses `hosts.addFrom` (prefills the editor).
 - **Custom scheme** (D-084): `theme/themes.ts` `SURFACES`, `TEXTS`, `COLOURS`, `resolveCustom`; `applyTheme(el, id, custom)`; `components/CustomThemeEditor.svelte`. Rust: `settings::THEME_TOKENS`, `AppSettings.custom_theme` validation.
 - **Notes in DRIFT** (D-083): `helper/knowledge.ts` `notesIndex` / `noteRefs`; `helper/prompt.ts` puts notes in their own block; migration `0014_note_drift.sql` adds `notes.hide_from_drift`.
+
+## Terminal key hints (M10j)
+
+- **Hook** (`core/src/edit_hook.rs`): `HookOptions { edit, hints }` → `bootstrap_command`; `OSC_HINT` 7767. `term_open_ssh` takes `edit` and `hints` with the session token.
+- **Local**: `TermHandle::foreground` (PTY `process_group_leader` + `ps`), command `term_foreground`.
+- **UI**: `term/keyhints.ts` (maps, `programFromCommand`, `parseHint`, `keymapDocs`), `TermSession.command` / `hintId`, `components/terminal/KeyHints.svelte`; DRIFT gets `keymapDocs` in `guideIndex` and `HelperContext.program`.
+- **Local network discovery**: `netmap::discover_local` / `netmap_discover_local` (same script via `/bin/sh`).
+- **Device labels**: `core/src/device_labels.rs`, table `device_labels` (migration 0015, key = lower-case MAC or `ip:<addr>`, part of the profile export); commands `device_labels_list` / `device_label_save` / `device_label_delete`. `buildGraph(..., labels)` names device and router nodes; `labelLines` gives DRIFT one line per label (all on the Network view, else those the question names) as `HelperContext.devices` (D-090).
 
 ## Backups (M9)
 

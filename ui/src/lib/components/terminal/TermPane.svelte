@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import type { ConnectError } from "../../api";
   import { terms } from "../../stores/terms.svelte";
+  import { settings } from "../../stores/settings.svelte";
   import { ui } from "../../stores/ui.svelte";
   import type { TermSession } from "../../term/session.svelte";
   import AuthPrompt from "./AuthPrompt.svelte";
@@ -21,15 +22,20 @@
   let searchInput: HTMLInputElement | undefined = $state();
 
   onMount(() => {
-    if (!host) return;
-    session.attach(host);
-    const ro = new ResizeObserver(() => session.refit());
-    ro.observe(host);
-    if (active) session.focus();
+    // Hold on to what this pane was mounted with: when a pane closes, its
+    // props can already point at nothing by the time this tears down, and a
+    // throw here would stop Svelte mounting the pane that takes its place.
+    const s = session;
+    const h = host;
+    if (!h) return;
+    s.attach(h);
+    const ro = new ResizeObserver(() => s.refit());
+    ro.observe(h);
+    if (active) s.focus();
     return () => {
       ro.disconnect();
       // Keep the xterm element alive; the store disposes it when the pane closes.
-      if (host) session.detach(host);
+      s.detach(h);
     };
   });
 
@@ -61,11 +67,16 @@
     exited: "ENDED",
   };
 
+  function closeFind() {
+    session.searchOpen = false;
+    session.search.clearDecorations();
+    session.focus();
+  }
+
   function find(e: KeyboardEvent) {
     if (e.key === "Escape") {
-      session.searchOpen = false;
-      session.search.clearDecorations();
-      session.focus();
+      e.preventDefault();
+      closeFind();
       return;
     }
     if (e.key === "Enter") {
@@ -76,7 +87,7 @@
   }
 </script>
 
-<div class="pane" class:active class:multi onfocusin={() => terms.markActive(tabId, session.paneId)}>
+<div class="pane" class:active class:multi class:solid={settings.value.termSolidBg} onfocusin={() => terms.markActive(tabId, session.paneId)}>
   {#if multi}
     <div class="phead">
       <span class="dot {session.state}" aria-hidden="true"></span>
@@ -98,6 +109,9 @@
         onkeydown={find}
         oninput={() => session.search.findNext(query, { incremental: true })}
       />
+      <button type="button" class="fbtn" title="Previous (Shift+Enter)" aria-label="Previous match" onclick={() => session.search.findPrevious(query)}>↑</button>
+      <button type="button" class="fbtn" title="Next (Enter)" aria-label="Next match" onclick={() => session.search.findNext(query)}>↓</button>
+      <button type="button" class="fbtn" title="Close (Esc)" aria-label="Close find" onclick={closeFind}>×</button>
     </div>
   {/if}
 
@@ -146,6 +160,8 @@
     min-width: 0;
     min-height: 0;
     border: 1px solid transparent;
+  }
+  .pane.solid {
     background: var(--bg-0);
   }
   .pane.multi {
@@ -197,6 +213,10 @@
   .surface :global(.term-surface) {
     width: 100%;
     height: 100%;
+  }
+  /* xterm.css paints the viewport black; the theme colours the scroll area instead (transparent unless "solid"). */
+  .surface :global(.xterm .xterm-viewport) {
+    background-color: transparent;
   }
   .dot {
     width: 6px;
@@ -276,9 +296,23 @@
     z-index: 10;
     top: 30px;
     right: 14px;
-    width: 220px;
+    width: 280px;
+    display: flex;
+    gap: 2px;
   }
   .find .input {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+  }
+  .fbtn {
+    width: 26px;
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+    color: var(--text-1);
+    cursor: pointer;
+  }
+  .fbtn:hover {
+    color: var(--text-0);
+    border-color: var(--mint);
   }
 </style>

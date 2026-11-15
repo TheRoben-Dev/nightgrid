@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Discovery, SecurityReport } from "../api";
 import { mockOps } from "../mockOps";
-import { buildGraph, exposureIp, matchHost, serviceLabel, summarizePorts } from "./graph";
+import { buildGraph, exposureIp, labelKey, labelLines, matchHost, serviceLabel, summarizePorts } from "./graph";
 
 const hosts = [
   { id: 1, name: "lab", hostname: "192.168.1.40", color: null },
@@ -68,8 +68,58 @@ describe("network map graph", () => {
     expect(g.links).toContainEqual({ from: "ts", to: "h1", kind: "tailnet" });
   });
 
+  it("shows the user's labels on devices, by MAC or by address", async () => {
+    const d: Discovery = await mockOps.discover(1, true);
+    const labels = new Map([
+      ["3c:22:fb:00:00:52", { key: "3c:22:fb:00:00:52", name: "Kid's Switch", kind: "console", tags: ["kids"], note: "" }],
+      ["ip:192.168.1.77", { key: "ip:192.168.1.77", name: "Doorbell", kind: "other", tags: [], note: "" }],
+      ["a4:2b:b0:11:22:33", { key: "a4:2b:b0:11:22:33", name: "Main router", kind: "router", tags: [], note: "" }],
+    ]);
+    const g = buildGraph(hosts, {}, d, 1, labels);
+    const byId = Object.fromEntries(g.nodes.map((n) => [n.id, n]));
+    expect(byId["d192.168.1.52"].label).toBe("Kid's Switch");
+    expect(byId["d192.168.1.52"].sub).toBe("Game console · 192.168.1.52");
+    expect(byId["d192.168.1.77"].label).toBe("Doorbell");
+    expect(byId["d192.168.1.77"].sub).toBe("192.168.1.77");
+    expect(byId.gw.label).toBe("Main router");
+    expect(labelKey("AA-BB-CC-DD-EE-FF", "10.0.0.1")).toBe("aa:bb:cc:dd:ee:ff");
+    expect(labelKey(null, "10.0.0.1")).toBe("ip:10.0.0.1");
+  });
+
   it("labels mDNS services", () => {
     expect(serviceLabel("_smb._tcp")).toBe("SMB share");
     expect(serviceLabel("_foo._tcp")).toBe("foo");
+  });
+});
+
+describe("scanning from this computer", () => {
+  it("adds a node for it and lands local exposures there", async () => {
+    const d = await mockOps.discover(0, false);
+    const g = buildGraph([], {}, d, "local");
+    const me = g.nodes.find((n) => n.id === "local");
+    expect(me?.label).toBe("This computer");
+    expect(me?.sub).toBe("192.168.1.40");
+    expect(g.links).toContainEqual({ from: "gw", to: "local", kind: "internet" });
+    expect(me?.exposures.map((e) => e.kind).sort()).toEqual(["funnel", "tunnel", "upnp"]);
+  });
+});
+
+describe("labelLines (DRIFT)", () => {
+  const labels = [
+    { key: "3c:22:fb:00:00:52", name: "Kid's Switch", kind: "console", tags: ["kids"], note: "Parental controls\non the router." },
+    { key: "ip:192.168.1.77", name: "Doorbell", kind: "other", tags: [], note: "" },
+  ];
+  const devices = [{ ip: "192.168.1.52", mac: "3c:22:fb:00:00:52", names: [], services: [], seen: ["neighbour" as const], os: null, online: null }];
+  it("lists every label on the Network view", () => {
+    const l = labelLines(labels, devices, "what is on my network?", true);
+    expect(l).toEqual([
+      "Kid's Switch (Game console) [192.168.1.52, MAC 3c:22:fb:00:00:52] #kids: Parental controls on the router.",
+      "Doorbell [192.168.1.77]",
+    ]);
+  });
+  it("elsewhere, only the ones the question names", () => {
+    expect(labelLines(labels, devices, "what is 192.168.1.77?", false)).toEqual(["Doorbell [192.168.1.77]"]);
+    expect(labelLines(labels, devices, "which devices are tagged kids", false)).toHaveLength(1);
+    expect(labelLines(labels, devices, "how do I restart nginx", false)).toEqual([]);
   });
 });
