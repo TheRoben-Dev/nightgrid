@@ -1,6 +1,8 @@
 <script lang="ts">
   import { api, errorText, type ContainerDetail, type ContainerView } from "../../api";
+  import { openExternal } from "../../clipboard";
   import { isUp } from "../../stores/docker.svelte";
+  import { integrations, portainerUrl } from "../../stores/integrations.svelte";
   import ContainerLogs from "./ContainerLogs.svelte";
 
   interface Props {
@@ -29,6 +31,12 @@
       .catch((e) => live && (error = errorText(e)));
     return () => (live = false);
   });
+
+  // Portainer deep link, when an integration is linked to this host.
+  $effect(() => {
+    if (!integrations.loaded) void integrations.load();
+  });
+  const portainer = $derived(portainerUrl(integrations.list, hostId, container.id));
 
   // Hide revealed values again when switching containers.
   $effect(() => {
@@ -59,6 +67,9 @@
     <h2>{container.name}</h2>
     <span class="muted img">{container.image}</span>
     <span class="spacer"></span>
+    {#if portainer}
+      <button type="button" class="btn ghost tiny" title={portainer} onclick={() => portainer && openExternal(portainer)}>Open in Portainer</button>
+    {/if}
     <button type="button" class="x" aria-label="Close panel" title="Close" onclick={onclose}>×</button>
   </header>
   <div class="tabs" role="tablist">

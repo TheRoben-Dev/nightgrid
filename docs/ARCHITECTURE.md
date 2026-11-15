@@ -118,6 +118,12 @@ _Last updated: M2 (SFTP + editor)._
 - **Tray** (`app/src/tray.rs`): builds the menu from hosts, tunnels and alert counts, rebuilds on change, emits `tray://connect` / `tray://alerts` to the UI; close-to-tray in `lib.rs`'s window event handler, Dock reopen on macOS (D-052).
 - **UI**: `stores/alerts.svelte.ts`, `components/alerts/AlertsPanel.svelte` (opened from the status strip or the tray), `components/alerts/AlertSettings.svelte`; `mockAlerts.ts` for browser dev.
 
+## Integrations (M7)
+
+- **Core** (`core/src/integrations/`): `mod.rs` has the `Integration` model, input normalisation, the store CRUD (migration 0008) and `status()`, which dispatches to one client per kind: `plex.rs`, `amp.rs` (login, instances, start/stop/restart), `kuma.rs` (public status page + heartbeats) and `portainer.rs` (version check, container/stack URLs). Parsers are pure functions tested against fixtures in `fixtures/` (D-053).
+- **App** (`app/src/integrations_cmd.rs`): CRUD with the secret in the keychain (`integration-<id>`), reveal, status, test-before-save and AMP actions.
+- **UI**: `stores/integrations.svelte.ts` (list, per-integration status entries, polling only while watched, AMP confirmation), `components/integrations/IntegrationCard.svelte` and `IntegrationEditor.svelte`; the panel lives in `views/Services.svelte`, and `docker/ContainerPanel.svelte` asks `portainerUrl()` for its link. `mockIntegrations.ts` for browser dev.
+
 ## Storage
 
 - One SQLite file: `<app_data_dir>/nightgrid.db`, WAL mode, `foreign_keys=ON`.
@@ -145,6 +151,7 @@ _Last updated: M2 (SFTP + editor)._
 - Services: checks are plain GETs to URLs the user entered or imported (rule 7: their own hosts); URLs with credentials are rejected; untrusted certificates count as down unless allowed per service; imported icons are never fetched. Homepage import only reads files.
 - sudo (M6): passwords go to sudo's stdin on the exec channel, never on a command line, in the environment or in logs; prompted per action by default; kept in the keychain only with the per-host "remember" (off by default) and deleted when it stops working; never cached in memory between actions. Root and NOPASSWD hosts skip the prompt. Unit stop/restart/disable confirm with the unit and host named, package upgrades list the packages, reboot needs the host name typed; all of these are logged with their targets. Unit names, journal filters and times are validated and shell-quoted.
 - Alerts (M7): background checks never open connections or prompt; SMART only runs where sudo needs no password. The webhook URL is kept in the keychain only and shown back as scheme + host; webhook requests verify certificates before sending and go only to the URL the user saved. Notifications are sent from Rust, so the webview has no notification permission. The tray only emits events; connecting still goes through the UI's normal prompts.
+- Integrations (M7): tokens and passwords live in the keychain only, masked in the editor with click to reveal; status is read only while Services is open and only from URLs the user entered; AMP stop/restart confirm with the instance named and are logged; instance names are validated; untrusted certificates are refused unless allowed per integration. Portainer is used for links only, with no token.
 - Tunnels: listeners default to loopback, other bind addresses are flagged as public; SOCKS has no auth for that reason. Auto-start never prompts; a host that needs a login fails with that reason. Remote-forward channels for ports nobody asked for are rejected.
 
 ## Platform notes

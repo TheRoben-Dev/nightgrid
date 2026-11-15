@@ -1,0 +1,8 @@
+{
+  "config": { "slug": "home", "title": "Home Lab" },
+  "incident": null,
+  "publicGroupList": [
+    { "id": 1, "name": "Media", "monitorList": [ { "id": 1, "name": "Plex", "type": "http" }, { "id": 2, "name": "Jellyfin", "type": "http" } ] },
+    { "id": 2, "name": "Infra", "monitorList": [ { "id": 5, "name": "Router", "type": "ping" }, { "id": 7, "name": "Backup", "type": "push" } ] }
+  ]
+}

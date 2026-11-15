@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-15
+
+### Added: integrations (M7)
+- **Services → Add integration** connects Nightgrid to apps you run. Each gets a card in a new **INTEGRATIONS** panel at the top of Services, refreshed every 30 seconds while the view is open:
+  - **Plex**: server version and what's playing (user, title, player, progress, quality) with a transcode count. Needs a Plex token.
+  - **AMP** (CubeCoders): game server instances with state, players, CPU and memory, plus **Start**, **Stop** and **Restart**. Stop and restart confirm with the instance named.
+  - **Uptime Kuma**: monitors from a public status page (up/down, ping, 24 h uptime). No API key: enter the status page's slug.
+  - **Portainer**: link it to a host and containers on that host get an **Open in Portainer** button in Docker.
+- Tokens and passwords are kept in the OS keychain only, masked in the editor with **Show** to reveal. **Test** tries the settings before you save.
+
 ## [0.7.0] - 2026-11-15
 
 ### Added: alerts and notifications (M7)

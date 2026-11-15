@@ -3,6 +3,7 @@
   import { api, inTauri, type AppInfo } from "./lib/api";
   import { listen } from "@tauri-apps/api/event";
   import AlertsPanel from "./lib/components/alerts/AlertsPanel.svelte";
+  import IntegrationEditor from "./lib/components/integrations/IntegrationEditor.svelte";
   import { alerts } from "./lib/stores/alerts.svelte";
   import "@xterm/xterm/css/xterm.css";
   import CommandPalette from "./lib/components/CommandPalette.svelte";
@@ -132,7 +133,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.7.0"} />
+  <LeftRail version={info?.version ?? "0.7.1"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system"} aria-label={section.label}>
@@ -183,6 +184,7 @@
 <HomepageImport />
 <TunnelEditor />
 <AlertsPanel />
+<IntegrationEditor />
 
 <style>
   .shell {

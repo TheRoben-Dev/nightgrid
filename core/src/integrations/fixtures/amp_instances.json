@@ -1,0 +1,51 @@
+[
+  {
+    "InstanceId": 1,
+    "FriendlyName": "Local Instances",
+    "AvailableInstances": [
+      {
+        "InstanceID": "00000000-0000-0000-0000-000000000001",
+        "InstanceName": "ADS01",
+        "FriendlyName": "ADS",
+        "Module": "ADS",
+        "Running": true,
+        "AppState": 20,
+        "Metrics": {}
+      },
+      {
+        "InstanceID": "00000000-0000-0000-0000-000000000002",
+        "InstanceName": "Minecraft01",
+        "FriendlyName": "Survival World",
+        "Module": "MinecraftModule",
+        "ModuleDisplayName": "Minecraft",
+        "Running": true,
+        "AppState": 20,
+        "Metrics": {
+          "CPU Usage": { "RawValue": 12, "MaxValue": 100, "Percent": 12, "Units": "%" },
+          "Memory Usage": { "RawValue": 3072, "MaxValue": 8192, "Percent": 37, "Units": "MB" },
+          "Active Users": { "RawValue": 3, "MaxValue": 20, "Percent": 15, "Units": "" }
+        }
+      },
+      {
+        "InstanceID": "00000000-0000-0000-0000-000000000003",
+        "InstanceName": "Valheim01",
+        "FriendlyName": "Valheim",
+        "Module": "GenericModule",
+        "Running": false,
+        "AppState": 0,
+        "Metrics": {}
+      },
+      {
+        "InstanceID": "00000000-0000-0000-0000-000000000004",
+        "InstanceName": "Factorio01",
+        "FriendlyName": "Factorio",
+        "Module": "GenericModule",
+        "Running": true,
+        "AppState": 10,
+        "Metrics": {
+          "Active Users": { "RawValue": 0, "MaxValue": 10 }
+        }
+      }
+    ]
+  }
+]

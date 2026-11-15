@@ -2,10 +2,18 @@
   import { onMount } from "svelte";
   import Panel from "../components/Panel.svelte";
   import ServiceCard from "../components/services/ServiceCard.svelte";
+  import IntegrationCard from "../components/integrations/IntegrationCard.svelte";
+  import Modal from "../components/Modal.svelte";
+  import { scramble } from "../scramble";
+  import { integrations } from "../stores/integrations.svelte";
   import { settings } from "../stores/settings.svelte";
   import { services } from "../stores/services.svelte";
 
-  onMount(() => services.start());
+  onMount(() => {
+    services.start();
+    return integrations.watch();
+  });
+  const pendingAmp = $derived(integrations.pendingAmp);
 
   const sum = $derived(services.summary);
   const groups = $derived(services.groups);
@@ -40,10 +48,27 @@
     {/if}
     <button type="button" class="btn ghost" disabled={checkingAll || !sum.total} onclick={checkAll}>{checkingAll ? "Checking…" : "Check all"}</button>
     <button type="button" class="btn" onclick={() => (services.importOpen = true)} data-guide="services-import">Import Homepage</button>
+    <button type="button" class="btn" onclick={() => (integrations.editing = 0)} data-guide="services-integrations">Add integration</button>
     <button type="button" class="btn primary" onclick={() => (services.editing = 0)} data-guide="services-add">Add service</button>
   </div>
 
   {#if services.error}<p class="error-text" role="alert">{services.error}</p>{/if}
+  {#if integrations.notice}
+    <p class="notice {integrations.notice.tone}" role="status">
+      <span use:scramble={integrations.notice.text}></span>
+      <button type="button" class="x" aria-label="Dismiss" onclick={() => (integrations.notice = null)}>×</button>
+    </p>
+  {/if}
+
+  {#if integrations.list.length}
+    <Panel title="INTEGRATIONS" prefix=">" count={integrations.list.length}>
+      <div class="cards wide">
+        {#each integrations.list as v (v.integration.id)}
+          <IntegrationCard view={v} />
+        {/each}
+      </div>
+    </Panel>
+  {/if}
 
   {#if services.loaded && !services.services.length}
     <Panel title="NO SERVICES" prefix=">">
@@ -77,7 +102,53 @@
   {/if}
 </div>
 
+<Modal
+  open={!!pendingAmp}
+  title={pendingAmp ? `${pendingAmp.action.toUpperCase()} INSTANCE` : ""}
+  tone="danger"
+  width={480}
+  onclose={() => (integrations.pendingAmp = null)}
+>
+  {#if pendingAmp}
+    <p>
+      {pendingAmp.action === "stop" ? "Stop" : "Restart"} <strong>{pendingAmp.friendly || pendingAmp.instance}</strong>
+      <span class="muted">({pendingAmp.instance})</span> in AMP?
+    </p>
+    <p class="muted">Players on it are disconnected{pendingAmp.action === "restart" ? " until it's back" : ""}.</p>
+  {/if}
+  {#snippet footer()}
+    <button type="button" class="btn ghost" onclick={() => (integrations.pendingAmp = null)}>Cancel</button>
+    <button type="button" class="btn danger" onclick={() => pendingAmp && integrations.amp(pendingAmp)}>
+      {pendingAmp ? `${pendingAmp.action === "stop" ? "Stop" : "Restart"} ${pendingAmp.friendly || pendingAmp.instance}` : ""}
+    </button>
+  {/snippet}
+</Modal>
+
 <style>
+  .cards.wide {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+  .notice {
+    margin: 0;
+    padding: 4px 8px;
+    font-size: var(--fs-xs);
+    border: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .notice.ok {
+    color: var(--mint);
+  }
+  .notice.err {
+    color: var(--danger);
+  }
+  .x {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
   .services {
     display: flex;
     flex-direction: column;

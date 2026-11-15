@@ -1,0 +1,8 @@
+{
+  "heartbeatList": {
+    "1": [ { "status": 0, "time": "2026-11-15 01:00:00", "msg": "", "ping": 30 }, { "status": 1, "time": "2026-11-15 01:01:00", "msg": "200 - OK", "ping": 25 } ],
+    "2": [ { "status": 0, "time": "2026-11-15 01:01:00", "msg": "connect ECONNREFUSED", "ping": null } ],
+    "5": [ { "status": 3, "time": "2026-11-15 01:01:00", "msg": "", "ping": 2 } ]
+  },
+  "uptimeList": { "1_24": 0.9965, "2_24": 0.5, "5_24": 1 }
+}
