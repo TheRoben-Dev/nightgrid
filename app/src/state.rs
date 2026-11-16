@@ -48,6 +48,7 @@ pub struct AppState {
     /// UPS readings and the shutdown countdown (M10s).
     pub ups: Arc<crate::ups_cmd::UpsHub>,
     pub uptime: Arc<crate::uptime_cmd::UptimeHub>,
+    pub logsearch: Arc<crate::logsearch_cmd::LogSearchHub>,
     /// Journal follows and package runs: stop switch by id.
     pub system_runs: crate::system_cmd::SystemRuns,
     /// Running compose commands: cancel switch by run id.
@@ -90,6 +91,7 @@ impl AppState {
             alerts: Arc::default(),
             ups: Arc::default(),
             uptime: Arc::default(),
+            logsearch: Arc::default(),
             status_server: Arc::default(),
             tailnet: Arc::default(),
             next_term: AtomicU32::new(1),

@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.31] - 2026-11-16
+
+### Added: logs & access, part 1: cross-host log search (M10u)
+- **Fleet → LOGS**: search the systemd journal and container logs of several hosts at once and read the matches as one stream, newest first. Plain text or a regular expression (`.*`), match case (`Aa`), look-back from 15 minutes to 7 days, all hosts or chosen ones, journal, containers or both. **More filters** narrows to a unit, a container name or a journal priority. Matches are highlighted; chips filter by source, and every line names its host and where it came from.
+- Hosts that aren't connected are connected for the search; a host that fails or times out is listed with its error while the others still show. Plain text is narrowed on the host with `grep -F`, so only matching lines come back; at most 2000 lines are shown.
+- Lines that look like they carry a password, token or key are shown as a hidden-line notice instead of their text (the same filter as history search).
+- **Saved searches**: save a search by name and load it with one click. Turn on **◉ alert** and the search runs every 5 minutes on connected hosts; new matching lines raise a **LOG MATCH** alert per host with the count and the newest line. Saved searches travel in profile exports.
+- **Explain** sends the matches to DRIFT.
+
 ## [0.10.30] - 2026-11-16
 
 ### Added: long-term history, parts 2 and 3: a year of metrics and monthly reports (M10t)

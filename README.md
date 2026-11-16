@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.31 (cross-host log search)
+
+1. **Fleet → LOGS**: leave everything as it is and **Search** with empty text: the last hour of journal and container lines from every host, newest first, each with its host and source.
+2. Type `error` and search again: only matching lines, with the match highlighted. Click a source chip (for example `sshd`) to show just that one. Press `.*` and try `fail(ed|ure)`; an unbalanced `(` shows an error instead of searching.
+3. Pick one host chip and **More filters → Unit** `ssh` (or `sshd`): only that unit's lines. Turn a host off (or disconnect it from the network) and search all hosts: it shows in red with its error, the others still list.
+4. **Save as…** `SSH failures` with text `Failed password`, turn on **◉**. From another machine, try a wrong SSH password on a connected host; within 5 minutes a **LOG MATCH** alert names the host and the line. Turn ◉ off: the alert clears on the next round.
+
 ### macOS: testing 0.10.30 (a year of metrics, monthly reports)
 
 1. After updating, open a host's monitor: **90D** and **1Y** show the history you already had (folded into hourly averages); the note under the chart says "Hourly averages."

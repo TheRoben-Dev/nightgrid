@@ -414,7 +414,7 @@ fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
 }
 
 /// `2026-11-10T08:00:01+0100` (pacman) → unix seconds.
-fn iso_offset(s: &str) -> Option<i64> {
+pub(crate) fn iso_offset(s: &str) -> Option<i64> {
     let b = s.as_bytes();
     if b.len() < 19 {
         return None;
