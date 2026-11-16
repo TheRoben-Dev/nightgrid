@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.32 (login & access audit)
+
+1. **Fleet → ACCESS → Audit all**: every host gets a row. On hosts where sudo needs a password you haven't saved, LOGINS and FAILED show `—`.
+2. Click such a host: the yellow note lists what it couldn't see. **Read as root…**, type the sudo password: logins, failed attempts by address, sudo rules and every user's keys appear.
+3. Your own login shows **key id_ed25519** (or whichever key you use) and the AUTHORIZED KEYS table marks it **YOURS**.
+4. On a host with fail2ban, BANS lists its jails and banned addresses. From another machine, try a wrong SSH password once and **Audit again**: FAILED goes up by one with that address and user.
+
 ### macOS: testing 0.10.31 (cross-host log search)
 
 1. **Fleet → LOGS**: leave everything as it is and **Search** with empty text: the last hour of journal and container lines from every host, newest first, each with its host and source.

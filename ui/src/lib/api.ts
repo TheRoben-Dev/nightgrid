@@ -18,6 +18,7 @@ import {
   type BackupWritten,
   type ImportMode,
   type Alert_Serialize as Alert,
+  type AccessReport_Serialize as AccessReport,
   type AlertKind,
   type Dependency as AlertDependency,
   type Node as DepNode,
@@ -244,6 +245,7 @@ import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
+import { mockAccess } from "./mockAccess";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -308,6 +310,7 @@ export type {
   LogHit,
   LogSearchQuery,
   LogSearchResult,
+  AccessReport,
   SavedLogSearch,
   SavedLogSearchInput,
   UpsInput,
@@ -569,7 +572,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.31-web",
+      version: "0.10.32-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1011,6 +1014,8 @@ export const api = {
   logSearchesList: (): Promise<SavedLogSearch[]> => (T() ? commands.logSearchesList() : mockLogs.list()),
   logSearchSave: (input: SavedLogSearchInput): Promise<SavedLogSearch> => (T() ? commands.logSearchSave(input) : mockLogs.save(input)),
   logSearchDelete: (id: number): Promise<null> => (T() ? commands.logSearchDelete(id) : mockLogs.delete(id)),
+  accessAudit: (hostId: number, elevate: boolean, sudo: SudoInput | null): Promise<AccessReport> =>
+    T() ? commands.accessAudit(hostId, elevate, sudo) : mockAccess.audit(hostId, elevate),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {

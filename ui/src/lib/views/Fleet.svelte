@@ -8,6 +8,7 @@
   import UpsPanel from "../components/fleet/UpsPanel.svelte";
   import UptimePanel from "../components/fleet/UptimePanel.svelte";
   import LogSearchPanel from "../components/fleet/LogSearchPanel.svelte";
+  import AccessPanel from "../components/fleet/AccessPanel.svelte";
   import { alerts } from "../stores/alerts.svelte";
   import { diskTone, type FleetTab } from "../fleet";
   import { settings } from "../stores/settings.svelte";
@@ -21,6 +22,7 @@
     { id: "ups", label: "UPS" },
     { id: "uptime", label: "UPTIME" },
     { id: "logs", label: "LOGS" },
+    { id: "access", label: "ACCESS" },
   ];
   const upsBad = $derived(alerts.active.filter((a) => a.kind === "upsOnBattery").length + (alerts.snap?.upsCountdown ? 1 : 0));
   const backupBad = $derived(backups.jobs.filter((j) => ["failed", "error", "stale"].includes(jobState(backups.status[j.id]))).length);
@@ -71,6 +73,8 @@
       <UptimePanel />
     {:else if fleet.tab === "logs"}
       <LogSearchPanel />
+    {:else if fleet.tab === "access"}
+      <AccessPanel />
     {/if}
   </div>
 </div>
