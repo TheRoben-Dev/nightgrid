@@ -11,6 +11,7 @@ pub mod backup_jobs;
 pub mod backup_restore;
 pub mod bookmarks;
 pub mod confdiff;
+pub mod dashboard;
 pub mod device_labels;
 pub mod diskforecast;
 pub mod docker;

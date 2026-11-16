@@ -107,6 +107,12 @@ pub struct AppSettings {
     pub profile_reminder_snooze: Option<f64>,
     /// Read-only phone status page served by the app. Machine-specific.
     pub status_page: StatusPageSettings,
+    /// Overview dashboards (M10o). Empty means the built-in default.
+    pub dashboards: Vec<crate::dashboard::Dashboard>,
+    /// Index of the dashboard shown.
+    pub dashboard_active: u8,
+    /// Layouts saved as named presets.
+    pub dashboard_presets: Vec<crate::dashboard::Dashboard>,
 }
 
 pub const STATUS_BINDS: &[&str] = &["lan", "tailscale", "all"];
@@ -242,6 +248,9 @@ impl Default for AppSettings {
             handheld: false,
             controller_nav: true,
             helper_enabled: false,
+            dashboards: Vec::new(),
+            dashboard_active: 0,
+            dashboard_presets: Vec::new(),
         }
     }
 }
@@ -318,6 +327,7 @@ impl AppSettings {
         if !WEBHOOK_KINDS.contains(&a.webhook.as_str()) {
             return Err(Error::Invalid { field: "alerts.webhook", reason: format!("unknown webhook {:?}", a.webhook) });
         }
+        crate::dashboard::validate_all(&self.dashboards, &self.dashboard_presets)?;
         if self.term_scrollback > TERM_SCROLLBACK_MAX {
             return Err(Error::Invalid { field: "termScrollback", reason: format!("at most {TERM_SCROLLBACK_MAX}") });
         }
@@ -330,7 +340,14 @@ impl AppSettings {
             tracing::warn!("ignoring unreadable settings: {e}");
             None
         });
-        Ok(s.filter(|s| s.validate().is_ok()).unwrap_or_default())
+        let Some(mut s) = s else { return Ok(Self::default()) };
+        if s.validate().is_err() && crate::dashboard::validate_all(&s.dashboards, &s.dashboard_presets).is_err() {
+            // A layout from a newer version shouldn't cost every other setting.
+            tracing::warn!("ignoring unreadable dashboards");
+            s.dashboards.clear();
+            s.dashboard_presets.clear();
+        }
+        Ok(if s.validate().is_ok() { s } else { Self::default() })
     }
 
     pub fn save(&self, store: &Store) -> Result<()> {
@@ -342,6 +359,28 @@ impl AppSettings {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_bad_dashboard_only_drops_the_dashboards() {
+        let store = Store::open_in_memory().unwrap();
+        let mut s = AppSettings { theme: "ice".into(), ..AppSettings::default() };
+        s.dashboards = vec![crate::dashboard::Dashboard {
+            name: "Home".into(),
+            widgets: vec![crate::dashboard::Widget {
+                id: "a".into(),
+                kind: "from-the-future".into(),
+                x: 0,
+                y: 0,
+                w: 4,
+                h: 2,
+            }],
+        }];
+        assert!(s.save(&store).is_err());
+        store.set_setting(KEY, &s).unwrap();
+        let back = AppSettings::load(&store).unwrap();
+        assert_eq!(back.theme, "ice");
+        assert!(back.dashboards.is_empty());
+    }
 
     #[test]
     fn defaults_when_empty() {

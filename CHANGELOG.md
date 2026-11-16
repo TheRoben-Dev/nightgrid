@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.22] - 2026-11-16
+
+### Added: customizable Overview (M10o)
+- The Overview is now a dashboard of widgets on a 12-column grid. **Edit** turns on edit mode: drag a widget by its title bar to move it, drag its corner to resize, **×** removes it, and **+ Widget** adds one into the first free spot. Widgets that are moved onto push the others down, and everything slides up to close gaps. With the keyboard, focus a widget's grip: arrows move it, Shift+arrows resize it, Delete removes it. **Undo** steps back through the session's changes and **Reset** brings back the built-in layout.
+- Ten widgets: NODES (the host tiles), ALERTS (worst first, click to jump), SERVICES (up/down summary and what's failing), UPDATES, DISKS and BACKUPS (fleet health, with a Check button instead of starting SSH work on their own), TUNNELS, pinned NOTES, DESKTOPS (open VM screens and RDP tunnels) and SYS.STATUS.
+- **Several dashboards**: tabs above the grid, each with its own layout (for example one for daily checks and one for maintenance). Make one empty or from a preset, rename it and delete it in edit mode.
+- **Presets**: four built-in layouts (Overview, Operations, Minimal, Notes & links), and **Save this layout as a preset** for your own. Dashboards and presets are stored with the settings, so they travel in profile exports.
+- On a narrow window the widgets stack in one column in reading order.
+- Removed the old ROADMAP panel from the Overview.
+
 ## [0.10.21] - 2026-11-16
 
 ### Added: VM desktops (M10n)

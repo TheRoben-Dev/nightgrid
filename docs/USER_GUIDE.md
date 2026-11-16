@@ -57,6 +57,9 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 ## Overview and monitoring
 
+- The Overview is a dashboard of widgets. Press **Edit** to change it: drag a title bar to move a widget, drag the bottom-right corner to resize it, **×** removes it and **+ Widget** adds one. Others make room by moving down. From the keyboard, Tab to a widget's **⠿** grip and use the arrows (Shift+arrows resize, Delete removes). **Undo** steps back and **Reset** restores the built-in layout. Press **Done** when finished; every change is saved as you go.
+- Widgets: NODES, ALERTS, SERVICES, UPDATES, DISKS, BACKUPS, TUNNELS, NOTES (pinned ones), DESKTOPS and SYS.STATUS. UPDATES, DISKS and BACKUPS show the last check and have a **Check** button; they don't contact your hosts by themselves.
+- **Dashboards**: in edit mode, **+ New** makes another dashboard (empty or from a preset) shown as a tab; **Rename** and **Delete** act on the one shown. **Presets** applies a built-in layout or one you saved with **Save this layout as a preset**. Dashboards and presets are part of the settings, so profile exports carry them.
 - The Overview shows every host with CPU, memory, disk, network and temperatures, read over SSH with one short command per sample.
 - Click a host for history charts. Minute detail is kept for the days set in Settings → Monitoring, and 15-minute averages for at least 90 days.
 - Hosts that need a password or a new host key wait until you open a terminal on them; monitoring never prompts.
