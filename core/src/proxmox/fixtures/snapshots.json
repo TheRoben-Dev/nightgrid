@@ -1,0 +1,1 @@
+[{"description":"before upgrade to 24.04","name":"pre_upgrade","snaptime":1794200000,"vmstate":1},{"description":"","name":"clean_install","snaptime":1793000000},{"description":"You are here!","digest":"8a1f","name":"current","parent":"pre_upgrade","running":1},{"description":"after jellyfin","name":"jellyfin","parent":"clean_install","snaptime":1793500000}]

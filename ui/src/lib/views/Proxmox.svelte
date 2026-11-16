@@ -6,6 +6,8 @@
    */
   import Modal from "../components/Modal.svelte";
   import SudoPrompt from "../components/system/SudoPrompt.svelte";
+  import PveBackupsTab from "../components/proxmox/PveBackupsTab.svelte";
+  import PveGuestPanel from "../components/proxmox/PveGuestPanel.svelte";
   import {
     ACTION_CONSEQUENCE,
     ACTION_WORD,
@@ -33,6 +35,7 @@
   const TABS: { id: PveTab; label: string }[] = [
     { id: "summary", label: "SUMMARY" },
     { id: "guests", label: "GUESTS" },
+    { id: "backups", label: "BACKUPS" },
     { id: "storage", label: "STORAGE" },
     { id: "tasks", label: "TASKS" },
   ];
@@ -51,6 +54,10 @@
   const failed = $derived((o?.tasks ?? []).filter((t) => taskTone(t) === "bad").length);
   const storages = $derived(storageRows(o?.storages ?? []));
   let menuFor = $state<number | null>(null);
+  let typed = $state("");
+  $effect(() => {
+    if (proxmox.confirm) typed = "";
+  });
   const when = (ts: number | null) => new Date((ts ?? 0) * 1000).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
   function screen(g: PveGuest) {
@@ -164,7 +171,7 @@
             <span class="mono">{g.vmid}</span>
             <span class="name">
               <span class="kind">{g.kind === "qemu" ? "VM" : "CT"}</span>
-              <strong>{g.name || "(no name)"}</strong>
+              <button type="button" class="gname" title="Snapshots and backups" onclick={() => proxmox.openGuest(g)}>{g.name || "(no name)"}</button>
               {#each g.tags as t (t)}<span class="tag">{t}</span>{/each}
               {#if g.template}<span class="tag muted">TEMPLATE</span>{/if}
               {#if g.lock}<span class="tag warn" title="An operation holds this guest">LOCK: {g.lock}</span>{/if}
@@ -205,6 +212,8 @@
           <p class="muted small pad">{o.guests.length ? "No guest matches the filter." : "No VMs or containers yet."}</p>
         {/each}
       </div>
+    {:else if proxmox.tab === "backups"}
+      <PveBackupsTab />
     {:else if proxmox.tab === "storage"}
       <div class="scroll">
         <div class="srow headrow" aria-hidden="true"><span>STORAGE</span><span>TYPE</span><span>CONTENT</span><span>NODES</span><span>USAGE</span><span class="n">USED</span></div>
@@ -265,7 +274,22 @@
   {/snippet}
 </Modal>
 
-<Modal open={proxmox.task !== null} title="TASK · {proxmox.task?.title.toUpperCase() ?? ''}" width={720} onclose={() => proxmox.closeTask()}>
+<PveGuestPanel />
+
+<Modal open={proxmox.confirm !== null} tone="danger" title={proxmox.confirm?.title ?? ""} width={500} onclose={() => (proxmox.confirm = null)}>
+  {#if proxmox.confirm}
+    <p>{proxmox.confirm.body}</p>
+    {#if proxmox.confirm.typed}
+      <label class="typed small">Type <strong class="mono">{proxmox.confirm.typed}</strong> to confirm <input class="input mono" bind:value={typed} spellcheck="false" /></label>
+    {/if}
+  {/if}
+  {#snippet footer()}
+    <button type="button" class="btn ghost" onclick={() => (proxmox.confirm = null)}>Cancel</button>
+    <button type="button" class="btn danger" disabled={!!proxmox.confirm?.typed && typed.trim() !== proxmox.confirm.typed} onclick={() => proxmox.runConfirm()}>{proxmox.confirm?.button ?? ""}</button>
+  {/snippet}
+</Modal>
+
+<Modal open={!!proxmox.task && !proxmox.task.hidden} title="TASK · {proxmox.task?.title.toUpperCase() ?? ''}" width={720} onclose={() => proxmox.closeTask()}>
   {#if proxmox.task}
     {@const t = proxmox.task}
     <p class="small">
@@ -563,6 +587,24 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .gname {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--text-0);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .gname:hover {
+    color: var(--cyan);
+    text-decoration: underline;
+  }
+  .typed {
+    display: flex;
+    gap: 8px;
+    align-items: center;
   }
   .kind {
     font-size: var(--fs-xs);

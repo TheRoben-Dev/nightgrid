@@ -80,6 +80,9 @@ import {
   type PveOverview_Serialize as PveOverview,
   type PveTaskDetail_Serialize as PveTaskDetail,
   type PveAction,
+  type PveSnapshot_Serialize as PveSnapshot,
+  type PveBackups_Serialize as PveBackups,
+  type PveStorageRef,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
   type DnsRecord,
@@ -360,6 +363,9 @@ export type {
   PveOverview,
   PveTaskDetail,
   PveAction,
+  PveSnapshot,
+  PveBackups,
+  PveStorageRef,
   DnsList,
   DnsRecord,
   AmpInstance,
@@ -666,7 +672,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.42-web",
+      version: "0.10.43-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1156,6 +1162,22 @@ export const api = {
     T() ? commands.pveGuestAction(hostId, node, kind, vmid, action, sudo) : mockProxmox.action(hostId, node, kind, vmid, action),
   pveTask: (hostId: number, node: string, upid: string, sudo: SudoInput | null): Promise<PveTaskDetail> =>
     T() ? commands.pveTask(hostId, node, upid, sudo) : mockProxmox.task(hostId, node, upid),
+  pveSnapshots: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null): Promise<PveSnapshot[]> =>
+    T() ? commands.pveSnapshots(hostId, node, kind, vmid, sudo) : mockProxmox.snapshots(node, vmid),
+  pveSnapshotCreate: (hostId: number, node: string, kind: string, vmid: number, name: string, description: string, vmstate: boolean, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveSnapshotCreate(hostId, node, kind, vmid, name, description, vmstate, sudo) : mockProxmox.snapshotCreate(node, vmid, name, description, vmstate),
+  pveSnapshotRollback: (hostId: number, node: string, kind: string, vmid: number, name: string, start: boolean, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveSnapshotRollback(hostId, node, kind, vmid, name, start, sudo) : mockProxmox.snapshotRollback(node, vmid, name),
+  pveSnapshotDelete: (hostId: number, node: string, kind: string, vmid: number, name: string, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveSnapshotDelete(hostId, node, kind, vmid, name, sudo) : mockProxmox.snapshotDelete(node, vmid, name),
+  pveBackups: (hostId: number, storages: PveStorageRef[], sudo: SudoInput | null): Promise<PveBackups> => (T() ? commands.pveBackups(hostId, storages, sudo) : mockProxmox.backups()),
+  pveBackupNow: (hostId: number, node: string, vmid: number, storage: string, mode: string, notes: string, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveBackupNow(hostId, node, vmid, storage, mode, notes, sudo) : mockProxmox.backupNow(node, vmid, storage),
+  pveRestore: (hostId: number, node: string, kind: string, vmid: number, volid: string, storage: string, force: boolean, start: boolean, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveRestore(hostId, node, kind, vmid, volid, storage, force, start, sudo) : mockProxmox.restore(node, kind, vmid, volid),
+  pveBackupProtect: (hostId: number, node: string, volid: string, protect: boolean, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.pveBackupProtect(hostId, node, volid, protect, sudo) : mockProxmox.protect(volid, protect),
+  pveBackupDelete: (hostId: number, volid: string, sudo: SudoInput | null): Promise<null> => (T() ? commands.pveBackupDelete(hostId, volid, sudo) : mockProxmox.deleteBackup(volid)),
   cmdWidgetsList: (): Promise<CmdWidget[]> => (T() ? commands.cmdWidgetsList() : mockCmdWidgets.list()),
   cmdWidgetSave: (widget: CmdWidget): Promise<CmdWidget> => (T() ? commands.cmdWidgetSave(widget) : mockCmdWidgets.save(widget)),
   cmdWidgetDelete: (id: number): Promise<boolean> => (T() ? commands.cmdWidgetDelete(id) : mockCmdWidgets.remove(id)),

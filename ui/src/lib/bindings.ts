@@ -413,6 +413,17 @@ export const commands = {
 	pveGuestAction: (hostId: number, node: string, kind: string, vmid: number, action: PveAction, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_guest_action", { hostId, node, kind, vmid, action, sudo }, options),
 	/**  A task's state and its log. */
 	pveTask: (hostId: number, node: string, upid: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveTaskDetail_Serialize>("pve_task", { hostId, node, upid, sudo }, options),
+	/**  A guest's snapshots, oldest first. */
+	pveSnapshots: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveSnapshot_Serialize[]>("pve_snapshots", { hostId, node, kind, vmid, sudo }, options),
+	pveSnapshotCreate: (hostId: number, node: string, kind: string, vmid: number, name: string, description: string, vmstate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_snapshot_create", { hostId, node, kind, vmid, name, description, vmstate, sudo }, options),
+	pveSnapshotRollback: (hostId: number, node: string, kind: string, vmid: number, name: string, start: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_snapshot_rollback", { hostId, node, kind, vmid, name, start, sudo }, options),
+	pveSnapshotDelete: (hostId: number, node: string, kind: string, vmid: number, name: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_snapshot_delete", { hostId, node, kind, vmid, name, sudo }, options),
+	/**  Backup jobs, uncovered guests and the backup files on each storage. */
+	pveBackups: (hostId: number, storages: PveStorageRef[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveBackups_Serialize>("pve_backups", { hostId, storages, sudo }, options),
+	pveBackupNow: (hostId: number, node: string, vmid: number, storage: string, mode: string, notes: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_backup_now", { hostId, node, vmid, storage, mode, notes, sudo }, options),
+	pveRestore: (hostId: number, node: string, kind: string, vmid: number, volid: string, storage: string, force: boolean, start: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_restore", { hostId, node, kind, vmid, volid, storage, force, start, sudo }, options),
+	pveBackupProtect: (hostId: number, node: string, volid: string, protect: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_backup_protect", { hostId, node, volid, protect, sudo }, options),
+	pveBackupDelete: (hostId: number, volid: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_backup_delete", { hostId, volid, sudo }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -4620,6 +4631,90 @@ export type PushOutcome = "added" | "alreadyThere";
 /**  Power actions on a guest. */
 export type PveAction = "start" | "shutdown" | "reboot" | "stop" | "suspend" | "resume";
 
+export type PveBackupFile = PveBackupFile_Serialize | PveBackupFile_Deserialize;
+
+export type PveBackupFile_Deserialize = {
+	volid: string,
+	storage: string,
+	vmid: number,
+	/**  qemu or lxc. */
+	kind: string,
+	time: number | null,
+	size: number | null,
+	format: string,
+	notes: string,
+	protected: boolean,
+	/**  ok, failed, or unset when never verified. */
+	verified?: string | null,
+};
+
+export type PveBackupFile_Serialize = {
+	volid: string,
+	storage: string,
+	vmid: number,
+	/**  qemu or lxc. */
+	kind: string,
+	time: number | null,
+	size: number | null,
+	format: string,
+	notes: string,
+	protected: boolean,
+	/**  ok, failed, or unset when never verified. */
+	verified: string | null,
+};
+
+export type PveBackupJob = PveBackupJob_Serialize | PveBackupJob_Deserialize;
+
+export type PveBackupJob_Deserialize = {
+	id: string,
+	enabled: boolean,
+	/**  Proxmox calendar event: `02:00`, `sun 03:00`, `*-*-1 04:00`… */
+	schedule: string,
+	storage: string,
+	/**  snapshot, suspend or stop. */
+	mode: string,
+	/**  Guests in the job ("all" when every guest is). */
+	guests: string,
+	exclude: string,
+	comment: string,
+	nextRun?: number | null,
+};
+
+export type PveBackupJob_Serialize = {
+	id: string,
+	enabled: boolean,
+	/**  Proxmox calendar event: `02:00`, `sun 03:00`, `*-*-1 04:00`… */
+	schedule: string,
+	storage: string,
+	/**  snapshot, suspend or stop. */
+	mode: string,
+	/**  Guests in the job ("all" when every guest is). */
+	guests: string,
+	exclude: string,
+	comment: string,
+	nextRun: number | null,
+};
+
+export type PveBackups = PveBackups_Serialize | PveBackups_Deserialize;
+
+export type PveBackups_Deserialize = {
+	jobs: PveBackupJob_Deserialize[],
+	/**  Newest first. */
+	files: PveBackupFile_Deserialize[],
+	/**  Guests no backup job includes. */
+	uncovered: PveUncovered[],
+	notes: string[],
+};
+
+export type PveBackups_Serialize = {
+	jobs: PveBackupJob_Serialize[],
+	/**  Newest first. */
+	files: PveBackupFile_Serialize[],
+	/**  Guests no backup job includes. */
+	uncovered: PveUncovered[],
+	notes: string[],
+};
+
 export type PveGuest = PveGuest_Serialize | PveGuest_Deserialize;
 
 export type PveGuest_Deserialize = {
@@ -4757,6 +4852,30 @@ export type PveOverview_Serialize = {
 	notes: string[],
 };
 
+export type PveSnapshot = PveSnapshot_Serialize | PveSnapshot_Deserialize;
+
+export type PveSnapshot_Deserialize = {
+	name: string,
+	description: string,
+	time?: number | null,
+	/**  The VM's RAM was saved too (a running VM resumes where it was). */
+	vmstate: boolean,
+	parent?: string | null,
+	/**  The guest's current state was taken from this snapshot. */
+	current: boolean,
+};
+
+export type PveSnapshot_Serialize = {
+	name: string,
+	description: string,
+	time: number | null,
+	/**  The VM's RAM was saved too (a running VM resumes where it was). */
+	vmstate: boolean,
+	parent: string | null,
+	/**  The guest's current state was taken from this snapshot. */
+	current: boolean,
+};
+
 export type PveStorage = {
 	storage: string,
 	node: string,
@@ -4769,6 +4888,12 @@ export type PveStorage = {
 	shared: boolean,
 	/**  available, unknown (offline or not mounted). */
 	status: string,
+};
+
+/**  A storage as seen from one node. */
+export type PveStorageRef = {
+	node: string,
+	storage: string,
 };
 
 export type PveTask = PveTask_Serialize | PveTask_Deserialize;
@@ -4817,6 +4942,12 @@ export type PveTask_Serialize = {
 	end: number | null,
 	/**  "OK", a warning count, or the error; unset while it runs. */
 	status: string | null,
+};
+
+export type PveUncovered = {
+	vmid: number,
+	name: string,
+	kind: string,
 };
 
 /**  Throughput of one network interface or block device, in bytes/s. */
