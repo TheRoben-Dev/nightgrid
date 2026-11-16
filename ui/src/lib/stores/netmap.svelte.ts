@@ -3,8 +3,9 @@
  * from the node selected on the map (a host or this computer), port audits
  * reuse System → Security.
  */
-import { api, errorText, systemError, type DeviceLabel, type Discovery, type NetDevice } from "../api";
+import { api, errorText, systemError, type DeviceLabel, type Discovery, type LayoutEntry, type NetDevice } from "../api";
 import { buildGraph, type NetGraph } from "../netmap/graph";
+import { buildTopology, canAttach, entryFor, expectedEntries, type Topology } from "../netmap/layout";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
@@ -30,7 +31,17 @@ class NetmapStore {
 
   readonly labelMap: ReadonlyMap<string, DeviceLabel> = $derived(new Map(this.labels.map((l) => [l.key, l])));
   readonly graph: NetGraph = $derived(buildGraph(hosts.hosts, system.portMap, this.result, this.resultHost, this.labelMap));
-  readonly current = $derived(this.graph.nodes.find((n) => n.id === this.selected) ?? null);
+  /** The map as the user arranged it (positions, hand-set parents, expected picture). */
+  layout = $state<LayoutEntry[]>([]);
+  layoutLoaded = false;
+  layoutError = $state<string | null>(null);
+  /** Graph (topology) or list (the columns). */
+  mode = $state<"graph" | "list">(readMode());
+  readonly layoutMap: ReadonlyMap<string, LayoutEntry> = $derived(new Map(this.layout.map((e) => [e.key, e])));
+  readonly topo: Topology = $derived(
+    buildTopology({ graph: this.graph, disc: this.result, layout: this.layout, inventory: this.inventory, labels: this.labelMap }),
+  );
+  readonly current = $derived(this.topo.nodes.find((n) => n.id === this.selected)?.node ?? null);
 
   /**
    * Whether a map node can run a discovery: this computer, or a saved host
@@ -151,6 +162,84 @@ class NetmapStore {
     }
   }
 
+  setMode(m: "graph" | "list") {
+    this.mode = m;
+    try {
+      localStorage.setItem("nightgrid.netmap.mode", m);
+    } catch {
+      /* private mode: just this session */
+    }
+  }
+
+  async loadLayout() {
+    try {
+      this.layout = await api.netmapLayoutGet();
+      this.layoutLoaded = true;
+      this.layoutError = null;
+    } catch (e) {
+      this.layoutError = errorText(e);
+    }
+  }
+
+  private async saveEntries(entries: LayoutEntry[], replace = false) {
+    const before = this.layout;
+    const keys = new Set(entries.map((e) => e.key));
+    this.layout = replace ? entries : [...this.layout.filter((e) => !keys.has(e.key)), ...entries];
+    try {
+      await api.netmapLayoutSave(entries, replace);
+      this.layoutError = null;
+    } catch (e) {
+      this.layout = before;
+      this.layoutError = errorText(e);
+    }
+  }
+
+  /** Remembers where the user dropped a node. */
+  async move(id: string, x: number, y: number) {
+    const t = this.topo.nodes.find((n) => n.id === id);
+    if (!t) return;
+    await this.saveEntries([entryFor(t, this.layoutMap, { x: Math.round(x), y: Math.round(y) })]);
+  }
+
+  /** Sets (or clears, with null) what a node connects through. Returns false on a loop. */
+  async setParent(id: string, parentId: string | null, place = false): Promise<boolean> {
+    const t = this.topo.nodes.find((n) => n.id === id);
+    const p = parentId ? this.topo.nodes.find((n) => n.id === parentId) : null;
+    if (!t || (parentId && (!p || !canAttach(this.topo, id, parentId)))) return false;
+    // Dropped onto its new parent: let it fall in under it.
+    await this.saveEntries([entryFor(t, this.layoutMap, { parent: p?.key ?? null, ...(place ? { x: null, y: null } : {}) })]);
+    return true;
+  }
+
+  /** Forgets every position (parents and the expected picture stay). */
+  async autoLayout() {
+    await this.saveEntries(
+      this.layout.filter((e) => e.parent || e.expected).map((e) => ({ ...e, x: null, y: null })),
+      true,
+    );
+  }
+
+  /** Saves the map as it is now as the expected picture. */
+  async saveExpected() {
+    const keep = this.layout.filter((e) => e.parent && !this.topo.nodes.some((t) => t.key === e.key && !t.ghost));
+    await this.saveEntries([...expectedEntries(this.topo, this.layoutMap), ...keep.map((e) => ({ ...e, expected: false }))], true);
+  }
+
+  /** Adds a node to the expected picture where it is now, or takes it out. */
+  async expect(id: string, on: boolean) {
+    const t = this.topo.nodes.find((n) => n.id === id);
+    if (!t) return;
+    await this.saveEntries([entryFor(t, this.layoutMap, on ? { expected: true, x: Math.round(t.x), y: Math.round(t.y) } : { expected: false })]);
+  }
+
+  /** Drops the expected picture (positions and parents stay). */
+  async clearExpected() {
+    await this.saveEntries(
+      this.layout.filter((e) => e.parent || e.x !== null).map((e) => ({ ...e, expected: false })),
+      true,
+    );
+  }
+
   /** Port audit for one host (the same check as System → Security). */
   async audit(id: number) {
     if (this.auditing.includes(id)) return;
@@ -163,6 +252,14 @@ class NetmapStore {
     } finally {
       this.auditing = this.auditing.filter((x) => x !== id);
     }
+  }
+}
+
+function readMode(): "graph" | "list" {
+  try {
+    return localStorage.getItem("nightgrid.netmap.mode") === "list" ? "list" : "graph";
+  } catch {
+    return "graph";
   }
 }
 

@@ -734,6 +734,16 @@ export const commands = {
 	/**  Forgets a device; it counts as new the next time a scan sees it. */
 	netmapDeviceForget: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_device_forget", { key }, options),
 	/**
+	 *  The network map as the user arranged it: positions, hand-set parents
+	 *  and the expected picture (D-141).
+	 */
+	netmapLayoutGet: (options?: InvokeOptions) => __TAURI_INVOKE<LayoutEntry_Serialize[]>("netmap_layout_get", undefined, options),
+	/**
+	 *  Saves map positions and parents; `replace` makes the saved layout exactly
+	 *  these entries (reset, or save as expected).
+	 */
+	netmapLayoutSave: (entries: LayoutEntry_Deserialize[], replace: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_layout_save", { entries, replace }, options),
+	/**
 	 *  Starts, shuts down, reboots or stops a guest. Everything but start was
 	 *  confirmed in the UI with the guest and host named (security rule 5).
 	 */
@@ -4031,6 +4041,36 @@ export type LastTest = {
 	at: number,
 	ok: boolean,
 	note: string,
+};
+
+export type LayoutEntry = LayoutEntry_Serialize | LayoutEntry_Deserialize;
+
+export type LayoutEntry_Deserialize = {
+	/**
+	 *  A device's MAC or `ip:<address>`, `host:<name>`, or `gw`, `ts`,
+	 *  `net`, `local`.
+	 */
+	key: string,
+	x?: number | null,
+	y?: number | null,
+	/**  The node it connects through, set by hand (same key space). */
+	parent?: string | null,
+	/**  Part of the saved "expected" picture. */
+	expected: boolean,
+};
+
+export type LayoutEntry_Serialize = {
+	/**
+	 *  A device's MAC or `ip:<address>`, `host:<name>`, or `gw`, `ts`,
+	 *  `net`, `local`.
+	 */
+	key: string,
+	x: number | null,
+	y: number | null,
+	/**  The node it connects through, set by hand (same key space). */
+	parent: string | null,
+	/**  Part of the saved "expected" picture. */
+	expected: boolean,
 };
 
 export type Level = "info" | 

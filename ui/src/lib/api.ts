@@ -282,6 +282,7 @@ import {
   type Device_Serialize as Device,
   type MissingDevice_Serialize as MissingDevice,
   type NetDevice_Serialize as NetDevice,
+  type LayoutEntry_Serialize as LayoutEntry,
   type Exposure_Serialize as Exposure,
   type ExposureKind,
   type Iface,
@@ -612,6 +613,7 @@ export type {
   Device,
   MissingDevice,
   NetDevice,
+  LayoutEntry,
   Exposure,
   ExposureKind,
   Iface,
@@ -723,7 +725,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.56-web",
+      version: "0.10.57-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1049,6 +1051,9 @@ export const api = {
   netmapInventory: (): Promise<NetDevice[]> => (T() ? commands.netmapInventory() : mockOps.inventory()),
   netmapDeviceTrust: (key: string, trusted: boolean): Promise<null> => (T() ? commands.netmapDeviceTrust(key, trusted) : mockOps.trust(key, trusted)),
   netmapDeviceForget: (key: string): Promise<null> => (T() ? commands.netmapDeviceForget(key) : mockOps.forget(key)),
+  netmapLayoutGet: (): Promise<LayoutEntry[]> => (T() ? commands.netmapLayoutGet() : mockOps.layoutGet()),
+  netmapLayoutSave: (entries: LayoutEntry[], replace = false): Promise<null> =>
+    T() ? commands.netmapLayoutSave(entries, replace) : mockOps.layoutSave(entries, replace),
   deviceLabelsList: (): Promise<DeviceLabel[]> => (T() ? commands.deviceLabelsList() : mockOps.labelsList()),
   deviceLabelSave: (l: DeviceLabel): Promise<DeviceLabel | null> => (T() ? commands.deviceLabelSave(l) : mockOps.labelSave(l)),
   tailnetStatus: (): Promise<TailnetStatus> => (T() ? commands.tailnetStatus() : mockTailnet.status()),

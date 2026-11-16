@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.57] - 2026-11-16
+
+### Added: the network map as a real topology (network map, part 2)
+- **A graph, not columns.** The map now draws the internet above your router, the router above what connects through it, and the tailnet beside it, laid out automatically on first draw. Subnets are drawn as regions (**LAN**, each **ROUTED** range, **TAILNET**). Each node has a type icon; links are styled by kind (internet-facing, LAN, tailnet, routed range, the router's uplink) and nodes by state (internet-facing, new, offline, not seen, missing).
+- **Pan, zoom and place.** Drag the background to pan, use the wheel or **+ / − / FIT** to zoom. Drag a node to put it where you want: the position is remembered, and devices you haven't placed move with what they connect through.
+- **Say what connects through what.** Drop a device onto a router, access point, switch or host (or pick it under **Connected through** in the details) and the map links it there, e.g. a smart lamp to the access point it's on. Your choice wins over what the scan implies and never forms a loop. Label a device as an access point or switch to make it something others can connect through.
+- **The expected map.** **Save as expected** remembers the map as it is now. Later scans show expected devices that didn't answer as dashed **MISSING** ghosts in their place, mark devices that aren't in it with **+**, and say in the scan line whether the map matches. **Add it** puts a new device in the picture; **Remove from expected** takes one out; **Clear expected** drops the picture.
+- **List mode** keeps the old four columns; **Auto layout** forgets hand-placed positions (connections you set stay). Positions, connections and the expected picture are part of profile exports.
+
 ## [0.10.56] - 2026-11-16
 
 ### Fixed

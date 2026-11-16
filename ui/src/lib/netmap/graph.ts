@@ -13,7 +13,8 @@ export interface HostLike {
 }
 
 export type NodeKind = "internet" | "gateway" | "tailnet" | "host" | "device";
-export type LinkKind = "internet" | "lan" | "tailnet";
+/** `wan`: the router's uplink with nothing forwarded in; `routed`: a device in a routed range. */
+export type LinkKind = "internet" | "lan" | "tailnet" | "wan" | "routed";
 
 export interface PortSummary {
   /** Reachable from the LAN (bound to every interface or a LAN address). */
@@ -252,12 +253,24 @@ export function buildGraph(
       exposures: [],
     };
     nodes.push(n);
-    if (net) link(net, n.id, viaTs ? "tailnet" : "lan");
+    if (net) link(net, n.id, viaTs ? "tailnet" : d.routed ? "routed" : "lan");
   }
 
+  // The internet sits above the router even when nothing is forwarded in.
+  if (exposures.length || gw) {
+    nodes.push({
+      id: "net",
+      kind: "internet",
+      label: "Internet",
+      sub: exposures.length ? `${exposures.length} way${exposures.length === 1 ? "" : "s"} in` : "no ways in found",
+      col: 0,
+      row: 0,
+      exposures: [...exposures],
+    });
+    if (gw) link("net", "gw", "wan");
+  }
   // Internet exposures land on the scanned host (local targets) or on the LAN address they forward to.
   if (exposures.length) {
-    nodes.push({ id: "net", kind: "internet", label: "Internet", sub: `${exposures.length} way${exposures.length === 1 ? "" : "s"} in`, col: 0, row: 0, exposures: [...exposures] });
     for (const e of exposures) {
       const ip = exposureIp(e);
       const target =

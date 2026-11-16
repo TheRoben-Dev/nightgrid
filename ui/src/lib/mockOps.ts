@@ -29,6 +29,7 @@ import type {
   Discovery_Serialize as Discovery,
   Device_Serialize as Device,
   NetDevice_Serialize as NetDevice,
+  LayoutEntry_Serialize as LayoutEntry,
   DeviceLabel,
 } from "./bindings";
 
@@ -105,6 +106,7 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
 }
 
 const inventory = new Map<string, NetDevice>();
+const layout = new Map<string, LayoutEntry>();
 
 let status: StatusPageSettings = { enabled: false, bind: "lan", port: 8787 };
 let tok = "3f9c2a71d0b84e6f9a1c5d7e2b4f6a8c0e1d3b5a7c9e2f4a6b8d0c1e3f5a7b9";
@@ -301,6 +303,12 @@ export const mockOps = {
   },
   forget: async (key: string): Promise<null> => {
     inventory.delete(key);
+    return null;
+  },
+  layoutGet: async (): Promise<LayoutEntry[]> => [...layout.values()].map((e) => ({ ...e })),
+  layoutSave: async (entries: LayoutEntry[], replace: boolean): Promise<null> => {
+    if (replace) layout.clear();
+    for (const e of entries) layout.set(e.key, { ...e });
     return null;
   },
   vms: (_hostId: number, elevate: boolean): Promise<VmReport> =>
