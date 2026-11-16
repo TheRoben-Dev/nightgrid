@@ -665,3 +665,192 @@ pub async fn pve_network_settle(
     note(&app, host_id, Level::Info, format!("Proxmox: network change {what}"), String::new());
     Ok(())
 }
+
+// ---- part 6: firewall ----
+
+use nightgrid_core::proxmox::firewall::{self as pfw, PveFirewall, PveFwRuleSpec, PveFwScope};
+
+/// Seconds the node waits for "keep" before restoring its firewall files.
+const FW_ROLLBACK_SECS: u32 = 90;
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PveFwRun {
+    /// A rollback is armed: keep or roll back with this token.
+    pub armed: bool,
+    pub token: String,
+    pub secs: u32,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_firewall(
+    app: AppHandle,
+    host_id: HostId,
+    scope: PveFwScope,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveFirewall> {
+    let script = pfw::firewall_script(&scope).ok_or_else(|| invalid("firewall scope"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    Ok(pfw::parse_firewall(&out, &scope.level).map_err(other)?)
+}
+
+/// Runs one firewall change, under the session's rollback for host-level scopes.
+#[allow(clippy::too_many_arguments)]
+async fn fw_run(
+    app: &AppHandle,
+    host_id: HostId,
+    scope: &PveFwScope,
+    local: &str,
+    token: Option<String>,
+    cmd: Result<String, String>,
+    what: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveFwRun> {
+    let cmd = cmd.map_err(other)?;
+    let token = token.filter(|t| pfw::valid_token(t)).unwrap_or_else(|| {
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0).to_string()
+    });
+    let script =
+        pfw::run_script(scope, local, &token, FW_ROLLBACK_SECS, &cmd).ok_or_else(|| invalid("firewall change"))?;
+    let out = root_run(app, host_id, sudo, &script).await?;
+    let armed = pfw::parse_run(&out).map_err(other)?;
+    let level = if armed { Level::Warn } else { Level::Info };
+    note(
+        app,
+        host_id,
+        level,
+        format!("Proxmox firewall: {what}"),
+        format!("{} level{}", scope.level, if armed { ", rollback armed" } else { "" }),
+    );
+    Ok(PveFwRun { armed, token, secs: FW_ROLLBACK_SECS })
+}
+
+/// Adds a rule (pos None) or replaces the rule at `pos`.
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_fw_rule_save(
+    app: AppHandle,
+    host_id: HostId,
+    scope: PveFwScope,
+    local: String,
+    token: Option<String>,
+    pos: Option<u32>,
+    digest: String,
+    rule: PveFwRuleSpec,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveFwRun> {
+    let cmd = match pos {
+        Some(p) => pfw::rule_update_cmd(&scope, p, &digest, &rule),
+        None => pfw::rule_create_cmd(&scope, &rule),
+    };
+    let what = format!("{} rule {} {}", if pos.is_some() { "changed" } else { "added" }, rule.kind, rule.action);
+    fw_run(&app, host_id, &scope, &local, token, cmd, what, sudo).await
+}
+
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_fw_rule_move(
+    app: AppHandle,
+    host_id: HostId,
+    scope: PveFwScope,
+    local: String,
+    token: Option<String>,
+    pos: u32,
+    to: u32,
+    digest: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveFwRun> {
+    let cmd = pfw::rule_move_cmd(&scope, pos, to, &digest);
+    fw_run(&app, host_id, &scope, &local, token, cmd, format!("rule {pos} moved to {to}"), sudo).await
+}
+
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_fw_rule_delete(
+    app: AppHandle,
+    host_id: HostId,
+    scope: PveFwScope,
+    local: String,
+    token: Option<String>,
+    pos: u32,
+    digest: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveFwRun> {
+    let cmd = pfw::rule_delete_cmd(&scope, pos, &digest);
+    fw_run(&app, host_id, &scope, &local, token, cmd, format!("rule {pos} deleted"), sudo).await
+}
+
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_fw_options(
+    app: AppHandle,
+    host_id: HostId,
+    scope: PveFwScope,
+    local: String,
+    token: Option<String>,
+    enable: bool,
+    policy_in: String,
+    policy_out: String,
+    digest: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveFwRun> {
+    let cmd = pfw::options_cmd(&scope, enable, &policy_in, &policy_out, &digest);
+    let what = format!("{} (in {policy_in}, out {policy_out})", if enable { "enabled" } else { "disabled" });
+    fw_run(&app, host_id, &scope, &local, token, cmd, what, sudo).await
+}
+
+/// Security groups and aliases (datacenter level): `op` is group-add,
+/// group-delete, alias-add or alias-delete.
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_fw_object(
+    app: AppHandle,
+    host_id: HostId,
+    local: String,
+    token: Option<String>,
+    op: String,
+    name: String,
+    cidr: String,
+    comment: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveFwRun> {
+    let cmd = match op.as_str() {
+        "group-add" => pfw::group_create_cmd(&name, &comment),
+        "group-delete" => pfw::group_delete_cmd(&name),
+        "alias-add" => pfw::alias_create_cmd(&name, &cidr, &comment),
+        "alias-delete" => pfw::alias_delete_cmd(&name),
+        _ => Err("unknown change".into()),
+    };
+    let scope =
+        PveFwScope { level: "cluster".into(), node: String::new(), kind: String::new(), vmid: 0, group: String::new() };
+    fw_run(&app, host_id, &scope, &local, token, cmd, format!("{op} {name}"), sudo).await
+}
+
+/// Keeps the session's firewall changes, or restores the saved files now.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_fw_settle(
+    app: AppHandle,
+    host_id: HostId,
+    token: String,
+    keep: bool,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let script = if keep { pfw::confirm_script(&token) } else { pfw::rollback_script(&token) }
+        .ok_or_else(|| invalid("token"))?;
+    staged(&app, host_id, sudo, &script).await?;
+    note(
+        &app,
+        host_id,
+        Level::Info,
+        format!("Proxmox firewall: changes {}", if keep { "kept" } else { "rolled back" }),
+        String::new(),
+    );
+    Ok(())
+}

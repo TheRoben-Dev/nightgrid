@@ -26,6 +26,13 @@ import type {
   PveIfaceSpec_Deserialize as PveIfaceSpec,
   PveNetwork_Serialize as PveNetwork,
   PveNetApply_Serialize as PveNetApply,
+  PveFirewall_Serialize as PveFirewall,
+  PveFwNamed,
+  PveFwOptions,
+  PveFwRule,
+  PveFwRuleSpec,
+  PveFwRun,
+  PveFwScope,
 } from "./bindings";
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -230,7 +237,101 @@ function netDiff(): string {
 const fromSpec = (s: PveIfaceSpec): PveIface =>
   nic(s.iface, s.kind, { cidr: s.cidr, gateway: s.gateway, cidr6: s.cidr6, gateway6: s.gateway6, ports: s.ports, vlanAware: s.vlanAware, bondMode: s.bondMode, vlanId: s.vlanId ?? null, vlanRawDevice: s.vlanRawDevice, mtu: s.mtu ?? null, autostart: s.autostart, comments: s.comments, active: false });
 
+// ---- part 6: firewall ----
+interface FwState {
+  rules: PveFwRule[];
+  options: PveFwOptions | null;
+}
+const fwr = (pos: number, kind: string, action: string, x: Partial<PveFwRule> = {}): PveFwRule => ({
+  pos, kind, action, macro: "", source: "", dest: "", proto: "", sport: "", dport: "", iface: "", log: "", enable: true, comment: "", ...x,
+});
+let fwSeq = 1;
+const fwOpts = (enable: boolean, pin = "DROP", pout = "ACCEPT"): PveFwOptions => ({ enable, policyIn: pin, policyOut: pout, digest: "0" });
+let fwStore: Record<string, FwState> = {
+  cluster: { rules: [fwr(0, "in", "ACCEPT", { macro: "SSH", source: "+management", comment: "admin ssh" }), fwr(1, "in", "ACCEPT", { proto: "tcp", dport: "8006", source: "lan" }), fwr(2, "group", "webservers", { enable: false })], options: fwOpts(false) },
+  "group:webservers": { rules: [fwr(0, "in", "ACCEPT", { macro: "HTTP" }), fwr(1, "in", "ACCEPT", { macro: "HTTPS" })], options: null },
+  "group:monitoring": { rules: [fwr(0, "in", "ACCEPT", { proto: "tcp", dport: "9100", source: "192.168.1.10" })], options: null },
+};
+let fwGroups: PveFwNamed[] = [{ name: "monitoring", cidr: "", comment: "" }, { name: "webservers", cidr: "", comment: "80/443 in" }];
+let fwAliases: PveFwNamed[] = [{ name: "lan", cidr: "192.168.1.0/24", comment: "home LAN" }];
+let fwPrev: string | null = null;
+const fwKey = (s: PveFwScope) => (s.level === "cluster" ? "cluster" : s.level === "node" ? `node:${s.node}` : s.level === "guest" ? `guest:${s.vmid}` : `group:${s.group}`);
+function fwOf(s: PveFwScope): FwState {
+  return (fwStore[fwKey(s)] ??= { rules: [], options: s.level === "group" ? null : s.level === "node" ? fwOpts(true, "", "") : fwOpts(false, "ACCEPT", "ACCEPT") });
+}
+function fwTouch(s: PveFwScope, token: string | null): PveFwRun {
+  const guarded = s.level !== "guest";
+  if (guarded && !token) fwPrev = JSON.stringify({ fwStore, fwGroups, fwAliases });
+  fwSeq++;
+  return { armed: guarded, token: token ?? String(now()), secs: 90 };
+}
+const renumber = (r: PveFwRule[]) => r.map((x, i) => ({ ...x, pos: i }));
+const fromRule = (r: PveFwRuleSpec, pos: number): PveFwRule => ({ ...r, pos });
+
 export const mockProxmox = {
+  firewall: async (s: PveFwScope): Promise<PveFirewall> => {
+    const f = fwOf(s);
+    return {
+      rules: structuredClone(f.rules),
+      options: f.options ? { ...f.options, digest: String(fwSeq) } : null,
+      digest: String(fwSeq),
+      groups: [...fwGroups],
+      aliases: [...fwAliases],
+      ipsets: [{ name: "management", cidr: "", comment: "hosts allowed to the web UI and SSH" }],
+      macros: [
+        { name: "DNS", cidr: "", comment: "Domain Name System traffic" },
+        { name: "HTTP", cidr: "", comment: "Hypertext Transfer Protocol (WWW)" },
+        { name: "HTTPS", cidr: "", comment: "HTTP over SSL" },
+        { name: "Ping", cidr: "", comment: "ICMP echo request" },
+        { name: "SSH", cidr: "", comment: "Secure shell traffic" },
+      ],
+      rollbackArmed: false,
+      notes: [],
+    };
+  },
+  fwRuleSave: async (s: PveFwScope, token: string | null, pos: number | null, r: PveFwRuleSpec): Promise<PveFwRun> => {
+    const run = fwTouch(s, token);
+    const f = fwOf(s);
+    f.rules = pos === null ? renumber([fromRule(r, 0), ...f.rules]) : f.rules.map((x) => (x.pos === pos ? fromRule(r, pos) : x));
+    return run;
+  },
+  fwRuleMove: async (s: PveFwScope, token: string | null, pos: number, to: number): Promise<PveFwRun> => {
+    const run = fwTouch(s, token);
+    const f = fwOf(s);
+    const r = [...f.rules];
+    const [x] = r.splice(pos, 1);
+    r.splice(to, 0, x);
+    f.rules = renumber(r);
+    return run;
+  },
+  fwRuleDelete: async (s: PveFwScope, token: string | null, pos: number): Promise<PveFwRun> => {
+    const run = fwTouch(s, token);
+    const f = fwOf(s);
+    f.rules = renumber(f.rules.filter((x) => x.pos !== pos));
+    return run;
+  },
+  fwOptions: async (s: PveFwScope, token: string | null, enable: boolean, pin: string, pout: string): Promise<PveFwRun> => {
+    const run = fwTouch(s, token);
+    const f = fwOf(s);
+    f.options = { enable, policyIn: pin, policyOut: pout, digest: "0" };
+    return run;
+  },
+  fwObject: async (token: string | null, op: string, name: string, cidr: string, comment: string): Promise<PveFwRun> => {
+    const run = fwTouch({ level: "cluster", node: "", kind: "", vmid: 0, group: "" }, token);
+    if (op === "group-add") fwGroups = [...fwGroups, { name, cidr: "", comment }].sort((a, b) => a.name.localeCompare(b.name));
+    if (op === "group-delete") {
+      if (fwOf({ level: "group", node: "", kind: "", vmid: 0, group: name }).rules.length) throw new Error(`security group '${name}' is not empty`);
+      fwGroups = fwGroups.filter((g) => g.name !== name);
+    }
+    if (op === "alias-add") fwAliases = [...fwAliases, { name, cidr, comment }];
+    if (op === "alias-delete") fwAliases = fwAliases.filter((a) => a.name !== name);
+    return run;
+  },
+  fwSettle: async (keep: boolean): Promise<null> => {
+    if (!keep && fwPrev) ({ fwStore, fwGroups, fwAliases } = JSON.parse(fwPrev));
+    fwPrev = null;
+    return null;
+  },
   network: async (): Promise<PveNetwork> => ({ ifaces: structuredClone(stagedNet ?? liveNet), diff: netDiff(), rollbackArmed: netArmed, notes: [] }),
   ifaceSave: async (spec: PveIfaceSpec, create: boolean): Promise<null> => {
     const cur = structuredClone(stagedNet ?? liveNet);

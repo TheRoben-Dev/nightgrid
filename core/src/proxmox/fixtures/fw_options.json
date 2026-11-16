@@ -1,0 +1,1 @@
+{"enable":1,"policy_in":"DROP","policy_out":"ACCEPT","log_ratelimit":"enable=1,burst=5,rate=1/second","digest":"77aa01"}

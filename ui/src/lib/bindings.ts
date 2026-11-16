@@ -454,6 +454,19 @@ export const commands = {
 	pveNetworkApply: (hostId: number, node: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveNetApply_Serialize>("pve_network_apply", { hostId, node, sudo }, options),
 	/**  Keeps the applied network change, or restores the old config now. */
 	pveNetworkSettle: (hostId: number, token: string, keep: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_network_settle", { hostId, token, keep, sudo }, options),
+	pveFirewall: (hostId: number, scope: PveFwScope, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveFirewall_Serialize>("pve_firewall", { hostId, scope, sudo }, options),
+	/**  Adds a rule (pos None) or replaces the rule at `pos`. */
+	pveFwRuleSave: (hostId: number, scope: PveFwScope, local: string, token: string | null, pos: number | null, digest: string, rule: PveFwRuleSpec, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveFwRun>("pve_fw_rule_save", { hostId, scope, local, token, pos, digest, rule, sudo }, options),
+	pveFwRuleMove: (hostId: number, scope: PveFwScope, local: string, token: string | null, pos: number, to: number, digest: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveFwRun>("pve_fw_rule_move", { hostId, scope, local, token, pos, to, digest, sudo }, options),
+	pveFwRuleDelete: (hostId: number, scope: PveFwScope, local: string, token: string | null, pos: number, digest: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveFwRun>("pve_fw_rule_delete", { hostId, scope, local, token, pos, digest, sudo }, options),
+	pveFwOptions: (hostId: number, scope: PveFwScope, local: string, token: string | null, enable: boolean, policyIn: string, policyOut: string, digest: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveFwRun>("pve_fw_options", { hostId, scope, local, token, enable, policyIn, policyOut, digest, sudo }, options),
+	/**
+	 *  Security groups and aliases (datacenter level): `op` is group-add,
+	 *  group-delete, alias-add or alias-delete.
+	 */
+	pveFwObject: (hostId: number, local: string, token: string | null, op: string, name: string, cidr: string, comment: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveFwRun>("pve_fw_object", { hostId, local, token, op, name, cidr, comment, sudo }, options),
+	/**  Keeps the session's firewall changes, or restores the saved files now. */
+	pveFwSettle: (hostId: number, token: string, keep: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_fw_settle", { hostId, token, keep, sudo }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -4940,6 +4953,101 @@ export type PveDisk = {
 	/**  The full value, options included. */
 	value: string,
 	pending: boolean,
+};
+
+export type PveFirewall = PveFirewall_Serialize | PveFirewall_Deserialize;
+
+export type PveFirewall_Deserialize = {
+	rules: PveFwRule[],
+	/**  None for security groups, which have no options. */
+	options?: PveFwOptions | null,
+	/**  Sent back with edits so a list changed elsewhere is refused. */
+	digest: string,
+	groups: PveFwNamed[],
+	aliases: PveFwNamed[],
+	ipsets: PveFwNamed[],
+	macros: PveFwNamed[],
+	rollbackArmed: boolean,
+	notes: string[],
+};
+
+export type PveFirewall_Serialize = {
+	rules: PveFwRule[],
+	/**  None for security groups, which have no options. */
+	options: PveFwOptions | null,
+	/**  Sent back with edits so a list changed elsewhere is refused. */
+	digest: string,
+	groups: PveFwNamed[],
+	aliases: PveFwNamed[],
+	ipsets: PveFwNamed[],
+	macros: PveFwNamed[],
+	rollbackArmed: boolean,
+	notes: string[],
+};
+
+export type PveFwNamed = {
+	name: string,
+	/**  Alias address, empty for groups and IP sets. */
+	cidr: string,
+	comment: string,
+};
+
+export type PveFwOptions = {
+	enable: boolean,
+	policyIn: string,
+	policyOut: string,
+	digest: string,
+};
+
+export type PveFwRule = {
+	pos: number,
+	/**  in, out or group. */
+	kind: string,
+	/**  ACCEPT, DROP, REJECT, or the group's name. */
+	action: string,
+	macro: string,
+	source: string,
+	dest: string,
+	proto: string,
+	sport: string,
+	dport: string,
+	iface: string,
+	log: string,
+	enable: boolean,
+	comment: string,
+};
+
+/**  A rule to add or change. Empty strings mean "not set". */
+export type PveFwRuleSpec = {
+	kind: string,
+	action: string,
+	macro: string,
+	source: string,
+	dest: string,
+	proto: string,
+	sport: string,
+	dport: string,
+	iface: string,
+	log: string,
+	enable: boolean,
+	comment: string,
+};
+
+export type PveFwRun = {
+	/**  A rollback is armed: keep or roll back with this token. */
+	armed: boolean,
+	token: string,
+	secs: number,
+};
+
+/**  Where rules live: the datacenter, a node, a guest, or a security group. */
+export type PveFwScope = {
+	/**  cluster, node, guest or group. */
+	level: string,
+	node: string,
+	kind: string,
+	vmid: number,
+	group: string,
 };
 
 export type PveGuest = PveGuest_Serialize | PveGuest_Deserialize;

@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.47] - 2026-11-16
+
+### Added: Proxmox VE, part 6: firewall (M10r)
+- New **FIREWALL** tab in Proxmox with a scope picker: **Datacenter**, the connected **node**, or a **security group**. Each guest's window gains its own **FIREWALL** tab.
+- Turn the firewall on or off and set the in/out policies (datacenter and guests). Rules are listed in order, and the first match wins. You can add a rule (on top), edit it, turn it on or off, move it up or down, or delete it. Each rule has a direction, action or security group, macro, source and destination (with aliases and `+ipsets` suggested), protocol, ports, interface, log level and comment.
+- At datacenter level you can add and delete security groups (and edit their rules) and aliases. IP sets are listed for use in rules.
+- Datacenter, node and group changes can lock you out, so they run under a rollback armed on the node. The first change saves the firewall files, and further changes join the same session. Press **Keep** within 90 seconds or the node restores its firewall by itself. Turning the firewall on asks first and explains Proxmox's management exception (local network only).
+- Every edit carries Proxmox's digest, so a list changed elsewhere in the meantime is refused instead of overwritten.
+
 ## [0.10.46] - 2026-11-16
 
 ### Added: Proxmox VE, part 5: node network (M10r)

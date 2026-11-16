@@ -3,12 +3,12 @@
  * root (the sudo prompt asks when needed). Power actions start Proxmox tasks;
  * the task's log is followed until it ends, then the view reloads.
  */
-import { api, errorText, type PveIfaceSpec, type PveNetwork, type PveAppliance, type PveCloneSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
+import { api, errorText, type PveFirewall, type PveFwRun, type PveFwRuleSpec, type PveFwScope, type PveIfaceSpec, type PveNetwork, type PveAppliance, type PveCloneSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
 import { ACTION_WORD, backupTargets, type PveConfig, type PveHostDevices, type PveSetting, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
-export type PveTab = "summary" | "guests" | "backups" | "storage" | "network" | "tasks";
+export type PveTab = "summary" | "guests" | "backups" | "storage" | "network" | "firewall" | "tasks";
 
 /** A destructive step waiting for a confirmation that names its target (rule 5). */
 export interface PveConfirm {
@@ -25,7 +25,7 @@ export type PveMake = { kind: "vm" } | { kind: "ct" } | { kind: "clone"; guest: 
 
 export interface GuestDetail {
   guest: PveGuest;
-  tab: "snapshots" | "backups" | "hardware";
+  tab: "snapshots" | "backups" | "hardware" | "firewall";
   snaps: PveSnapshot[] | null;
   error: string | null;
   config: PveConfig | null;
@@ -54,6 +54,11 @@ export interface OpenTask {
   hidden?: boolean;
 }
 
+/** "datacenter", "node pve1", "VM 100", "group webservers". */
+export function scopeName(s: PveFwScope): string {
+  return s.level === "cluster" ? "datacenter" : s.level === "node" ? `node ${s.node}` : s.level === "guest" ? `${s.kind === "qemu" ? "VM" : "CT"} ${s.vmid}` : `group ${s.group}`;
+}
+
 class ProxmoxStore {
   hostId = $state<number | null>(remembered());
   overview = $state<PveOverview | null>(null);
@@ -78,6 +83,8 @@ class ProxmoxStore {
   network = $state<PveNetwork | null>(null);
   networkError = $state<string | null>(null);
   /** An applied network change waiting for "keep" before the node rolls it back. */
+  /** Host-level firewall changes waiting for "keep" (one rollback covers the whole session). */
+  fwSession = $state<{ token: string; until: number } | null>(null);
   netApply = $state<{ token: string; node: string; until: number; upid: string | null } | null>(null);
   private seq = 0;
   private follow: ReturnType<typeof setTimeout> | null = null;
@@ -578,6 +585,70 @@ class ProxmoxStore {
       this.notice = { text: `${keep ? "Keep" : "Roll back"}: ${errorText(e)}. If the node can't be reached, it rolls back by itself.`, tone: "err" };
     }
     await this.loadNetwork();
+  }
+
+  // ---- part 6: firewall ----
+
+  async loadFirewall(scope: PveFwScope): Promise<PveFirewall> {
+    const id = this.hostId;
+    if (id === null) throw new Error("no host");
+    return this.sudo("read the Proxmox firewall", (s) => api.pveFirewall(id, scope, s));
+  }
+
+  /** Runs a firewall change; host-level ones join the armed session. */
+  async fwChange(what: string, f: (id: number, local: string, token: string | null, s: Parameters<typeof api.pveOverview>[1]) => Promise<PveFwRun>) {
+    const id = this.hostId;
+    const local = this.localNode;
+    if (id === null || !local) return;
+    try {
+      const r = await this.sudo(what.toLowerCase(), (s) => f(id, local, this.fwSession?.token ?? null, s));
+      if (r.armed) this.fwSession = { token: r.token, until: Date.now() + r.secs * 1000 };
+      this.notice = { text: `${what}: done.${r.armed ? " Keep the firewall changes within 90 s or they roll back." : ""}`, tone: "ok" };
+    } catch (e) {
+      this.notice = { text: `${what}: ${errorText(e)}`, tone: "err" };
+      throw e;
+    }
+  }
+
+  saveRule(scope: PveFwScope, pos: number | null, digest: string, rule: PveFwRuleSpec) {
+    return this.fwChange(pos === null ? "Add rule" : `Change rule ${pos}`, (id, local, token, s) => api.pveFwRuleSave(id, scope, local, token, pos, digest, rule, s));
+  }
+
+  moveRule(scope: PveFwScope, pos: number, to: number, digest: string) {
+    return this.fwChange(`Move rule ${pos}`, (id, local, token, s) => api.pveFwRuleMove(id, scope, local, token, pos, to, digest, s));
+  }
+
+  askDeleteRule(scope: PveFwScope, pos: number, label: string, digest: string, after: () => void) {
+    this.confirm = {
+      title: "DELETE FIREWALL RULE",
+      body: `Delete rule ${pos} (${label}) from the ${scopeName(scope)} firewall?`,
+      button: `Delete rule ${pos}`,
+      run: async () => {
+        await this.fwChange(`Delete rule ${pos}`, (id, local, token, s) => api.pveFwRuleDelete(id, scope, local, token, pos, digest, s));
+        after();
+      },
+    };
+  }
+
+  fwOptions(scope: PveFwScope, enable: boolean, policyIn: string, policyOut: string, digest: string) {
+    return this.fwChange(`${scopeName(scope)} firewall ${enable ? "on" : "off"}`, (id, local, token, s) => api.pveFwOptions(id, scope, local, token, enable, policyIn, policyOut, digest, s));
+  }
+
+  fwObject(op: string, name: string, cidr = "", comment = "") {
+    return this.fwChange(`${op.replace("-", " ")} ${name}`, (id, local, token, s) => api.pveFwObject(id, local, token, op, name, cidr, comment, s));
+  }
+
+  async settleFirewall(keep: boolean) {
+    const f = this.fwSession;
+    const id = this.hostId;
+    if (!f || id === null) return;
+    try {
+      await this.sudo(keep ? "keep the firewall changes" : "roll the firewall back", (s) => api.pveFwSettle(id, f.token, keep, s));
+      this.fwSession = null;
+      this.notice = { text: keep ? "Firewall changes kept." : "Firewall rolled back.", tone: "ok" };
+    } catch (e) {
+      this.notice = { text: `${keep ? "Keep" : "Roll back"}: ${errorText(e)}. If the node can't be reached, it rolls back by itself.`, tone: "err" };
+    }
   }
 
   async runConfirm() {
