@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.33 (cron and timer editor)
+
+1. **System → (a host) → SCHEDULES → Crontab…**: your crontab's jobs are listed. Add `*/5 * * * *` with `date >> /tmp/ng-cron.txt`; the words say "every 5 minutes". Try `date +%F` as the command: it's refused with the `\%` hint.
+2. Untick the new job: on the host, `crontab -l` shows it as `#nightgrid-off …`. Tick it again, then **Delete…** → **Delete this job**. `ls ~/.nightgrid/cron-backups` on the host lists the earlier versions.
+3. Open the editor, run `crontab -e` on the host and change something, then add a job in Nightgrid: it says the crontab changed and asks you to reload.
+4. **+ Timer**: name `ng test`, command `echo hello from nightgrid`, pick **every 15 minutes**, **Check** shows the next runs, **Save** (sudo). The row `nightgrid-job-ng-test.timer` appears; **Run now**, then **Journal** shows the line. **Edit** → **Remove…** deletes it.
+
 ### macOS: testing 0.10.32 (login & access audit)
 
 1. **Fleet → ACCESS → Audit all**: every host gets a row. On hosts where sudo needs a password you haven't saved, LOGINS and FAILED show `—`.

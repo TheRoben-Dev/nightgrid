@@ -6,6 +6,7 @@
 //! [`sudo`], which feeds the password on stdin and never on a command line.
 
 pub mod history;
+pub mod jobs;
 pub mod journal;
 pub mod packages;
 pub mod pools;

@@ -19,6 +19,12 @@ import {
   type ImportMode,
   type Alert_Serialize as Alert,
   type AccessReport_Serialize as AccessReport,
+  type Crontab_Serialize as Crontab,
+  type CrontabJob_Serialize as CrontabJob,
+  type InstalledJob_Serialize as InstalledJob,
+  type TimerJob_Serialize as TimerJob,
+  type CronEdit,
+  type CalendarPreview,
   type AlertKind,
   type Dependency as AlertDependency,
   type Node as DepNode,
@@ -246,6 +252,7 @@ import { mockUps } from "./mockUps";
 import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
 import { mockAccess } from "./mockAccess";
+import { mockJobs } from "./mockJobs";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -311,6 +318,12 @@ export type {
   LogSearchQuery,
   LogSearchResult,
   AccessReport,
+  Crontab,
+  CrontabJob,
+  InstalledJob,
+  TimerJob,
+  CronEdit,
+  CalendarPreview,
   SavedLogSearch,
   SavedLogSearchInput,
   UpsInput,
@@ -572,7 +585,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.32-web",
+      version: "0.10.33-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1016,6 +1029,15 @@ export const api = {
   logSearchDelete: (id: number): Promise<null> => (T() ? commands.logSearchDelete(id) : mockLogs.delete(id)),
   accessAudit: (hostId: number, elevate: boolean, sudo: SudoInput | null): Promise<AccessReport> =>
     T() ? commands.accessAudit(hostId, elevate, sudo) : mockAccess.audit(hostId, elevate),
+  cronRead: (hostId: number, user: string | null, sudo: SudoInput | null): Promise<Crontab> => (T() ? commands.cronRead(hostId, user, sudo) : mockJobs.read(user)),
+  cronApply: (hostId: number, user: string | null, hash: string, edit: CronEdit, sudo: SudoInput | null): Promise<Crontab> =>
+    T() ? commands.cronApply(hostId, user, hash, edit, sudo) : mockJobs.apply(user, hash, edit),
+  cronDescribe: (schedule: string): Promise<string | null> => (T() ? commands.cronDescribe(schedule) : mockJobs.describe(schedule)),
+  timerJobs: (hostId: number): Promise<InstalledJob[]> => (T() ? commands.timerJobs(hostId) : mockJobs.timers()),
+  timerJobSave: (hostId: number, job: TimerJob, replaces: string | null, sudo: SudoInput | null): Promise<InstalledJob> =>
+    T() ? commands.timerJobSave(hostId, job, replaces, sudo) : mockJobs.saveTimer(job, replaces),
+  timerJobRemove: (hostId: number, unit: string, sudo: SudoInput | null): Promise<null> => (T() ? commands.timerJobRemove(hostId, unit, sudo) : mockJobs.removeTimer(unit)),
+  timerCalendarPreview: (hostId: number, calendar: string): Promise<CalendarPreview> => (T() ? commands.timerCalendarPreview(hostId, calendar) : mockJobs.preview(calendar)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
