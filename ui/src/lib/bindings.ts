@@ -523,15 +523,17 @@ export const commands = {
 	backupClearFolder: (options?: InvokeOptions) => __TAURI_INVOKE<null>("backup_clear_folder", undefined, options),
 	/**  Restarts the app (after an import). */
 	appRestart: (options?: InvokeOptions) => __TAURI_INVOKE<void>("app_restart", undefined, options),
-	helperStatus: (options?: InvokeOptions) => __TAURI_INVOKE<HelperStatus>("helper_status", undefined, options),
+	helperStatus: (options?: InvokeOptions) => __TAURI_INVOKE<HelperStatus_Serialize>("helper_status", undefined, options),
+	/**  The models on offer, how each fits this computer, and which to pick. */
+	helperModels: (options?: InvokeOptions) => __TAURI_INVOKE<HelperModels>("helper_models", undefined, options),
 	/**
-	 *  Downloads (or resumes) the model, then verifies its checksum. Returns
-	 *  `false` if it was cancelled.
+	 *  Downloads (or resumes) a model, then verifies its checksum. Returns
+	 *  `false` if it was cancelled. The model in use stays in use.
 	 */
-	helperDownload: (onProgress: Channel<DownloadProgress>, options?: InvokeOptions) => __TAURI_INVOKE<boolean>("helper_download", { onProgress }, options),
+	helperDownload: (modelId: string, onProgress: Channel<DownloadProgress>, options?: InvokeOptions) => __TAURI_INVOKE<boolean>("helper_download", { modelId, onProgress }, options),
 	helperCancelDownload: (options?: InvokeOptions) => __TAURI_INVOKE<void>("helper_cancel_download", undefined, options),
-	/**  Unloads and deletes the model (and any partial download). */
-	helperDeleteModel: (options?: InvokeOptions) => __TAURI_INVOKE<null>("helper_delete_model", undefined, options),
+	/**  Deletes a model's file (and any partial download), unloading it first. */
+	helperDeleteModel: (modelId: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("helper_delete_model", { modelId }, options),
 	/**  Frees the model's memory (it loads again on the next question). */
 	helperUnload: (options?: InvokeOptions) => __TAURI_INVOKE<void>("helper_unload", undefined, options),
 	/**  Generates DRIFT's reply to `messages`, streaming it over `on_event`. */
@@ -1192,6 +1194,8 @@ export type AppSettings_Deserialize = {
 	controllerNav?: boolean,
 	/**  The DRIFT helper (local model). Off until the user turns it on. */
 	helperEnabled?: boolean,
+	/**  The DRIFT model in use (an id from `helper::model::MODELS`). */
+	helperModel?: string,
 	/**  Terminal font size in px. */
 	termFontSize?: number,
 	/**  Terminal scrollback lines. */
@@ -1308,6 +1312,8 @@ export type AppSettings_Serialize = {
 	controllerNav: boolean,
 	/**  The DRIFT helper (local model). Off until the user turns it on. */
 	helperEnabled: boolean,
+	/**  The DRIFT model in use (an id from `helper::model::MODELS`). */
+	helperModel: string,
 	/**  Terminal font size in px. */
 	termFontSize: number,
 	/**  Terminal scrollback lines. */
@@ -2999,6 +3005,12 @@ export type GitStatus_Serialize = {
  */
 export type Gpu = Gpu_Serialize | Gpu_Deserialize;
 
+export type GpuView = {
+	name: string,
+	/**  Dedicated memory in bytes (0: shared or unknown). */
+	vram: number | null,
+};
+
 /**
  *  One GPU (NVIDIA through `nvidia-smi`, AMD through sysfs). Fields a
  *  driver doesn't report are `None`.
@@ -3082,6 +3094,18 @@ export type GuestAddrs_Serialize = {
 	note: string | null,
 };
 
+export type HardwareView = {
+	os: string,
+	arch: string,
+	cpu: string,
+	cores: number,
+	/**  Bytes (0: couldn't read). */
+	memory: number | null,
+	unified: boolean,
+	gpus: GpuView[],
+	gpuBuild: boolean,
+};
+
 export type Health = "ok" | 
 /**  Couldn't read SMART (unsupported, USB bridge, ...). */
 "unknown" | 
@@ -3098,6 +3122,13 @@ export type HelperEvent =
 /**  More of the reply. */
 { kind: "text"; text: string };
 
+export type HelperModels = {
+	hardware: HardwareView,
+	recommended: string,
+	active: string,
+	models: ModelOption[],
+};
+
 export type HelperReply = {
 	text: string,
 	/**  `done`, `length` or `stopped`. */
@@ -3107,7 +3138,11 @@ export type HelperReply = {
 	seconds: number | null,
 };
 
-export type HelperStatus = {
+export type HelperStatus = HelperStatus_Serialize | HelperStatus_Deserialize;
+
+export type HelperStatus_Deserialize = {
+	/**  The model in use (from settings). */
+	id: string,
 	model: string,
 	license: string,
 	/**  Full size of the model file in bytes. */
@@ -3116,7 +3151,30 @@ export type HelperStatus = {
 	state: string,
 	/**  Bytes already on disk for a partial download. */
 	have: number | null,
+	/**  A download is running (of any model). */
 	downloading: boolean,
+	/**  Which model is downloading. */
+	downloadingId?: string | null,
+	loaded: boolean,
+	/**  The build offloads to the GPU (Metal on macOS); otherwise CPU. */
+	gpu: boolean,
+};
+
+export type HelperStatus_Serialize = {
+	/**  The model in use (from settings). */
+	id: string,
+	model: string,
+	license: string,
+	/**  Full size of the model file in bytes. */
+	bytes: number | null,
+	/**  `missing`, `partial` or `ready`. */
+	state: string,
+	/**  Bytes already on disk for a partial download. */
+	have: number | null,
+	/**  A download is running (of any model). */
+	downloading: boolean,
+	/**  Which model is downloading. */
+	downloadingId: string | null,
 	loaded: boolean,
 	/**  The build offloads to the GPU (Metal on macOS); otherwise CPU. */
 	gpu: boolean,
@@ -4223,6 +4281,26 @@ export type MetricsEvent = MetricsEvent_Serialize | MetricsEvent_Deserialize;
 export type MetricsEvent_Deserialize = { kind: "sample"; hostId: number; sample: Sample_Deserialize } | { kind: "state"; hostId: number; state: PollState; message?: string | null; retrySecs?: number | null };
 
 export type MetricsEvent_Serialize = { kind: "sample"; hostId: number; sample: Sample_Serialize } | { kind: "state"; hostId: number; state: PollState; message: string | null; retrySecs: number | null };
+
+export type ModelOption = {
+	id: string,
+	name: string,
+	/**  `light`, `balanced` or `best`. */
+	tier: string,
+	params: string,
+	blurb: string,
+	license: string,
+	bytes: number | null,
+	/**  Memory it needs while answering. */
+	need: number | null,
+	/**  `missing`, `partial` or `ready`. */
+	state: string,
+	have: number | null,
+	/**  `good`, `tight`, `no` or `unknown`. */
+	fit: string,
+	/**  Why, in a line. */
+	reason: string,
+};
 
 export type MountForecast = MountForecast_Serialize | MountForecast_Deserialize;
 

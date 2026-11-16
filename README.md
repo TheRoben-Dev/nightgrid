@@ -613,6 +613,13 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing DRIFT's model picker (0.10.55)
+
+1. Settings → DRIFT → turn on DRIFT. Under **Model**: your chip, core count and memory, then Light, Balanced and Best with FITS / TIGHT / WON'T FIT. On a 16 GB Mac, Balanced is RECOMMENDED and Best says WON'T FIT; on 32 GB or more, Best is recommended.
+2. With Light downloaded, press **Download and use** on Balanced. Ask DRIFT something while it downloads: Light answers. When the bar finishes, Balanced shows IN USE.
+3. Ask a question: the panel shows LOADING MODEL once, then answers with no `<think>` text.
+4. **Use this model** on Light switches back (next question loads it). **Delete…** on the one not in use removes its file from `~/Library/Application Support/dev.nightgrid.Nightgrid/models/`.
+
 ### macOS: testing Settings tabs (0.10.54)
 
 1. Open Settings (Cmd+,): tabs GENERAL, APPEARANCE, TERMINAL, MONITORING, ALERTS, CONNECTIONS, DRIFT, DATA, FEATURES. GENERAL holds only tray, updates and diagnostics.

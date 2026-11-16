@@ -275,6 +275,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         backup_cmd::backup_clear_folder,
         backup_cmd::app_restart,
         helper_cmd::helper_status,
+        helper_cmd::helper_models,
         helper_cmd::helper_download,
         helper_cmd::helper_cancel_download,
         helper_cmd::helper_delete_model,

@@ -10,6 +10,8 @@ import {
   type HelperEvent,
   type HelperReply,
   type HelperStatus,
+  type HelperModels,
+  type ModelOption,
   commands,
   type BackupFolder_Serialize as BackupFolder,
   type BackupImported,
@@ -347,6 +349,8 @@ export type {
   HelperEvent,
   HelperReply,
   HelperStatus,
+  HelperModels,
+  ModelOption,
   BackupFolder,
   BackupImported,
   BackupPreview,
@@ -697,6 +701,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   handheld: false,
   controllerNav: true,
   helperEnabled: false,
+  helperModel: "qwen3-4b-instruct-2507-q4km",
   historySearch: false,
   profileReminderDays: 7,
   lastProfileExport: null,
@@ -714,7 +719,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.54-web",
+      version: "0.10.55-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1099,15 +1104,16 @@ export const api = {
   backupPickFolder: (): Promise<BackupFolder | null> => (T() ? commands.backupPickFolder() : mockBackup.pickFolder()),
   backupFolder: (): Promise<BackupFolder | null> => (T() ? commands.backupFolder() : mockBackup.folder()),
   backupClearFolder: (): Promise<null> => (T() ? commands.backupClearFolder() : mockBackup.clearFolder()),
-  helperStatus: (): Promise<HelperStatus> => (T() ? commands.helperStatus() : mockHelper.status()),
-  helperDownload: (on: (p: DownloadProgress) => void): Promise<boolean> => {
-    if (!T()) return mockHelper.download(on);
+  helperStatus: (): Promise<HelperStatus> => (T() ? commands.helperStatus() : mock.settingsGet().then((s) => (mockHelper.setActive(s.helperModel), mockHelper.status()))),
+  helperModels: (): Promise<HelperModels> => (T() ? commands.helperModels() : mock.settingsGet().then((s) => (mockHelper.setActive(s.helperModel), mockHelper.models()))),
+  helperDownload: (modelId: string, on: (p: DownloadProgress) => void): Promise<boolean> => {
+    if (!T()) return mockHelper.download(modelId, on);
     const ch = new Channel<DownloadProgress>();
     ch.onmessage = on;
-    return commands.helperDownload(ch as unknown as Parameters<typeof commands.helperDownload>[0]);
+    return commands.helperDownload(modelId, ch as unknown as Parameters<typeof commands.helperDownload>[1]);
   },
   helperCancelDownload: (): Promise<void> => (T() ? commands.helperCancelDownload() : mockHelper.cancelDownload()),
-  helperDeleteModel: (): Promise<null> => (T() ? commands.helperDeleteModel() : mockHelper.deleteModel()),
+  helperDeleteModel: (modelId: string): Promise<null> => (T() ? commands.helperDeleteModel(modelId) : mockHelper.deleteModel(modelId)),
   helperUnload: (): Promise<void> => (T() ? commands.helperUnload() : mockHelper.unload()),
   helperAsk: (messages: ChatTurn[], on: (e: HelperEvent) => void): Promise<HelperReply> => {
     if (!T()) return mockHelper.ask(messages, on);

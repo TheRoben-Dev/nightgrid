@@ -9,7 +9,7 @@ describe("helper store (browser mock)", () => {
     mockHelper.reset(false);
     helper.messages = [];
     helper.clearSpotlight();
-    await settings.update({ helperEnabled: false });
+    await settings.update({ helperEnabled: false, helperModel: "qwen3-4b-instruct-2507-q4km" });
     ui.go("overview");
   });
 
@@ -21,6 +21,25 @@ describe("helper store (browser mock)", () => {
     await helper.download();
     expect(helper.ready).toBe(true);
     expect(helper.progress).toBeNull();
+  });
+
+  it("recommends by memory, keeps the old model until the new one is ready, deletes unused ones", async () => {
+    mockHelper.reset(true);
+    await helper.setEnabled(true);
+    await helper.loadModels();
+    const m = helper.models!;
+    expect(m.recommended).toBe("qwen3-8b-q4km");
+    expect(m.models.map((x) => x.fit)).toEqual(["good", "good", "no"]);
+    const p = helper.download("qwen3-8b-q4km", true);
+    expect(settings.value.helperModel).toBe("qwen3-4b-instruct-2507-q4km");
+    expect(helper.status?.state).toBe("ready");
+    await p;
+    expect(settings.value.helperModel).toBe("qwen3-8b-q4km");
+    expect(helper.status?.id).toBe("qwen3-8b-q4km");
+    expect(helper.models?.active).toBe("qwen3-8b-q4km");
+    await helper.deleteModel("qwen3-4b-instruct-2507-q4km");
+    expect(helper.models?.models[0].state).toBe("missing");
+    expect(helper.ready).toBe(true);
   });
 
   it("streams a reply, keeps the prompt and runs show-me actions", async () => {
@@ -56,7 +75,7 @@ describe("helper store (browser mock)", () => {
   it("reports errors without losing the conversation", async () => {
     await helper.setEnabled(true);
     await helper.ask("hello");
-    expect(helper.messages[1].error).toMatch(/Download the model/);
+    expect(helper.messages[1].error).toMatch(/Download Qwen3 4B/);
     expect(helper.drift).toBe("error");
   });
 

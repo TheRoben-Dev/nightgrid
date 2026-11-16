@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.55] - 2026-11-16
+
+### Added: choose DRIFT's model
+- Settings → DRIFT → **Model** offers three sizes: **Light** (Qwen3 4B Instruct 2507, 2.5 GB, the one so far), **Balanced** (Qwen3 8B, 5.0 GB) and **Best** (Qwen3 30B-A3B Instruct 2507, 18.6 GB, a mixture-of-experts model that answers about as fast as a small one).
+- Nightgrid reads this computer's memory, CPU and GPU (locally: `sysctl`, `/proc`, PowerShell and `nvidia-smi`), marks each model **FITS**, **TIGHT** or **WON'T FIT** with the memory it needs, and recommends the biggest one that fits comfortably. 16 GB Macs get Balanced; Best needs a 32 GB Mac (or about 48 GB of RAM on Windows and Linux, where this build runs the model on the CPU).
+- Models download on demand from pinned files checked against their SHA-256. The model in use keeps answering while another downloads, and DRIFT switches when it's ready. **Use this model** switches between downloaded ones; **Delete…** frees the space.
+- Qwen3 8B is asked to answer directly and any thinking block it writes is dropped.
+
 ## [0.10.54] - 2026-11-16
 
 ### Changed: Settings in tabs
