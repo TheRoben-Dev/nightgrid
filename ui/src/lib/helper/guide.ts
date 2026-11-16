@@ -88,6 +88,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "settings-monitoring", view: "settings", what: "monitoring settings: sample interval, history" },
   { id: "settings-services", view: "settings", what: "service check settings" },
   { id: "settings-alerts", view: "settings", what: "alert rules (offline, disk, containers, certificates)" },
+  { id: "settings-deps", view: "settings", what: "alert dependencies: what breaks when a host or service is down, so its alerts fold under the cause" },
   { id: "settings-notifications", view: "settings", what: "notifications, quiet hours, webhook" },
   { id: "settings-desktop", view: "settings", what: "tray and start-up behaviour" },
   { id: "settings-updates", view: "settings", what: "app updates" },

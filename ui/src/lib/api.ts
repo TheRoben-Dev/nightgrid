@@ -19,6 +19,8 @@ import {
   type ImportMode,
   type Alert_Serialize as Alert,
   type AlertKind,
+  type Dependency as AlertDependency,
+  type Node as DepNode,
   type AlertSettings_Serialize as AlertSettings,
   type AlertsSnapshot_Serialize as AlertsSnapshot,
   type Severity,
@@ -279,6 +281,8 @@ export type {
   PlexStream,
   Alert,
   AlertKind,
+  AlertDependency,
+  DepNode,
   AlertSettings,
   AlertsSnapshot,
   AlertTestResult,
@@ -504,6 +508,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     forecastDays: 14,
     poolDegraded: true,
     logAnomaly: false,
+    foldDependent: true,
     native: true,
     quietHours: false,
     quietStart: 22 * 60,
@@ -533,7 +538,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.25-web",
+      version: "0.10.26-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -954,6 +959,10 @@ export const api = {
   alertsWebhookSet: (url: string | null): Promise<WebhookInfo> =>
     T() ? commands.alertsWebhookSet(url) : mockAlerts.webhookSet(url),
   alertsTest: (): Promise<AlertTestResult> => (T() ? commands.alertsTest() : mockAlerts.test()),
+  alertsDepsList: (): Promise<AlertDependency[]> => (T() ? commands.alertsDepsList() : mockAlerts.depsList()),
+  alertsDepsAdd: (child: DepNode, parent: DepNode): Promise<AlertDependency> =>
+    T() ? commands.alertsDepsAdd(child, parent) : mockAlerts.depsAdd(child, parent),
+  alertsDepsDelete: (id: number): Promise<null> => (T() ? commands.alertsDepsDelete(id) : mockAlerts.depsDelete(id)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {

@@ -115,6 +115,7 @@ _Last updated: M2 (SFTP + editor)._
 
 ## Alerts and tray (M7)
 
+- **Dependencies** (`core/src/depgraph.rs`, M10s): `alert_deps` rows (host/service → host/service), `Graph` (user edges plus "a service depends on its host"), `fold(active, pending, graph)` giving each alert's root cause and the alerts to hold while a cause is pending. `alerts_cmd` refolds every round, skips notifications and webhooks for folded alerts, holds waiting ones (`HOLD_MAX` 5 min) and sets `Alert.causedBy` in the snapshot (D-110).
 - **Rules** (`core/src/alerts.rs`): `Tracker` (pending → active → resolved, grace and clear-hold per kind, scoped reports, 200-entry history), condition builders for host offline, disk usage, services/certificates, SMART and containers (`ContainerWatch`), quiet hours, and webhook request builders (ntfy, Discord, JSON) (D-050, D-051).
 - **HTTP** (`core/src/http.rs`): one-request HTTP/1.1 client on hyper + rustls with the OS verifier, bounded body, no redirects; shared TLS setup with the service checker. Used by webhooks now and integrations next.
 - **App** (`app/src/alerts_cmd.rs`): `AlertsHub` and its loop (15 s; Docker 60 s; SMART 6 h per host), delivery (notifications via `tauri-plugin-notification`, webhook URL from the keychain), commands for the snapshot channel, history, webhook URL and a test send. Reads `MetricsHub::poll_states/mounts` and `ServicesHub::latest`.

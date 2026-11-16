@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use nightgrid_core::alerts::{self, Alert, Change, ContainerWatch, Scope, Severity, Tracker};
 use nightgrid_core::backup_jobs;
+use nightgrid_core::depgraph::{self, Folding, Graph};
 use nightgrid_core::docker::LogQuery;
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::logwatch::{self, Detector};
@@ -47,6 +48,8 @@ const DOCKER_BACKOFF: i64 = 600;
 /// More fired alerts than this in one round become one summary notification.
 const NOTIFY_BATCH: usize = 3;
 const WEBHOOK_MAX_PER_ROUND: usize = 10;
+/// Longest a notification waits for an upstream alert that may still fire.
+const HOLD_MAX: i64 = 300;
 
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -71,6 +74,12 @@ pub struct AlertsHub {
     pool_last: Mutex<HashMap<HostId, i64>>,
     logs_last: Mutex<HashMap<HostId, i64>>,
     logs: Mutex<Detector>,
+    /// Which active alerts are explained by an outage upstream (M10s).
+    folding: Mutex<Folding>,
+    /// Fired alerts whose notification waits for a cause in its grace period.
+    held: Mutex<HashMap<u32, (Alert, i64)>>,
+    /// Alerts that were folded and never notified (no "resolved" either).
+    silent: Mutex<HashSet<u32>>,
 }
 
 impl AlertsHub {
@@ -84,20 +93,22 @@ impl AlertsHub {
         self.tracker.lock().expect("poisoned").active()
     }
 
+    /// Active alerts and critical ones, not counting those folded under a cause.
     pub fn active_count(&self) -> (usize, usize) {
         let t = self.tracker.lock().expect("poisoned");
-        let act = t.active();
+        let folding = self.folding.lock().expect("poisoned");
+        let act: Vec<Alert> = t.active().into_iter().filter(|a| !folding.caused_by.contains_key(&a.id)).collect();
         (act.len(), act.iter().filter(|a| a.severity == Severity::Critical).count())
     }
 
     fn snapshot(&self, settings: &AppSettings) -> AlertsSnapshot {
         let t = self.tracker.lock().expect("poisoned");
-        AlertsSnapshot {
-            active: t.active(),
-            history: t.history(),
-            quiet: is_quiet(settings),
-            enabled: settings.alerts.enabled,
+        let folding = self.folding.lock().expect("poisoned");
+        let mut active = t.active();
+        for a in &mut active {
+            a.caused_by = folding.caused_by.get(&a.id).copied();
         }
+        AlertsSnapshot { active, history: t.history(), quiet: is_quiet(settings), enabled: settings.alerts.enabled }
     }
 
     fn push(&self, settings: &AppSettings) {
@@ -106,6 +117,54 @@ impl AlertsHub {
             let _ = ch.send(snap);
         }
     }
+}
+
+impl AlertsHub {
+    /// Held notifications that can go out now: the upstream alert didn't
+    /// fire (or took too long). Those whose cause fired are dropped silently.
+    fn release_held(&self, now: i64) -> Vec<Alert> {
+        let active: HashSet<u32> = self.tracker.lock().expect("poisoned").active().iter().map(|a| a.id).collect();
+        let folding = self.folding.lock().expect("poisoned").clone();
+        let mut held = self.held.lock().expect("poisoned");
+        let mut out = Vec::new();
+        held.retain(|id, (a, since)| {
+            if !active.contains(id) {
+                return false;
+            }
+            if folding.caused_by.contains_key(id) {
+                self.silent.lock().expect("poisoned").insert(*id);
+                return false;
+            }
+            if !folding.waiting.contains(id) || now - *since >= HOLD_MAX {
+                out.push(a.clone());
+                return false;
+            }
+            true
+        });
+        out
+    }
+}
+
+/// Recomputes which alerts are folded under a cause. True if that changed.
+fn refold(app: &AppHandle, cfg: &AppSettings) -> bool {
+    let state = app.state::<AppState>();
+    let hub = state.alerts.clone();
+    let next = if cfg.alerts.enabled && cfg.alerts.fold_dependent {
+        let (deps, services) = {
+            let store = state.store();
+            (store.deps_list().unwrap_or_default(), store.list_services().unwrap_or_default())
+        };
+        let on_host: HashMap<_, _> = services.iter().filter_map(|s| s.host_id.map(|h| (s.id, h))).collect();
+        let graph = Graph::new(&deps, &on_host);
+        let t = hub.tracker.lock().expect("poisoned");
+        depgraph::fold(&t.active(), &t.pending(), &graph)
+    } else {
+        Folding::default()
+    };
+    let mut cur = hub.folding.lock().expect("poisoned");
+    let changed = *cur != next;
+    *cur = next;
+    changed
 }
 
 fn settings(app: &AppHandle) -> AppSettings {
@@ -157,8 +216,10 @@ pub fn start(app: &AppHandle) {
             crate::timeline_cmd::record_alerts(&app, &changes);
             let quiet = is_quiet(&cfg);
             let hub = app.state::<AppState>().alerts.clone();
-            if !changes.is_empty() || last_quiet != Some(quiet) {
-                deliver(&app, &cfg, &changes, quiet);
+            let refolded = refold(&app, &cfg);
+            let released = hub.release_held(now);
+            if !changes.is_empty() || !released.is_empty() || refolded || last_quiet != Some(quiet) {
+                deliver(&app, &cfg, &changes, released, quiet, now);
                 hub.push(&cfg);
                 last_quiet = Some(quiet);
             }
@@ -499,25 +560,53 @@ async fn read_error_lines(app: &AppHandle, id: HostId, since: i64, now: i64) -> 
     Some(out)
 }
 
-fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], quiet: bool) {
-    if quiet || changes.is_empty() {
+fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], released: Vec<Alert>, quiet: bool, now: i64) {
+    let hub = app.state::<AppState>().alerts.clone();
+    let folding = hub.folding.lock().expect("poisoned").clone();
+    // Alerts explained by an outage upstream stay quiet; those whose cause
+    // may still fire wait a little (M10s).
+    let mut fired: Vec<Alert> = released;
+    let mut folded_under: HashMap<u32, usize> = HashMap::new();
+    for c in changes {
+        if let Change::Fired(a) = c {
+            if let Some(cause) = folding.caused_by.get(&a.id) {
+                hub.silent.lock().expect("poisoned").insert(a.id);
+                *folded_under.entry(*cause).or_default() += 1;
+            } else if folding.waiting.contains(&a.id) {
+                hub.held.lock().expect("poisoned").insert(a.id, (a.clone(), now));
+            } else {
+                fired.push(a.clone());
+            }
+        }
+    }
+    let mut resolved = Vec::new();
+    for c in changes {
+        if let Change::Resolved(a) = c {
+            hub.held.lock().expect("poisoned").remove(&a.id);
+            if !hub.silent.lock().expect("poisoned").remove(&a.id) {
+                resolved.push(a.clone());
+            }
+        }
+    }
+    if quiet || (fired.is_empty() && resolved.is_empty()) {
         return;
     }
-    let fired: Vec<&Alert> = changes
-        .iter()
-        .filter_map(|c| match c {
-            Change::Fired(a) => Some(a),
-            _ => None,
-        })
-        .collect();
+    let explains = |a: &Alert| match folded_under.get(&a.id) {
+        Some(n) => format!(" (and {n} alert{} it explains)", if *n == 1 { "" } else { "s" }),
+        None => String::new(),
+    };
     if cfg.alerts.native && !fired.is_empty() {
         if fired.len() > NOTIFY_BATCH {
             let crit = fired.iter().filter(|a| a.severity == Severity::Critical).count();
-            let body = fired.iter().take(4).map(|a| alerts::headline(a)).collect::<Vec<_>>().join("\n");
+            let body = fired.iter().take(4).map(alerts::headline).collect::<Vec<_>>().join("\n");
             notify(app, &format!("NIGHTGRID · {} new alerts ({crit} critical)", fired.len()), &body);
         } else {
             for a in &fired {
-                notify(app, &format!("NIGHTGRID · {}", a.kind.label()), &format!("{}: {}", a.title, a.detail));
+                notify(
+                    app,
+                    &format!("NIGHTGRID · {}", a.kind.label()),
+                    &format!("{}: {}{}", a.title, a.detail, explains(a)),
+                );
             }
         }
     }
@@ -525,13 +614,9 @@ fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], quiet: bool) 
     if kind == "none" {
         return;
     }
-    let to_send: Vec<Alert> = changes
-        .iter()
-        .filter_map(|c| match c {
-            Change::Fired(a) => Some(a.clone()),
-            Change::Resolved(a) if cfg.alerts.webhook_resolved => Some(a.clone()),
-            _ => None,
-        })
+    let to_send: Vec<Alert> = fired
+        .into_iter()
+        .chain(resolved.into_iter().filter(|_| cfg.alerts.webhook_resolved))
         .take(WEBHOOK_MAX_PER_ROUND)
         .collect();
     if to_send.is_empty() {
@@ -584,6 +669,34 @@ pub fn alerts_refresh(state: State<'_, AppState>) -> CmdResult<()> {
 pub fn alerts_clear_history(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
     state.alerts.tracker.lock().expect("poisoned").clear_history();
     state.alerts.push(&settings(&app));
+    Ok(())
+}
+
+/// What depends on what (M10s).
+#[tauri::command]
+#[specta::specta]
+pub fn alerts_deps_list(state: State<'_, AppState>) -> CmdResult<Vec<depgraph::Dependency>> {
+    Ok(state.store().deps_list()?)
+}
+
+/// Adds "`child` depends on `parent`" (refuses loops).
+#[tauri::command]
+#[specta::specta]
+pub fn alerts_deps_add(
+    state: State<'_, AppState>,
+    child: depgraph::Node,
+    parent: depgraph::Node,
+) -> CmdResult<depgraph::Dependency> {
+    let d = state.store().deps_add(child, parent)?;
+    state.alerts.wake();
+    Ok(d)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn alerts_deps_delete(state: State<'_, AppState>, id: depgraph::DepId) -> CmdResult<()> {
+    state.store().deps_delete(id)?;
+    state.alerts.wake();
     Ok(())
 }
 
@@ -674,6 +787,7 @@ pub async fn alerts_test(app: AppHandle) -> CmdResult<TestResult> {
             host_id: None,
             since: now_unix(),
             resolved: None,
+            caused_by: None,
         };
         match alerts::webhook_request(&cfg.alerts.webhook, &url, &a) {
             Some(req) => Some(match nightgrid_core::http::send(req).await {

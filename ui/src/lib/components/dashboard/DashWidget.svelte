@@ -28,7 +28,7 @@
 
   const hostName = (id: number | null) => (id == null ? "" : (hosts.hosts.find((h) => h.id === id)?.name ?? ""));
   const sevRank = (s: string) => (s === "critical" ? 0 : 1);
-  const activeAlerts = $derived([...alerts.active].sort((a, b) => sevRank(a.severity) - sevRank(b.severity) || b.since - a.since));
+  const activeAlerts = $derived([...alerts.roots].sort((a, b) => sevRank(a.severity) - sevRank(b.severity) || b.since - a.since));
   const svcDown = $derived(services.services.filter((s) => ["down", "warn"].includes(healthOf(s, services.status[s.id]))));
   const upd = $derived(totals(updateRows(hosts.hosts, fleet.updates)));
   const updChecked = $derived(Object.keys(fleet.updates).length > 0);

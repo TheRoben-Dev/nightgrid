@@ -12,6 +12,7 @@ pub mod backup_restore;
 pub mod bookmarks;
 pub mod confdiff;
 pub mod dashboard;
+pub mod depgraph;
 pub mod device_labels;
 pub mod diskforecast;
 pub mod docker;

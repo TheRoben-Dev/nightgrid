@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.26] - 2026-11-16
+
+### Added: smarter alerts, part 1: dependencies (M10s)
+- **Settings → Dependencies**: say what breaks when a host or service is down ("Media server depends on NAS", "NAS depends on router"). Loops are refused. Dependencies travel in profile exports and go away with the host or service.
+- **Folding**: alerts explained by an outage upstream are listed under the alert for the cause ("explains 3 more alerts") and don't notify or reach the webhook on their own, including their "resolved" message. Everything about a host already depends on that host, so containers, disks, backups and checks on an offline host fold under it without any setup. In a chain, the furthest-up outage is the cause.
+- A notification whose cause may still fire (a service down while its host is inside the offline grace period) waits up to 5 minutes, so an outage gives one notification. The cause's notification says how many alerts it explains.
+- The status bar, the tray and the Overview's alert widget count causes, not every folded alert.
+
 ## [0.10.25] - 2026-11-16
 
 ### Added: DRIFT as a guide (M10q)
