@@ -654,7 +654,10 @@ mod tests {
             .contains("nothing was changed"));
         assert!(confirm_script("1700000000").unwrap().contains("rm -rf -- \"$D\""));
         assert!(rollback_script("1700000000").unwrap().contains("sh \"$D/restore.sh\""));
-        // The generated shell parses.
+        // The generated shell parses (Windows runners have no /bin/sh).
+        if !cfg!(unix) {
+            return;
+        }
         for script in [
             s,
             confirm_script("1").unwrap(),
