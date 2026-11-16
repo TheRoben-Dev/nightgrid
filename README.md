@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.38 (stacks from git)
+
+1. Make a repository (GitHub, Gitea…) with `media/compose.yaml` holding a small service such as `nginx:1.27`. On the host, add its public key as a read-only deploy key (or use a public repository).
+2. **Docker → Stacks → From git…**: repository `git@github.com:<you>/<repo>.git`, folder `~/stacks/<repo>`, stack folder `media` → **Clone**. The list shows UP TO DATE and the `media` stack appears in Stacks; **Up** starts it.
+3. Push a commit changing the image tag. **Check**: "1 NEW" with your commit message. **Review & deploy…** shows the diff; **Deploy … and up**: the output panel recreates the service, Snapshots has "before git deploy", and the timeline has "Deployed media at …".
+4. **Roll back to …** returns to the first commit and recreates it again.
+5. On the host, edit `media/compose.yaml` by hand and push another commit: **Check** shows EDITED ON HOST and deploy is disabled until you `git checkout -- .` there.
+6. With a private repository and no deploy key, **Clone** fails with the "add the host's public key as a deploy key" hint.
+
 ### macOS: testing 0.10.37 (.env vault)
 
 1. **Docker → Stacks → Vault** on a stack that has a `.env`. **Import from host .env** → Import: every variable appears; passwords and tokens show `••••••••`, the rest show their values. **Reveal** shows one, **Hide** hides it again.

@@ -136,6 +136,12 @@ const TABLES: &[Table] = &[
         fks: &[("host_id", "hosts", Missing::Skip)],
         keys: &[&["host_id", "stack", "name"]],
     },
+    Table {
+        name: "git_stacks",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Skip)],
+        keys: &[&["host_id", "dir", "subdir"]],
+    },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];
 

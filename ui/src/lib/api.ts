@@ -67,6 +67,12 @@ import {
   type EnvDiff,
   type EnvVarInput_Serialize as EnvVarInput,
   type EnvDeployed_Serialize as EnvDeployed,
+  type GitStack_Serialize as GitStack,
+  type GitStackAdded_Serialize as GitStackAdded,
+  type GitStackInput_Serialize as GitStackInput,
+  type GitStatus_Serialize as GitStatus,
+  type GitDeployed_Serialize as GitDeployed,
+  type GitCommit,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
   type DnsRecord,
@@ -280,6 +286,7 @@ import { mockJobs } from "./mockJobs";
 import { mockFirewall } from "./mockFirewall";
 import { mockProxyEdit } from "./mockProxyEdit";
 import { mockEnvVault } from "./mockEnvVault";
+import { mockGitStacks } from "./mockGitStacks";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -330,6 +337,12 @@ export type {
   EnvDiff,
   EnvVarInput,
   EnvDeployed,
+  GitStack,
+  GitStackAdded,
+  GitStackInput,
+  GitStatus,
+  GitDeployed,
+  GitCommit,
   DnsList,
   DnsRecord,
   AmpInstance,
@@ -636,7 +649,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.37-web",
+      version: "0.10.38-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1113,6 +1126,12 @@ export const api = {
   envImportHost: (hostId: number, stack: Stack): Promise<number> => (T() ? commands.envImportHost(hostId, stack) : mockEnvVault.importHost(hostId, stack)),
   envDeployPreview: (hostId: number, stack: Stack): Promise<EnvDiff> => (T() ? commands.envDeployPreview(hostId, stack) : mockEnvVault.preview(hostId, stack)),
   envDeploy: (hostId: number, stack: Stack): Promise<EnvDeployed> => (T() ? commands.envDeploy(hostId, stack) : mockEnvVault.deploy(hostId, stack)),
+  gitStacksList: (hostId: number): Promise<GitStack[]> => (T() ? commands.gitStacksList(hostId) : mockGitStacks.list(hostId)),
+  gitStackAdd: (hostId: number, input: GitStackInput): Promise<GitStackAdded> => (T() ? commands.gitStackAdd(hostId, input) : mockGitStacks.add(hostId, input)),
+  gitStackCheck: (id: number): Promise<GitStatus> => (T() ? commands.gitStackCheck(id) : mockGitStacks.check(id)),
+  gitStackDiff: (id: number, target: string): Promise<string> => (T() ? commands.gitStackDiff(id, target) : mockGitStacks.diff(id, target)),
+  gitStackDeploy: (id: number, target: string): Promise<GitDeployed> => (T() ? commands.gitStackDeploy(id, target) : mockGitStacks.deploy(id, target)),
+  gitStackRemove: (id: number): Promise<null> => (T() ? commands.gitStackRemove(id) : mockGitStacks.remove(id)),
   timerCalendarPreview: (hostId: number, calendar: string): Promise<CalendarPreview> => (T() ? commands.timerCalendarPreview(hostId, calendar) : mockJobs.preview(calendar)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),

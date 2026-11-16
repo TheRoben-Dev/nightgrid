@@ -14,6 +14,7 @@ mod envvault_cmd;
 mod expiry_cmd;
 mod files_cmd;
 mod firewall_cmd;
+mod gitstack_cmd;
 mod helper_cmd;
 mod hosts_cmd;
 mod integrations_cmd;
@@ -197,6 +198,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         envvault_cmd::env_import_host,
         envvault_cmd::env_deploy_preview,
         envvault_cmd::env_deploy,
+        gitstack_cmd::git_stacks_list,
+        gitstack_cmd::git_stack_add,
+        gitstack_cmd::git_stack_check,
+        gitstack_cmd::git_stack_diff,
+        gitstack_cmd::git_stack_deploy,
+        gitstack_cmd::git_stack_remove,
         notes_cmd::notes_list,
         notes_cmd::note_save,
         notes_cmd::note_delete,

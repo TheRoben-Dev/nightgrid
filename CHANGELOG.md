@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.38] - 2026-11-16
+
+### Added: deploy & secrets, part 2: stacks from git (M10w)
+- **Docker → Stacks → From git…** clones a repository onto the host (into a folder you choose, default `~/stacks/<repo>`) and tracks one stack folder inside it, so one repository can hold several stacks. An existing checkout of the same repository is adopted as it is.
+- Git runs on the host with the host's own credentials (a deploy key or a credential helper there); Nightgrid stores no token. Errors such as a missing deploy key or an unknown host key say what to do.
+- **Check** fetches the branch and shows how many new commits touch the stack, their messages, and whether files were edited on the host.
+- **Review & deploy…** shows the new commits and the diff for the stack's folder. **Deploy and up** saves a stack snapshot, moves the checkout to exactly that commit, then brings the stack up. **Roll back to …** returns to the previous deploy the same way.
+- **Stop tracking…** forgets the repository; the files and the stack stay on the host.
+
 ## [0.10.37] - 2026-11-16
 
 ### Added: deploy & secrets, part 1: .env vault (M10w)

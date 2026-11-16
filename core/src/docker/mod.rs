@@ -4,6 +4,7 @@
 //! See [`transport`] for how API requests reach the daemon.
 
 pub mod compose;
+pub mod gitstack;
 pub mod proxy;
 pub mod proxy_edit;
 pub mod registry;
