@@ -30,6 +30,7 @@
     uniqueName,
     widgetInfo,
     WIDGETS,
+    widgetOn,
     type Dashboard,
     type Widget,
   } from "../dashboard";
@@ -58,8 +59,14 @@
 
   const widgets = $derived(draft ?? board.widgets);
   const narrow = $derived(width < NARROW);
-  const shown = $derived(narrow ? readingOrder(widgets) : widgets);
-  const rows = $derived(widgets.reduce((n, w) => Math.max(n, w.y + w.h), 0));
+  // Widgets whose feature is off (Settings → Features) stay in the layout but aren't shown or fetched.
+  // Outside edit mode the rest close up over the gap; while editing they keep their saved places.
+  const live = $derived.by(() => {
+    const on = widgets.filter((w) => widgetOn(w.kind, (f) => settings.on(f)));
+    return on.length === widgets.length || editing ? on : compact(on);
+  });
+  const shown = $derived(narrow ? readingOrder(live) : live);
+  const rows = $derived(live.reduce((n, w) => Math.max(n, w.y + w.h), 0));
 
   // Host tiles poll at the fast interval only while a NODES widget is shown.
   $effect(() => {
@@ -262,7 +269,7 @@
         <button type="button" class="btn tiny" data-guide="dashboard-add" disabled={board.widgets.length >= MAX_WIDGETS} aria-expanded={menu === "add"} onclick={() => (menu = menu === "add" ? null : "add")}>+ Widget</button>
         {#if menu === "add"}
           <ul class="menu" role="menu">
-            {#each WIDGETS as wi (wi.kind)}
+            {#each WIDGETS.filter((x) => widgetOn(x.kind, (f) => settings.on(f))) as wi (wi.kind)}
               <li><button type="button" role="menuitem" onclick={() => addWidget(wi.kind)}><span class="mt">{wi.title}</span><span class="muted">{wi.what}</span></button></li>
             {/each}
             <li class="sep"><button type="button" role="menuitem" data-guide="dashboard-add-command" onclick={newCommand}><span class="mt">COMMAND…</span><span class="muted">Any read-only command's output, with thresholds</span></button></li>

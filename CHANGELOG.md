@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.52] - 2026-11-16
+
+### Changed: Overview widgets say more
+- **SERVICES** lists every service with a status dot and its latency, or why it's down (HTTP code or the first words of the error), problems first. Hover a row for the full reason.
+- **UPDATES** shows one line per host: pending packages, security updates and a pending reboot.
+- **DISKS** shows each host's worst finding (a degraded pool, a failing SMART disk, a mount about to fill) or a short all-clear, plus a bar for its fullest mount.
+- **BACKUPS** lists every job with its host, tool, the age of its last good run and its state, problems first.
+- **ALERTS**, with nothing active, lists the last week's resolved incidents: when, what, where and how long it lasted.
+- UPDATES, DISKS and BACKUPS fetch on their own while they're on screen: updates every 3 hours, disks hourly, backups every 30 minutes. They only read servers that aren't known to be offline, never clients, and never ask for a password, sudo or a Tailscale approval. **Check all** still reads every host.
+- Widgets whose feature is off in **Settings → Features** are hidden from the Overview and the add menu, and don't fetch. The rest close up over the gap; the layout itself is kept for when the feature comes back.
+
 ## [0.10.51] - 2026-11-16
 
 ### Added: Tailscale SSH
