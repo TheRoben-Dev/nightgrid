@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.23] - 2026-11-16
+
+### Added: DRIFT skills, part 1 (M10p)
+- Before DRIFT answers, Nightgrid runs exact checks on the question and the attached text. They appear in a **checks card** above the reply and are given to the model as facts it must not contradict, so the risky parts can't be glossed over even when the answer is wrong.
+- **Command check**: put a command in backticks ("is it safe to run \`…\`?") or select one line in the terminal. It flags `rm -rf` (and worse with `/`, `~` or an unquoted `$VAR`), `chmod 777`, `chown -R` on system folders, `curl … | sh`, `dd of=/dev/…`, `mkfs`, partitioning, `> /dev/sdX`, `find -delete`, `crontab -r`, `docker system prune -a`/`--volumes`, `compose down -v`, `git push --force`/`reset --hard`/`clean -f`, firewall flushes and lockouts (`ufw enable`, stopping sshd), shutdowns, `kill -9`, `-y` and `--force`, ZFS/LVM/RAID destroys, Proxmox and libvirt destroys, and the fork bomb, each with why and what to do instead.
+- **Compose review**: attach a compose file (Explain in the editor, or select it) and it checks every service for a missing restart policy, untagged or `:latest` images, ports published on every interface (databases and the Docker API called out), secrets written inline, `privileged`, `docker.sock` mounts, host networking and PID namespace, broad capabilities, and the obsolete `version:` key.
+- **Error reference**, offline: exit codes (126, 127, 128+signal such as 137 = killed, often out of memory), systemd's `status=203/EXEC`-style codes, systemd results (start limit hit, auto-restart loops, timeouts, OOM kills), and common Docker, SSH, DNS, apt and TLS errors, each with a likely cause and the next command to run.
+- **Cron helper**, both ways: a cron expression in a question becomes plain words, its next three run times and the matching systemd `OnCalendar=`; "make a cron schedule for weekdays at 6pm" becomes `0 18 * * 1-5` with notes on cron's quirks.
+- Skill chips in an empty DRIFT panel start each kind of question.
+
 ## [0.10.22] - 2026-11-16
 
 ### Added: customizable Overview (M10o)

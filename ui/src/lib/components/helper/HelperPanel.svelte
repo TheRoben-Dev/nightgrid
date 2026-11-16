@@ -27,7 +27,22 @@
   let field: HTMLTextAreaElement | undefined = $state();
   let copied = $state<string | null>(null);
 
-  const SUGGESTIONS = ["How do I add a host?", "Explain the selected log lines", "How do I back up my setup?", "Write a compose file for Uptime Kuma"];
+  const SUGGESTIONS = ["How do I add a host?", "Explain the selected log lines", "How do I back up my setup?"];
+  /** Skills put a question in the box to finish, with the caret where the user types. */
+  const SKILLS: { label: string; text: string; caret?: number }[] = [
+    { label: "Is this command safe?", text: "Is it safe to run ``?", caret: 19 },
+    { label: "Review a compose file", text: "Review this compose file: " },
+    { label: "What does this error mean?", text: "What does this error mean? " },
+    { label: "Cron schedule", text: "Make a cron schedule for weekdays at 6pm" },
+  ];
+  const LEVEL = { danger: "DANGER", caution: "CAUTION", info: "NOTE" } as const;
+
+  async function fill(text: string, caret = text.length) {
+    input = text;
+    await tick();
+    field?.focus();
+    field?.setSelectionRange(caret, caret);
+  }
 
   // Follow the reply as it streams.
   $effect(() => {
@@ -109,6 +124,10 @@
           <div class="chips">
             {#each SUGGESTIONS as s (s)}<button type="button" class="chip" onclick={() => send(s)}>{s}</button>{/each}
           </div>
+          <p class="muted small">Exact checks I run before answering (shown above my answer):</p>
+          <div class="chips" data-guide="drift-skills">
+            {#each SKILLS as k (k.label)}<button type="button" class="chip skill" onclick={() => void fill(k.text, k.caret)}>✦ {k.label}</button>{/each}
+          </div>
         </div>
       {/if}
       {#each helper.messages as m (m.id)}
@@ -117,6 +136,16 @@
             <p class="q">{m.text}</p>
             {#if m.attached}<p class="att micro">+ {m.attached.toUpperCase()}</p>{/if}
           {:else}
+            {#if m.checks?.length}
+              <div class="checks" aria-label="Checks Nightgrid ran">
+                {#each m.checks as c, ci (ci)}
+                  <p class="ct micro">✓ {c.title}</p>
+                  <ul>
+                    {#each c.items as it, ii (ii)}<li class="lv-{it.level ?? 'none'}">{#if it.level}<span class="lvl">{LEVEL[it.level]}</span>{/if}{it.text}</li>{/each}
+                  </ul>
+                {/each}
+              </div>
+            {/if}
             {#if !m.text && m.streaming}
               <p class="muted thinking">{helper.loading ? "Loading the model (first question only)…" : "Thinking…"}</p>
             {/if}
@@ -256,6 +285,50 @@
   }
   .small {
     font-size: var(--fs-xs);
+  }
+  .checks {
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--cyan);
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    background: color-mix(in srgb, var(--cyan) 4%, transparent);
+  }
+  .checks .ct {
+    margin: 4px 0 2px;
+    color: var(--cyan);
+    letter-spacing: 0.1em;
+  }
+  .checks ul {
+    margin: 0 0 4px;
+    padding-left: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .checks li {
+    font-size: var(--fs-xs);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  .lvl {
+    display: inline-block;
+    min-width: 7ch;
+    margin-right: 6px;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.08em;
+  }
+  .lv-danger .lvl {
+    color: var(--danger);
+  }
+  .lv-caution .lvl {
+    color: var(--warn);
+  }
+  .lv-info .lvl {
+    color: var(--text-1);
+  }
+  .chip.skill {
+    color: var(--cyan);
   }
   .msgs {
     flex: 1;

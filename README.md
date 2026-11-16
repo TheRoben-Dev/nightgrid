@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.23 (DRIFT skills, part 1)
+
+1. Open DRIFT (`Cmd+J`) with an empty conversation: four skill chips are under the suggestions. **Is this command safe?** puts the caret between backticks; type `rm -rf $DIR/` and ask. A checks card with DANGER lines appears above the answer, and the answer explains them.
+2. In a terminal, select one command line (for example `sudo systemctl stop sshd`), open DRIFT and ask "is this safe?": the card warns about locking yourself out.
+3. Open a compose file in the editor → **Ask DRIFT**: a compose review lists missing restart policies, `:latest` images, published database ports and inline passwords.
+4. Ask "why does my container exit with code 137?" and "what does status=203/EXEC mean?": the error reference explains both.
+5. Ask "what does `30 3 * * 1-5` mean?" (next runs and OnCalendar) and "make a cron schedule for every Sunday at 4am" (`0 4 * * 0`).
+
 ### macOS: testing 0.10.22 (customizable Overview)
 
 1. The Overview looks like before (host tiles, alerts, services, fleet health). Press **Edit**: widgets get dashed frames and a grid shows behind them.

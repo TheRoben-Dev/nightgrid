@@ -46,6 +46,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "automation-new-snippet", view: "automation", what: "create a snippet (saved command)" },
   { id: "automation-new-playbook", view: "automation", what: "create a playbook" },
   { id: "term-key-hints", view: "terminal", what: "key hint strip under the terminal: keys of the program in front (nano, vim, less, htop, tmux …); turn off in Settings → Terminal" },
+  { id: "drift-skills", view: null, what: "DRIFT's exact checks: command safety, compose review, error lookup and cron (in the DRIFT panel)" },
   { id: "dashboard-edit", view: "overview", what: "edit the Overview dashboard: move, resize, add and remove widgets" },
   { id: "dashboard-add", view: "overview", what: "add a widget to the dashboard (in edit mode)" },
   { id: "dashboard-presets", view: "overview", what: "apply a built-in or saved layout preset, or save this layout as a preset (in edit mode)" },

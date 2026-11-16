@@ -10,6 +10,7 @@ import { sectionById } from "../sections";
 import { labelLines } from "../netmap/graph";
 import { keymap } from "../term/keyhints";
 import { hostFacts, mentionedHosts } from "../helper/hostFacts";
+import { checksText, runSkills, type Check } from "../helper/skills";
 import { alerts } from "./alerts.svelte";
 import { docker } from "./docker.svelte";
 import { hosts } from "./hosts.svelte";
@@ -39,6 +40,8 @@ export interface ChatMessage {
   stats?: string;
   /** What was attached to a question ("Docker logs: web · 150 lines"). */
   attached?: string;
+  /** Exact skill results shown above the reply (and given to the model). */
+  checks?: Check[];
 }
 
 export interface Spotlight {
@@ -257,8 +260,10 @@ class HelperStore {
     if (!netmap.labelsLoaded) await netmap.loadLabels();
     ctx.devices = labelLines(netmap.labels, netmap.result?.devices ?? [], q, ctx.view === "network");
     ctx.hosts = await this.hostContext(q);
-    // Questions about the user's own hosts lean on the live facts, not the guide.
-    const guideN = ctx.hosts.length ? 2 : 4;
+    const checks = runSkills(q, ctx.selection);
+    ctx.checks = checks.length ? checksText(checks) : null;
+    // Questions about the user's own hosts (or with exact checks) lean on those, not the guide.
+    const guideN = ctx.hosts.length || checks.length ? 2 : 4;
     const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, guideN), ...notesIndex(notes.notes).search(q, 2)];
     const history: Turn[] = this.messages
       .filter((m) => !m.error && m.text)
@@ -268,7 +273,7 @@ class HelperStore {
     const n = sel ? sel.split("\n").length : 0;
     const attached = sel ? `${ctx.source ?? "selection"} · ${n} line${n === 1 ? "" : "s"}` : undefined;
     this.messages.push({ id: ++this.seq, role: "user", text: q, actions: [], attached });
-    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), noteRefs: noteRefs(docs) });
+    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), noteRefs: noteRefs(docs), checks });
     const msg = this.messages[this.messages.length - 1];
     // Selection is used once; the view context stays.
     this.context = { ...this.context, selection: null, source: null };
