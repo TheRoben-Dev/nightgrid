@@ -4,11 +4,28 @@
  * the task's log is followed until it ends, then the view reloads.
  */
 import { api, errorText, type PveOverview, type PveTaskDetail } from "../api";
-import { ACTION_WORD, type PveAction, type PveGuest, type PveTask } from "../proxmox";
+import { ACTION_WORD, backupTargets, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
-export type PveTab = "summary" | "guests" | "storage" | "tasks";
+export type PveTab = "summary" | "guests" | "backups" | "storage" | "tasks";
+
+/** A destructive step waiting for a confirmation that names its target (rule 5). */
+export interface PveConfirm {
+  title: string;
+  body: string;
+  button: string;
+  /** When set, this text must be typed to enable the button. */
+  typed?: string;
+  run: () => Promise<void>;
+}
+
+export interface GuestDetail {
+  guest: PveGuest;
+  tab: "snapshots" | "backups";
+  snaps: PveSnapshot[] | null;
+  error: string | null;
+}
 const HOST_KEY = "nightgrid.proxmox.host";
 
 function remembered(): number | null {
@@ -26,6 +43,9 @@ export interface OpenTask {
   title: string;
   detail: PveTaskDetail | null;
   error: string | null;
+  onDone?: () => void;
+  /** Closed by the user while it still runs: followed quietly to the end. */
+  hidden?: boolean;
 }
 
 class ProxmoxStore {
@@ -40,6 +60,11 @@ class ProxmoxStore {
   busy = $state<number[]>([]);
   notice = $state<{ text: string; tone: "ok" | "err" } | null>(null);
   task = $state<OpenTask | null>(null);
+  detail = $state<GuestDetail | null>(null);
+  backups = $state<PveBackups | null>(null);
+  backupsLoading = $state(false);
+  backupsError = $state<string | null>(null);
+  confirm = $state<PveConfirm | null>(null);
   private seq = 0;
   private follow: ReturnType<typeof setTimeout> | null = null;
 
@@ -54,7 +79,9 @@ class ProxmoxStore {
     this.error = null;
     this.notice = null;
     this.node = null;
-    this.closeTask();
+    this.backups = null;
+    this.detail = null;
+    this.stopFollowing();
     try {
       if (id) localStorage.setItem(HOST_KEY, String(id));
     } catch {
@@ -108,9 +135,9 @@ class ProxmoxStore {
   }
 
   /** Shows a task's log and follows it while it runs. */
-  async openTask(node: string, upid: string, title: string) {
-    this.closeTask();
-    this.task = { node, upid, title, detail: null, error: null };
+  async openTask(node: string, upid: string, title: string, onDone?: () => void) {
+    this.stopFollowing();
+    this.task = { node, upid, title, detail: null, error: null, onDone };
     await this.poll();
   }
 
@@ -127,13 +154,167 @@ class ProxmoxStore {
       if (this.task?.upid !== t.upid) return;
       this.task = { ...this.task, detail: d, error: null };
       if (d.running) this.follow = setTimeout(() => void this.poll(), 1500);
-      else void this.load();
+      else {
+        void this.load();
+        t.onDone?.();
+        if (this.task?.hidden) this.task = null;
+      }
     } catch (e) {
       if (this.task?.upid === t.upid) this.task = { ...this.task, error: errorText(e) };
     }
   }
 
+  // ---- part 2: snapshots and backups ----
+
+  /** Runs a step that starts a Proxmox task, then follows it. */
+  private async startTask(what: string, node: string, f: (s: Parameters<typeof api.pveOverview>[1]) => Promise<string>, onDone?: () => void) {
+    const id = this.hostId;
+    if (id === null) return;
+    try {
+      const upid = await this.sudo(what.toLowerCase(), f);
+      this.notice = { text: `${what}: started.`, tone: "ok" };
+      void this.openTask(node, upid, what, onDone);
+    } catch (e) {
+      this.notice = { text: `${what}: ${errorText(e)}`, tone: "err" };
+      throw e;
+    }
+  }
+
+  openGuest(guest: PveGuest, tab: GuestDetail["tab"] = "snapshots") {
+    this.detail = { guest, tab, snaps: null, error: null };
+    void this.loadSnaps();
+    if (!this.backups) void this.loadBackups();
+  }
+
+  async loadSnaps() {
+    const d = this.detail;
+    const id = this.hostId;
+    if (!d || id === null) return;
+    try {
+      const snaps = await this.sudo("read snapshots", (s) => api.pveSnapshots(id, d.guest.node, d.guest.kind, d.guest.vmid, s));
+      if (this.detail?.guest.vmid === d.guest.vmid) this.detail = { ...this.detail, snaps, error: null };
+    } catch (e) {
+      if (this.detail?.guest.vmid === d.guest.vmid) this.detail = { ...this.detail, error: errorText(e) };
+    }
+  }
+
+  async takeSnapshot(g: PveGuest, name: string, description: string, vmstate: boolean) {
+    const id = this.hostId;
+    if (id === null) return;
+    await this.startTask(`Snapshot ${name} of ${g.name}`, g.node, (s) => api.pveSnapshotCreate(id, g.node, g.kind, g.vmid, name, description, vmstate, s), () => void this.loadSnaps());
+  }
+
+  askRollback(g: PveGuest, snap: PveSnapshot, start: boolean) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.confirm = {
+      title: "ROLL BACK",
+      body: `Roll ${g.name} (${g.vmid}) on ${g.node} back to snapshot “${snap.name}”? Everything that changed in the guest since that snapshot is lost${g.status === "running" ? ", and the guest is stopped first" : ""}.`,
+      button: `Roll back to ${snap.name}`,
+      run: () => this.startTask(`Roll back ${g.name} to ${snap.name}`, g.node, (s) => api.pveSnapshotRollback(id, g.node, g.kind, g.vmid, snap.name, start, s), () => void this.loadSnaps()),
+    };
+  }
+
+  askDeleteSnapshot(g: PveGuest, snap: PveSnapshot) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.confirm = {
+      title: "DELETE SNAPSHOT",
+      body: `Delete snapshot “${snap.name}” of ${g.name} (${g.vmid})? The guest itself is untouched, but you can no longer go back to this point.`,
+      button: `Delete ${snap.name}`,
+      run: () => this.startTask(`Delete snapshot ${snap.name}`, g.node, (s) => api.pveSnapshotDelete(id, g.node, g.kind, g.vmid, snap.name, s), () => void this.loadSnaps()),
+    };
+  }
+
+  async loadBackups() {
+    const id = this.hostId;
+    if (id === null) return;
+    this.backupsLoading = true;
+    try {
+      this.backups = await this.sudo("read backups", (s) => api.pveBackups(id, backupTargets(this.overview), s));
+      this.backupsError = null;
+    } catch (e) {
+      this.backupsError = errorText(e);
+    } finally {
+      this.backupsLoading = false;
+    }
+  }
+
+  async backupNow(g: PveGuest, storage: string, mode: string, notes: string) {
+    const id = this.hostId;
+    if (id === null) return;
+    await this.startTask(`Back up ${g.name}`, g.node, (s) => api.pveBackupNow(id, g.node, g.vmid, storage, mode, notes, s), () => void this.loadBackups());
+  }
+
+  /** Restores a backup to `vmid` on `node`; overwriting an existing guest needs its id typed. */
+  askRestore(f: PveBackupFile, node: string, vmid: number, storage: string, start: boolean) {
+    const id = this.hostId;
+    if (id === null) return;
+    const existing = this.overview?.guests.find((g) => g.vmid === vmid);
+    const run = () =>
+      this.startTask(`Restore ${f.vmid} to ${vmid}`, node, (s) => api.pveRestore(id, node, f.kind, vmid, f.volid, storage, !!existing, start, s), () => void this.loadBackups());
+    if (!existing) {
+      void run().catch(() => {});
+      return;
+    }
+    this.confirm = {
+      title: "RESTORE OVER A GUEST",
+      body: `${existing.name} (${vmid}) on ${existing.node} exists. Restoring over it replaces its configuration and disks with the backup from ${new Date((f.time ?? 0) * 1000).toLocaleString()}. Anything it has now is lost.${existing.status === "running" ? " Stop the guest first: Proxmox refuses to restore over a running one." : ""}`,
+      button: `Overwrite ${vmid}`,
+      typed: String(vmid),
+      run,
+    };
+  }
+
+  async protect(f: PveBackupFile, on: boolean) {
+    const id = this.hostId;
+    const node = this.overview?.nodes.find((n) => n.local)?.name ?? f.storage;
+    if (id === null) return;
+    try {
+      await this.sudo(on ? "protect a backup" : "unprotect a backup", (s) => api.pveBackupProtect(id, node, f.volid, on, s));
+      await this.loadBackups();
+    } catch (e) {
+      this.notice = { text: `${on ? "Protect" : "Unprotect"}: ${errorText(e)}`, tone: "err" };
+    }
+  }
+
+  askDeleteBackup(f: PveBackupFile) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.confirm = {
+      title: "DELETE BACKUP",
+      body: `Delete the backup of ${f.vmid} from ${new Date((f.time ?? 0) * 1000).toLocaleString()} on ${f.storage}? The file is removed from the storage: ${f.volid}`,
+      button: "Delete backup",
+      run: async () => {
+        await this.sudo("delete a backup", (s) => api.pveBackupDelete(id, f.volid, s));
+        this.notice = { text: "Backup deleted.", tone: "ok" };
+        await this.loadBackups();
+      },
+    };
+  }
+
+  async runConfirm() {
+    const c = this.confirm;
+    if (!c) return;
+    this.confirm = null;
+    try {
+      await c.run();
+    } catch (e) {
+      this.notice = { text: `${c.button}: ${errorText(e)}`, tone: "err" };
+    }
+  }
+
+  /** Hides the task window; a running task with follow-up work keeps being followed. */
   closeTask() {
+    const t = this.task;
+    if (t && t.onDone && (!t.detail || t.detail.running)) {
+      this.task = { ...t, hidden: true };
+      return;
+    }
+    this.stopFollowing();
+  }
+
+  private stopFollowing() {
     if (this.follow) clearTimeout(this.follow);
     this.follow = null;
     this.task = null;

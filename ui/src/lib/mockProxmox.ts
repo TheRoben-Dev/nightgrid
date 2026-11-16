@@ -5,6 +5,9 @@
  */
 import type {
   PveAction,
+  PveBackups_Serialize as PveBackups,
+  PveBackupFile_Serialize as PveBackupFile,
+  PveSnapshot_Serialize as PveSnapshot,
   PveGuest_Serialize as PveGuest,
   PveOverview_Serialize as PveOverview,
   PveTask_Serialize as PveTask,
@@ -70,7 +73,100 @@ const TYPE: Record<PveAction, [string, string]> = {
 };
 const AFTER: Record<PveAction, string> = { start: "running", shutdown: "stopped", reboot: "running", stop: "stopped", suspend: "paused", resume: "running" };
 
+const day = 86400;
+const snaps: Record<number, PveSnapshot[]> = {
+  100: [
+    { name: "clean_install", description: "", time: now() - 60 * day, vmstate: false, parent: null, current: false },
+    { name: "jellyfin", description: "after jellyfin", time: now() - 40 * day, vmstate: false, parent: "clean_install", current: false },
+    { name: "pre_upgrade", description: "before upgrade to 24.04", time: now() - 5 * day, vmstate: true, parent: "clean_install", current: true },
+  ],
+};
+const bf = (vmid: number, kind: string, ago: number, size: number, extra: Partial<PveBackupFile> = {}): PveBackupFile => {
+  const t = now() - ago;
+  const d = new Date(t * 1000).toISOString().slice(0, 19).replace(/[-:]/g, "_").replace("T", "-");
+  return { volid: `nas-backup:backup/vzdump-${kind}-${vmid}-${d}.${kind === "qemu" ? "vma" : "tar"}.zst`, storage: "nas-backup", vmid, kind, time: t, size, format: kind === "qemu" ? "vma.zst" : "tar.zst", notes: "", protected: false, verified: null, ...extra };
+};
+let files: PveBackupFile[] = [
+  bf(100, "qemu", 0.3 * day, 20 * GiB, { protected: true, verified: "ok", notes: "media nightly" }),
+  bf(200, "lxc", 0.3 * day, 0.7 * GiB, { notes: "pihole nightly" }),
+  bf(100, "qemu", 1.3 * day, 19.6 * GiB, { notes: "media nightly" }),
+  bf(200, "lxc", 1.3 * day, 0.7 * GiB, { notes: "pihole nightly" }),
+  bf(201, "lxc", 55 * day, 1 * GiB),
+];
+
+function finishLater(t: PveTask, after: () => void, ms = 1800) {
+  tasks = [t, ...tasks];
+  logs[t.upid] = [`${t.kind} ${t.id}`];
+  setTimeout(() => {
+    tasks = tasks.map((x) => (x.upid === t.upid ? { ...x, end: now(), status: "OK" } : x));
+    logs[t.upid].push("TASK OK");
+    after();
+  }, ms);
+}
+const task = (node: string, kind: string, id: string): PveTask => {
+  const ts = now() + Math.floor(Math.random() * 1000);
+  return { upid: UPID(node, kind, id, ts), node, kind, id, user: "root@pam", start: now(), end: null, status: null };
+};
+
 export const mockProxmox = {
+  snapshots: async (_node: string, vmid: number): Promise<PveSnapshot[]> => snaps[vmid] ?? [],
+  snapshotCreate: async (node: string, vmid: number, name: string, description: string, vmstate: boolean): Promise<string> => {
+    if ((snaps[vmid] ?? []).some((x) => x.name === name)) throw new Error(`snapshot name '${name}' already used`);
+    const t = task(node, "qmsnapshot", String(vmid));
+    finishLater(t, () => {
+      const cur = (snaps[vmid] ?? []).find((x) => x.current);
+      snaps[vmid] = [...(snaps[vmid] ?? []).map((x) => ({ ...x, current: false })), { name, description, time: now(), vmstate, parent: cur?.name ?? null, current: true }];
+    });
+    return t.upid;
+  },
+  snapshotRollback: async (node: string, vmid: number, name: string): Promise<string> => {
+    const t = task(node, "qmrollback", String(vmid));
+    finishLater(t, () => (snaps[vmid] = (snaps[vmid] ?? []).map((x) => ({ ...x, current: x.name === name }))));
+    return t.upid;
+  },
+  snapshotDelete: async (node: string, vmid: number, name: string): Promise<string> => {
+    const t = task(node, "qmdelsnapshot", String(vmid));
+    finishLater(t, () => (snaps[vmid] = (snaps[vmid] ?? []).filter((x) => x.name !== name)));
+    return t.upid;
+  },
+  backups: async (): Promise<PveBackups> => {
+    await new Promise((r) => setTimeout(r, 150));
+    return {
+      jobs: [
+        { id: "backup-1a2b3c4d-5e6f", enabled: true, schedule: "02:00", storage: "nas-backup", mode: "snapshot", guests: "100,200,201", exclude: "", comment: "", nextRun: now() + 15 * 3600 },
+        { id: "backup-weekly-all", enabled: false, schedule: "sun 03:00", storage: "nas-backup", mode: "stop", guests: "all", exclude: "9000", comment: "weekly full", nextRun: null },
+      ],
+      files: [...files].sort((a, b) => (b.time ?? 0) - (a.time ?? 0)),
+      uncovered: [
+        { vmid: 101, name: "win11", kind: "qemu" },
+        { vmid: 102, name: "homeassistant", kind: "qemu" },
+      ],
+      notes: [],
+    };
+  },
+  backupNow: async (node: string, vmid: number, storage: string): Promise<string> => {
+    const g0 = guests.find((x) => x.vmid === vmid);
+    const t = task(node, "vzdump", String(vmid));
+    finishLater(t, () => (files = [bf(vmid, g0?.kind ?? "qemu", 0, (g0?.maxdisk ?? GiB) / 3, { storage, notes: "manual" }), ...files]), 2500);
+    return t.upid;
+  },
+  restore: async (node: string, kind: string, vmid: number, volid: string): Promise<string> => {
+    const t = task(node, kind === "qemu" ? "qmrestore" : "vzrestore", String(vmid));
+    const src = files.find((f0) => f0.volid === volid);
+    finishLater(t, () => {
+      if (!guests.some((x) => x.vmid === vmid)) guests = [...guests, g(vmid, kind, node, `restored-${src?.vmid ?? vmid}`, "stopped")];
+    }, 2500);
+    return t.upid;
+  },
+  protect: async (volid: string, protect: boolean): Promise<null> => {
+    files = files.map((f0) => (f0.volid === volid ? { ...f0, protected: protect } : f0));
+    return null;
+  },
+  deleteBackup: async (volid: string): Promise<null> => {
+    if (files.find((f0) => f0.volid === volid)?.protected) throw new Error("can't remove protected volume");
+    files = files.filter((f0) => f0.volid !== volid);
+    return null;
+  },
   overview: async (_hostId: number): Promise<PveOverview> => {
     await new Promise((r) => setTimeout(r, 200));
     return {

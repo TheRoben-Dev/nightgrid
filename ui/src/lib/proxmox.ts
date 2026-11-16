@@ -9,6 +9,8 @@ import type {
 } from "./bindings";
 
 export type { PveAction, PveGuest, PveNode, PveOverview, PveStorage, PveTask };
+import type { PveBackupFile_Serialize as PveBackupFile, PveBackups_Serialize as PveBackups, PveSnapshot_Serialize as PveSnapshot, PveStorageRef } from "./bindings";
+
 
 export const ACTION_WORD: Record<PveAction, string> = {
   start: "Start",
@@ -169,3 +171,87 @@ export function storageRows(ss: PveStorage[]): { key: string; s: PveStorage; nod
 
 /** A guest's screen/console only works on the node this host is. */
 export const isLocal = (o: PveOverview | null, node: string): boolean => !!o?.nodes.find((n) => n.name === node)?.local;
+
+// ---------------------------------------------------------------- part 2
+
+
+export type { PveBackupFile, PveBackups, PveSnapshot, PveStorageRef };
+
+/** Proxmox snapshot names: a letter, then letters, digits, `_` or `-`; 2–40 long. */
+export const validSnapname = (n: string): boolean => /^[A-Za-z][A-Za-z0-9_-]{1,39}$/.test(n) && n !== "current";
+
+/** A default snapshot name: `snap_2026_11_16_0930`. */
+export function snapName(d = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `snap_${d.getFullYear()}_${p(d.getMonth() + 1)}_${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+}
+
+/** Snapshots as a tree, oldest root first, with each one's depth. */
+export function snapTree(snaps: PveSnapshot[]): { s: PveSnapshot; depth: number }[] {
+  const names = new Set(snaps.map((s) => s.name));
+  const kids = (parent: string | null) => snaps.filter((s) => (s.parent && names.has(s.parent) ? s.parent : null) === parent).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+  const out: { s: PveSnapshot; depth: number }[] = [];
+  const walk = (parent: string | null, depth: number) => {
+    for (const s of kids(parent)) {
+      out.push({ s, depth });
+      walk(s.name, depth + 1);
+    }
+  };
+  walk(null, 0);
+  return out;
+}
+
+/** Storages (node + id) that hold backups and can be read now. */
+export function backupTargets(o: PveOverview | null): PveStorageRef[] {
+  return (o?.storages ?? []).filter((s) => s.content.includes("backup") && s.status === "available").map((s) => ({ node: s.node, storage: s.storage }));
+}
+
+/** Backup storages to offer for "Back up now" from `node`. */
+export const backupStorages = (o: PveOverview | null, node: string): string[] =>
+  [...new Set((o?.storages ?? []).filter((s) => s.node === node && s.content.includes("backup") && s.status === "available").map((s) => s.storage))];
+
+/** Storages on `node` that can hold a restored guest's disks. */
+export const restoreStorages = (o: PveOverview | null, node: string, kind: string): string[] =>
+  [...new Set((o?.storages ?? []).filter((s) => s.node === node && s.content.includes(kind === "qemu" ? "images" : "rootdir") && s.status === "available").map((s) => s.storage))];
+
+/** The lowest free guest id at or above 100. */
+export function nextVmid(o: PveOverview | null): number {
+  const used = new Set((o?.guests ?? []).map((g) => g.vmid));
+  let id = 100;
+  while (used.has(id)) id++;
+  return id;
+}
+
+export interface GuestBackups {
+  vmid: number;
+  name: string;
+  kind: string;
+  files: PveBackupFile[];
+  latest: PveBackupFile | null;
+  size: number;
+  tone: Tone;
+  covered: boolean;
+}
+
+/** Backups per guest (every guest, even ones without any), worst first. */
+export function backupsByGuest(o: PveOverview | null, b: PveBackups | null, now = Date.now() / 1000): GuestBackups[] {
+  if (!b) return [];
+  const uncovered = new Set(b.uncovered.map((u) => u.vmid));
+  const ids = new Set([...(o?.guests ?? []).filter((g) => !g.template).map((g) => g.vmid), ...b.files.map((f) => f.vmid)]);
+  const rows = [...ids].map((vmid) => {
+    const g = o?.guests.find((x) => x.vmid === vmid);
+    const files = b.files.filter((f) => f.vmid === vmid).sort((a, c) => (c.time ?? 0) - (a.time ?? 0));
+    const latest = files[0] ?? null;
+    const age = latest ? now - (latest.time ?? 0) : Infinity;
+    const tone: Tone = !latest ? (g ? "bad" : "off") : age > 7 * 86400 ? "bad" : age > 2 * 86400 ? "warn" : "ok";
+    return { vmid, name: g?.name ?? "(guest gone)", kind: g?.kind ?? latest?.kind ?? "qemu", files, latest, size: files.reduce((n, f) => n + (f.size ?? 0), 0), tone, covered: !uncovered.has(vmid) };
+  });
+  const rank: Record<Tone, number> = { bad: 0, warn: 1, ok: 2, off: 3 };
+  return rows.sort((a, c) => rank[a.tone] - rank[c.tone] || a.vmid - c.vmid);
+}
+
+/** "daily 02:00", "sun 03:00" as Proxmox writes it, made a little friendlier. */
+export function scheduleText(s: string): string {
+  if (/^\d{1,2}:\d{2}$/.test(s)) return `daily ${s}`;
+  return s;
+}

@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.43] - 2026-11-16
+
+### Added: Proxmox VE, part 2: snapshots and backups (M10r)
+- Click a guest's name in **Proxmox → GUESTS** to open it. **SNAPSHOTS** shows its snapshots as a tree, marks the one it currently runs from, and shows which ones hold RAM. **Take snapshot** suggests a name, takes an optional note and can save RAM for running VMs. **Roll back…** and **Delete…** ask first, naming the guest, node and snapshot.
+- The guest's **BACKUPS** tab: **Back up now** to any backup storage on its node, in snapshot, suspend or stop mode, with a notes template. It also lists every backup of the guest with age, size, notes and verify state. From there you can **Protect** or unprotect a backup, **Restore as new…** (the next free id, disks on a storage of your choice, optional start), **Restore over…** (you type the guest's id first) and **Delete…**.
+- New **BACKUPS** tab: the cluster's backup jobs (schedule, guests, storage, mode, next run, disabled jobs) and the guests no job covers. Each guest's latest backup is listed worst first: red when it has none or the newest is older than 7 days, orange after 2 days.
+- Snapshot, rollback, delete, backup and restore steps follow their Proxmox task to the end. Closing the task window keeps following it in the background, and they're recorded on the host's timeline.
+
 ## [0.10.42] - 2026-11-16
 
 ### Added: Proxmox VE, part 1: cluster, guests, storage and tasks (M10r)

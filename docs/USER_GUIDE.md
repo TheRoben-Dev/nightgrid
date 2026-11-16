@@ -62,6 +62,8 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 - **Proxmox** (`Mod+Shift+P`): pick the host that runs Proxmox VE. Nightgrid reads the whole cluster with `pvesh` over SSH as root, so it needs no API token and no access to port 8006. The sudo prompt asks for the password unless you log in as root, have NOPASSWD, or saved it.
 - **SUMMARY** shows each node's CPU, memory, root disk and uptime, and whether the cluster has quorum. **GUESTS** lists VMs and containers. Type in the filter to narrow by name, id, state or `#tag`, or pick a node. **Start**, **Shut down** and **Resume** run at once. **⋯** has Reboot, Pause (VMs) and Force stop, which ask first. **Screen** and **Console** work for guests on the node you're connected to; for guests on other nodes, add that node as a host.
+- Click a guest's name for its **SNAPSHOTS** and **BACKUPS**. Take a snapshot before a risky change (tick **with RAM** to also save a running VM's memory). **Roll back…** returns the guest to a snapshot; everything since is lost. **Back up now** runs vzdump to a backup storage. Each backup can be protected from pruning, restored as a new guest (next free id), restored over the guest (type its id to confirm; stop it first), or deleted.
+- The **BACKUPS** tab lists the cluster's backup jobs and warns about guests no job covers. Every guest's newest backup is listed worst first: red when it has none or it's over a week old, orange after two days. **Open…** goes to that guest's backups.
 - **STORAGE** lists storages with what they hold and how full they are. **TASKS** lists recent Proxmox tasks; click one to read its log. Actions you start open their task and follow it to the end.
 
 ## Overview and monitoring

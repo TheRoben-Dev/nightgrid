@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { counts, filterGuests, formatBytes, formatUptime, guestActions, guestTone, isDestructive, isLocal, pct, storageRows, taskLabel, taskTone, usageTone } from "./proxmox";
 import { mockProxmox } from "./mockProxmox";
+import { backupStorages, backupTargets, backupsByGuest, nextVmid, restoreStorages, scheduleText, snapName, snapTree, validSnapname } from "./proxmox";
 
 describe("proxmox helpers", async () => {
   const o = await mockProxmox.overview(1);
@@ -57,5 +58,44 @@ describe("proxmox helpers", async () => {
     const d = await mockProxmox.task(1, "pve1", upid);
     expect(d.running).toBe(true);
     await expect(mockProxmox.action(1, "pve1", "qemu", 100, "start")).rejects.toThrow(/already running/);
+  });
+});
+
+describe("proxmox snapshots and backups", async () => {
+  const o = await mockProxmox.overview(1);
+
+  it("names and orders snapshots", async () => {
+    expect(validSnapname("pre_upgrade")).toBe(true);
+    expect(validSnapname("1x") || validSnapname("current") || validSnapname("a b")).toBe(false);
+    expect(snapName(new Date(2026, 10, 16, 9, 5))).toBe("snap_2026_11_16_0905");
+    const tree = snapTree(await mockProxmox.snapshots("pve1", 100));
+    expect(tree.map((t) => `${t.depth}:${t.s.name}`)).toEqual(["0:clean_install", "1:jellyfin", "1:pre_upgrade"]);
+  });
+
+  it("picks storages and ids", () => {
+    expect(backupTargets(o)).toEqual([
+      { node: "pve1", storage: "local" },
+      { node: "pve1", storage: "nas-backup" },
+      { node: "pve2", storage: "nas-backup" },
+    ]);
+    expect(backupStorages(o, "pve1")).toEqual(["local", "nas-backup"]);
+    expect(restoreStorages(o, "pve1", "qemu")).toEqual(["local-lvm"]);
+    expect(restoreStorages(o, "pve2", "lxc")).toEqual([]);
+    expect(nextVmid(o)).toBe(103);
+    expect(scheduleText("02:00")).toBe("daily 02:00");
+    expect(scheduleText("sun 03:00")).toBe("sun 03:00");
+  });
+
+  it("summarises backups per guest, worst first", async () => {
+    const rows = backupsByGuest(o, await mockProxmox.backups());
+    expect(rows.slice(0, 3).map((r) => [r.vmid, r.tone])).toEqual([
+      [101, "bad"],
+      [102, "bad"],
+      [201, "bad"],
+    ]);
+    const media = rows.find((r) => r.vmid === 100)!;
+    expect([media.tone, media.files.length, media.covered]).toEqual(["ok", 2, true]);
+    expect(rows.find((r) => r.vmid === 101)!.covered).toBe(false);
+    expect(rows.some((r) => r.vmid === 9000)).toBe(false);
   });
 });

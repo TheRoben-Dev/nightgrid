@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.43 (Proxmox part 2)
+
+1. Proxmox → GUESTS → click a VM's name → **Take snapshot**. The task follows to OK and the snapshot appears under YOU ARE HERE, the same as in the web UI's Snapshots panel. **Roll back…** to an older one asks, naming the VM, node and snapshot.
+2. BACKUPS tab of the guest → **Back up now** (snapshot mode) to your backup storage. The task log shows vzdump's progress and the new backup is listed on top.
+3. **Restore as new…** that backup: a new guest appears with the next free id. Then delete it in the web UI.
+4. Proxmox → BACKUPS: your jobs and their next run match Datacenter → Backup. A guest left out of every job is named in orange.
+
 ### macOS: testing 0.10.42 (Proxmox part 1)
 
 1. Add a Proxmox VE node as a host. `Cmd+Shift+P`, pick it: after the sudo prompt (if any), SUMMARY shows every node with the same CPU and memory numbers as the web UI's Datacenter → Summary.

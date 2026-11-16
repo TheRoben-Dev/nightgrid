@@ -1,0 +1,4 @@
+[{"content":"backup","ctime":1794794401,"format":"vma.zst","notes":"media nightly","protected":1,"size":21474836480,"subtype":"qemu","verification":{"state":"ok","upid":"UPID:pve1:00000001:00000001:00000001:verify::root@pam:"},"vmid":100,"volid":"nas-backup:backup/vzdump-qemu-100-2026_11_16-02_00_01.vma.zst"},
+{"content":"backup","ctime":1794708001,"format":"vma.zst","notes":"media nightly","size":21000000000,"subtype":"qemu","vmid":100,"volid":"nas-backup:backup/vzdump-qemu-100-2026_11_15-02_00_01.vma.zst"},
+{"content":"backup","ctime":1794794500,"format":"tar.zst","size":734003200,"subtype":"lxc","vmid":200,"volid":"nas-backup:backup/vzdump-lxc-200-2026_11_16-02_01_40.tar.zst"},
+{"content":"backup","ctime":1790000000,"format":"tar.zst","size":1073741824,"subtype":"lxc","vmid":201,"volid":"nas-backup:backup/vzdump-lxc-201-2026_09_22-02_00_00.tar.zst"}]

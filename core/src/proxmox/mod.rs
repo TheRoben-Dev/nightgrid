@@ -10,8 +10,10 @@ use serde_json::Value;
 
 use crate::files::path::shell_quote;
 
+pub mod backup;
+
 /// Marks each `pvesh` answer in a batched script's output.
-const MARK: &str = "@@pve";
+pub(crate) const MARK: &str = "@@pve";
 
 // ---------------------------------------------------------------- types
 
@@ -178,7 +180,7 @@ pub fn valid_upid(u: &str) -> bool {
 
 // ------------------------------------------------------------- scripts
 
-fn get(path: &str, extra: &str) -> String {
+pub(crate) fn get(path: &str, extra: &str) -> String {
     format!("echo '{MARK} {path}'; pvesh get {} --output-format json{extra} 2>&1; echo", shell_quote(path))
 }
 
@@ -256,7 +258,7 @@ pub fn task_script(node: &str, upid: &str, limit: u32) -> Option<String> {
 // ------------------------------------------------------------- parsing
 
 /// Splits a batched script's output into (path, body).
-fn sections(out: &str) -> Vec<(String, String)> {
+pub(crate) fn sections(out: &str) -> Vec<(String, String)> {
     let mut v: Vec<(String, String)> = Vec::new();
     for line in out.lines() {
         if let Some(p) = line.strip_prefix(MARK).and_then(|r| r.strip_prefix(' ')) {
@@ -269,7 +271,7 @@ fn sections(out: &str) -> Vec<(String, String)> {
     v
 }
 
-fn f(v: &Value, k: &str) -> f64 {
+pub(crate) fn f(v: &Value, k: &str) -> f64 {
     match &v[k] {
         Value::Number(n) => n.as_f64().unwrap_or(0.0),
         Value::String(s) => s.trim().parse().unwrap_or(0.0),
@@ -277,7 +279,7 @@ fn f(v: &Value, k: &str) -> f64 {
     }
 }
 
-fn s(v: &Value, k: &str) -> String {
+pub(crate) fn s(v: &Value, k: &str) -> String {
     match &v[k] {
         Value::String(s) => s.clone(),
         Value::Number(n) => n.to_string(),
@@ -285,11 +287,11 @@ fn s(v: &Value, k: &str) -> String {
     }
 }
 
-fn opt_s(v: &Value, k: &str) -> Option<String> {
+pub(crate) fn opt_s(v: &Value, k: &str) -> Option<String> {
     Some(s(v, k)).filter(|x| !x.is_empty())
 }
 
-fn b(v: &Value, k: &str) -> bool {
+pub(crate) fn b(v: &Value, k: &str) -> bool {
     match &v[k] {
         Value::Bool(b) => *b,
         Value::Number(n) => n.as_f64().unwrap_or(0.0) != 0.0,

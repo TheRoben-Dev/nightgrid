@@ -1,0 +1,2 @@
+[{"compress":"zstd","enabled":1,"id":"backup-1a2b3c4d-5e6f","mode":"snapshot","next-run":1794880800,"notes-template":"{{guestname}} nightly","schedule":"02:00","storage":"nas-backup","type":"vzdump","vmid":"100,200,201"},
+{"all":1,"enabled":0,"exclude":"9000","id":"backup-weekly-all","mode":"stop","schedule":"sun 03:00","storage":"nas-backup","type":"vzdump","comment":"weekly full"}]
