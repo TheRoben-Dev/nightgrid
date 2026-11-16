@@ -40,7 +40,7 @@ sudo tailscale up --advertise-routes=192.168.1.0/24
 
 ## Part 2 · Keys you can account for
 
-- [ ] Settings → **SSH keys** → **NEW KEY…**: make one ed25519 key just for family support, with a passphrase.
+- [ ] Settings → **CONNECTIONS** → **SSH KEYS** → **NEW KEY…**: make one ed25519 key just for family support, with a passphrase.
 - [ ] **CHECK HOSTS** fills **WHERE THEY WORK**. Use **+** to add your key to each host.
 - [ ] Look at **OTHER**: keys on their machines that aren't yours. Old laptops, a cousin who "fixed the Wi-Fi" once. Remove what nobody can explain.
 - [ ] Turn off password logins once your key works. Test with `sshd -t` and keep your current session open while you reload, because sshd changes have no automatic rollback:
@@ -107,7 +107,7 @@ sudo apt install -y fail2ban
 
 ## Part 7 · Don't lose your setup
 
-- [ ] Settings → **Backup** → **Export** (or **Sync folder** with Syncthing or a cloud drive). Tick **Include saved passwords and tokens** only if the passphrase is somewhere safe; without it the file can't be opened.
+- [ ] Settings → **DATA** → **BACKUP · PROFILE** → **Export** (or **Sync folder** with Syncthing or a cloud drive). Tick **Include saved passwords and tokens** only if the passphrase is somewhere safe; without it the file can't be opened.
 - [ ] Write a note per household in [Knowledge](view:notes) tied to their main host: router login location (not the password), ISP, who to call, and any quirks. **Send to terminal** works on the commands in it.
 
 ## When Nightgrid is closed

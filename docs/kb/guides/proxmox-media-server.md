@@ -334,7 +334,7 @@ tailscale up --advertise-routes=<lan-cidr> --ssh=false
 If SSH is the only way in, a broken sshd config, a lost key or a bad firewall rule leaves no way to manage the box. Set this up before you need it.
 
 - [ ] Physical console: a monitor and keyboard, or a KVM-over-IP device on a headless box. The node's console login always works.
-- [ ] A second SSH key, kept offline, already listed on the node. Settings → **SSH keys** → **CHECK HOSTS** shows where each key is accepted.
+- [ ] A second SSH key, kept offline, already listed on the node. Settings → **CONNECTIONS** → **SSH KEYS** → **CHECK HOSTS** shows where each key is accepted.
 - [ ] A note in [Knowledge](view:notes), tied to the node, with the undo commands, so they're one **Send to terminal** away:
 
 ```sh
@@ -349,7 +349,7 @@ rm /etc/ssh/sshd_config.d/10-keys-only.conf && systemctl reload ssh
 pve-firewall stop
 ```
 
-- [ ] Export your Nightgrid profile with secrets (Settings → **Backup** → **Export**) to a sync folder, so a lost laptop doesn't take your host list and keys with it.
+- [ ] Export your Nightgrid profile with secrets (Settings → **DATA** → **BACKUP · PROFILE** → **Export**) to a sync folder, so a lost laptop doesn't take your host list and keys with it.
 
 ## When Nightgrid is closed
 

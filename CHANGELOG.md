@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.62] - 2026-11-16
+
+### Added: the Library, a built-in knowledge base (M11)
+- **Knowledge → Library** (`Mod+Shift+L`): every article is bundled and works offline, on three shelves. **Using Nightgrid** has one article per feature (the user guide, so it always matches the app). **Homelab basics** covers SSH keys and agents, hardening sshd, Docker and compose, the docker group, reverse proxies, Tailscale and WireGuard, backups and reading logs. **Guides** walks through whole setups: a Proxmox media server, a smart home hub, a local AI GPU server, family cloud and photos, a game server host, a dev and git deploy lab, remote family IT and a repair bench server.
+- **Search** covers the full text of every article. Code blocks have **Copy** and **Send to terminal**, view links open that view, and articles link to each other, with **← Back**.
+- **Guides read like a quest log**: each part is an objective with its own progress, the steps are checkboxes, and your ticks are kept on this computer (**Reset** starts over).
+- **?** beside every view's title opens that view's article. The command palette lists every article as **Help: …**.
+- **DRIFT reads the library** too, and its answers link the articles they used.
+
 ## [0.10.61] - 2026-11-16
 
 ### Added: security checks and a network watch (network map, part 5)

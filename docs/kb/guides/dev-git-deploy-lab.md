@@ -15,7 +15,7 @@ A self-hosted git server with CI, plus staging and production Docker hosts clone
 
 - A Proxmox VE 8.x node with 4 cores and 8 GB of RAM to spare for three small containers.
 - Settings → **FEATURES**: **Standard** leaves out Proxmox. Turn it on, or pick **Everything**.
-- An SSH key in Settings → **SSH keys**. **+ Container** needs at least one public key, because new containers have no root password.
+- An SSH key in Settings → **CONNECTIONS** → **SSH KEYS**. **+ Container** needs at least one public key, because new containers have no root password.
 
 ## Part 1 · One template, three containers
 
@@ -126,7 +126,7 @@ ssh-keygen -t ed25519 -N '' -f ~/.ssh/id_ed25519 -C prod-deploy
 - [ ] System → **config** → **Save baseline** on `staging` right after a known-good deploy, and on `prod`.
 - [ ] Later, **Compare** shows changed files under `/etc`, the stack folders and the package list. **Compare with** `staging` shows how the two environments differ right now. `.env` files are compared by checksum only.
 - [ ] Routes: on a host running Caddy, Docker → **Routes** → **Edit routes…** → **Add site…** (`app.lab.example` → `app:8080`), check the diff and **Save and reload Caddy**. For Traefik, routes go to `nightgrid.yml` in its file provider directory.
-- [ ] [Services](view:services): one check per environment (`https://app.staging.lab.example`, `https://app.lab.example`). Certificate expiry shows up in **Expiry watch** automatically.
+- [ ] [Services](view:services): one check per environment (`https://app.staging.lab.example`, `https://app.lab.example`). Certificate expiry shows up in Services → **EXPIRY WATCH** automatically.
 - [ ] Settings → **Dependencies**: "prod app depends on prod", "staging app depends on staging", and both on the Proxmox node.
 
 ## Part 6 · A promote playbook

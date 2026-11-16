@@ -613,6 +613,13 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing the Library (0.10.62)
+
+1. `Mod+Shift+L` (or Knowledge → **LIBRARY**): three shelves; search "restic password" lists Backups first.
+2. Open **Smart home hub**: the Objectives box shows each part; tick a few steps, quit and reopen the app, and the ticks are still there. **Reset** clears them.
+3. Go to Network and press **?** beside the title: the Network map article opens. In the command palette, type "Help: docker".
+4. Ask DRIFT "how do I back up a postgres container?": the answer lists **From the library: Backups** and the chip opens it.
+
 ### macOS: testing security checks and the network watch (0.10.61)
 
 1. Scan from a host with UPnP on your router: SECURITY shows "The router accepts UPnP port forwards" and any forward to a risky port in red.

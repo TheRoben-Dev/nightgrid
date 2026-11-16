@@ -46,6 +46,8 @@ export interface ChatMessage {
   sources?: string[];
   /** Notes the answer was given, to open from the reply. */
   noteRefs?: { id: number; title: string }[];
+  /** Library articles (basics and guides) the answer drew on. */
+  articleRefs?: { id: string; title: string }[];
   stats?: string;
   /** What was attached to a question ("Docker logs: web · 150 lines"). */
   attached?: string;
@@ -318,7 +320,13 @@ class HelperStore {
     ctx.checks = checks.length ? checksText(checks) : null;
     // Questions about the user's own hosts (or with exact checks) lean on those, not the guide.
     const guideN = ctx.hosts.length || checks.length ? 2 : 4;
-    const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, guideN), ...notesIndex(notes.notes).search(q, 2)];
+    // The library's basics and guides (M11); its "Using Nightgrid" shelf is the guide above.
+    const lib = await import("../kb/library");
+    const libDocs = (lib.libraryIndex().search(q, 6) as { title: string; text: string; articleId?: string }[])
+      .filter((c) => c.articleId && !c.articleId.startsWith("nightgrid/"))
+      .slice(0, ctx.hosts.length || checks.length ? 1 : 2);
+    const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, guideN), ...libDocs, ...notesIndex(notes.notes).search(q, 2)];
+    const articleRefs = [...new Map(libDocs.map((c) => [c.articleId!, lib.article(c.articleId!)?.title ?? c.title])).entries()].map(([id, title]) => ({ id, title }));
     const history: Turn[] = this.messages
       .filter((m) => !m.error && m.text)
       .map((m) => ({ role: m.role, content: m.text }));
@@ -327,7 +335,7 @@ class HelperStore {
     const n = sel ? sel.split("\n").length : 0;
     const attached = sel ? `${ctx.source ?? "selection"} · ${n} line${n === 1 ? "" : "s"}` : undefined;
     this.messages.push({ id: ++this.seq, role: "user", text: q, actions: [], attached });
-    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), noteRefs: noteRefs(docs), checks });
+    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), noteRefs: noteRefs(docs), articleRefs, checks });
     const msg = this.messages[this.messages.length - 1];
     // Selection is used once; the view context stays.
     this.context = { ...this.context, selection: null, source: null };

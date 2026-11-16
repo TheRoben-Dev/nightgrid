@@ -15,4 +15,5 @@ export const VIEWS = {
   network: () => import("./views/Network.svelte"),
   nettools: () => import("./views/NetTools.svelte"),
   notes: () => import("./views/Notes.svelte"),
+  library: () => import("./views/Library.svelte"),
 } as const;

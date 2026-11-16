@@ -4,6 +4,7 @@
    * exact prompt behind each reply. Replies render through the markdown
    * subset in helper/md.ts as text nodes only.
    */
+  import { library } from "../../stores/library.svelte";
   import { tick } from "svelte";
   import { writeClipboard } from "../../clipboard";
   import { parseMd } from "../../helper/md";
@@ -258,6 +259,12 @@
             {#if !m.streaming && m.text && !m.error}
               <div class="acts">
                 <button type="button" class="chip" data-guide="drift-save-note" title="Open a new note with the question, the checks and this answer" onclick={() => helper.saveAsNote(m)}>▤ Save as runbook note</button>
+              </div>
+            {/if}
+            {#if !m.streaming && m.articleRefs?.length}
+              <div class="acts notes" aria-label="Library articles used">
+                <span class="muted small">From the library:</span>
+                {#each m.articleRefs as r (r.id)}<button type="button" class="chip" onclick={() => library.open(r.id)}>▤ {r.title}</button>{/each}
               </div>
             {/if}
             {#if !m.streaming && m.noteRefs?.length}
