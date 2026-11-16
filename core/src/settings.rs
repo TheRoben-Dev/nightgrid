@@ -170,6 +170,10 @@ pub struct AlertSettings {
     /// Error bursts and new error patterns in container logs and the journal
     /// (read every 10 minutes on connected hosts). Off by default.
     pub log_anomaly: bool,
+    /// Fold alerts explained by an outage upstream (a host offline, a
+    /// service down that others depend on) under it, and don't notify for
+    /// them separately (M10s).
+    pub fold_dependent: bool,
     /// Native desktop notifications.
     pub native: bool,
     pub quiet_hours: bool,
@@ -199,6 +203,7 @@ impl Default for AlertSettings {
             forecast_days: 14,
             pool_degraded: true,
             log_anomaly: false,
+            fold_dependent: true,
             native: true,
             quiet_hours: false,
             quiet_start: 22 * 60,

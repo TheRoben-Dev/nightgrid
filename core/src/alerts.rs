@@ -123,6 +123,10 @@ pub struct Alert {
     /// When it resolved (unix seconds); `None` while active.
     #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
     pub resolved: Option<i64>,
+    /// The active alert for the outage upstream that explains this one
+    /// (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
+    #[serde(default)]
+    pub caused_by: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -198,6 +202,7 @@ impl Tracker {
                     host_id: c.host_id,
                     since: first,
                     resolved: None,
+                    caused_by: None,
                 };
                 self.active.insert(c.key, alert.clone());
                 changes.push(Change::Fired(alert));
@@ -234,6 +239,11 @@ impl Tracker {
         self.pending.clear();
         self.active.clear();
         self.clearing.clear();
+    }
+
+    /// Conditions still inside their grace period.
+    pub fn pending(&self) -> Vec<Condition> {
+        self.pending.values().map(|(c, _)| c.clone()).collect()
     }
 
     /// Hosts that have pending or active alerts.
@@ -797,6 +807,7 @@ mod tests {
             host_id: c.host_id,
             since: 0,
             resolved: None,
+            caused_by: None,
         };
         assert_eq!(headline(&a), "HOST OFFLINE · server01");
 

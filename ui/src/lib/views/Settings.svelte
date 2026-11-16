@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api, type AppInfo } from "../api";
   import AlertSettings from "../components/alerts/AlertSettings.svelte";
+  import AlertDeps from "../components/alerts/AlertDeps.svelte";
   import BackupPanel from "../components/backup/BackupPanel.svelte";
   import StatusPagePanel from "../components/status/StatusPagePanel.svelte";
   import TailnetPanel from "../components/tailnet/TailnetPanel.svelte";
@@ -250,6 +251,7 @@
   <KeysPanel />
 
   <AlertSettings />
+  <AlertDeps />
 
   <Panel title="DESKTOP" guide="settings-desktop">
     <div class="toggles">

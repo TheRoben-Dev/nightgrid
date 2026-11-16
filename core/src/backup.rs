@@ -102,6 +102,20 @@ const TABLES: &[Table] = &[
         fks: &[("host_id", "hosts", Missing::Skip)],
         keys: &[&["kind", "name", "target"]],
     },
+    Table {
+        name: "alert_deps",
+        id: true,
+        fks: &[
+            ("child_host_id", "hosts", Missing::Skip),
+            ("child_service_id", "services", Missing::Skip),
+            ("parent_host_id", "hosts", Missing::Skip),
+            ("parent_service_id", "services", Missing::Skip),
+        ],
+        keys: &[
+            &["child_host_id", "child_service_id", "parent_host_id", "parent_service_id"],
+            &["child_service_id", "child_host_id", "parent_host_id", "parent_service_id"],
+        ],
+    },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];
 

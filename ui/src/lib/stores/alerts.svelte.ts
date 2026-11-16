@@ -77,6 +77,16 @@ export function fromHhmm(s: string): number | null {
   return h < 24 && min < 60 ? h * 60 + min : null;
 }
 
+/**
+ * Active alerts with those explained by an outage upstream (M10s) listed
+ * under their cause. An alert whose cause isn't in the list stays on top.
+ */
+export function groupByCause(active: Alert[]): { alert: Alert; folded: Alert[] }[] {
+  const ids = active.map((a) => a.id);
+  const roots = active.filter((a) => a.causedBy == null || !ids.includes(a.causedBy));
+  return roots.map((alert) => ({ alert, folded: active.filter((a) => a.causedBy === alert.id && a.id !== alert.id) }));
+}
+
 export type Tone = "ok" | "warn" | "bad";
 export function tone(s: AlertsSnapshot | null): Tone {
   if (!s?.active.length) return "ok";
@@ -90,6 +100,11 @@ class AlertsStore {
 
   get active(): Alert[] {
     return this.snap?.active ?? [];
+  }
+
+  /** Active alerts without those folded under a cause. */
+  get roots(): Alert[] {
+    return groupByCause(this.active).map((g) => g.alert);
   }
 
   get history(): Alert[] {

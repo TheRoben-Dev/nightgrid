@@ -211,7 +211,7 @@
   }
 
   const titleOf = (w: Widget) => widgetInfo(w.kind)?.title ?? w.kind.toUpperCase();
-  const countOf = (w: Widget) => (w.kind === "nodes" ? hosts.hosts.length : w.kind === "alerts" ? alerts.active.length : undefined);
+  const countOf = (w: Widget) => (w.kind === "nodes" ? hosts.hosts.length : w.kind === "alerts" ? alerts.roots.length : undefined);
 </script>
 
 <svelte:window onkeydown={(e) => e.key === "Escape" && menu && (menu = null)} />

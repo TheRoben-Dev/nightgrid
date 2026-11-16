@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.26 (alert dependencies)
+
+1. **Settings → Dependencies**: add "<a service> depends on <a host>" and "<host A> depends on <host B>". Try the reverse of an existing one: it says that would make a loop.
+2. Stop sshd on a test host that runs a checked service or containers (or pull its network cable). After about 2 minutes one notification arrives for the host, saying how many alerts it explains; the service's own notification never comes.
+3. Open the alerts list: the host alert says **explains N more alerts**; expand it to see the service and containers with their buttons. The status bar counts 1.
+4. Bring the host back: everything resolves, and the webhook (if set) gets one "resolved" message, for the host.
+5. Turn off **Fold alerts under their cause** and repeat: each alert notifies on its own again.
+
 ### macOS: testing 0.10.25 (DRIFT guided tours)
 
 1. After updating, a card at the bottom right offers a tour. **Show me around**: a callout with DRIFT appears in the middle; **Next** moves brackets to the sidebar.

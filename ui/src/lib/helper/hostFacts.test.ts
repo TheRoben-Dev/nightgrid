@@ -58,6 +58,7 @@ describe("host facts", () => {
     hostId: 1,
     since: now - 3600,
     resolved: now - 600,
+    causedBy: null,
   };
   it("lists status, last seen, alerts and history", () => {
     const text = hostFacts({

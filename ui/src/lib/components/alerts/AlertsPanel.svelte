@@ -3,7 +3,7 @@
   import Modal from "../Modal.svelte";
   import { scramble } from "../../scramble";
   import type { Alert } from "../../api";
-  import { ago, alerts, isLogAlert, KIND_LABEL, logSource, targetLabel } from "../../stores/alerts.svelte";
+  import { ago, alerts, groupByCause, isLogAlert, KIND_LABEL, logSource, targetLabel } from "../../stores/alerts.svelte";
   import { triageCheck } from "../../helper/skills";
   import { helper } from "../../stores/helper.svelte";
   import { hosts } from "../../stores/hosts.svelte";
@@ -35,18 +35,21 @@
     return () => clearInterval(t);
   });
   const snap = $derived(alerts.snap);
+  const groups = $derived(groupByCause(alerts.active));
+  let openFold = $state<number | null>(null);
 </script>
 
 <Modal open={alerts.open} title="ALERTS" width={680} onclose={() => (alerts.open = false)}>
   <div class="head">
-    <span class="count {alerts.tone}">{alerts.active.length ? `${alerts.active.length} ACTIVE` : "ALL CLEAR"}</span>
+    <span class="count {alerts.tone}">{alerts.active.length ? `${groups.length} ACTIVE` : "ALL CLEAR"}</span>
+    {#if alerts.active.length > groups.length}<span class="muted">+{alerts.active.length - groups.length} folded under their cause</span>{/if}
     {#if snap && !snap.enabled}<span class="muted">Alerts are turned off.</span>{/if}
     {#if snap?.quiet}<span class="quiet">QUIET HOURS · notifications held</span>{/if}
   </div>
 
   {#if alerts.active.length}
     <ul class="list" aria-label="Active alerts">
-      {#each alerts.active as a (a.key)}
+      {#each groups as { alert: a, folded } (a.key)}
         <li class="row {a.severity}">
           <span class="bar" aria-hidden="true"></span>
           <div class="txt">
@@ -60,6 +63,24 @@
             >
           {/if}
           <button type="button" class="btn ghost tiny" onclick={() => alerts.go(a)}>{targetLabel(a)}</button>
+          {#if folded.length}
+            <div class="fold">
+              <button type="button" class="link" aria-expanded={openFold === a.id} onclick={() => (openFold = openFold === a.id ? null : a.id)}
+                >{openFold === a.id ? "▾" : "▸"} explains {folded.length} more alert{folded.length === 1 ? "" : "s"} (not notified separately)</button
+              >
+              {#if openFold === a.id}
+                <ul aria-label="Alerts caused by {a.title}">
+                  {#each folded as f (f.key)}
+                    <li>
+                      <span class="kind">{KIND_LABEL[f.kind]} · {f.title}</span>
+                      <span class="detail">{f.detail}</span>
+                      <button type="button" class="btn ghost tiny" onclick={() => alerts.go(f)}>{targetLabel(f)}</button>
+                    </li>
+                  {/each}
+                </ul>
+              {/if}
+            </div>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -137,6 +158,45 @@
   }
   .past {
     max-height: 200px;
+  }
+  .fold {
+    grid-column: 2 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .fold ul {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 12px;
+    border-left: 1px solid var(--line);
+    display: grid;
+    gap: 4px;
+  }
+  .fold li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 8px;
+    align-items: center;
+    font-size: var(--fs-xs);
+  }
+  .fold li .detail {
+    grid-column: 1;
+    color: var(--text-1);
+  }
+  .fold li .btn {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+  }
+  .link {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--cyan);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--fs-xs);
+    text-align: left;
   }
   .row {
     --tone: var(--text-1);

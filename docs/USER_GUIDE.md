@@ -212,6 +212,7 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
   - SMART reports a warning;
   - a backup job failed or is stale;
   - (opt-in) a burst of errors or an error never seen before in a container's logs or the journal. **✦ What broke?** asks DRIFT about the recent error lines, on this computer.
+- **Dependencies** (Settings → Dependencies): when something is down, alerts for what depends on it are folded under its alert ("explains 3 more alerts") and only the cause notifies. Everything about a host (containers, disks, backups, services checked on it) already depends on that host; add your own links such as "Media server depends on the NAS" or "everything depends on the router" (add the router as a host or a service check). In a chain the furthest-up outage is the cause. If a service goes down while its host is still inside the 2-minute grace for "offline", its notification waits up to 5 minutes for the host's alert, so you get one notification instead of two. Turn folding off with **Fold alerts under their cause**.
 - Alerts arrive as desktop notifications, and optionally through an ntfy, Discord or JSON webhook. Quiet hours hold notifications but still show alerts in the app.
 - The tray (menu bar on macOS) icon offers quick connect, lets you start and stop tunnels, and shows the alert count.
 

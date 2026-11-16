@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Alert } from "../api";
-import { ago, fromHhmm, targetLabel, toHhmm, tone } from "./alerts.svelte";
+import { ago, fromHhmm, groupByCause, targetLabel, toHhmm, tone } from "./alerts.svelte";
 
 const alert = (over: Partial<Alert> = {}): Alert => ({
   id: 1,
@@ -12,6 +12,7 @@ const alert = (over: Partial<Alert> = {}): Alert => ({
   hostId: 1,
   since: 0,
   resolved: null,
+  causedBy: null,
   ...over,
 });
 
@@ -47,5 +48,18 @@ describe("alerts helpers", () => {
     expect(targetLabel(alert({ kind: "containerDown" }))).toBe("Docker");
     expect(targetLabel(alert({ kind: "certExpiring" }))).toBe("Services");
     expect(targetLabel(alert({ kind: "smartWarning" }))).toBe("Disks");
+  });
+});
+
+describe("groupByCause", () => {
+  it("lists folded alerts under their cause and keeps orphans on top", () => {
+    const host = alert({ id: 1, key: "host:1" });
+    const box = alert({ id: 2, key: "docker:1:web", kind: "containerDown", causedBy: 1 });
+    const svc = alert({ id: 3, key: "svc:4", kind: "serviceDown", causedBy: 1 });
+    const orphan = alert({ id: 4, key: "disk:2:/", kind: "diskFull", causedBy: 99 });
+    const g = groupByCause([host, box, svc, orphan]);
+    expect(g.map((x) => x.alert.id)).toEqual([1, 4]);
+    expect(g[0].folded.map((x) => x.id)).toEqual([2, 3]);
+    expect(g[1].folded).toEqual([]);
   });
 });

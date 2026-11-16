@@ -30,12 +30,12 @@
   <button
     type="button"
     class="cell alerts {alerts.tone}"
-    title={alerts.active.length ? `${alerts.active.length} active alert(s): open the list` : "No active alerts: open the list"}
+    title={alerts.active.length ? `${alerts.roots.length} active alert(s)${alerts.active.length > alerts.roots.length ? ` (${alerts.active.length - alerts.roots.length} more folded under their cause)` : ""}: open the list` : "No active alerts: open the list"}
     onclick={() => (alerts.open = true)}
   >
     <span aria-hidden="true">{alerts.tone === "ok" ? "●" : "▲"}</span>
     <span class="k">ALERTS</span>
-    {alerts.active.length}{#if alerts.snap?.quiet}<span class="k">· QUIET</span>{/if}
+    {alerts.roots.length}{#if alerts.snap?.quiet}<span class="k">· QUIET</span>{/if}
   </button>
   <span class="cell" class:ok={keychainOk} class:warn={!keychainOk} title={info?.keychain.detail ?? "OS keychain reachable"}>
     <span aria-hidden="true">{keychainOk ? "●" : "▲"}</span>

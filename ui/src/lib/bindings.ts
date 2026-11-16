@@ -416,6 +416,11 @@ export const commands = {
 	/**  Re-evaluates now (after alert settings change). */
 	alertsRefresh: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_refresh", undefined, options),
 	alertsClearHistory: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_clear_history", undefined, options),
+	/**  What depends on what (M10s). */
+	alertsDepsList: (options?: InvokeOptions) => __TAURI_INVOKE<Dependency[]>("alerts_deps_list", undefined, options),
+	/**  Adds "`child` depends on `parent`" (refuses loops). */
+	alertsDepsAdd: (child: Node, parent: Node, options?: InvokeOptions) => __TAURI_INVOKE<Dependency>("alerts_deps_add", { child, parent }, options),
+	alertsDepsDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_deps_delete", { id }, options),
 	alertsWebhookGet: (options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_get", undefined, options),
 	/**  Saves the webhook URL in the keychain (`None` or empty removes it). */
 	alertsWebhookSet: (url: string | null, options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_set", { url }, options),
@@ -597,6 +602,12 @@ export type AlertSettings_Deserialize = {
 	 *  (read every 10 minutes on connected hosts). Off by default.
 	 */
 	logAnomaly?: boolean,
+	/**
+	 *  Fold alerts explained by an outage upstream (a host offline, a
+	 *  service down that others depend on) under it, and don't notify for
+	 *  them separately (M10s).
+	 */
+	foldDependent?: boolean,
 	/**  Native desktop notifications. */
 	native?: boolean,
 	quietHours?: boolean,
@@ -645,6 +656,12 @@ export type AlertSettings_Serialize = {
 	 *  (read every 10 minutes on connected hosts). Off by default.
 	 */
 	logAnomaly: boolean,
+	/**
+	 *  Fold alerts explained by an outage upstream (a host offline, a
+	 *  service down that others depend on) under it, and don't notify for
+	 *  them separately (M10s).
+	 */
+	foldDependent: boolean,
 	/**  Native desktop notifications. */
 	native: boolean,
 	quietHours: boolean,
@@ -669,6 +686,11 @@ export type Alert_Deserialize = {
 	since: number,
 	/**  When it resolved (unix seconds); `None` while active. */
 	resolved?: number | null,
+	/**
+	 *  The active alert for the outage upstream that explains this one
+	 *  (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
+	 */
+	causedBy?: number | null,
 };
 
 export type Alert_Serialize = {
@@ -683,6 +705,11 @@ export type Alert_Serialize = {
 	since: number,
 	/**  When it resolved (unix seconds); `None` while active. */
 	resolved: number | null,
+	/**
+	 *  The active alert for the outage upstream that explains this one
+	 *  (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
+	 */
+	causedBy: number | null,
 };
 
 export type AlertsSnapshot = AlertsSnapshot_Serialize | AlertsSnapshot_Deserialize;
@@ -1533,6 +1560,13 @@ export type CronJob_Serialize = {
 export type Dashboard = {
 	name: string,
 	widgets: Widget[],
+};
+
+export type Dependency = {
+	id: number,
+	/**  The thing that breaks when `parent` is down. */
+	child: Node,
+	parent: Node,
 };
 
 /**  A new stack's compose file (and optional `.env`) for the deploy wizard. */
@@ -3034,6 +3068,8 @@ export type NewJob_Serialize = {
 	dstDir: string,
 	policy: ConflictPolicy,
 };
+
+export type Node = { kind: "host"; id: number } | { kind: "service"; id: number };
 
 export type Note = Note_Serialize | Note_Deserialize;
 
