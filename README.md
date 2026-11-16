@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.45 (Proxmox part 4)
+
+1. Proxmox → GUESTS → click a running VM's name → **HARDWARE**. Set cores one higher and **Apply**: it shows "after restart" (or applies at once with CPU hotplug), the same as the web UI's Hardware panel in orange.
+2. **Grow…** its disk by 1 GB: the size updates. Inside the guest, `lsblk` shows the bigger disk.
+3. **+ Network device** on a second bridge or a VLAN: it appears in the guest (`ip link`). **Edit…** its VLAN and check the MAC didn't change. **Remove…** names it first.
+4. Passthrough → **List <node>'s devices…**: your PCI devices with IOMMU groups and USB devices are listed. If you have a spare USB stick, add it and see it in the guest (`lsusb`).
+
 ### macOS: testing 0.10.44 (Proxmox part 3)
 
 1. Proxmox → STORAGE → **Download ISO…**, paste an installer's URL: the file name fills in, the task shows the node downloading, and the ISO is listed under ISO IMAGES & CT TEMPLATES.

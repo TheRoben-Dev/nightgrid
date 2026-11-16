@@ -88,6 +88,9 @@ import {
   type PveCtSpec_Deserialize as PveCtSpec,
   type PveCloneSpec_Deserialize as PveCloneSpec,
   type PveAppliance,
+  type PveConfig_Serialize as PveConfig,
+  type PveHostDevices,
+  type PveSetting,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
   type DnsRecord,
@@ -682,7 +685,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.44-web",
+      version: "0.10.45-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1199,6 +1202,13 @@ export const api = {
     T() ? commands.pveDestroy(hostId, node, kind, vmid, sudo) : mockProxmox.destroy(node, vmid),
   pveIsoDownload: (hostId: number, node: string, storage: string, url: string, filename: string, sha256: string | null, sudo: SudoInput | null): Promise<string> =>
     T() ? commands.pveIsoDownload(hostId, node, storage, url, filename, sha256, sudo) : mockProxmox.isoDownload(node, storage, filename),
+  pveConfig: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null): Promise<PveConfig> =>
+    T() ? commands.pveConfig(hostId, node, kind, vmid, sudo) : mockProxmox.config(vmid, kind),
+  pveConfigSet: (hostId: number, node: string, kind: string, vmid: number, digest: string, set: PveSetting[], remove: string[], sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.pveConfigSet(hostId, node, kind, vmid, digest, set, remove, sudo) : mockProxmox.configSet(vmid, digest, set, remove),
+  pveDiskResize: (hostId: number, node: string, kind: string, vmid: number, disk: string, growGb: number, sudo: SudoInput | null): Promise<string | null> =>
+    T() ? commands.pveDiskResize(hostId, node, kind, vmid, disk, growGb, sudo) : mockProxmox.diskResize(vmid, disk, growGb),
+  pveHostDevices: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveHostDevices> => (T() ? commands.pveHostDevices(hostId, node, sudo) : mockProxmox.hostDevices()),
   pveAppliances: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveAppliance[]> => (T() ? commands.pveAppliances(hostId, node, sudo) : mockProxmox.appliances()),
   pveApplianceDownload: (hostId: number, node: string, storage: string, template: string, sudo: SudoInput | null): Promise<string> =>
     T() ? commands.pveApplianceDownload(hostId, node, storage, template, sudo) : mockProxmox.applianceDownload(node, storage, template),

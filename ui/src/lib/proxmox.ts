@@ -310,3 +310,161 @@ export const OSTYPES: { id: string; label: string }[] = [
 
 /** Whether a vmid is free in the cluster. */
 export const vmidFree = (o: PveOverview | null, id: number): boolean => Number.isInteger(id) && id >= 100 && id <= 999999999 && !o?.guests.some((g) => g.vmid === id);
+
+// ---- part 4: hardware and options ----
+
+import type {
+  PveConfig_Serialize as PveConfig,
+  PveConfigEntry_Serialize as PveConfigEntry,
+  PveDisk,
+  PveHostDevices,
+  PveNic_Serialize as PveNic,
+  PvePci,
+  PveSetting,
+  PveUsb,
+} from "./bindings";
+export type { PveConfig, PveConfigEntry, PveDisk, PveHostDevices, PveNic, PvePci, PveSetting, PveUsb };
+
+/** `a=b,c,d=e` as pairs; a bare item has an empty key. */
+export function optionsOf(v: string): [string, string][] {
+  return v
+    .split(",")
+    .filter(Boolean)
+    .map((p) => {
+      const i = p.indexOf("=");
+      return i < 0 ? (["", p] as [string, string]) : ([p.slice(0, i), p.slice(i + 1)] as [string, string]);
+    });
+}
+
+export const optionsText = (o: [string, string][]): string => o.map(([k, v]) => (k ? `${k}=${v}` : v)).join(",");
+
+/** Replaces or removes options, keeping the rest (MAC addresses, sizes…) as they are. */
+export function withOptions(v: string, changes: Record<string, string | null>): string {
+  const o = optionsOf(v).filter(([k]) => !(k in changes && changes[k] === null));
+  for (const [k, val] of Object.entries(changes)) {
+    if (val === null) continue;
+    const i = o.findIndex(([a]) => a === k);
+    if (i >= 0) o[i] = [k, val];
+    else o.push([k, val]);
+  }
+  return optionsText(o);
+}
+
+/** What a key will be after a restart (or is now). */
+export function cfgValue(c: PveConfig | null, key: string): string | null {
+  const e = c?.entries.find((x) => x.key === key);
+  if (!e || e.delete) return null;
+  return e.pending ?? e.value ?? null;
+}
+
+/** The lowest free index for `prefix` (net, scsi, mp, hostpci, usb…). */
+export function freeKey(c: PveConfig | null, prefix: string, max: number): string | null {
+  const used = new Set((c?.entries ?? []).map((e) => e.key));
+  for (let i = 0; i <= max; i++) if (!used.has(`${prefix}${i}`)) return `${prefix}${i}`;
+  return null;
+}
+
+export const NIC_MODELS = ["virtio", "e1000", "e1000e", "rtl8139", "vmxnet3"];
+export const CPU_TYPES = ["host", "x86-64-v2-AES", "x86-64-v3", "x86-64-v4", "kvm64", "qemu64"];
+export const DISK_BUSES: { id: string; max: number }[] = [
+  { id: "scsi", max: 30 },
+  { id: "virtio", max: 15 },
+  { id: "sata", max: 5 },
+];
+
+export interface NicForm {
+  model: string;
+  bridge: string;
+  vlan: number | null;
+  firewall: boolean;
+  /** Containers: dhcp or CIDR. */
+  ip: string;
+  gateway: string;
+}
+
+/** A NIC value: an edit keeps the MAC and any option the form doesn't show. */
+export function nicValue(kind: string, key: string, existing: string | null, f: NicForm): string {
+  const common: Record<string, string | null> = { bridge: f.bridge, tag: f.vlan ? String(f.vlan) : null, firewall: f.firewall ? "1" : null };
+  if (kind === "lxc") {
+    const base = existing ?? `name=eth${key.replace(/\D/g, "")}`;
+    return withOptions(base, { ...common, ip: f.ip || "dhcp", gw: f.ip && f.ip !== "dhcp" && f.gateway ? f.gateway : null });
+  }
+  if (!existing) return withOptions(f.model, common);
+  const o = optionsOf(existing);
+  const first = o[0];
+  // virtio=AA:BB:… → e1000=AA:BB:… keeps the MAC with a new model.
+  if (first && NIC_MODELS.includes(first[0])) o[0] = [f.model, first[1]];
+  return withOptions(optionsText(o), common);
+}
+
+export function nicForm(n: PveNic | null, bridge = "vmbr0"): NicForm {
+  if (!n) return { model: "virtio", bridge, vlan: null, firewall: true, ip: "dhcp", gateway: "" };
+  const gw = optionsOf(n.value).find(([k]) => k === "gw")?.[1] ?? "";
+  return { model: n.model || "virtio", bridge: n.bridge, vlan: n.vlan, firewall: n.firewall, ip: n.ip || "dhcp", gateway: gw };
+}
+
+/** A new disk: `storage:GB` plus sensible options. */
+export function diskValue(kind: string, bus: string, storage: string, gb: number, mountpoint = ""): string {
+  if (kind === "lxc") return `${storage}:${gb},mp=${mountpoint}`;
+  return bus === "scsi" ? `${storage}:${gb},discard=on,iothread=1` : bus === "virtio" ? `${storage}:${gb},discard=on,iothread=1` : `${storage}:${gb},discard=on`;
+}
+
+export const cdromValue = (volid: string | null): string => `${volid || "none"},media=cdrom`;
+
+export const validMountPath = (p: string): boolean => /^\/[A-Za-z0-9._/-]+$/.test(p) && !/(^|\/)\.\.(\/|$)/.test(p) && p !== "/";
+
+/** A PCI device for hostpciN; all functions drops the `.0`, PCIe only on q35. */
+export function pciValue(id: string, allFunctions: boolean, pcie: boolean): string {
+  const dev = allFunctions ? id.replace(/\.\d$/, "") : id;
+  return pcie ? `${dev},pcie=1` : dev;
+}
+
+export const isQ35 = (c: PveConfig | null): boolean => (cfgValue(c, "machine") ?? "").includes("q35");
+
+/** Other devices in the same IOMMU group go to the guest too. */
+export function groupMates(pci: PvePci[], id: string): PvePci[] {
+  const me = pci.find((p) => p.id === id);
+  if (!me || me.iommuGroup < 0) return [];
+  return pci.filter((p) => p.iommuGroup === me.iommuGroup && p.id !== id && p.id.replace(/\.\d$/, "") !== id.replace(/\.\d$/, ""));
+}
+
+/** A device entry as words: hostpci0 → the PCI device's name if the node has it. */
+export function deviceLabel(e: PveConfigEntry, d: PveHostDevices | null): string {
+  const v = e.pending ?? e.value ?? "";
+  const first = optionsOf(v)[0]?.[1] ?? v;
+  if (e.key.startsWith("hostpci")) {
+    const dev = d?.pci.find((p) => p.id === first || p.id.replace(/\.\d$/, "") === first);
+    return dev ? `${first} · ${dev.device || dev.vendor}` : first;
+  }
+  const host = optionsOf(v).find(([k]) => k === "host")?.[1] ?? v;
+  const u = d?.usb.find((x) => x.id === host || x.path === host);
+  return u ? `${host} · ${u.product || u.manufacturer}` : host;
+}
+
+/** `order=2,up=30` → { order: 2, up: 30 }. */
+export function startupOf(v: string | null): { order: number | null; up: number | null } {
+  const o = optionsOf(v ?? "");
+  const n = (k: string) => {
+    const x = o.find(([a]) => a === k)?.[1];
+    return x != null && /^\d+$/.test(x) ? Number(x) : null;
+  };
+  return { order: n("order"), up: n("up") };
+}
+
+export function startupText(order: number | null, up: number | null): string | null {
+  const p = [order != null ? `order=${order}` : "", up != null ? `up=${up}` : ""].filter(Boolean);
+  return p.length ? p.join(",") : null;
+}
+
+/** Settings that changed: only those are sent. */
+export function changed(c: PveConfig | null, want: Record<string, string | null>): { set: PveSetting[]; remove: string[] } {
+  const set: PveSetting[] = [];
+  const remove: string[] = [];
+  for (const [key, v] of Object.entries(want)) {
+    const now = cfgValue(c, key);
+    if (v === null || v === "") {
+      if (now !== null) remove.push(key);
+    } else if (v !== now) set.push({ key, value: v });
+  }
+  return { set, remove };
+}

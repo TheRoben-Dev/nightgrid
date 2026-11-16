@@ -18,6 +18,10 @@ import type {
   PveOverview_Serialize as PveOverview,
   PveTask_Serialize as PveTask,
   PveTaskDetail_Serialize as PveTaskDetail,
+  PveConfig_Serialize as PveConfig,
+  PveConfigEntry_Serialize as PveConfigEntry,
+  PveHostDevices,
+  PveSetting,
 } from "./bindings";
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -125,7 +129,110 @@ const nextFree = () => {
   return id;
 };
 
+// ---- part 4: configs ----
+const configs: Record<number, Record<string, string>> = {};
+const pendingCfg: Record<number, Record<string, string | null>> = {};
+let digestSeq = 1;
+function cfgOf(vmid: number): Record<string, string> {
+  if (configs[vmid]) return configs[vmid];
+  const x = guests.find((q) => q.vmid === vmid);
+  const mem = String(Math.round((x?.maxmem ?? 2 * GiB) / 1024 ** 2));
+  const mac = `BC:24:11:00:${String(vmid % 100).padStart(2, "0")}:01`;
+  const c: Record<string, string> =
+    x?.kind === "lxc"
+      ? { hostname: x.name, cores: String(x.maxcpu), memory: mem, swap: "512", rootfs: `local-lvm:vm-${vmid}-disk-0,size=8G`, net0: `name=eth0,bridge=vmbr0,firewall=1,hwaddr=${mac},ip=dhcp,type=veth`, onboot: "1", features: "nesting=1", unprivileged: "1" }
+      : {
+          name: x?.name ?? String(vmid),
+          cores: String(x?.maxcpu ?? 2),
+          sockets: "1",
+          memory: mem,
+          cpu: "x86-64-v2-AES",
+          machine: "q35",
+          scsihw: "virtio-scsi-single",
+          scsi0: `local-lvm:vm-${vmid}-disk-0,discard=on,iothread=1,size=32G`,
+          ide2: "none,media=cdrom",
+          net0: `virtio=${mac},bridge=vmbr0,firewall=1`,
+          boot: "order=scsi0;ide2;net0",
+          agent: "1",
+          onboot: vmid === 100 ? "1" : "0",
+        };
+  if (vmid === 100) Object.assign(c, { hostpci0: "0000:01:00,pcie=1", usb0: "host=1050:0407", unused0: "local-lvm:vm-100-disk-2", startup: "order=2,up=30", tags: "media;prod" });
+  configs[vmid] = c;
+  return c;
+}
+function opts(v: string) {
+  return v.split(",").map((p) => (p.includes("=") ? (p.split("=", 2) as [string, string]) : (["", p] as [string, string])));
+}
+function configView(vmid: number, kind: string): PveConfig {
+  const c = cfgOf(vmid);
+  const p = pendingCfg[vmid] ?? {};
+  const keys = [...new Set([...Object.keys(c), ...Object.keys(p)])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const entries: PveConfigEntry[] = keys.map((key) => ({ key, value: c[key] ?? null, pending: p[key] ?? null, delete: key in p && p[key] === null }));
+  entries.push({ key: "digest", value: `d${digestSeq}`, pending: null, delete: false });
+  const cur = (e: PveConfigEntry) => e.pending ?? e.value ?? "";
+  const isDisk = (k: string) => /^(scsi|virtio|sata|ide|mp)\d+$|^rootfs$|^efidisk0$|^tpmstate0$/.test(k);
+  return {
+    kind,
+    digest: `d${digestSeq}`,
+    entries,
+    disks: entries.filter((e) => isDisk(e.key)).map((e) => {
+      const o = opts(cur(e));
+      const f = (k: string) => o.find(([a]) => a === k)?.[1] ?? "";
+      return { key: e.key, volid: o[0][1] && !o[0][0] ? o[0][1] : `${o[0][0]}=${o[0][1]}`, size: f("size"), cdrom: f("media") === "cdrom", mountpoint: f("mp"), value: cur(e), pending: !!e.pending || e.delete };
+    }),
+    nics: entries.filter((e) => /^net\d+$/.test(e.key)).map((e) => {
+      const o = opts(cur(e));
+      const f = (k: string) => o.find(([a]) => a === k)?.[1] ?? "";
+      return { key: e.key, model: kind === "lxc" ? "veth" : o[0][0], mac: kind === "lxc" ? f("hwaddr") : o[0][1], bridge: f("bridge"), vlan: f("tag") ? Number(f("tag")) : null, firewall: f("firewall") === "1", ip: f("ip"), value: cur(e), pending: !!e.pending, delete: e.delete };
+    }),
+    devices: entries.filter((e) => /^(hostpci|usb)\d+$/.test(e.key)),
+    unused: entries.filter((e) => /^unused\d+$/.test(e.key)),
+    pending: entries.some((e) => e.pending !== null || e.delete),
+  };
+}
+
 export const mockProxmox = {
+  config: async (vmid: number, kind: string): Promise<PveConfig> => configView(vmid, kind),
+  configSet: async (vmid: number, digest: string, set: PveSetting[], remove: string[]): Promise<null> => {
+    if (digest && digest !== `d${digestSeq}`) throw new Error("detected modified configuration - file changed by other user? Try again.");
+    const c = cfgOf(vmid);
+    const running = guests.find((x) => x.vmid === vmid)?.status === "running";
+    const cold = (k: string) => running && /^(cores|sockets|memory|cpu|hostpci\d+|machine|swap)$/.test(k);
+    for (const { key, value } of set) {
+      if (cold(key)) (pendingCfg[vmid] ??= {})[key] = value;
+      else c[key] = value;
+    }
+    for (const k of remove) {
+      if (/^(scsi|virtio|sata)\d+$/.test(k) && !c[k].includes("media=cdrom")) {
+        let i = 0;
+        while (c[`unused${i}`]) i++;
+        c[`unused${i}`] = c[k].split(",")[0];
+      }
+      if (cold(k)) (pendingCfg[vmid] ??= {})[k] = null;
+      else delete c[k];
+    }
+    digestSeq++;
+    return null;
+  },
+  diskResize: async (vmid: number, disk: string, gb: number): Promise<string | null> => {
+    const c = cfgOf(vmid);
+    c[disk] = c[disk].replace(/size=(\d+)G/, (_, n) => `size=${Number(n) + gb}G`);
+    digestSeq++;
+    return null;
+  },
+  hostDevices: async (): Promise<PveHostDevices> => ({
+    pci: [
+      { id: "0000:01:00.0", vendor: "NVIDIA Corporation", device: "AD102 [GeForce RTX 4090]", class: "0x030000", iommuGroup: 14 },
+      { id: "0000:01:00.1", vendor: "NVIDIA Corporation", device: "AD102 High Definition Audio Controller", class: "0x040300", iommuGroup: 14 },
+      { id: "0000:05:00.0", vendor: "Intel Corporation", device: "Ethernet Controller I226-V", class: "0x020000", iommuGroup: 18 },
+    ],
+    usb: [
+      { id: "1050:0407", path: "1-2", manufacturer: "Yubico", product: "YubiKey OTP+FIDO+CCID" },
+      { id: "10c4:ea60", path: "2-1", manufacturer: "Silicon Labs", product: "Zigbee Dongle" },
+    ],
+    iommuOff: false,
+    notes: [],
+  }),
   createInfo: async (): Promise<PveCreateInfo> => ({
     nextId: nextFree(),
     bridges: [

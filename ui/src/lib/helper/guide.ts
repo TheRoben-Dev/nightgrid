@@ -97,6 +97,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "proxmox-tab-storage", view: "proxmox", what: "STORAGE: Proxmox storages with type, content and usage" },
   { id: "proxmox-new-vm", view: "proxmox", what: "create a VM on this node: cores, memory, disk, install ISO, bridge and VLAN, UEFI (GUESTS tab)" },
   { id: "proxmox-new-ct", view: "proxmox", what: "create an LXC container from a template, logged into with your SSH keys (GUESTS tab)" },
+  { id: "proxmox-hardware", view: "proxmox", what: "a guest's HARDWARE tab: cores, memory, disks (grow, add, detach), network devices, PCI/USB passthrough and boot options (click a guest's name first)" },
   { id: "proxmox-images", view: "proxmox", what: "ISO images and container templates on this node, with Download ISO… and Get CT template… (STORAGE tab)" },
   { id: "dashboard-presets", view: "overview", what: "apply a built-in or saved layout preset, or save this layout as a preset (in edit mode)" },
   { id: "dashboard-new", view: "overview", what: "make another named dashboard (in edit mode)" },

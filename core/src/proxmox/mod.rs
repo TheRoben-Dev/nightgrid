@@ -12,6 +12,7 @@ use crate::files::path::shell_quote;
 
 pub mod backup;
 pub mod create;
+pub mod hardware;
 
 /// Marks each `pvesh` answer in a batched script's output.
 pub(crate) const MARK: &str = "@@pve";
