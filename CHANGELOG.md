@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.41] - 2026-11-16
+
+### Added: more signals, part 3: custom command widgets (M10x)
+- **Overview → Edit → + Widget → COMMAND…**: any read-only command on one of your hosts becomes a dashboard tile. Pick how to read the value (first number, a regex group, line count, exit code or the first line of text), an optional unit, warn and critical thresholds (or "low is bad" for things like free space) and a refresh interval from 10 s to 24 h.
+- **Try it** runs the command once in the editor and shows the parsed value and the raw output before you save. Ready-made starting points: root disk use, load, logged-in users, failed units, running containers, ZFS pool state, a port listening.
+- Tiles colour by their thresholds and show the host, when it last ran and the refresh interval, with **Run now**, **Output** and **Edit…**. They only run while a dashboard shows them, and pause while the window is hidden.
+- Widgets refresh on their own, so commands that change something (rm, kill, prune, down, reboot, overwrite with `>`…) and sudo are refused. Saved widgets travel in backups and profiles; removing a tile keeps the widget under **YOUR COMMANDS** in the add menu, deleting it removes it everywhere.
+
 ## [0.10.40] - 2026-11-16
 
 ### Added: more signals, part 2: network tests between hosts (M10x)

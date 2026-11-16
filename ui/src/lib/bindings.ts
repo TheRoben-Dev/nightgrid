@@ -399,6 +399,14 @@ export const commands = {
 	netTestsList: (options?: InvokeOptions) => __TAURI_INVOKE<NetTest_Serialize[]>("net_tests_list", undefined, options),
 	/**  Forgets the results of one pair. */
 	netTestsClear: (fromHost: number, toHost: number, options?: InvokeOptions) => __TAURI_INVOKE<number>("net_tests_clear", { fromHost, toHost }, options),
+	cmdWidgetsList: (options?: InvokeOptions) => __TAURI_INVOKE<CmdWidget_Serialize[]>("cmd_widgets_list", undefined, options),
+	/**  Adds (`id` 0) or updates a widget. */
+	cmdWidgetSave: (widget: CmdWidget_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<CmdWidget_Serialize>("cmd_widget_save", { widget }, options),
+	cmdWidgetDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<boolean>("cmd_widget_delete", { id }, options),
+	/**  Runs a saved widget's command once. */
+	cmdWidgetRun: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<CmdReading_Serialize>("cmd_widget_run", { id }, options),
+	/**  Runs an unsaved widget once, to check the command and the parse rule. */
+	cmdWidgetTry: (widget: CmdWidget_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<CmdReading_Serialize>("cmd_widget_try", { widget }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -1663,6 +1671,75 @@ export type Check_Serialize = {
 	fix: string | null,
 	/**  Points this check can cost. */
 	weight: number,
+};
+
+/**  What a run produced. */
+export type CmdReading = CmdReading_Serialize | CmdReading_Deserialize;
+
+/**  What a run produced. */
+export type CmdReading_Deserialize = {
+	value?: number | null,
+	/**  The value as text (regex captures that aren't numbers, "OK"/"FAIL"). */
+	text: string,
+	/**  `ok`, `warn`, `crit`, `info` (no thresholds) or `error`. */
+	level: string,
+	exit: number,
+	/**  Output, trimmed to [`MAX_OUTPUT`] bytes (stderr appended when stdout is empty). */
+	output: string,
+	at: number | null,
+};
+
+/**  What a run produced. */
+export type CmdReading_Serialize = {
+	value: number | null,
+	/**  The value as text (regex captures that aren't numbers, "OK"/"FAIL"). */
+	text: string,
+	/**  `ok`, `warn`, `crit`, `info` (no thresholds) or `error`. */
+	level: string,
+	exit: number,
+	/**  Output, trimmed to [`MAX_OUTPUT`] bytes (stderr appended when stdout is empty). */
+	output: string,
+	at: number | null,
+};
+
+export type CmdWidget = CmdWidget_Serialize | CmdWidget_Deserialize;
+
+export type CmdWidget_Deserialize = {
+	id: number,
+	hostId: number,
+	name: string,
+	command: string,
+	/**  One of [`PARSES`]. */
+	parse: string,
+	/**  The regex for `parse = "regex"`; its first group (or the whole match) is the value. */
+	pattern: string,
+	/**  Shown after the value, e.g. `%` or `GB`. */
+	unit: string,
+	warn?: number | null,
+	crit?: number | null,
+	/**  Thresholds trip when the value falls to or below them (free space, say). */
+	below: boolean,
+	/**  Seconds between refreshes. */
+	intervalSecs: number,
+};
+
+export type CmdWidget_Serialize = {
+	id: number,
+	hostId: number,
+	name: string,
+	command: string,
+	/**  One of [`PARSES`]. */
+	parse: string,
+	/**  The regex for `parse = "regex"`; its first group (or the whole match) is the value. */
+	pattern: string,
+	/**  Shown after the value, e.g. `%` or `GB`. */
+	unit: string,
+	warn: number | null,
+	crit: number | null,
+	/**  Thresholds trip when the value falls to or below them (free space, say). */
+	below: boolean,
+	/**  Seconds between refreshes. */
+	intervalSecs: number,
 };
 
 /**  Error returned to the frontend. Messages are user-safe and secret-free. */

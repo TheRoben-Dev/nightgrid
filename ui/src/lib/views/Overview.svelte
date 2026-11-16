@@ -8,10 +8,16 @@
   import Modal from "../components/Modal.svelte";
   import Panel from "../components/Panel.svelte";
   import DashWidget from "../components/dashboard/DashWidget.svelte";
+  import CmdWidgetEditor from "../components/dashboard/CmdWidgetEditor.svelte";
+  import { blank, type CmdWidget } from "../cmdwidgets";
+  import { cmdWidgets } from "../stores/cmdwidgets.svelte";
   import {
     add,
     BUILTIN_PRESETS,
+    cmdId,
+    cmdKind,
     COLUMNS,
+    compact,
     defaultDashboards,
     fromPreset,
     gridDelta,
@@ -26,7 +32,6 @@
     WIDGETS,
     type Dashboard,
     type Widget,
-    type WidgetKind,
   } from "../dashboard";
   import { alerts } from "../stores/alerts.svelte";
   import { hosts } from "../stores/hosts.svelte";
@@ -146,7 +151,28 @@
   }
 
   // ---- Widgets, presets and dashboards ----
-  function addWidget(kind: WidgetKind) {
+  function newCommand() {
+    menu = null;
+    cmdWidgets.editing = blank(hosts.hosts[0]?.id ?? 0);
+  }
+
+  function cmdSaved(w: CmdWidget, isNew: boolean) {
+    if (isNew && board.widgets.length < MAX_WIDGETS) saveWidgets(add(board.widgets, cmdKind(w.id)));
+  }
+
+  /** A deleted command widget leaves every dashboard. */
+  function cmdDeleted(id: number) {
+    const kind = cmdKind(id);
+    saveBoards(boards.map((b) => ({ ...b, widgets: compact(b.widgets.filter((w) => w.kind !== kind)) })));
+  }
+
+  const onBoard = $derived(new Set(board.widgets.map((w) => w.kind)));
+  const spareCmds = $derived(cmdWidgets.list.filter((c) => !onBoard.has(cmdKind(c.id))));
+  $effect(() => {
+    if (menu === "add" && !cmdWidgets.loaded) void cmdWidgets.load();
+  });
+
+  function addWidget(kind: string) {
     menu = null;
     if (board.widgets.length >= MAX_WIDGETS) return;
     saveWidgets(add(board.widgets, kind));
@@ -210,7 +236,11 @@
     );
   }
 
-  const titleOf = (w: Widget) => widgetInfo(w.kind)?.title ?? w.kind.toUpperCase();
+  const titleOf = (w: Widget) => {
+    const c = cmdId(w.kind);
+    if (c != null) return cmdWidgets.byId(c)?.name.toUpperCase() ?? "COMMAND";
+    return widgetInfo(w.kind)?.title ?? w.kind.toUpperCase();
+  };
   const countOf = (w: Widget) => (w.kind === "nodes" ? hosts.hosts.length : w.kind === "alerts" ? alerts.roots.length : undefined);
 </script>
 
@@ -234,6 +264,11 @@
           <ul class="menu" role="menu">
             {#each WIDGETS as wi (wi.kind)}
               <li><button type="button" role="menuitem" onclick={() => addWidget(wi.kind)}><span class="mt">{wi.title}</span><span class="muted">{wi.what}</span></button></li>
+            {/each}
+            <li class="sep"><button type="button" role="menuitem" data-guide="dashboard-add-command" onclick={newCommand}><span class="mt">COMMAND…</span><span class="muted">Any read-only command's output, with thresholds</span></button></li>
+            {#if spareCmds.length}<li class="hd muted">YOUR COMMANDS</li>{/if}
+            {#each spareCmds as c (c.id)}
+              <li><button type="button" role="menuitem" onclick={() => addWidget(cmdKind(c.id))}><span class="mt">{c.name.toUpperCase()}</span><span class="muted mono">{c.command}</span></button></li>
             {/each}
           </ul>
         {/if}
@@ -333,6 +368,8 @@
     {/each}
   </div>
 </div>
+
+<CmdWidgetEditor onsaved={cmdSaved} ondeleted={cmdDeleted} />
 
 <Modal
   open={dialog !== null}
@@ -472,6 +509,13 @@
   }
   .mt {
     letter-spacing: 0.06em;
+  }
+  .menu .mono {
+    font-family: var(--font-mono);
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .menu .hd {
     font-size: var(--fs-xs);

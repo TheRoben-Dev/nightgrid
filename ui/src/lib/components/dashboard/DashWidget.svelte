@@ -6,7 +6,8 @@
    */
   import type { AppInfo } from "../../api";
   import { diskRows, totals, updateRows } from "../../fleet";
-  import { widgetInfo } from "../../dashboard";
+  import { cmdId, widgetInfo } from "../../dashboard";
+  import CmdTile from "./CmdTile.svelte";
   import { DEFAULT_KEYMAP, formatChord } from "../../keys";
   import { alerts } from "../../stores/alerts.svelte";
   import { backups, jobState } from "../../stores/backups.svelte";
@@ -203,6 +204,8 @@
     <dt>DATA DIR</dt>
     <dd class="path">{info?.dataDir ?? "…"}</dd>
   </dl>
+{:else if cmdId(kind) != null}
+  <CmdTile id={cmdId(kind) ?? 0} />
 {:else}
   <p class="muted small">This widget ({widgetInfo(kind)?.title ?? kind}) isn't available in this version.</p>
 {/if}

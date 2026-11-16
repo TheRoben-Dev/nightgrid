@@ -6,6 +6,7 @@ mod alerts_cmd;
 mod automation_cmd;
 mod backup_cmd;
 mod backup_jobs_cmd;
+mod cmdwidget_cmd;
 mod commands;
 mod confdiff_cmd;
 mod desktop_cmd;
@@ -208,6 +209,11 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         netperf_cmd::net_test_run,
         netperf_cmd::net_tests_list,
         netperf_cmd::net_tests_clear,
+        cmdwidget_cmd::cmd_widgets_list,
+        cmdwidget_cmd::cmd_widget_save,
+        cmdwidget_cmd::cmd_widget_delete,
+        cmdwidget_cmd::cmd_widget_run,
+        cmdwidget_cmd::cmd_widget_try,
         notes_cmd::notes_list,
         notes_cmd::note_save,
         notes_cmd::note_delete,
