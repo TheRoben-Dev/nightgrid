@@ -34,6 +34,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   ...rail,
   ...viewTabs,
   { id: "rail-collapse", view: null, what: "collapse or expand the sidebar" },
+  { id: "auth-approve", view: null, what: "Approve in browser: opens the Tailscale SSH check link for a host that is waiting to log in (shown only while one waits)" },
   { id: "palette", view: null, what: "command palette / search (Mod+K)" },
   { id: "hosts-add", view: null, what: "add a host (+ in the sidebar)" },
   { id: "hosts-import", view: null, what: "import hosts from ~/.ssh/config (IMP)" },

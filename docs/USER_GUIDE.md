@@ -19,6 +19,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **Key file**: a private key, with its passphrase asked when needed.
   - **Password**: asked when needed.
   - **Remember** saves the password or passphrase in the OS keychain. It's off unless you tick it.
+  - **Tailscale SSH** hosts work with **SSH agent** as they are: no key is needed, the tailnet's SSH policy decides. When the policy asks for a check, a **Tailscale SSH** card shows **Approve in browser** while the host connects (the terminal says *Waiting for approval*), and the login goes ahead once it's approved. Nightgrid waits up to 5 minutes. If the tailnet still says no, the error says so and points at the policy's `ssh` rules. The host editor mentions this when the address is a tailnet one (100.x or `*.ts.net`).
 - **IMP** imports hosts from `~/.ssh/config`, including jump hosts (`ProxyJump`). Your SSH config is only read, never written.
 - **Host keys**: the first connection shows the server's fingerprint for you to accept. If a key changes later, the connection is blocked until you type the host name to accept the new key. A diff of the fingerprints is shown.
 - Groups, tags, colors, icons and favorites keep long lists tidy. Filter the list with text or `#tag`.
@@ -85,6 +86,8 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 ## Services and integrations
 
 - **Services**: a board of web apps with an up/down check, response time, certificate expiry and 30 days of history. Import them from a Homepage `services.yaml`, or add them by hand.
+  - A failed check says why. A wrong status names the server that answered, the address it was reached at and the start of its error page, for example *HTTP 502 · from nginx at 203.0.113.7 · "502 Bad Gateway"*. A 502 or 504 means your reverse proxy answered but couldn't reach the app behind it: check the proxy's upstream for that site. A connection that fails lists the addresses the name resolves to.
+  - Checks connect the way browsers do, trying IPv6 and IPv4 side by side, so a network with broken IPv6 doesn't make sites look down. A check that can't connect tries once more before it counts as down.
 - **Add integration**:
   - **Plex**: what's playing.
   - **AMP**: game servers with start, stop and restart.

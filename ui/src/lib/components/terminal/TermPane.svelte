@@ -4,6 +4,7 @@
   import { terms } from "../../stores/terms.svelte";
   import { settings } from "../../stores/settings.svelte";
   import { ui } from "../../stores/ui.svelte";
+  import { authNotices } from "../../stores/authNotices.svelte";
   import type { TermSession } from "../../term/session.svelte";
   import AuthPrompt from "./AuthPrompt.svelte";
   import HostKeyPrompt from "./HostKeyPrompt.svelte";
@@ -129,7 +130,8 @@
       />
     </div>
   {:else if session.state === "connecting"}
-    <div class="badge">LINKING<span class="blink">_</span></div>
+    {@const waiting = session.origin.kind === "ssh" ? authNotices.forHost(session.origin.hostId) : undefined}
+    <div class="badge">{waiting?.notice.url ? "WAITING FOR APPROVAL" : "LINKING"}<span class="blink">_</span></div>
   {:else if session.state === "reconnecting"}
     <div class="banner warn">
       <span>Connection lost · reconnecting (attempt {session.attempt}){session.message ? ` · ${session.message}` : ""}</span>

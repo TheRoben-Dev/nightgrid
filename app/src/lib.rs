@@ -74,6 +74,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         hosts_cmd::hosts_ping,
         term_cmd::term_open_local,
         term_cmd::term_open_ssh,
+        term_cmd::ssh_auth_notices,
         term_cmd::term_write,
         term_cmd::term_resize,
         term_cmd::term_foreground,

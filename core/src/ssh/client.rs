@@ -1,8 +1,15 @@
 //! SSH client connections over russh: host key verification, authentication
 //! (agent, key file, password / keyboard-interactive) and ProxyJump chains.
+//!
+//! Every hop asks for "none" auth first, like OpenSSH. Servers that decide
+//! who you are without a key (Tailscale SSH) accept it there; in Tailscale's
+//! "check" mode they first send a banner with a login URL and hold the
+//! answer until it's approved, so banners are passed to `on_notice` and the
+//! wait is bounded by `auth_wait`.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -63,6 +70,52 @@ pub struct ConnectOptions {
     /// Agent socket / pipe override. `None` uses `SSH_AUTH_SOCK` (or the
     /// OpenSSH pipe / Pageant on Windows).
     pub agent_path: Option<PathBuf>,
+    /// How long one authentication step may wait for the server. Tailscale
+    /// SSH's check mode holds the answer until the login is approved.
+    pub auth_wait: Duration,
+    /// Shown to the user while connecting: banners and keyboard-interactive
+    /// instructions (Tailscale SSH sends its approval URL this way).
+    pub on_notice: Option<NoticeSink>,
+}
+
+/// Something the server said during authentication.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct AuthNotice {
+    /// Hop label (`user@host[:port]`).
+    pub target: String,
+    pub text: String,
+    /// The first https link in the text (an approval page), if any.
+    pub url: Option<String>,
+    /// The server identifies as Tailscale SSH.
+    pub tailscale: bool,
+}
+
+/// Where [`AuthNotice`]s go (the app emits them to the UI).
+#[derive(Clone)]
+pub struct NoticeSink(pub Arc<dyn Fn(AuthNotice) + Send + Sync>);
+
+impl NoticeSink {
+    fn send(&self, n: AuthNotice) {
+        (self.0)(n)
+    }
+}
+
+impl std::fmt::Debug for NoticeSink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("NoticeSink")
+    }
+}
+
+/// The first `https://` link in `text`, without trailing punctuation.
+pub fn first_url(text: &str) -> Option<String> {
+    // e.g. "# Tailscale SSH requires an additional check.\n# To authenticate, visit: https://login.tailscale.com/a/abc123\n"
+    let start = text.find("https://")?;
+    let url: String =
+        text[start..].chars().take_while(|c| !c.is_whitespace() && !matches!(c, '"' | '\'' | '<' | '>')).collect();
+    let url = url.trim_end_matches(['.', ',', ')', ';', ':']).to_owned();
+    (url.len() > "https://".len()).then_some(url)
 }
 
 impl ConnectOptions {
@@ -73,6 +126,8 @@ impl ConnectOptions {
             keepalive_interval: Duration::from_secs(10),
             keepalive_max: 3,
             agent_path: None,
+            auth_wait: Duration::from_secs(300),
+            on_notice: None,
         }
     }
 }
@@ -122,6 +177,10 @@ pub struct Verifier {
     known_hosts: KnownHosts,
     issue: Arc<Mutex<Option<ConnectError>>>,
     forwards: RemoteForwards,
+    label: String,
+    on_notice: Option<NoticeSink>,
+    /// Set once a banner came from a Tailscale SSH server.
+    tailscale: Arc<AtomicBool>,
 }
 
 impl client::Handler for Verifier {
@@ -154,6 +213,23 @@ impl client::Handler for Verifier {
         };
         *self.issue.lock().expect("poisoned") = Some(issue);
         Ok(false)
+    }
+
+    async fn auth_banner(&mut self, banner: &str, session: &mut client::Session) -> Result<(), Self::Error> {
+        let ts = String::from_utf8_lossy(session.remote_sshid()).contains("Tailscale") || banner.contains("Tailscale");
+        if ts {
+            self.tailscale.store(true, Ordering::Relaxed);
+        }
+        tracing::info!(hop = %self.label, "server banner: {}", banner.trim());
+        if let Some(sink) = &self.on_notice {
+            sink.send(AuthNotice {
+                target: self.label.clone(),
+                text: banner.trim().to_owned(),
+                url: first_url(banner),
+                tailscale: ts,
+            });
+        }
+        Ok(())
     }
 
     async fn server_channel_open_forwarded_tcpip(
@@ -275,23 +351,27 @@ async fn handshake<S>(
     t: &Target,
     opts: &ConnectOptions,
     forwards: RemoteForwards,
-) -> Result<SshHandle, ConnectError>
+) -> Result<(SshHandle, Arc<AtomicBool>), ConnectError>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let issue = Arc::new(Mutex::new(None));
+    let tailscale = Arc::new(AtomicBool::new(false));
     let verifier = Verifier {
         host: t.host.clone(),
         port: t.port,
         known_hosts: opts.known_hosts.clone(),
         issue: issue.clone(),
         forwards,
+        label: t.label(),
+        on_notice: opts.on_notice.clone(),
+        tailscale: tailscale.clone(),
     };
     let res = tokio::time::timeout(opts.connect_timeout, client::connect_stream(client_config(opts), stream, verifier))
         .await
         .map_err(|_| ConnectError::Network { host: t.host.clone(), message: "SSH handshake timed out".into() })?;
     match res {
-        Ok(h) => Ok(h),
+        Ok(h) => Ok((h, tailscale)),
         Err(e) => {
             if let Some(issue) = issue.lock().expect("poisoned").take() {
                 return Err(issue);
@@ -455,26 +535,143 @@ async fn try_password(
     Ok(false)
 }
 
-async fn authenticate(h: &mut SshHandle, t: &Target, opts: &ConnectOptions) -> Result<(), ConnectError> {
+fn mins(d: Duration) -> String {
+    match d.as_secs() {
+        s if s >= 120 => format!("{} minutes", s / 60),
+        s => format!("{s} seconds"),
+    }
+}
+
+/// "none" auth: accepted by servers that know who you are without a key
+/// (Tailscale SSH). Bounded, since Tailscale's check mode waits for approval.
+async fn try_none(h: &mut SshHandle, t: &Target, opts: &ConnectOptions, ts: &AtomicBool) -> Result<Step, ConnectError> {
+    match tokio::time::timeout(opts.auth_wait, h.authenticate_none(&t.user)).await {
+        Err(_) => Err(waited_too_long(t, opts, ts)),
+        Ok(r) => Ok(match r.map_err(ConnectError::other)? {
+            russh::client::AuthResult::Success => Step::Done,
+            russh::client::AuthResult::Failure { remaining_methods, .. } => Step::Failed(remaining_methods),
+        }),
+    }
+}
+
+fn waited_too_long(t: &Target, opts: &ConnectOptions, ts: &AtomicBool) -> ConnectError {
+    let message = if ts.load(Ordering::Relaxed) {
+        format!(
+            "the Tailscale SSH check wasn't approved within {}. Open the approval link and connect again",
+            mins(opts.auth_wait)
+        )
+    } else {
+        format!("the server didn't finish logging in within {}", mins(opts.auth_wait))
+    };
+    ConnectError::AuthFailed { host: t.host.clone(), user: t.user.clone(), message }
+}
+
+async fn bounded<F: std::future::Future>(d: Duration, f: F) -> Option<F::Output> {
+    tokio::time::timeout(d, f).await.ok()
+}
+
+/// Keyboard-interactive with nothing to type: passes the server's
+/// instructions on (Tailscale SSH can send its approval link this way) and
+/// answers prompt-less rounds. Gives up at the first real prompt.
+async fn try_ki_notice(
+    h: &mut SshHandle,
+    t: &Target,
+    opts: &ConnectOptions,
+    ts: &AtomicBool,
+) -> Result<Step, ConnectError> {
+    let mut resp = bounded(opts.auth_wait, h.authenticate_keyboard_interactive_start(&t.user, None))
+        .await
+        .ok_or_else(|| waited_too_long(t, opts, ts))?
+        .map_err(ConnectError::other)?;
+    for _ in 0..5 {
+        match resp {
+            KeyboardInteractiveAuthResponse::Success => return Ok(Step::Done),
+            KeyboardInteractiveAuthResponse::Failure { remaining_methods, .. } => {
+                return Ok(Step::Failed(remaining_methods))
+            }
+            KeyboardInteractiveAuthResponse::InfoRequest { name, instructions, prompts } => {
+                let text = [name.trim(), instructions.trim()]
+                    .into_iter()
+                    .filter(|x| !x.is_empty())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if !text.is_empty() {
+                    if let Some(sink) = &opts.on_notice {
+                        sink.send(AuthNotice {
+                            target: t.label(),
+                            url: first_url(&text),
+                            text,
+                            tailscale: ts.load(Ordering::Relaxed),
+                        });
+                    }
+                }
+                if !prompts.is_empty() {
+                    return Ok(Step::Failed(MethodSet::empty()));
+                }
+                resp = bounded(opts.auth_wait, h.authenticate_keyboard_interactive_respond(Vec::new()))
+                    .await
+                    .ok_or_else(|| waited_too_long(t, opts, ts))?
+                    .map_err(ConnectError::other)?;
+            }
+        }
+    }
+    Ok(Step::Failed(MethodSet::empty()))
+}
+
+/// Why a Tailscale SSH server still said no.
+fn tailscale_refused(t: &Target) -> ConnectError {
+    ConnectError::AuthFailed {
+        host: t.host.clone(),
+        user: t.user.clone(),
+        message: format!(
+            "Tailscale SSH didn't let this device in as {}. Check that the tailnet policy's \"ssh\" rules allow it, and that Tailscale SSH is on for the host (tailscale set --ssh)",
+            t.user
+        ),
+    }
+}
+
+async fn authenticate(
+    h: &mut SshHandle,
+    t: &Target,
+    opts: &ConnectOptions,
+    ts: &AtomicBool,
+) -> Result<(), ConnectError> {
     let user_err =
         |retry| ConnectError::PasswordRequired { target: t.label(), host: t.host.clone(), user: t.user.clone(), retry };
-    match &t.auth {
+    // Ask with "none" first: Tailscale SSH (and servers with no auth) accept it.
+    let mut methods = match try_none(h, t, opts, ts).await? {
+        Step::Done => return Ok(()),
+        Step::Failed(m) => m,
+    };
+    // A Tailscale SSH server, or one that only offers keyboard-interactive
+    // without key or password: see whether it wants nothing typed.
+    let ki_only = methods.contains(&MethodKind::KeyboardInteractive)
+        && !methods.contains(&MethodKind::PublicKey)
+        && !methods.contains(&MethodKind::Password);
+    let is_ts = || ts.load(Ordering::Relaxed);
+    if is_ts() || (ki_only && !matches!(t.auth, Auth::Password { password: Some(_) })) {
+        match try_ki_notice(h, t, opts, ts).await? {
+            Step::Done => return Ok(()),
+            Step::Failed(m) if !m.is_empty() => methods = m,
+            Step::Failed(_) => {}
+        }
+    }
+    let res = match &t.auth {
         Auth::Agent { identity_file, passphrase } => {
             let preferred = identity_file.as_deref().and_then(read_pubkey);
             let agent_res = try_agent(h, t, preferred.as_ref(), opts.agent_path.as_deref()).await;
-            let mut methods = match agent_res {
+            match agent_res {
                 Ok(Step::Done) => return Ok(()),
-                Ok(Step::Failed(m)) => m,
+                Ok(Step::Failed(m)) => methods = m,
                 Err(msg) => {
                     tracing::info!("{msg}");
-                    if identity_file.is_none() {
+                    if identity_file.is_none() && !is_ts() {
                         return Err(ConnectError::AuthFailed {
                             host: t.host.clone(),
                             user: t.user.clone(),
                             message: msg,
                         });
                     }
-                    MethodSet::empty()
                 }
             };
             if let Some(path) = identity_file {
@@ -485,7 +682,7 @@ async fn authenticate(h: &mut SshHandle, t: &Target, opts: &ConnectOptions) -> R
                     }
                 }
             }
-            if wants_password(&methods) {
+            if wants_password(&methods) && !is_ts() {
                 return Err(user_err(false));
             }
             Err(ConnectError::AuthFailed {
@@ -495,8 +692,8 @@ async fn authenticate(h: &mut SshHandle, t: &Target, opts: &ConnectOptions) -> R
             })
         }
         Auth::Key { path, passphrase } => match try_key(h, t, path, passphrase.as_deref()).await? {
-            Step::Done => Ok(()),
-            Step::Failed(m) if wants_password(&m) => Err(user_err(false)),
+            Step::Done => return Ok(()),
+            Step::Failed(m) if wants_password(&m) && !is_ts() => Err(user_err(false)),
             Step::Failed(_) => Err(ConnectError::AuthFailed {
                 host: t.host.clone(),
                 user: t.user.clone(),
@@ -505,18 +702,16 @@ async fn authenticate(h: &mut SshHandle, t: &Target, opts: &ConnectOptions) -> R
         },
         Auth::Password { password } => {
             let Some(pw) = password else { return Err(user_err(false)) };
-            // Probe allowed methods with "none" first.
-            let methods = match h.authenticate_none(&t.user).await.map_err(ConnectError::other)? {
-                russh::client::AuthResult::Success => return Ok(()),
-                russh::client::AuthResult::Failure { remaining_methods, .. } => remaining_methods,
-            };
             if try_password(h, t, pw, &methods).await? {
-                Ok(())
-            } else {
-                Err(user_err(true))
+                return Ok(());
             }
+            Err(user_err(true))
         }
+    };
+    if is_ts() {
+        return Err(tailscale_refused(t));
     }
+    res
 }
 
 async fn tcp_connect(t: &Target, opts: &ConnectOptions) -> Result<tokio::net::TcpStream, ConnectError> {
@@ -536,7 +731,7 @@ pub async fn connect(target: &Target, jumps: &[Target], opts: &ConnectOptions) -
     let hops: Vec<&Target> = jumps.iter().chain(std::iter::once(target)).collect();
     let fwd_for = |i: usize| if i + 1 == hops.len() { forwards.clone() } else { RemoteForwards::default() };
     for (i, hop) in hops.iter().enumerate() {
-        let mut handle = if i == 0 {
+        let (mut handle, ts) = if i == 0 {
             handshake(tcp_connect(hop, opts).await?, hop, opts, fwd_for(i)).await?
         } else {
             let via = chain.last().expect("previous hop");
@@ -545,7 +740,11 @@ pub async fn connect(target: &Target, jumps: &[Target], opts: &ConnectOptions) -
             )?;
             handshake(ch.into_stream(), hop, opts, fwd_for(i)).await?
         };
-        authenticate(&mut handle, hop, opts).await?;
+        // Bounded overall too, so a server that never answers can't hang the
+        // connection (each step already has its own limit).
+        tokio::time::timeout(opts.auth_wait + opts.connect_timeout * 3, authenticate(&mut handle, hop, opts, &ts))
+            .await
+            .map_err(|_| waited_too_long(hop, opts, &ts))??;
         tracing::info!(hop = %hop.label(), "authenticated");
         chain.push(Arc::new(handle));
     }
@@ -558,4 +757,24 @@ pub async fn connect(target: &Target, jumps: &[Target], opts: &ConnectOptions) -
 pub async fn tcp_ping(host: &str, port: u16, timeout: Duration) -> Option<Duration> {
     let start = std::time::Instant::now();
     crate::tailnet::dial(host, port, timeout).await.ok().map(|_| start.elapsed())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn approval_links_in_banners() {
+        let banner = "# Tailscale SSH requires an additional check.\n# To authenticate, visit: https://login.tailscale.com/a/abc123.\n";
+        assert_eq!(first_url(banner).as_deref(), Some("https://login.tailscale.com/a/abc123"));
+        assert_eq!(first_url("see (https://example.com/x), thanks").as_deref(), Some("https://example.com/x"));
+        assert_eq!(first_url("no link here, http://plain.example only"), None);
+        assert_eq!(first_url("https://"), None);
+    }
+
+    #[test]
+    fn wait_is_said_in_minutes() {
+        assert_eq!(mins(Duration::from_secs(300)), "5 minutes");
+        assert_eq!(mins(Duration::from_secs(30)), "30 seconds");
+    }
 }

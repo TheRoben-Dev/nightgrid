@@ -4,6 +4,7 @@
   import { api, errorText, type AuthMethod, type Host, type HostInput } from "../api";
   import { hosts } from "../stores/hosts.svelte";
   import { tailnet } from "../stores/tailnet.svelte";
+  import { looksTailnet } from "../tailnetAddr";
   import { ICON_PRESETS, iconProblem, normalizeIcon } from "../hosts/icons";
   import HostIcon from "./HostIcon.svelte";
   import Modal from "./Modal.svelte";
@@ -192,6 +193,12 @@
           {/each}
         </div>
         <p class="field-hint">{AUTH.find((a) => a.id === form.authMethod)?.hint}</p>
+        {#if form.authMethod !== "password" && (looksTailnet(form.hostname) || looksTailnet(form.tailnetAddress))}
+          <p class="field-hint ts" data-guide="host-tailscale-ssh">
+            Tailnet address. If the host has Tailscale SSH on, this works as it is: no key needed, the tailnet's policy decides. When the policy asks for a check,
+            Nightgrid shows an <b>Approve in browser</b> link while it connects.
+          </p>
+        {/if}
       </fieldset>
 
       {#if form.authMethod !== "password"}

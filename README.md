@@ -164,6 +164,12 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.51 (Tailscale SSH, service checks)
+
+1. Edit the Tailscale SSH host (the deck): SSH agent, user as in the tailnet policy. The editor notes it's a tailnet address. Open a terminal: it logs in without a key. With a `check` rule in the policy, a **Tailscale SSH** card appears with **Approve in browser**; approve it and the terminal opens.
+2. Turn the host's Tailscale SSH off (`tailscale set --ssh=false`) or deny it in the policy: the error says what to check instead of hanging on LINKING.
+3. Services → **Check all**: login.tailscale.com and other public sites are up. A site behind your proxy that fails shows e.g. *HTTP 502 · from Caddy at 203.0.113.7 · the proxy answered but couldn't reach the app behind it*.
+
 ### macOS: testing 0.10.50 (sidebar)
 
 1. The sidebar lists ten rows; Settings sits at the bottom next to the collapse button. Shortcuts appear only when you point at a row.

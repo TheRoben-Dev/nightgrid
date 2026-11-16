@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.51] - 2026-11-16
+
+### Added: Tailscale SSH
+- Hosts with Tailscale SSH log in without a key. Nightgrid now asks the server with "none" first, like OpenSSH does, so the tailnet's policy decides.
+- In the policy's **check** mode, a card shows **Approve in browser** with the login link while the host connects. The terminal says *Waiting for approval*, and the connection goes ahead once you approve. This works over a system Tailscale and the built-in one.
+- Logging in is never left hanging: after 5 minutes without an answer it stops with a message. If the tailnet refuses, the error names the policy's `ssh` rules and `tailscale set --ssh`.
+- The host editor says when an address is a tailnet one and that Tailscale SSH needs no key.
+
+### Fixed: Services showing sites as down
+- Checks connect like a browser (Happy Eyeballs). They try a name's IPv6 and IPv4 addresses side by side instead of one after another. On a network where IPv6 doesn't get through, public sites (login.tailscale.com, say) timed out before IPv4 was ever tried. SSH, tunnels and the rest of the app dial the same way.
+- A check that can't connect tries once more 2 seconds later before it counts as down. One lost connection no longer turns a site red or starts an alert's grace period.
+- Failures say more:
+  - which server answered (`Server` header) and the address it was reached at, or that it went through the built-in tailnet
+  - the start of the error page
+  - for 502 and 504, that the proxy couldn't reach the app behind it
+  - for timeouts, the addresses that were tried
+
 ## [0.10.50] - 2026-11-16
 
 ### Changed: a shorter sidebar

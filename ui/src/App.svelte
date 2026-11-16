@@ -43,6 +43,8 @@
   import HelperPanel from "./lib/components/helper/HelperPanel.svelte";
   import Spotlight from "./lib/components/helper/Spotlight.svelte";
   import TourOverlay from "./lib/components/helper/TourOverlay.svelte";
+  import AuthNoticeBar from "./lib/components/ssh/AuthNoticeBar.svelte";
+  import { authNotices } from "./lib/stores/authNotices.svelte";
   import TourOffer from "./lib/components/helper/TourOffer.svelte";
   import ProfileReminder from "./lib/components/backup/ProfileReminder.svelte";
   import { helper } from "./lib/stores/helper.svelte";
@@ -58,6 +60,7 @@
   onMount(() => {
     const stop = settings.watchReducedMotion();
     const stopHosts = hosts.start();
+    authNotices.start();
     const stopPad = startGamepad({
       enabled: () => settings.value.controllerNav,
       view: (step) => {
@@ -90,6 +93,7 @@
     return () => {
       stop();
       stopHosts();
+      authNotices.stop();
       stopPad();
       for (const u of unlisten) void u.then((f) => f());
     };
@@ -179,7 +183,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.50"} />
+  <LeftRail version={info?.version ?? "0.10.51"} />
   <div class="main">
     <TopBar />
     <UpsCountdown />
@@ -229,6 +233,7 @@
 </div>
 <Spotlight />
 <TourOverlay />
+<AuthNoticeBar />
 {#if settings.on("drift")}<TourOffer />{/if}
 <ProfileReminder />
 
