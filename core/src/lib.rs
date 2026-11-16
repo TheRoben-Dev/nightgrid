@@ -18,6 +18,7 @@ pub mod device_labels;
 pub mod diskforecast;
 pub mod docker;
 pub mod edit_hook;
+pub mod envvault;
 pub mod error;
 pub mod expiry;
 pub mod files;

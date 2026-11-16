@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.37] - 2026-11-16
+
+### Added: deploy & secrets, part 1: .env vault (M10w)
+- **Docker → Stacks → Vault** keeps a stack's environment variables encrypted inside Nightgrid, with the key in the system keychain. Values that look like secrets (passwords, tokens, keys) are masked until you click **Reveal**.
+- Add a variable by name and value, or paste `NAME=value` into the name field. **Edit** changes a value or the masked flag, the arrows set the order in the file, and **Delete…** asks first, naming the variable.
+- **Import from host .env** reads the stack's current `.env` into the vault.
+- **Deploy .env…** compares the vault with the host's file and lists which names are added, changed or removed (never the values), with a warning for names that would be dropped. **Write .env to <host>** saves a stack snapshot first, then writes the file readable only by its owner. **Up now** recreates the stack with the new values.
+- The vault travels in encrypted profile exports when you include secrets; on another computer the import brings the key along. Variables written with a key this computer doesn't have show as LOCKED.
+
 ## [0.10.36] - 2026-11-16
 
 ### Added: host config editors, part 4: Pi-hole and AdGuard Home (M10v)

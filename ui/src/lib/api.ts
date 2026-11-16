@@ -63,6 +63,10 @@ import {
   type Severity,
   type AmpAction,
   type DnsAction_Serialize as DnsAction,
+  type EnvVar,
+  type EnvDiff,
+  type EnvVarInput_Serialize as EnvVarInput,
+  type EnvDeployed_Serialize as EnvDeployed,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
   type DnsRecord,
@@ -275,6 +279,7 @@ import { mockAccess } from "./mockAccess";
 import { mockJobs } from "./mockJobs";
 import { mockFirewall } from "./mockFirewall";
 import { mockProxyEdit } from "./mockProxyEdit";
+import { mockEnvVault } from "./mockEnvVault";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -321,6 +326,10 @@ export type {
   AmpAction,
   DnsAction,
   DnsStatus,
+  EnvVar,
+  EnvDiff,
+  EnvVarInput,
+  EnvDeployed,
   DnsList,
   DnsRecord,
   AmpInstance,
@@ -627,7 +636,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.36-web",
+      version: "0.10.37-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1093,6 +1102,17 @@ export const api = {
     T() ? commands.caddySave(hostId, proxyName, text, baseHash, summary, sudo) : mockProxyEdit.saveCaddy(hostId, proxyName, text, baseHash),
   traefikSave: (hostId: number, proxyName: string, routes: TraefikRoute[], baseHash: string): Promise<TraefikTarget> =>
     T() ? commands.traefikSave(hostId, proxyName, routes, baseHash) : mockProxyEdit.saveTraefik(hostId, proxyName, routes, baseHash),
+  envVarsList: (hostId: number, stack: string): Promise<EnvVar[]> => (T() ? commands.envVarsList(hostId, stack) : mockEnvVault.list(hostId, stack)),
+  envStacks: (): Promise<[number, string, number][]> => (T() ? commands.envStacks() : mockEnvVault.stacks()),
+  envVarSet: (hostId: number, stack: string, oldName: string | null, input: EnvVarInput): Promise<EnvVar> =>
+    T() ? commands.envVarSet(hostId, stack, oldName, input) : mockEnvVault.set(hostId, stack, oldName, input),
+  envVarDelete: (id: number): Promise<null> => (T() ? commands.envVarDelete(id) : mockEnvVault.remove(id)),
+  envVarReveal: (id: number): Promise<string> => (T() ? commands.envVarReveal(id) : mockEnvVault.reveal(id)),
+  envVarsOrder: (hostId: number, stack: string, ids: number[]): Promise<null> =>
+    T() ? commands.envVarsOrder(hostId, stack, ids) : mockEnvVault.order(hostId, stack, ids),
+  envImportHost: (hostId: number, stack: Stack): Promise<number> => (T() ? commands.envImportHost(hostId, stack) : mockEnvVault.importHost(hostId, stack)),
+  envDeployPreview: (hostId: number, stack: Stack): Promise<EnvDiff> => (T() ? commands.envDeployPreview(hostId, stack) : mockEnvVault.preview(hostId, stack)),
+  envDeploy: (hostId: number, stack: Stack): Promise<EnvDeployed> => (T() ? commands.envDeploy(hostId, stack) : mockEnvVault.deploy(hostId, stack)),
   timerCalendarPreview: (hostId: number, calendar: string): Promise<CalendarPreview> => (T() ? commands.timerCalendarPreview(hostId, calendar) : mockJobs.preview(calendar)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),

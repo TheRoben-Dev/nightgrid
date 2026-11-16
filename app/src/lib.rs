@@ -10,6 +10,7 @@ mod commands;
 mod confdiff_cmd;
 mod desktop_cmd;
 mod docker_cmd;
+mod envvault_cmd;
 mod expiry_cmd;
 mod files_cmd;
 mod firewall_cmd;
@@ -187,6 +188,15 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         integrations_cmd::integration_test,
         integrations_cmd::amp_instance_action,
         integrations_cmd::dns_filter_action,
+        envvault_cmd::env_vars_list,
+        envvault_cmd::env_stacks,
+        envvault_cmd::env_var_set,
+        envvault_cmd::env_var_delete,
+        envvault_cmd::env_var_reveal,
+        envvault_cmd::env_vars_order,
+        envvault_cmd::env_import_host,
+        envvault_cmd::env_deploy_preview,
+        envvault_cmd::env_deploy,
         notes_cmd::notes_list,
         notes_cmd::note_save,
         notes_cmd::note_delete,

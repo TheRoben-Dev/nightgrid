@@ -129,16 +129,31 @@ const TABLES: &[Table] = &[
     },
     // Host ids inside the saved query aren't remapped; unknown ones are ignored.
     Table { name: "log_searches", id: true, fks: &[], keys: &[&["name"]] },
+    // Ciphertext only; the vault keys travel as secrets (opt-in).
+    Table {
+        name: "env_vars",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Skip)],
+        keys: &[&["host_id", "stack", "name"]],
+    },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];
 
 /// Who a bundled secret belongs to, by the id it had when exported.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "owner", rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "owner", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum SecretOwner {
-    Host { id: HostId },
-    Integration { id: IntegrationId },
+    Host {
+        id: HostId,
+    },
+    Integration {
+        id: IntegrationId,
+    },
     AlertsWebhook,
+    /// A .env vault key, by its id (the same on every computer).
+    Vault {
+        key_id: String,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
@@ -312,6 +327,10 @@ pub fn secret_refs(store: &Store) -> Result<Vec<(SecretOwner, SecretRef)>> {
         out.push((SecretOwner::Integration { id }, SecretRef::integration(id)));
     }
     out.push((SecretOwner::AlertsWebhook, SecretRef::alerts_webhook()));
+    for key_id in store.env_key_ids()? {
+        let r = SecretRef::vault(&key_id);
+        out.push((SecretOwner::Vault { key_id }, r));
+    }
     Ok(out)
 }
 
@@ -561,9 +580,18 @@ pub fn restore_secrets(keychain: &dyn SecretStore, bundle: &Bundle, outcome: &Im
                 }
                 r
             }
+            // Same id = same key: saving it again changes nothing.
+            SecretOwner::Vault { ref key_id }
+                if kind == SecretKind::VaultKey && crate::envvault::valid_key_id(key_id) =>
+            {
+                SecretRef::vault(key_id)
+            }
             _ => continue,
         };
         keychain.set(&r, &Secret::new(s.value.as_str()))?;
+        if let SecretOwner::Vault { key_id } = &s.owner {
+            crate::envvault::adopt_key(keychain, key_id)?;
+        }
         saved += 1;
     }
     Ok(saved)
@@ -737,5 +765,30 @@ mod tests {
         let s = BundledSecret { owner: SecretOwner::Host { id: 3 }, kind: "host-password".into(), value: "x".into() };
         let j = serde_json::to_value(&s).unwrap();
         assert_eq!(j, serde_json::json!({ "owner": "host", "id": 3, "kind": "host-password", "value": "x" }));
+    }
+
+    #[test]
+    fn vault_values_travel_with_their_key() {
+        let mut a = Store::open_in_memory().unwrap();
+        seed(&a);
+        let kc = MemoryStore::new();
+        let input = crate::envvault::EnvVarInput { name: "DB_PASS".into(), value: Some("s3cr3t".into()), secret: true };
+        a.set_env_var(&kc, 4, "app", None, &input).unwrap();
+        let mut b = snapshot(&a, "0.10.37", 1).unwrap();
+        assert_eq!(collect_secrets(&a, &kc, &mut b).unwrap(), 1);
+        let b = roundtrip(&b);
+        let j = serde_json::to_value(&b.secrets[0]).unwrap();
+        assert_eq!(j["owner"], "vault");
+        assert!(crate::envvault::valid_key_id(j["keyId"].as_str().unwrap()));
+
+        let mut z = Store::open_in_memory().unwrap();
+        let kc2 = MemoryStore::new();
+        let out = import(&mut z, &b, ImportMode::Merge).unwrap();
+        assert_eq!(restore_secrets(&kc2, &b, &out).unwrap(), 1);
+        let host = out.hosts[&4] as HostId;
+        let vals = z.env_values(&kc2, host, "app").unwrap();
+        assert_eq!(vals[0].1.as_str(), "s3cr3t");
+        // The imported key became this computer's key.
+        assert_eq!(crate::envvault::current_key(&kc2).unwrap().0, j["keyId"].as_str().unwrap());
     }
 }

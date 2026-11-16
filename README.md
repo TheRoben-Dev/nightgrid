@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.37 (.env vault)
+
+1. **Docker → Stacks → Vault** on a stack that has a `.env`. **Import from host .env** → Import: every variable appears; passwords and tokens show `••••••••`, the rest show their values. **Reveal** shows one, **Hide** hides it again.
+2. Paste `NIGHTGRID_TEST=hello` into the name field: the value field fills. **Add**. Delete a harmless variable with **Delete…** (the confirmation names it).
+3. **Deploy .env…**: ADDED lists `NIGHTGRID_TEST`, REMOVED lists the deleted one with a warning. **Write .env to <host>**, then on the host `ls -l .env` shows `-rw-------` and `cat .env` has the new line. **Snapshots** has a new "before .env deploy" entry.
+4. **Up <stack> now**: the stack's containers are recreated; `docker compose exec <svc> env | grep NIGHTGRID_TEST` shows it.
+5. `sqlite3 ~/Library/Application\ Support/dev.nightgrid.Nightgrid/nightgrid.db "select name, substr(value,1,20) from env_vars"` shows only base64 ciphertext.
+6. **Settings → Backup → Export…** with secrets included, then import on another machine (or after deleting the vault key in Keychain Access, which makes the rows LOCKED): the values unlock again.
+
 ### macOS: testing 0.10.36 (Pi-hole / AdGuard Home)
 
 1. **Services → Add integration → PI-HOLE**: URL `http://<pi-hole>`, the web password (or an app password), **Test** says "Connected: … queries". Save: the card shows queries, blocked and the top 3 blocked domains.

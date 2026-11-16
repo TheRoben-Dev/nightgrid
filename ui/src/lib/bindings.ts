@@ -349,6 +349,28 @@ export const commands = {
 	 *  confirms turning blocking off and removals with the target named.
 	 */
 	dnsFilterAction: (id: number, action: DnsAction_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<null>("dns_filter_action", { id, action }, options),
+	envVarsList: (hostId: number, stack: string, options?: InvokeOptions) => __TAURI_INVOKE<EnvVar[]>("env_vars_list", { hostId, stack }, options),
+	/**  Stacks that have variables in the vault: (host id, stack, count). */
+	envStacks: (options?: InvokeOptions) => __TAURI_INVOKE<([number, string, number])[]>("env_stacks", undefined, options),
+	/**  Adds or changes a variable; `old_name` renames. `value: None` keeps it. */
+	envVarSet: (hostId: number, stack: string, oldName: string | null, input: EnvVarInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<EnvVar>("env_var_set", { hostId, stack, oldName, input }, options),
+	envVarDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("env_var_delete", { id }, options),
+	/**  One value, for "click to reveal" (rule 6). */
+	envVarReveal: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<string>("env_var_reveal", { id }, options),
+	envVarsOrder: (hostId: number, stack: string, ids: number[], options?: InvokeOptions) => __TAURI_INVOKE<null>("env_vars_order", { hostId, stack, ids }, options),
+	/**
+	 *  Copies the host's current `.env` into the vault (new names added,
+	 *  existing ones updated). Returns how many variables were read.
+	 */
+	envImportHost: (hostId: number, stack: Stack, options?: InvokeOptions) => __TAURI_INVOKE<number>("env_import_host", { hostId, stack }, options),
+	/**  What deploying would change in the host's `.env`, by variable name. */
+	envDeployPreview: (hostId: number, stack: Stack, options?: InvokeOptions) => __TAURI_INVOKE<EnvDiff>("env_deploy_preview", { hostId, stack }, options),
+	/**
+	 *  Writes the vault's variables to the host's `.env` (mode 600) after a
+	 *  stack snapshot. Starting the stack again is the normal "Up" afterwards.
+	 *  The UI shows the preview first and names the stack and host (rule 5).
+	 */
+	envDeploy: (hostId: number, stack: Stack, options?: InvokeOptions) => __TAURI_INVOKE<EnvDeployed_Serialize>("env_deploy", { hostId, stack }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -2263,6 +2285,66 @@ export type Entry_Serialize = {
 	mode: number | null,
 	uid: number | null,
 	gid: number | null,
+};
+
+export type EnvDeployed = EnvDeployed_Serialize | EnvDeployed_Deserialize;
+
+export type EnvDeployed_Deserialize = {
+	path: string,
+	/**  A stack snapshot was saved first (roll back from Snapshots). */
+	snapshot: boolean,
+	snapshotError?: string | null,
+};
+
+export type EnvDeployed_Serialize = {
+	path: string,
+	/**  A stack snapshot was saved first (roll back from Snapshots). */
+	snapshot: boolean,
+	snapshotError: string | null,
+};
+
+/**  What deploying would change in the host's `.env`, by name only. */
+export type EnvDiff = {
+	/**  The host has a `.env` now. */
+	exists: boolean,
+	added: string[],
+	changed: string[],
+	/**  On the host but not in the vault: deploying drops them. */
+	removed: string[],
+	unchanged: number,
+};
+
+/**  A variable as listed: never the value. */
+export type EnvVar = {
+	id: number,
+	hostId: number,
+	stack: string,
+	name: string,
+	/**  Masked in the UI until revealed. */
+	secret: boolean,
+	/**  The key it was written with isn't in this computer's keychain. */
+	locked: boolean,
+	keyId: string,
+	position: number,
+	/**  Unix seconds. */
+	updatedAt: number | null,
+};
+
+/**  A new or changed variable. `value: None` keeps the stored one. */
+export type EnvVarInput = EnvVarInput_Serialize | EnvVarInput_Deserialize;
+
+/**  A new or changed variable. `value: None` keeps the stored one. */
+export type EnvVarInput_Deserialize = {
+	name: string,
+	value?: string | null,
+	secret: boolean,
+};
+
+/**  A new or changed variable. `value: None` keeps the stored one. */
+export type EnvVarInput_Serialize = {
+	name: string,
+	value: string | null,
+	secret: boolean,
 };
 
 export type EventKind = 

@@ -52,12 +52,12 @@ impl From<ConnectError> for DockerCmdError {
 }
 
 impl DockerCmdError {
-    fn msg(m: impl Into<String>) -> Self {
+    pub(crate) fn msg(m: impl Into<String>) -> Self {
         Self { message: m.into(), connect: None, docker: None }
     }
 }
 
-type DockerResult<T> = Result<T, DockerCmdError>;
+pub(crate) type DockerResult<T> = Result<T, DockerCmdError>;
 
 pub(crate) async fn docker_for(app: &AppHandle, host_id: HostId) -> DockerResult<Arc<DockerHost>> {
     let conn = connect_host(app, host_id).await?;
@@ -365,7 +365,7 @@ pub async fn docker_compose_run(
     Ok(run_id)
 }
 
-async fn take_snapshot(
+pub(crate) async fn take_snapshot(
     app: &AppHandle,
     host_id: HostId,
     d: &DockerHost,
