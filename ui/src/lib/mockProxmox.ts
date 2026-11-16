@@ -22,6 +22,10 @@ import type {
   PveConfigEntry_Serialize as PveConfigEntry,
   PveHostDevices,
   PveSetting,
+  PveIface_Serialize as PveIface,
+  PveIfaceSpec_Deserialize as PveIfaceSpec,
+  PveNetwork_Serialize as PveNetwork,
+  PveNetApply_Serialize as PveNetApply,
 } from "./bindings";
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -191,7 +195,78 @@ function configView(vmid: number, kind: string): PveConfig {
   };
 }
 
+// ---- part 5: node network ----
+const nic = (iface: string, kind: string, x: Partial<PveIface> = {}): PveIface => ({
+  iface, kind, active: true, autostart: true, exists: kind === "eth", cidr: "", gateway: "", cidr6: "", gateway6: "", ports: "", vlanAware: false, bondMode: "", vlanId: null, vlanRawDevice: "", mtu: null, comments: "", ...x,
+});
+let liveNet: PveIface[] = [
+  nic("vmbr0", "bridge", { cidr: "192.168.1.20/24", gateway: "192.168.1.1", ports: "bond0", comments: "LAN" }),
+  nic("vmbr1", "bridge", { vlanAware: true, comments: "lab vlans" }),
+  nic("bond0", "bond", { ports: "enp3s0 enp4s0", bondMode: "active-backup" }),
+  nic("vmbr0.20", "vlan", { cidr: "10.20.0.2/24", vlanId: 20, vlanRawDevice: "vmbr0", comments: "storage net" }),
+  nic("enp3s0", "eth"),
+  nic("enp4s0", "eth"),
+  nic("wlp5s0", "eth", { active: false, autostart: false }),
+];
+let stagedNet: PveIface[] | null = null;
+let netArmed = false;
+let prevNet: PveIface[] = [];
+const ifaceText = (i: PveIface) =>
+  [`auto ${i.iface}`, `iface ${i.iface} inet ${i.cidr ? "static" : "manual"}`, ...(i.cidr ? [`\taddress ${i.cidr}`] : []), ...(i.gateway ? [`\tgateway ${i.gateway}`] : []), ...(i.kind === "bridge" ? [`\tbridge-ports ${i.ports || "none"}`] : []), ...(i.vlanAware ? ["\tbridge-vlan-aware yes"] : []), ...(i.comments ? [`#${i.comments}`] : [])];
+function netDiff(): string {
+  if (!stagedNet) return "";
+  const out = ["--- /etc/network/interfaces", "+++ /etc/network/interfaces.new"];
+  const names = [...new Set([...liveNet, ...stagedNet].map((i) => i.iface))];
+  for (const n of names) {
+    const a = liveNet.find((i) => i.iface === n);
+    const b = stagedNet.find((i) => i.iface === n);
+    const at = a ? ifaceText(a) : [];
+    const bt = b ? ifaceText(b) : [];
+    if (at.join("\n") === bt.join("\n")) continue;
+    out.push(`@@ ${n} @@`, ...at.filter((l) => !bt.includes(l)).map((l) => `-${l}`), ...bt.filter((l) => !at.includes(l)).map((l) => `+${l}`));
+  }
+  return out.length > 2 ? out.join("\n") : "";
+}
+const fromSpec = (s: PveIfaceSpec): PveIface =>
+  nic(s.iface, s.kind, { cidr: s.cidr, gateway: s.gateway, cidr6: s.cidr6, gateway6: s.gateway6, ports: s.ports, vlanAware: s.vlanAware, bondMode: s.bondMode, vlanId: s.vlanId ?? null, vlanRawDevice: s.vlanRawDevice, mtu: s.mtu ?? null, autostart: s.autostart, comments: s.comments, active: false });
+
 export const mockProxmox = {
+  network: async (): Promise<PveNetwork> => ({ ifaces: structuredClone(stagedNet ?? liveNet), diff: netDiff(), rollbackArmed: netArmed, notes: [] }),
+  ifaceSave: async (spec: PveIfaceSpec, create: boolean): Promise<null> => {
+    const cur = structuredClone(stagedNet ?? liveNet);
+    if (create && cur.some((i) => i.iface === spec.iface)) throw new Error(`interface '${spec.iface}' already exists`);
+    if (spec.kind === "bridge" && !/^vmbr\d+$/.test(spec.iface)) throw new Error("a Linux bridge is named vmbr plus a number (vmbr1)");
+    const i = cur.findIndex((x) => x.iface === spec.iface);
+    const next = { ...fromSpec(spec), active: i >= 0 ? cur[i].active : false, exists: i >= 0 ? cur[i].exists : false };
+    if (i >= 0) cur[i] = next;
+    else cur.push(next);
+    stagedNet = cur;
+    return null;
+  },
+  ifaceDelete: async (iface: string): Promise<null> => {
+    stagedNet = structuredClone(stagedNet ?? liveNet).filter((i) => i.iface !== iface);
+    return null;
+  },
+  networkRevert: async (): Promise<null> => {
+    stagedNet = null;
+    return null;
+  },
+  networkApply: async (node: string): Promise<PveNetApply> => {
+    if (!stagedNet) throw new Error("no staged changes to apply");
+    const t = task(node, "srvreload", "networking");
+    finishLater(t, () => {
+      liveNet = (stagedNet ?? liveNet).map((i) => ({ ...i, active: i.autostart }));
+      stagedNet = null;
+    }, 1200);
+    netArmed = true;
+    prevNet = structuredClone(liveNet);
+    return { token: String(now()), upid: t.upid, secs: 90 };
+  },
+  networkSettle: async (keep: boolean): Promise<null> => {
+    netArmed = false;
+    if (!keep) liveNet = prevNet;
+    return null;
+  },
   config: async (vmid: number, kind: string): Promise<PveConfig> => configView(vmid, kind),
   configSet: async (vmid: number, digest: string, set: PveSetting[], remove: string[]): Promise<null> => {
     if (digest && digest !== `d${digestSeq}`) throw new Error("detected modified configuration - file changed by other user? Try again.");

@@ -443,6 +443,17 @@ export const commands = {
 	pveDiskResize: (hostId: number, node: string, kind: string, vmid: number, disk: string, growGb: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("pve_disk_resize", { hostId, node, kind, vmid, disk, growGb, sudo }, options),
 	/**  PCI and USB devices on a node, for passthrough. */
 	pveHostDevices: (hostId: number, node: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveHostDevices>("pve_host_devices", { hostId, node, sudo }, options),
+	/**  A node's interfaces, staged changes (diff) and rollback state. */
+	pveNetwork: (hostId: number, node: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveNetwork_Serialize>("pve_network", { hostId, node, sudo }, options),
+	/**  Stages a new or changed interface. Nothing changes on the node until apply. */
+	pveIfaceSave: (hostId: number, node: string, spec: PveIfaceSpec_Deserialize, create: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_iface_save", { hostId, node, spec, create, sudo }, options),
+	pveIfaceDelete: (hostId: number, node: string, iface: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_iface_delete", { hostId, node, iface, sudo }, options),
+	/**  Drops every staged change. */
+	pveNetworkRevert: (hostId: number, node: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_network_revert", { hostId, node, sudo }, options),
+	/**  Applies the staged changes with a rollback armed on the node. */
+	pveNetworkApply: (hostId: number, node: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveNetApply_Serialize>("pve_network_apply", { hostId, node, sudo }, options),
+	/**  Keeps the applied network change, or restores the old config now. */
+	pveNetworkSettle: (hostId: number, token: string, keep: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_network_settle", { hostId, token, keep, sudo }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -4984,6 +4995,129 @@ export type PveHostDevices = {
 	usb: PveUsb[],
 	/**  IOMMU looks off (every PCI group is -1). */
 	iommuOff: boolean,
+	notes: string[],
+};
+
+export type PveIface = PveIface_Serialize | PveIface_Deserialize;
+
+/**  A bridge, bond or VLAN to create or change (or an eth's address and comment). */
+export type PveIfaceSpec = PveIfaceSpec_Serialize | PveIfaceSpec_Deserialize;
+
+/**  A bridge, bond or VLAN to create or change (or an eth's address and comment). */
+export type PveIfaceSpec_Deserialize = {
+	iface: string,
+	kind: string,
+	cidr: string,
+	gateway: string,
+	cidr6: string,
+	gateway6: string,
+	/**  Bridge ports or bond slaves, space separated. */
+	ports: string,
+	vlanAware: boolean,
+	bondMode: string,
+	vlanId?: number | null,
+	vlanRawDevice: string,
+	mtu?: number | null,
+	autostart: boolean,
+	comments: string,
+};
+
+/**  A bridge, bond or VLAN to create or change (or an eth's address and comment). */
+export type PveIfaceSpec_Serialize = {
+	iface: string,
+	kind: string,
+	cidr: string,
+	gateway: string,
+	cidr6: string,
+	gateway6: string,
+	/**  Bridge ports or bond slaves, space separated. */
+	ports: string,
+	vlanAware: boolean,
+	bondMode: string,
+	vlanId: number | null,
+	vlanRawDevice: string,
+	mtu: number | null,
+	autostart: boolean,
+	comments: string,
+};
+
+export type PveIface_Deserialize = {
+	iface: string,
+	/**  bridge, bond, eth, vlan, OVSBridge… */
+	kind: string,
+	active: boolean,
+	autostart: boolean,
+	/**  The NIC is physically there (eth). */
+	exists: boolean,
+	cidr: string,
+	gateway: string,
+	cidr6: string,
+	gateway6: string,
+	/**  Bridge ports or bond slaves, space separated. */
+	ports: string,
+	vlanAware: boolean,
+	bondMode: string,
+	vlanId?: number | null,
+	vlanRawDevice: string,
+	mtu?: number | null,
+	comments: string,
+};
+
+export type PveIface_Serialize = {
+	iface: string,
+	/**  bridge, bond, eth, vlan, OVSBridge… */
+	kind: string,
+	active: boolean,
+	autostart: boolean,
+	/**  The NIC is physically there (eth). */
+	exists: boolean,
+	cidr: string,
+	gateway: string,
+	cidr6: string,
+	gateway6: string,
+	/**  Bridge ports or bond slaves, space separated. */
+	ports: string,
+	vlanAware: boolean,
+	bondMode: string,
+	vlanId: number | null,
+	vlanRawDevice: string,
+	mtu: number | null,
+	comments: string,
+};
+
+export type PveNetApply = PveNetApply_Serialize | PveNetApply_Deserialize;
+
+export type PveNetApply_Deserialize = {
+	/**  Pass to `pve_network_settle` to keep or roll back. */
+	token: string,
+	upid?: string | null,
+	secs: number,
+};
+
+export type PveNetApply_Serialize = {
+	/**  Pass to `pve_network_settle` to keep or roll back. */
+	token: string,
+	upid: string | null,
+	secs: number,
+};
+
+export type PveNetwork = PveNetwork_Serialize | PveNetwork_Deserialize;
+
+export type PveNetwork_Deserialize = {
+	ifaces: PveIface_Deserialize[],
+	/**  `diff -u` of the staged changes, empty when nothing waits. */
+	diff: string,
+	/**  A rollback from an earlier apply is still armed. */
+	rollbackArmed: boolean,
+	notes: string[],
+};
+
+export type PveNetwork_Serialize = {
+	ifaces: PveIface_Serialize[],
+	/**  `diff -u` of the staged changes, empty when nothing waits. */
+	diff: string,
+	/**  A rollback from an earlier apply is still armed. */
+	rollbackArmed: boolean,
 	notes: string[],
 };
 

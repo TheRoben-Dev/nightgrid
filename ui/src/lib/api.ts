@@ -90,6 +90,9 @@ import {
   type PveAppliance,
   type PveConfig_Serialize as PveConfig,
   type PveHostDevices,
+  type PveNetwork_Serialize as PveNetwork,
+  type PveIfaceSpec_Deserialize as PveIfaceSpec,
+  type PveNetApply_Serialize as PveNetApply,
   type PveSetting,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
@@ -379,6 +382,9 @@ export type {
   PveCtSpec,
   PveCloneSpec,
   PveAppliance,
+  PveNetwork,
+  PveIfaceSpec,
+  PveNetApply,
   DnsList,
   DnsRecord,
   AmpInstance,
@@ -685,7 +691,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.45-web",
+      version: "0.10.46-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1209,6 +1215,13 @@ export const api = {
   pveDiskResize: (hostId: number, node: string, kind: string, vmid: number, disk: string, growGb: number, sudo: SudoInput | null): Promise<string | null> =>
     T() ? commands.pveDiskResize(hostId, node, kind, vmid, disk, growGb, sudo) : mockProxmox.diskResize(vmid, disk, growGb),
   pveHostDevices: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveHostDevices> => (T() ? commands.pveHostDevices(hostId, node, sudo) : mockProxmox.hostDevices()),
+  pveNetwork: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveNetwork> => (T() ? commands.pveNetwork(hostId, node, sudo) : mockProxmox.network()),
+  pveIfaceSave: (hostId: number, node: string, spec: PveIfaceSpec, create: boolean, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.pveIfaceSave(hostId, node, spec, create, sudo) : mockProxmox.ifaceSave(spec, create),
+  pveIfaceDelete: (hostId: number, node: string, iface: string, sudo: SudoInput | null): Promise<null> => (T() ? commands.pveIfaceDelete(hostId, node, iface, sudo) : mockProxmox.ifaceDelete(iface)),
+  pveNetworkRevert: (hostId: number, node: string, sudo: SudoInput | null): Promise<null> => (T() ? commands.pveNetworkRevert(hostId, node, sudo) : mockProxmox.networkRevert()),
+  pveNetworkApply: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveNetApply> => (T() ? commands.pveNetworkApply(hostId, node, sudo) : mockProxmox.networkApply(node)),
+  pveNetworkSettle: (hostId: number, token: string, keep: boolean, sudo: SudoInput | null): Promise<null> => (T() ? commands.pveNetworkSettle(hostId, token, keep, sudo) : mockProxmox.networkSettle(keep)),
   pveAppliances: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveAppliance[]> => (T() ? commands.pveAppliances(hostId, node, sudo) : mockProxmox.appliances()),
   pveApplianceDownload: (hostId: number, node: string, storage: string, template: string, sudo: SudoInput | null): Promise<string> =>
     T() ? commands.pveApplianceDownload(hostId, node, storage, template, sudo) : mockProxmox.applianceDownload(node, storage, template),

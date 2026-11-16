@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.46] - 2026-11-16
+
+### Added: Proxmox VE, part 5: node network (M10r)
+- New **NETWORK** tab in Proxmox: the connected node's bridges, bonds, VLANs and NICs with state, ports or slaves, addresses, gateway and comments.
+- **+ Bridge**, **+ Bond** and **+ VLAN** add interfaces, and **Edit…** and **Remove…** change them. Ports already used by another bridge or bond are marked. As in Proxmox, every change is only staged: the tab shows the staged diff of `/etc/network/interfaces`, with **Revert** and **Apply…**.
+- **Apply…** first arms a rollback on the node, then reloads the network. Unless you press **Keep** within 90 seconds, the node restores the previous config by itself. A change that cuts off this computer, or the node's own address, undoes itself. **Roll back now** restores the old config at once.
+
 ## [0.10.45] - 2026-11-16
 
 ### Added: Proxmox VE, part 4: hardware and options (M10r)

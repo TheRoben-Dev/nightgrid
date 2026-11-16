@@ -468,3 +468,70 @@ export function changed(c: PveConfig | null, want: Record<string, string | null>
   }
   return { set, remove };
 }
+
+// ---- part 5: node network ----
+
+import type { PveIface_Serialize as PveIface, PveIfaceSpec_Deserialize as PveIfaceSpec, PveNetwork_Serialize as PveNetwork } from "./bindings";
+export type { PveIface, PveIfaceSpec, PveNetwork };
+
+export const BOND_MODES = ["active-backup", "802.3ad", "balance-rr", "balance-xor", "broadcast", "balance-tlb", "balance-alb"];
+
+export function ifaceSpec(i: PveIface): PveIfaceSpec {
+  return {
+    iface: i.iface,
+    kind: i.kind,
+    cidr: i.cidr,
+    gateway: i.gateway,
+    cidr6: i.cidr6,
+    gateway6: i.gateway6,
+    ports: i.ports,
+    vlanAware: i.vlanAware,
+    bondMode: i.bondMode,
+    vlanId: i.vlanId,
+    vlanRawDevice: i.vlanRawDevice,
+    mtu: i.mtu,
+    autostart: i.autostart,
+    comments: i.comments,
+  };
+}
+
+/** A new bridge, bond or VLAN with the next free name. */
+export function newIface(kind: "bridge" | "bond" | "vlan", ifaces: PveIface[]): PveIfaceSpec {
+  const used = new Set(ifaces.map((i) => i.iface));
+  const free = (p: string) => {
+    for (let n = p === "vmbr" ? 1 : 0; n < 10000; n++) if (!used.has(`${p}${n}`)) return `${p}${n}`;
+    return p;
+  };
+  const vlanBase = ifaces.find((i) => i.kind === "bridge")?.iface ?? "vmbr0";
+  return {
+    iface: kind === "bridge" ? free("vmbr") : kind === "bond" ? free("bond") : `${vlanBase}.10`,
+    kind,
+    cidr: "",
+    gateway: "",
+    cidr6: "",
+    gateway6: "",
+    ports: "",
+    vlanAware: false,
+    bondMode: kind === "bond" ? "active-backup" : "",
+    vlanId: null,
+    vlanRawDevice: "",
+    mtu: null,
+    autostart: true,
+    comments: "",
+  };
+}
+
+export const validCidr4 = (c: string): boolean => c !== "dhcp" && validCtIp(c);
+
+/** What's wrong with a spec, or null. Mirrors the backend's checks. */
+export function ifaceProblem(s: PveIfaceSpec): string | null {
+  if (!/^[A-Za-z][A-Za-z0-9_.-]{1,19}$/.test(s.iface)) return "Name: a letter, then letters, digits, . _ -";
+  if (s.kind === "bridge" && !/^vmbr\d{1,4}$/.test(s.iface)) return "A Linux bridge is named vmbr plus a number (vmbr1).";
+  if (s.cidr && !validCidr4(s.cidr)) return "IPv4: an address with prefix, like 192.168.1.20/24.";
+  if (s.gateway && (!validIpv4(s.gateway) || !s.cidr)) return "Gateway: an IPv4 address, only with an address set.";
+  if (s.kind === "bond" && !s.ports.trim()) return "A bond needs at least one slave.";
+  if (s.kind === "vlan" && !/\.\d{1,4}$/.test(s.iface) && !(s.vlanId && s.vlanRawDevice)) return "Name a VLAN device.tag (vmbr0.20).";
+  if (s.ports && !s.ports.split(/\s+/).filter(Boolean).every((p) => /^[A-Za-z][A-Za-z0-9_.-]{1,19}$/.test(p))) return "Ports: interface names separated by spaces.";
+  if (s.mtu != null && (s.mtu < 1280 || s.mtu > 65520)) return "MTU: 1280 to 65520.";
+  return null;
+}

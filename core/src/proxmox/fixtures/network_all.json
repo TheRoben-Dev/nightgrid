@@ -1,0 +1,7 @@
+[{"active":1,"autostart":1,"bridge_ports":"bond0","bridge_stp":"off","bridge_fd":"0","cidr":"192.168.1.20/24","address":"192.168.1.20","netmask":"24","gateway":"192.168.1.1","families":["inet"],"iface":"vmbr0","method":"static","method6":"manual","type":"bridge","comments":"LAN\n","priority":5},
+{"active":1,"autostart":1,"bridge_ports":"","bridge_vlan_aware":1,"bridge_vids":"2-4094","families":["inet"],"iface":"vmbr1","method":"manual","method6":"manual","type":"bridge","comments":"lab vlans"},
+{"active":1,"autostart":1,"bond_miimon":"100","bond_mode":"active-backup","bond-primary":"enp3s0","slaves":"enp3s0 enp4s0","families":["inet"],"iface":"bond0","method":"manual","method6":"manual","type":"bond"},
+{"active":1,"exists":1,"families":["inet"],"iface":"enp3s0","method":"manual","method6":"manual","type":"eth"},
+{"active":1,"exists":1,"families":["inet"],"iface":"enp4s0","method":"manual","method6":"manual","type":"eth"},
+{"exists":1,"families":["inet"],"iface":"wlp5s0","method":"manual","method6":"manual","type":"eth"},
+{"active":1,"autostart":1,"cidr":"10.20.0.2/24","address":"10.20.0.2","netmask":"24","families":["inet"],"iface":"vmbr0.20","method":"static","method6":"manual","type":"vlan","vlan-id":20,"vlan-raw-device":"vmbr0","comments":"storage net"}]

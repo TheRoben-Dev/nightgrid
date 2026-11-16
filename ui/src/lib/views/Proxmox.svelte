@@ -9,6 +9,7 @@
   import PveBackupsTab from "../components/proxmox/PveBackupsTab.svelte";
   import PveGuestPanel from "../components/proxmox/PveGuestPanel.svelte";
   import PveMakeDialogs from "../components/proxmox/PveMakeDialogs.svelte";
+  import PveNetworkTab from "../components/proxmox/PveNetworkTab.svelte";
   import {
     ACTION_CONSEQUENCE,
     ACTION_WORD,
@@ -38,6 +39,7 @@
     { id: "guests", label: "GUESTS" },
     { id: "backups", label: "BACKUPS" },
     { id: "storage", label: "STORAGE" },
+    { id: "network", label: "NETWORK" },
     { id: "tasks", label: "TASKS" },
   ];
 
@@ -268,6 +270,8 @@
           {/each}
         {/if}
       </div>
+    {:else if proxmox.tab === "network"}
+      <PveNetworkTab />
     {:else if proxmox.tab === "tasks"}
       <div class="scroll">
         <div class="trow headrow" aria-hidden="true"><span>STARTED</span><span>TASK</span><span>NODE</span><span>USER</span><span>RESULT</span></div>

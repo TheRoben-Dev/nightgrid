@@ -539,3 +539,129 @@ pub async fn pve_host_devices(
     let out = root_run(&app, host_id, sudo, &script).await?;
     Ok(phw::parse_host_devices(&out))
 }
+
+// ---- part 5: node network ----
+
+use nightgrid_core::proxmox::network::{self as pnet, PveIfaceSpec, PveNetwork};
+
+/// Seconds the node waits for "keep" before restoring the old network config.
+const NET_ROLLBACK_SECS: u32 = 90;
+
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct PveNetApply {
+    /// Pass to `pve_network_settle` to keep or roll back.
+    pub token: String,
+    pub upid: Option<String>,
+    pub secs: u32,
+}
+
+/// A node's interfaces, staged changes (diff) and rollback state.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_network(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveNetwork> {
+    let script = pnet::network_script(&node).ok_or_else(|| invalid("node"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    Ok(pnet::parse_network(&out).map_err(other)?)
+}
+
+async fn staged(app: &AppHandle, host_id: HostId, sudo: Option<SudoInput>, script: &str) -> SysResult<()> {
+    let out = root_run(app, host_id, sudo, script).await?;
+    if out.lines().any(|l| l.trim() == "@@ok") {
+        Ok(())
+    } else {
+        Err(other(proxmox::explain(&out)).into())
+    }
+}
+
+/// Stages a new or changed interface. Nothing changes on the node until apply.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_iface_save(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    spec: PveIfaceSpec,
+    create: bool,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let script = if create { pnet::iface_create_script(&node, &spec) } else { pnet::iface_update_script(&node, &spec) }
+        .map_err(other)?;
+    staged(&app, host_id, sudo, &script).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_iface_delete(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    iface: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let script = pnet::iface_delete_script(&node, &iface).ok_or_else(|| invalid("interface"))?;
+    staged(&app, host_id, sudo, &script).await
+}
+
+/// Drops every staged change.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_network_revert(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let script = pnet::revert_script(&node).ok_or_else(|| invalid("node"))?;
+    staged(&app, host_id, sudo, &script).await
+}
+
+/// Applies the staged changes with a rollback armed on the node.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_network_apply(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveNetApply> {
+    let token = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+        .to_string();
+    let script = pnet::apply_script(&node, &token, NET_ROLLBACK_SECS).ok_or_else(|| invalid("node"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    let upid = pnet::parse_apply(&out).map_err(other)?;
+    note(
+        &app,
+        host_id,
+        Level::Warn,
+        format!("Proxmox: network applied on {node}"),
+        format!("rollback in {NET_ROLLBACK_SECS} s unless kept"),
+    );
+    Ok(PveNetApply { token, upid, secs: NET_ROLLBACK_SECS })
+}
+
+/// Keeps the applied network change, or restores the old config now.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_network_settle(
+    app: AppHandle,
+    host_id: HostId,
+    token: String,
+    keep: bool,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let script = if keep { pnet::confirm_script(&token) } else { pnet::rollback_script(&token) }
+        .ok_or_else(|| invalid("token"))?;
+    staged(&app, host_id, sudo, &script).await?;
+    let what = if keep { "kept" } else { "rolled back" };
+    note(&app, host_id, Level::Info, format!("Proxmox: network change {what}"), String::new());
+    Ok(())
+}
