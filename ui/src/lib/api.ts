@@ -73,6 +73,8 @@ import {
   type GitStatus_Serialize as GitStatus,
   type GitDeployed_Serialize as GitDeployed,
   type GitCommit,
+  type NetTest_Serialize as NetTest,
+  type NetTestResult_Serialize as NetTestResult,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
   type DnsRecord,
@@ -287,6 +289,7 @@ import { mockFirewall } from "./mockFirewall";
 import { mockProxyEdit } from "./mockProxyEdit";
 import { mockEnvVault } from "./mockEnvVault";
 import { mockGitStacks } from "./mockGitStacks";
+import { mockNetperf } from "./mockNetperf";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -343,6 +346,8 @@ export type {
   GitStatus,
   GitDeployed,
   GitCommit,
+  NetTest,
+  NetTestResult,
   DnsList,
   DnsRecord,
   AmpInstance,
@@ -649,7 +654,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.39-web",
+      version: "0.10.40-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1132,6 +1137,10 @@ export const api = {
   gitStackDiff: (id: number, target: string): Promise<string> => (T() ? commands.gitStackDiff(id, target) : mockGitStacks.diff(id, target)),
   gitStackDeploy: (id: number, target: string): Promise<GitDeployed> => (T() ? commands.gitStackDeploy(id, target) : mockGitStacks.deploy(id, target)),
   gitStackRemove: (id: number): Promise<null> => (T() ? commands.gitStackRemove(id) : mockGitStacks.remove(id)),
+  netTestRun: (fromHost: number, toHost: number, target: string | null, secs: number): Promise<NetTestResult> =>
+    T() ? commands.netTestRun(fromHost, toHost, target, secs) : mockNetperf.run(fromHost, toHost, target, secs),
+  netTestsList: (): Promise<NetTest[]> => (T() ? commands.netTestsList() : mockNetperf.list()),
+  netTestsClear: (fromHost: number, toHost: number): Promise<number> => (T() ? commands.netTestsClear(fromHost, toHost) : mockNetperf.clear(fromHost, toHost)),
   timerCalendarPreview: (hostId: number, calendar: string): Promise<CalendarPreview> => (T() ? commands.timerCalendarPreview(hostId, calendar) : mockJobs.preview(calendar)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),

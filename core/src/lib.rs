@@ -30,6 +30,7 @@ pub mod logsearch;
 pub mod logwatch;
 pub mod metrics;
 pub mod netmap;
+pub mod netperf;
 pub mod notes;
 pub mod power;
 pub mod power_schedule;

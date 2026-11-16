@@ -1,7 +1,7 @@
 /** Fleet health (M10m): the update center's rows, counts and wording. */
 import type { DisksReport, Health, Host, ImageUpdate, MountForecast, PackageManager, PoolKind, PoolsReport, Stack, UpdatesReport, UsagePoint } from "./api";
 
-export type FleetTab = "updates" | "disks" | "backups" | "ups" | "uptime" | "logs" | "access";
+export type FleetTab = "updates" | "disks" | "backups" | "ups" | "uptime" | "logs" | "access" | "speed";
 
 export interface HostUpdates {
   status: "checking" | "ok" | "error";
