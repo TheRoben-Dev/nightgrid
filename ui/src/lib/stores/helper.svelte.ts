@@ -6,7 +6,7 @@ import { api, type HelperStatus } from "../api";
 import { guideTarget } from "../helper/guide";
 import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
 import { tour } from "./tour.svelte";
-import { buildTurns, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
+import { buildTurns, setFeatureCheck, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
 import { sectionById } from "../sections";
 import { labelLines } from "../netmap/graph";
 import { keymap } from "../term/keyhints";
@@ -27,6 +27,8 @@ import { settings } from "./settings.svelte";
 import { system } from "./system.svelte";
 import { terms } from "./terms.svelte";
 import { ui } from "./ui.svelte";
+
+setFeatureCheck((id) => settings.on(id));
 
 export type DriftState = "idle" | "blink" | "think" | "talk" | "point" | "listen" | "success" | "error" | "confused" | "sleep";
 
@@ -399,6 +401,8 @@ class HelperStore {
     const t = guideTarget(id);
     if (!t) return;
     if (t.view && ui.section !== t.view) ui.go(t.view);
+    // Settings has two tabs; the feature controls live on the second.
+    if (t.view === "settings") ui.settingsTab = id.startsWith("settings-feature") ? "features" : id === "settings-tab-features" ? ui.settingsTab : "general";
     // Let the view render before looking for the control.
     await new Promise((r) => setTimeout(r, 60));
     const el = document.querySelector<HTMLElement>(`[data-guide="${id}"]`);

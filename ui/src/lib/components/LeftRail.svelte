@@ -46,7 +46,7 @@
   <div class="group sections">
     {#if !collapsed}<div class="label group-label"><span class="cyan">//</span> MODULES</div>{/if}
     <ul>
-      {#each SECTIONS as s (s.id)}
+      {#each SECTIONS.filter((x) => settings.on(x.id)) as s (s.id)}
         <li>
           <button
             type="button"

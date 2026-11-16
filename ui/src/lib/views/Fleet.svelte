@@ -15,6 +15,7 @@
   import { settings } from "../stores/settings.svelte";
   import { fleet } from "../stores/fleet.svelte";
   import { hosts } from "../stores/hosts.svelte";
+  import { ui } from "../stores/ui.svelte";
 
   const TABS: { id: FleetTab; label: string }[] = [
     { id: "updates", label: "UPDATES" },
@@ -26,6 +27,11 @@
     { id: "access", label: "ACCESS" },
     { id: "speed", label: "SPEED" },
   ];
+  // Tabs turned off in Settings → Features are hidden.
+  const tabs = $derived(TABS.filter((t) => settings.on(`fleet.${t.id}`)));
+  $effect(() => {
+    if (tabs.length && !tabs.some((t) => t.id === fleet.tab)) open(tabs[0].id);
+  });
   const upsBad = $derived(alerts.active.filter((a) => a.kind === "upsOnBattery").length + (alerts.snap?.upsCountdown ? 1 : 0));
   const backupBad = $derived(backups.jobs.filter((j) => ["failed", "error", "stale"].includes(jobState(backups.status[j.id]))).length);
   function open(t: FleetTab) {
@@ -48,7 +54,7 @@
 <div class="fleet">
   <div class="toolbar">
     <div class="tabs" role="tablist" aria-label="Fleet view">
-      {#each TABS as t (t.id)}
+      {#each tabs as t (t.id)}
         <button type="button" role="tab" data-guide="fleet-tab-{t.id}" class:on={fleet.tab === t.id} aria-selected={fleet.tab === t.id} onclick={() => open(t.id)}>
           {t.label}{#if t.id === "updates" && pending}<span class="badge">{pending}</span>{/if}{#if t.id === "disks" && diskBad !== "ok"}<span class="badge {diskBad}">!</span>{/if}{#if t.id === "backups" && backupBad}<span class="badge bad">{backupBad}</span>{/if}{#if t.id === "ups" && upsBad}<span class="badge bad">!</span>{/if}
         </button>
@@ -62,6 +68,12 @@
         <p class="label">NO HOSTS</p>
         <p class="muted">Add a host first; pending updates, disk health, backups, UPSes and uptime across all of them show up here.</p>
         <button type="button" class="btn primary" onclick={() => (hosts.editing = 0)}>Add host</button>
+      </div>
+    {:else if !tabs.length}
+      <div class="empty">
+        <p class="label">EVERY FLEET CHECK IS OFF</p>
+        <p class="muted">Turn some on in Settings → Features.</p>
+        <button type="button" class="btn" onclick={() => ((ui.settingsTab = "features"), ui.go("settings"))}>Open Features</button>
       </div>
     {:else if fleet.tab === "updates"}
       <UpdateCenter />

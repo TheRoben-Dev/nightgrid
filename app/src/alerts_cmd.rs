@@ -228,7 +228,8 @@ pub fn start(app: &AppHandle) {
         let mut last_docker = 0i64;
         let mut last_quiet = None;
         loop {
-            let cfg = settings(&app);
+            // Features turned off in Settings → Features do no background work.
+            let cfg = settings(&app).effective();
             let now = now_unix();
             let changes = evaluate(&app, &cfg, now, &mut last_docker).await;
             crate::timeline_cmd::record_alerts(&app, &changes);
@@ -256,7 +257,9 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     let rules = &cfg.alerts;
     // Uptime history (M10t) is recorded whether alerts are on or not.
     let polls = if cfg.metrics_enabled { state.metrics.poll_states() } else { HashMap::new() };
-    crate::uptime_cmd::record(app, &polls, cfg.services_checks, u32::from(cfg.services_interval_secs), now);
+    if cfg.feature("fleet.uptime") {
+        crate::uptime_cmd::record(app, &polls, cfg.services_checks, u32::from(cfg.services_interval_secs), now);
+    }
     let (hosts, services) = {
         let store = state.store();
         let hosts: HashMap<HostId, String> =
@@ -331,13 +334,17 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     // Expiry watch (M10l): dates are in the local database; certificate
     // files are re-read from connected hosts twice a day.
     let watched = state.store().watch_list().unwrap_or_default();
-    let expiring = if rules.cert_expiring { nightgrid_core::expiry::conditions(&watched, now) } else { vec![] };
+    let expiry_on = cfg.feature("services.expiry");
+    let expiring =
+        if rules.cert_expiring && expiry_on { nightgrid_core::expiry::conditions(&watched, now) } else { vec![] };
     changes.extend(hub.tracker.lock().expect("poisoned").report(
         &Scope { source: "expiry", hosts: None },
         expiring,
         now,
     ));
-    crate::expiry_cmd::refresh_due(app, &watched, &connected, now);
+    if expiry_on {
+        crate::expiry_cmd::refresh_due(app, &watched, &connected, now);
+    }
 
     // Containers on connected hosts.
     if !rules.container_down {
@@ -506,17 +513,29 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     }
 
     // UPS watches (M10s): readings, alerts and the shutdown countdown.
-    {
+    if cfg.feature("fleet.ups") {
         let (conds, covered) = crate::ups_cmd::evaluate(app, &connected, now).await;
         changes.extend(hub.tracker.lock().expect("poisoned").report(
             &Scope { source: "ups", hosts: Some(&covered) },
             conds,
             now,
         ));
+    } else {
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "ups", hosts: None },
+            vec![],
+            now,
+        ));
     }
 
     // Saved log searches with alerts on (M10u), every 5 minutes.
-    if let Some((conds, covered)) = crate::logsearch_cmd::evaluate(app, &connected, now).await {
+    if !cfg.feature("fleet.logs") {
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "logsearch", hosts: None },
+            vec![],
+            now,
+        ));
+    } else if let Some((conds, covered)) = crate::logsearch_cmd::evaluate(app, &connected, now).await {
         changes.extend(hub.tracker.lock().expect("poisoned").report(
             &Scope { source: "logsearch", hosts: covered.as_ref() },
             conds,

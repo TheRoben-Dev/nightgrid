@@ -4,6 +4,7 @@
  * Everything here is pure so it can be tested and shown to the user verbatim.
  */
 import { SECTIONS, type SectionId } from "../sections";
+import { FEATURES } from "../features";
 import { GUIDE_TARGETS, guideTarget, VIEW_IDS } from "./guide";
 import type { Chunk } from "./knowledge";
 import { TOURS, tourById } from "./tours";
@@ -55,9 +56,20 @@ export function redact(text: string): string {
 
 const viewLabel = (id: SectionId) => SECTIONS.find((s) => s.id === id)?.label ?? id;
 
+// Settings → Features check, set by the helper store (importing the settings
+// store here would loop back through the mock backend).
+let on: (id: string) => boolean = () => true;
+export function setFeatureCheck(f: (id: string) => boolean) {
+  on = f;
+}
+
 export function systemPrompt(): string {
-  const views = SECTIONS.map((s) => `${s.id} (${s.label})`).join(", ");
-  const targets = GUIDE_TARGETS.map((t) => `${t.id}: ${t.what}`).join("\n");
+  // Views turned off in Settings → Features aren't offered.
+  const views = SECTIONS.filter((s) => on(s.id)).map((s) => `${s.id} (${s.label})`).join(", ");
+  const targetOn = (t: { id: string; view: SectionId | null }) =>
+    (t.view === null || on(t.view)) && (!t.id.startsWith("rail-") || on(t.id.slice(5)));
+  const targets = GUIDE_TARGETS.filter(targetOn).map((t) => `${t.id}: ${t.what}`).join("\n");
+  const off = FEATURES.filter((f) => !on(f.id)).map((f) => f.label);
   const tours = TOURS.map((t) => `${t.id} (${t.what})`).join("; ");
   return `You are DRIFT, the built-in helper of Nightgrid, a desktop app that manages servers over SSH (terminals, files, Docker, monitoring, services, tunnels, system tasks, automation). You run locally on the user's computer.
 
@@ -80,7 +92,9 @@ Use at most one show and three points, in the order the user should follow.
 For a task with several steps across views, offer a guided tour instead (it waits for the user at each step):
 [[tour TOUR]]
 Tours: ${tours}
-Offer at most one tour, and only when it fits the question.`;
+Offer at most one tour, and only when it fits the question.${
+    off.length ? `\nTurned off in Settings → Features (the user can turn them on there; don't show or point at them): ${off.join(", ")}.` : ""
+  }`;
 }
 
 export function contextBlock(ctx: HelperContext, docs: Chunk[]): string {

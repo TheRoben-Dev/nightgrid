@@ -12,6 +12,8 @@
   import Panel from "../components/Panel.svelte";
   import SegmentSlider from "../components/SegmentSlider.svelte";
   import Toggle from "../components/Toggle.svelte";
+  import FeaturesPanel from "../components/settings/FeaturesPanel.svelte";
+  import { ui } from "../stores/ui.svelte";
   import { scramble } from "../scramble";
   import { updates } from "../stores/updates.svelte";
   import { DEFAULT_KEYMAP, formatChord, type ActionId } from "../keys";
@@ -62,6 +64,11 @@
   const customTokens = $derived(resolveCustom(settings.value.customTheme));
 </script>
 
+<div class="tabs" role="tablist" aria-label="Settings">
+  <button type="button" role="tab" data-guide="settings-tab-general" class:on={ui.settingsTab === "general"} aria-selected={ui.settingsTab === "general"} onclick={() => (ui.settingsTab = "general")}>GENERAL</button>
+  <button type="button" role="tab" data-guide="settings-tab-features" class:on={ui.settingsTab === "features"} aria-selected={ui.settingsTab === "features"} onclick={() => (ui.settingsTab = "features")}>FEATURES</button>
+</div>
+{#if ui.settingsTab === "general"}
 <div class="grid">
   <div class="wide">
     <Panel title="THEME" guide="settings-theme" prefix=">" count={THEME_IDS.length} reveal>
@@ -334,8 +341,33 @@
     </Panel>
   </div>
 </div>
+{:else}
+  <FeaturesPanel />
+{/if}
 
 <style>
+  .tabs {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    margin-bottom: 12px;
+  }
+  .tabs button {
+    border: 0;
+    background: transparent;
+    color: var(--text-1);
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    padding: 3px 12px;
+    cursor: pointer;
+  }
+  .tabs button + button {
+    border-left: 1px solid var(--line);
+  }
+  .tabs button.on {
+    color: var(--magenta);
+    box-shadow: inset 0 -2px 0 var(--magenta);
+  }
   .grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

@@ -115,7 +115,38 @@ pub struct AppSettings {
     pub dashboard_presets: Vec<crate::dashboard::Dashboard>,
     /// DRIFT has offered its first-run tour (M10q).
     pub tour_offered: bool,
+    /// Features turned off in Settings → Features (`docker`, `fleet.logs` …).
+    /// Turning a parent off turns its children off too. Off hides the
+    /// feature and stops its background work; its data is kept. Unknown ids
+    /// (from a newer version's profile) are kept as they are.
+    pub disabled_features: Vec<String>,
 }
+
+/// Feature ids the backend knows about (the UI has the full list with labels).
+pub const FEATURES: &[&str] = &[
+    "terminal",
+    "files",
+    "docker",
+    "services",
+    "services.expiry",
+    "tunnels",
+    "system",
+    "fleet",
+    "fleet.updates",
+    "fleet.disks",
+    "fleet.backups",
+    "fleet.ups",
+    "fleet.uptime",
+    "fleet.logs",
+    "fleet.access",
+    "fleet.speed",
+    "desktops",
+    "proxmox",
+    "network",
+    "automation",
+    "notes",
+    "drift",
+];
 
 pub const STATUS_BINDS: &[&str] = &["lan", "tailscale", "all"];
 
@@ -259,12 +290,65 @@ impl Default for AppSettings {
             dashboard_active: 0,
             tour_offered: false,
             dashboard_presets: Vec::new(),
+            disabled_features: Vec::new(),
         }
     }
 }
 
 impl AppSettings {
+    /// Whether a feature is on: neither it nor a parent (`fleet` for
+    /// `fleet.logs`) is turned off.
+    pub fn feature(&self, id: &str) -> bool {
+        !self
+            .disabled_features
+            .iter()
+            .any(|d| id == d || id.strip_prefix(d.as_str()).is_some_and(|rest| rest.starts_with('.')))
+    }
+
+    /// The settings background work should run with: rules and checks that
+    /// belong to a turned-off feature are off.
+    pub fn effective(&self) -> Self {
+        let mut s = self.clone();
+        if s.disabled_features.is_empty() {
+            return s;
+        }
+        let a = &mut s.alerts;
+        if !self.feature("docker") {
+            a.container_down = false;
+        }
+        if !self.feature("fleet.disks") {
+            a.smart_warning = false;
+            a.pool_degraded = false;
+            a.disk_forecast = false;
+        }
+        if !self.feature("fleet.backups") {
+            a.backup_stale = false;
+        }
+        if !self.feature("fleet.logs") {
+            a.log_anomaly = false;
+        }
+        if !self.feature("services") {
+            s.services_checks = false;
+        }
+        if !self.feature("drift") {
+            s.helper_enabled = false;
+        }
+        s
+    }
+
     pub fn validate(&self) -> Result<()> {
+        if self.disabled_features.len() > 64
+            || self.disabled_features.iter().any(|f| {
+                f.is_empty()
+                    || f.len() > 40
+                    || !f.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '.' || c == '-')
+            })
+        {
+            return Err(Error::Invalid {
+                field: "disabledFeatures",
+                reason: "at most 64 ids of lowercase letters, digits, dots and dashes".into(),
+            });
+        }
         let h = &self.tailnet_hostname;
         if h.is_empty()
             || h.len() > 63
@@ -388,6 +472,35 @@ mod tests {
         let back = AppSettings::load(&store).unwrap();
         assert_eq!(back.theme, "ice");
         assert!(back.dashboards.is_empty());
+    }
+
+    #[test]
+    fn features_and_effective() {
+        let mut s = AppSettings::default();
+        assert!(s.feature("fleet.logs") && s.effective() == s);
+        s.disabled_features = vec!["fleet".into(), "docker".into()];
+        assert!(!s.feature("fleet"));
+        assert!(!s.feature("fleet.logs"));
+        assert!(!s.feature("docker"));
+        assert!(s.feature("dockerx"), "a prefix is not a parent");
+        assert!(s.feature("services"));
+        let e = s.effective();
+        assert!(!e.alerts.container_down && !e.alerts.smart_warning && !e.alerts.backup_stale && !e.alerts.log_anomaly);
+        assert!(e.services_checks && e.alerts.service_down);
+        assert_eq!(e.disabled_features, s.disabled_features);
+        s.disabled_features = vec!["services".into(), "drift".into()];
+        s.helper_enabled = true;
+        let e = s.effective();
+        assert!(!e.services_checks && !e.helper_enabled && e.alerts.container_down);
+        assert!(s.validate().is_ok());
+        s.disabled_features = vec!["Bad Id".into()];
+        assert!(s.validate().is_err());
+        // The UI's list (ui/src/lib/features.ts) has the same ids.
+        let ui = include_str!("../../ui/src/lib/features.ts");
+        for f in FEATURES {
+            assert!(ui.contains(&format!("id: \"{f}\"")), "{f} missing in features.ts");
+        }
+        assert_eq!(ui.matches("  { id: \"").count(), FEATURES.len(), "features.ts has ids the backend lacks");
     }
 
     #[test]

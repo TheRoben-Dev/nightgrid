@@ -278,6 +278,10 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 
 In text fields and terminals, left and right are left to the field; up and down move focus out of it. Typing still needs a keyboard (on the Ally, the on-screen one).
 
+## Features: simple or everything
+
+Settings → **FEATURES** lists every view and the checks inside them, each with an on/off switch. **Simple** keeps terminal, files, Docker, services and System. **Standard** leaves out Proxmox, VM screens, UPS, log search, access audit and speed tests. **Everything** turns it all on. A feature that's off is hidden from the sidebar, the command palette, shortcuts and DRIFT. Its code isn't loaded, and its background checks stop (for example no SMART scans with Fleet → Disks off, and no auto-start tunnels with Tunnels off). Nothing is deleted: turn it back on and it's all there, with no restart. A shortcut to a feature that's off opens this tab with **Turn on and open**.
+
 ## Look and feel
 
 - Four themes: NIGHTGRID, ICE, BLOODLINE and CUSTOM. CUSTOM lets you pick each palette slot (surfaces, text, accent, info, active, danger, OK, warning, neutral highlight) from a set of curated swatches that are all pre-checked for contrast. **Start from** copies a built-in scheme as the starting point; **Reset** goes back to the default custom palette. The palette is saved with your settings and travels in profile exports. (If you used the old PLAIN DARK scheme, it becomes CUSTOM with effects off until you pick a scheme.)

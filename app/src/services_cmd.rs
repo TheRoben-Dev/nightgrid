@@ -105,7 +105,7 @@ fn start_checker(app: &AppHandle, hub: &Arc<ServicesHub>) {
             let (settings, services) = {
                 let state = app.state::<AppState>();
                 let store = state.store();
-                let settings = AppSettings::load(&store).unwrap_or_default();
+                let settings = AppSettings::load(&store).unwrap_or_default().effective();
                 (settings, store.list_services().unwrap_or_default())
             };
             if settings.services_checks {

@@ -21,7 +21,7 @@ import type { PaletteCommand } from "./types";
  * containers and tunnels here.
  */
 export function buildCommands(): PaletteCommand[] {
-  const nav: PaletteCommand[] = SECTIONS.map((s) => ({
+  const nav: PaletteCommand[] = SECTIONS.filter((s) => settings.on(s.id)).map((s) => ({
     id: `nav.${s.id}`,
     title: `Go to ${s.label}`,
     group: "NAVIGATE",
@@ -345,6 +345,23 @@ export function buildCommands(): PaletteCommand[] {
     })),
   ];
 
-  return [...snippetCmds, ...automationCmds, ...connect, ...browse, ...dockerHosts, ...tunnelCmds, ...systemCmds,
+  const all = [...snippetCmds, ...automationCmds, ...connect, ...browse, ...dockerHosts, ...tunnelCmds, ...systemCmds,
     ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...profile, ...themes];
+  // Commands of features turned off in Settings → Features are left out.
+  return all.filter((c) => {
+    const f = GROUP_FEATURE[c.group];
+    return !f || settings.on(f);
+  });
 }
+
+const GROUP_FEATURE: Record<string, string> = {
+  CONNECT: "terminal",
+  TERMINAL: "terminal",
+  FILES: "files",
+  DOCKER: "docker",
+  SERVICES: "services",
+  TUNNELS: "tunnels",
+  SYSTEM: "system",
+  SNIPPETS: "automation",
+  AUTOMATION: "automation",
+};

@@ -183,6 +183,9 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "settings-tours", view: "settings", what: "replay the guided tours (Settings → Helper)" },
   { id: "settings-keybindings", view: "settings", what: "list of keyboard shortcuts" },
   { id: "settings-diagnostics", view: "settings", what: "log folder and diagnostics" },
+  { id: "settings-tab-features", view: "settings", what: "Features tab: turn views and checks on or off" },
+  { id: "settings-feature-presets", view: "settings", what: "Simple, Standard and Everything presets" },
+  { id: "settings-features", view: "settings", what: "list of features with on/off toggles" },
 ];
 
 export const guideTarget = (id: string): GuideTarget | undefined => GUIDE_TARGETS.find((t) => t.id === id);

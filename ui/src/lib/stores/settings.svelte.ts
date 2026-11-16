@@ -1,5 +1,6 @@
 import { metrics } from "./metrics.svelte";
 import { api, DEFAULT_SETTINGS, type AppSettings } from "../api";
+import { applyPreset, featureOn, toggleFeature, type PresetId } from "../features";
 import { applyTheme, isThemeId, THEMES, type ThemeId } from "../theme/themes";
 
 export const UI_SCALE_STEPS = [90, 100, 110, 120, 130, 140, 150] as const;
@@ -54,6 +55,19 @@ class SettingsStore {
       this.value = prev;
       this.error = String((e as { message?: string })?.message ?? e);
     }
+  }
+
+  /** Whether a feature (Settings → Features) is on. */
+  on(id: string): boolean {
+    return featureOn(this.value.disabledFeatures ?? [], id);
+  }
+
+  setFeature(id: string, on: boolean) {
+    return this.update({ disabledFeatures: toggleFeature(this.value.disabledFeatures ?? [], id, on) });
+  }
+
+  setPreset(p: PresetId) {
+    return this.update({ disabledFeatures: applyPreset(this.value.disabledFeatures ?? [], p) });
   }
 
   /** Push current settings onto the document root. */
