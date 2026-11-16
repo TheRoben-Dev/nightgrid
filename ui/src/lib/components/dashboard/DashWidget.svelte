@@ -1,12 +1,19 @@
+<script module lang="ts">
+  /** When each widget last fetched on its own (unix ms); shared by every copy of a widget. */
+  const autoAt: Record<"updates" | "disks" | "backups", number | null> = { updates: null, disks: null, backups: null };
+</script>
+
 <script lang="ts">
   /**
-   * One dashboard widget's content (M10o). Widgets only show what the app
-   * already knows; ones that need a check over SSH (updates, disks, backups)
-   * offer a button instead of starting work when the Overview opens.
+   * One dashboard widget's content (M10o; more detail in 0.10.52). UPDATES,
+   * DISKS and BACKUPS fetch on their own while shown (servers that are
+   * online only, never asking for a password or sudo), on a slow schedule.
    */
+  import { untrack } from "svelte";
   import type { AppInfo } from "../../api";
-  import { diskRows, totals, updateRows } from "../../fleet";
+  import { diskRows, updateRows } from "../../fleet";
   import { cmdId, widgetInfo } from "../../dashboard";
+  import { agoShort, AUTO_AGE, autoHosts, backupLines, diskLines, due, recentIncidents, serviceRows, updateLines } from "../../overview";
   import CmdTile from "./CmdTile.svelte";
   import { DEFAULT_KEYMAP, formatChord } from "../../keys";
   import { alerts } from "../../stores/alerts.svelte";
@@ -27,17 +34,65 @@
 
   $effect(() => {
     if (kind === "notes" && !notes.loaded) void notes.load();
+    // The job list is local; reading the hosts waits for the schedule below.
+    if (kind === "backups" && !backups.loaded) void backups.load();
   });
+
+  type AutoKind = "updates" | "disks" | "backups";
+  const isAuto = (k: string): k is AutoKind => k === "updates" || k === "disks" || k === "backups";
+
+  /** Fetches when the data is older than the widget's schedule (looked at each minute). */
+  function autoFetch(k: AutoKind) {
+    if (typeof document !== "undefined" && document.hidden) return;
+    const now = Date.now();
+    const ids = autoHosts(hosts.hosts, hosts.pings);
+    if (!ids.length) return;
+    const last = (full: number | null) => Math.max(autoAt[k] ?? 0, full ?? 0) || null;
+    if (k === "updates" && !fleet.checking && due(last(fleet.checkedAt), AUTO_AGE.updates, now)) {
+      autoAt.updates = now;
+      void fleet.checkAll(ids);
+    } else if (k === "disks" && !fleet.disksChecking && due(last(fleet.disksAt), AUTO_AGE.disks, now)) {
+      autoAt.disks = now;
+      void fleet.checkDisks(ids);
+    } else if (k === "backups" && !backups.checking && due(last(backups.checkedAt), AUTO_AGE.backups, now)) {
+      autoAt.backups = now;
+      void (backups.loaded ? Promise.resolve() : backups.load()).then(() => (backups.jobs.length ? backups.checkAll(ids) : undefined));
+    }
+  }
+
+  $effect(() => {
+    const k = kind;
+    if (!isAuto(k)) return;
+    // A few seconds' grace so the first host pings are in (offline hosts are skipped).
+    const first = setTimeout(() => untrack(() => autoFetch(k)), 4000);
+    const every = setInterval(() => untrack(() => autoFetch(k)), 60_000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(every);
+    };
+  });
+
+  let now = $state(Date.now());
+  $effect(() => {
+    const t = setInterval(() => (now = Date.now()), 30_000);
+    return () => clearInterval(t);
+  });
+  const nowS = $derived(Math.floor(now / 1000));
 
   const hostName = (id: number | null) => (id == null ? "" : (hosts.hosts.find((h) => h.id === id)?.name ?? ""));
   const sevRank = (s: string) => (s === "critical" ? 0 : 1);
   const activeAlerts = $derived([...alerts.roots].sort((a, b) => sevRank(a.severity) - sevRank(b.severity) || b.since - a.since));
-  const svcDown = $derived(services.services.filter((s) => ["down", "warn"].includes(healthOf(s, services.status[s.id]))));
-  const upd = $derived(totals(updateRows(hosts.hosts, fleet.updates)));
-  const updChecked = $derived(Object.keys(fleet.updates).length > 0);
-  const disk = $derived(diskRows(hosts.hosts, fleet.disks, settings.value.alerts.forecastDays));
-  const diskBad = $derived(disk.filter((r) => r.tone === "bad" || r.tone === "warn"));
-  const bkBad = $derived(backups.jobs.filter((j) => ["failed", "error", "stale"].includes(jobState(backups.status[j.id]))));
+  const incidents = $derived(activeAlerts.length ? [] : recentIncidents(alerts.history, nowS));
+  const svcRows = $derived(serviceRows(services.services, services.status, healthOf));
+  const updRows = $derived(updateRows(hosts.hosts, fleet.updates));
+  const updLines = $derived(updateLines(updRows));
+  const updPkgs = $derived(updRows.reduce((n, r) => n + r.count, 0));
+  const updNewest = $derived(Math.max(0, ...Object.values(fleet.updates).map((u) => u.checkedAt ?? 0)) || null);
+  const dLines = $derived(diskLines(diskRows(hosts.hosts, fleet.disks, settings.value.alerts.forecastDays)));
+  const diskNewest = $derived(Math.max(0, ...Object.values(fleet.disks).map((d) => d.checkedAt ?? 0)) || null);
+  const bkLines = $derived(backupLines(backups.jobs, backups.status, jobState, nowS));
+  const bkProblems = $derived(bkLines.filter((l) => l.state === "failed" || l.state === "error" || l.state === "stale").length);
+  const bkNewest = $derived(backups.readAt);
   const pinned = $derived(notes.notes.filter((n) => n.pinned));
   const gpuRows = $derived(
     hosts.hosts.flatMap((h) => (metrics.byHost[h.id]?.sample?.gpus ?? []).map((g, i) => ({ key: `${h.id}-${i}`, hostId: h.id, host: h.name, g }))),
@@ -47,6 +102,10 @@
     else fleet.tab = tab;
     ui.go("fleet");
   };
+  const ageMs = (at: number | null) => (!at ? "" : nowS - at / 1000 < 60 ? "just now" : `${agoShort(Math.floor(at / 1000), nowS)} ago`);
+  const toneClass = (t: string) => (t === "bad" ? "bad" : t === "warn" ? "warn" : t === "ok" ? "ok" : "muted");
+  const DOT: Record<string, string> = { up: "ok", down: "bad", warn: "warn", pending: "muted", off: "muted" };
+  const JOB_CLASS: Record<string, string> = { ok: "ok", failed: "bad", error: "bad", stale: "warn", running: "cyan", unknown: "muted" };
 </script>
 
 {#if kind === "nodes"}
@@ -73,63 +132,111 @@
             <span class="sev {a.severity}">{a.severity === "critical" ? "CRIT" : "WARN"}</span>
             <span class="txt" title={a.detail}>{a.title}</span>
             <span class="muted small">{hostName(a.hostId)}</span>
+            <span class="muted small num">{agoShort(a.since, nowS)}</span>
           </button>
         </li>
       {/each}
     </ul>
   {:else}
     <p class="calm"><span class="ok">●</span> No active alerts.</p>
+    {#if incidents.length}
+      <p class="hd">RECENT INCIDENTS</p>
+      <ul class="list">
+        {#each incidents as a (a.id)}
+          <li>
+            <button type="button" class="row" title="{a.detail ? `${a.detail} · ` : ''}lasted {agoShort(a.since, a.resolved ?? a.since)}" onclick={() => (alerts.open = true)}>
+              <span class="muted small num">{agoShort(a.resolved ?? a.since, nowS)}</span>
+              <span class="sev {a.severity} dim">{a.severity === "critical" ? "CRIT" : "WARN"}</span>
+              <span class="txt">{a.title}</span>
+              <span class="muted small">{hostName(a.hostId)}</span>
+              <span class="muted small num" title="how long it lasted">{agoShort(a.since, a.resolved ?? a.since)}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <p class="muted small">Nothing resolved in the last 7 days.</p>
+    {/if}
   {/if}
 {:else if kind === "services"}
   {@const s = services.summary}
-  <p class="big"><span class="ok">{s.up}</span><span class="muted">/{s.total} up</span>{#if s.down}<span class="bad"> · {s.down} down</span>{/if}{#if s.warn}<span class="warn"> · {s.warn} warn</span>{/if}</p>
-  {#if svcDown.length}
+  {#if s.total}
+    <p class="sum"><span class="ok">{s.up}</span><span class="muted">/{s.total} up</span>{#if s.down}<span class="bad">{` · ${s.down} down`}</span>{/if}{#if s.warn}<span class="warn">{` · ${s.warn} warn`}</span>{/if}</p>
     <ul class="list">
-      {#each svcDown as v (v.id)}
-        <li><button type="button" class="row" onclick={() => ui.go("services")}><span class="txt">{v.name}</span><span class="small {healthOf(v, services.status[v.id]) === 'down' ? 'bad' : 'warn'}">{healthOf(v, services.status[v.id]).toUpperCase()}</span></button></li>
+      {#each svcRows as r (r.svc.id)}
+        <li>
+          <button type="button" class="row" title={r.detail || r.svc.url} onclick={() => ui.go("services")}>
+            <span class="dot {DOT[r.health]}" aria-hidden="true">●</span>
+            <span class="txt">{r.svc.name}</span>
+            <span class="small num {r.health === 'down' ? 'bad' : r.health === 'warn' ? 'warn' : 'muted'}">{r.note}</span>
+          </button>
+        </li>
       {/each}
     </ul>
-  {:else if !s.total}
+  {:else}
     <p class="muted small">No services on the board yet. <button type="button" class="link" onclick={() => ui.go("services")}>Add some</button></p>
   {/if}
 {:else if kind === "updates"}
-  {#if updChecked}
-    <p class="big">{upd.packages}<span class="muted small"> pending on {upd.hosts} host{upd.hosts === 1 ? "" : "s"}</span></p>
-    <p class="small">
-      {#if upd.security}<span class="bad">{upd.security} security</span> ·{/if}
-      {#if upd.reboot}<span class="warn">{upd.reboot} need a reboot</span> ·{/if}
-      {#if upd.failed}<span class="muted">{upd.failed} couldn't check</span>{/if}
-    </p>
+  {#if updLines.length}
+    <p class="sum">{`${updPkgs} `}<span class="muted">pending</span>{#if updNewest}<span class="muted small">{` · checked ${ageMs(updNewest)}`}</span>{/if}</p>
+    <ul class="list">
+      {#each updLines as l (l.host.id)}
+        <li>
+          <button type="button" class="row" title={l.detail} onclick={() => goFleet("updates")}>
+            <span class="dot {toneClass(l.tone)}" aria-hidden="true">●</span>
+            <span class="txt">{l.host.name}</span>
+            <span class="small num {l.tone === 'ok' ? 'muted' : toneClass(l.tone)}">{l.text}</span>
+          </button>
+        </li>
+      {/each}
+    </ul>
   {:else}
-    <p class="muted small">Not checked yet.</p>
+    <p class="muted small">{fleet.checking ? "Checking…" : "Not checked yet. Servers are checked every few hours while this is shown."}</p>
   {/if}
-  <div class="foot"><button type="button" class="btn ghost tiny" disabled={fleet.checking} onclick={() => fleet.checkAll()}>{fleet.checking ? "Checking…" : "Check all"}</button><button type="button" class="link" onclick={() => goFleet("updates")}>Fleet → Updates</button></div>
+  <div class="foot"><button type="button" class="btn ghost tiny" disabled={fleet.checking || !hosts.hosts.length} onclick={() => fleet.checkAll()}>{fleet.checking ? "Checking…" : "Check all"}</button><button type="button" class="link" onclick={() => goFleet("updates")}>Fleet → Updates</button></div>
 {:else if kind === "disks"}
-  {#if fleet.disksAt}
-    {#if diskBad.length}
-      <ul class="list">
-        {#each diskBad as r (r.host.id)}<li><button type="button" class="row" onclick={() => goFleet("disks")}><span class="txt">{r.host.name}</span><span class="small {r.tone}">{r.tone === "bad" ? "NEEDS ATTENTION" : "WATCH"}</span></button></li>{/each}
-      </ul>
-    {:else}
-      <p class="calm"><span class="ok">●</span> All pools and mounts healthy.</p>
-    {/if}
+  {#if dLines.length}
+    <p class="sum muted small">{fleet.disksChecking ? "reading…" : `read ${ageMs(diskNewest)}`}</p>
+    <ul class="list">
+      {#each dLines as l (l.host.id)}
+        <li>
+          <button type="button" class="row" title={l.detail} onclick={() => goFleet("disks")}>
+            <span class="dot {toneClass(l.tone)}" aria-hidden="true">●</span>
+            <span class="host">{l.host.name}</span>
+            <span class="txt small {l.tone === 'ok' ? 'muted' : toneClass(l.tone)}">{l.text}</span>
+            {#if l.pct != null}
+              <span class="meter" title="fullest mount: {l.pct}% used"><span class:warn={l.pct >= 85} class:bad={l.pct >= 95} style:width="{l.pct}%"></span></span>
+              <span class="small num muted pct">{l.pct}%</span>
+            {/if}
+          </button>
+        </li>
+      {/each}
+    </ul>
   {:else}
-    <p class="muted small">Not read yet.</p>
+    <p class="muted small">{fleet.disksChecking ? "Reading…" : "Not read yet. Servers are read hourly while this is shown."}</p>
   {/if}
   <div class="foot"><button type="button" class="btn ghost tiny" disabled={fleet.disksChecking || !hosts.hosts.length} onclick={() => fleet.checkDisks()}>{fleet.disksChecking ? "Reading…" : "Check all"}</button><button type="button" class="link" onclick={() => goFleet("disks")}>Fleet → Disks</button></div>
 {:else if kind === "backups"}
-  {#if backups.loaded}
-    {#if bkBad.length}
-      <ul class="list">
-        {#each bkBad as j (j.id)}<li><button type="button" class="row" onclick={() => goFleet("backups")}><span class="txt">{j.name}</span><span class="small bad">{jobState(backups.status[j.id]).toUpperCase()}</span></button></li>{/each}
-      </ul>
-    {:else}
-      <p class="calm"><span class="ok">●</span> {backups.jobs.length ? `${backups.jobs.length} job${backups.jobs.length === 1 ? "" : "s"}, none failed or stale.` : "No backup jobs on the board."}</p>
-    {/if}
+  {#if bkLines.length}
+    <p class="sum">
+      {#if bkProblems}<span class="bad">{bkProblems} need a look</span>{:else}<span class="muted">{bkLines.length} job{bkLines.length === 1 ? "" : "s"}</span>{/if}{#if backups.checking}<span class="muted small">&nbsp;· reading…</span>{:else if bkNewest}<span class="muted small">{` · read ${ageMs(bkNewest)}`}</span>{/if}
+    </p>
+    <ul class="list">
+      {#each bkLines as l (l.job.id)}
+        <li>
+          <button type="button" class="row" title={l.detail} onclick={() => goFleet("backups")}>
+            <span class="dot {JOB_CLASS[l.state]}" aria-hidden="true">●</span>
+            <span class="txt">{l.job.name} <span class="muted small">{hostName(l.job.hostId)} · {l.job.tool}</span></span>
+            <span class="small num muted" title="last good run">{l.age}</span>
+            <span class="small {JOB_CLASS[l.state]} word">{l.state.toUpperCase()}</span>
+          </button>
+        </li>
+      {/each}
+    </ul>
   {:else}
-    <p class="muted small">Not read yet.</p>
+    <p class="muted small">{backups.loaded ? "No backup jobs on the board." : "Reading…"}</p>
   {/if}
-  <div class="foot"><button type="button" class="btn ghost tiny" disabled={backups.checking} onclick={() => backups.load()}>{backups.checking ? "Reading…" : "Check"}</button><button type="button" class="link" onclick={() => goFleet("backups")}>Fleet → Backups</button></div>
+  <div class="foot"><button type="button" class="btn ghost tiny" disabled={backups.checking} onclick={() => void (backups.loaded ? backups.checkAll() : backups.load().then(() => backups.checkAll()))}>{backups.checking ? "Reading…" : "Check all"}</button><button type="button" class="link" onclick={() => goFleet("backups")}>Fleet → Backups</button></div>
 {:else if kind === "tunnels"}
   {#if tunnels.tunnels.length}
     <ul class="list">
@@ -280,6 +387,70 @@
   .sev.warn,
   .warn {
     color: var(--warn);
+  }
+  .sev.dim {
+    opacity: 0.7;
+  }
+  .hd {
+    margin: 8px 0 2px;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.1em;
+    color: var(--text-1);
+  }
+  .sum {
+    margin: 0 0 4px;
+    color: var(--text-0);
+  }
+  .dot {
+    flex: none;
+    font-size: 0.7em;
+    align-self: center;
+  }
+  .num {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .pct {
+    width: 4ch;
+    text-align: right;
+  }
+  .host {
+    flex: none;
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .word {
+    flex: none;
+    width: 8ch;
+    text-align: right;
+    letter-spacing: 0.06em;
+  }
+  .meter {
+    flex: none;
+    width: 44px;
+    height: 4px;
+    align-self: center;
+    background: color-mix(in srgb, var(--line) 70%, transparent);
+  }
+  .meter > span {
+    display: block;
+    height: 100%;
+    background: var(--cyan);
+  }
+  .meter > span.warn {
+    background: var(--warn);
+  }
+  .meter > span.bad {
+    background: var(--danger);
+  }
+  .cyan {
+    color: var(--cyan);
+  }
+  .muted {
+    color: var(--text-1);
   }
   .sev.info {
     color: var(--cyan);

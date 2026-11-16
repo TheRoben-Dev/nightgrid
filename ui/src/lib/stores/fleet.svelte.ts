@@ -62,15 +62,16 @@ class FleetStore {
     if (this.disksAt === null || Date.now() - this.disksAt > FRESH_MS) void this.checkDisks();
   }
 
-  async checkDisks() {
+  /** Reads every host, or just `ids` (the Overview reads servers that are online). */
+  async checkDisks(ids?: number[]) {
     if (this.disksChecking) return;
     this.disksChecking = true;
     try {
       await pool(
-        hosts.hosts.map((h) => h.id),
+        ids ?? hosts.hosts.map((h) => h.id),
         (id) => this.checkDisksHost(id),
       );
-      this.disksAt = Date.now();
+      if (!ids) this.disksAt = Date.now();
     } finally {
       this.disksChecking = false;
     }
@@ -118,16 +119,17 @@ class FleetStore {
     if (this.checkedAt === null || Date.now() - this.checkedAt > FRESH_MS) void this.checkAll();
   }
 
-  async checkAll() {
+  /** Checks every host, or just `ids` (the Overview checks servers that are online). */
+  async checkAll(ids?: number[]) {
     if (this.checking) return;
     this.checking = true;
     this.runs = Object.fromEntries(Object.entries(this.runs).filter(([, r]) => r.running));
     try {
       await pool(
-        hosts.hosts.map((h) => h.id),
+        ids ?? hosts.hosts.map((h) => h.id),
         (id) => this.checkHost(id),
       );
-      this.checkedAt = Date.now();
+      if (!ids) this.checkedAt = Date.now();
     } finally {
       this.checking = false;
     }

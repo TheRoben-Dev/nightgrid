@@ -74,6 +74,8 @@ class BackupsStore {
   hostErrors = $state<Record<number, string>>({});
   checking = $state(false);
   checkedAt = $state<number | null>(null);
+  /** When any read (all hosts or some) last finished (unix ms). */
+  readAt = $state<number | null>(null);
   /** The job being edited (id null = new), or null when the editor is closed. */
   editing = $state<{ id: number | null; input: BackupJobInput } | null>(null);
   saveError = $state<string | null>(null);
@@ -132,17 +134,18 @@ class BackupsStore {
     }
   }
 
-  /** Reads every host that has jobs, three at a time. */
-  async checkAll() {
+  /** Reads every host that has jobs (or those of them in `only`), three at a time. */
+  async checkAll(only?: number[]) {
     if (this.checking) return;
     this.checking = true;
-    const ids = [...new Set(this.jobs.map((j) => j.hostId))];
+    const ids = [...new Set(this.jobs.map((j) => j.hostId))].filter((id) => !only || only.includes(id));
     const worker = async () => {
       for (let id = ids.shift(); id !== undefined; id = ids.shift()) await this.checkHost(id);
     };
     try {
       await Promise.all([worker(), worker(), worker()]);
-      this.checkedAt = Date.now();
+      if (!only) this.checkedAt = Date.now();
+      this.readAt = Date.now();
     } finally {
       this.checking = false;
     }

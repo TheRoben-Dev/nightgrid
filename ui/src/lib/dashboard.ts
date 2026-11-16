@@ -22,18 +22,20 @@ export interface WidgetInfo {
   h: number;
   minW: number;
   minH: number;
+  /** The Settings → Features switch it belongs to; off hides it and skips its checks. */
+  feature?: string;
 }
 
 export const WIDGETS: WidgetInfo[] = [
   { kind: "nodes", title: "NODES", what: "Every host with live CPU, memory and disk", w: 12, h: 4, minW: 3, minH: 2 },
-  { kind: "alerts", title: "ALERTS", what: "Active alerts, worst first", w: 6, h: 3, minW: 3, minH: 2 },
-  { kind: "services", title: "SERVICES", what: "Service checks: how many are up, and which are down", w: 6, h: 3, minW: 3, minH: 2 },
-  { kind: "updates", title: "UPDATES", what: "Pending updates and reboots across hosts", w: 4, h: 3, minW: 3, minH: 2 },
-  { kind: "disks", title: "DISKS", what: "Degraded pools and mounts filling up", w: 4, h: 3, minW: 3, minH: 2 },
-  { kind: "backups", title: "BACKUPS", what: "Backup jobs that failed or went stale", w: 4, h: 3, minW: 3, minH: 2 },
-  { kind: "tunnels", title: "TUNNELS", what: "SSH tunnels and their state", w: 4, h: 3, minW: 3, minH: 2 },
-  { kind: "notes", title: "NOTES", what: "Pinned notes", w: 4, h: 3, minW: 3, minH: 2 },
-  { kind: "desktops", title: "DESKTOPS", what: "Open VM screens and RDP tunnels", w: 4, h: 2, minW: 3, minH: 2 },
+  { kind: "alerts", title: "ALERTS", what: "Active alerts, worst first; recent incidents when all is calm", w: 6, h: 3, minW: 3, minH: 2 },
+  { kind: "services", title: "SERVICES", what: "Every service check: status, latency, problems first", w: 6, h: 3, minW: 3, minH: 2, feature: "services" },
+  { kind: "updates", title: "UPDATES", what: "Pending, security and reboot per server, checked every few hours", w: 4, h: 3, minW: 3, minH: 2, feature: "fleet.updates" },
+  { kind: "disks", title: "DISKS", what: "Pools, SMART and the fullest mount per server, read hourly", w: 4, h: 3, minW: 3, minH: 2, feature: "fleet.disks" },
+  { kind: "backups", title: "BACKUPS", what: "Every backup job and its last good run", w: 4, h: 3, minW: 3, minH: 2, feature: "fleet.backups" },
+  { kind: "tunnels", title: "TUNNELS", what: "SSH tunnels and their state", w: 4, h: 3, minW: 3, minH: 2, feature: "tunnels" },
+  { kind: "notes", title: "NOTES", what: "Pinned notes", w: 4, h: 3, minW: 3, minH: 2, feature: "notes" },
+  { kind: "desktops", title: "DESKTOPS", what: "Open VM screens and RDP tunnels", w: 4, h: 2, minW: 3, minH: 2, feature: "desktops" },
   { kind: "gpus", title: "GPUS", what: "Every GPU: busy, VRAM, temperature and power", w: 4, h: 3, minW: 3, minH: 2 },
   { kind: "status", title: "SYS.STATUS", what: "Version, platform, database and keychain", w: 4, h: 3, minW: 3, minH: 2 },
 ];
@@ -47,6 +49,12 @@ export function cmdId(kind: string): number | null {
 }
 
 export const widgetInfo = (kind: string): WidgetInfo | undefined => (cmdId(kind) != null ? CMD_INFO : WIDGETS.find((w) => w.kind === kind));
+
+/** Whether a widget's feature is on (`on` is settings.on); widgets without one always are. */
+export function widgetOn(kind: string, on: (feature: string) => boolean): boolean {
+  const f = widgetInfo(kind)?.feature;
+  return !f || on(f);
+}
 
 let seq = 0;
 /** A widget id unique within `taken`. */
