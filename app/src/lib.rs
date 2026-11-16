@@ -12,6 +12,7 @@ mod desktop_cmd;
 mod docker_cmd;
 mod expiry_cmd;
 mod files_cmd;
+mod firewall_cmd;
 mod helper_cmd;
 mod hosts_cmd;
 mod integrations_cmd;
@@ -235,6 +236,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         jobs_cmd::timer_job_save,
         jobs_cmd::timer_job_remove,
         jobs_cmd::timer_calendar_preview,
+        firewall_cmd::firewall_read,
+        firewall_cmd::firewall_check,
+        firewall_cmd::firewall_apply,
+        firewall_cmd::firewall_test,
+        firewall_cmd::firewall_keep,
+        firewall_cmd::firewall_undo,
         logsearch_cmd::log_search,
         logsearch_cmd::log_searches_list,
         logsearch_cmd::log_search_save,

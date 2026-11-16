@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.34] - 2026-11-16
+
+### Added: host config editors, part 2: firewall manager (M10v)
+- **System → FIREWALL**: see whether the host uses ufw, firewalld or plain nftables/iptables, whether it is on, and its rules. ufw shows its rules (with comments) and default incoming policy; firewalld shows each active zone with its services, ports and sources; the raw `nft list ruleset` (or `iptables-save`) is always one click away.
+- Change ufw: add a rule (allow, limit, deny or reject, a port or range, tcp/udp/any, from an address or network, a comment), **Delete…** a rule, set the incoming default or turn ufw on or off. Change firewalld: add or remove a service, a port or an "accept everything from" source in a zone. nftables and iptables stay read-only.
+- **Every change is applied behind a rollback**: the host saves the current rules and sets a timer (1, 2 or 5 minutes) that puts them back unless you press **Keep**, even if Nightgrid can't reach the host any more. After the change Nightgrid opens a fresh SSH connection to show you can still get in; **Test again** repeats it, **Undo now** restores the old rules at once.
+- A change that could lock you out, such as deleting the rule that lets SSH in or turning on a firewall without it, says so and asks you to type the host name.
+
 ## [0.10.33] - 2026-11-16
 
 ### Added: host config editors, part 1: cron and timer editor (M10v)

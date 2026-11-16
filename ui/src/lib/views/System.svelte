@@ -5,6 +5,7 @@
   import HostKeyPrompt from "../components/terminal/HostKeyPrompt.svelte";
   import DisksPanel from "../components/system/DisksPanel.svelte";
   import JournalPanel from "../components/system/JournalPanel.svelte";
+  import FirewallPanel from "../components/system/FirewallPanel.svelte";
   import SchedulesPanel from "../components/system/SchedulesPanel.svelte";
   import TimelinePanel from "../components/system/TimelinePanel.svelte";
   import ConfigPanel from "../components/system/ConfigPanel.svelte";
@@ -30,6 +31,7 @@
     { id: "timeline", label: "TIMELINE" },
     { id: "config", label: "CONFIG" },
     { id: "security", label: "SECURITY" },
+    { id: "firewall", label: "FIREWALL" },
     { id: "updates", label: "UPDATES" },
     { id: "disks", label: "DISKS" },
     { id: "vms", label: "VMS" },
@@ -150,6 +152,8 @@
       <ConfigPanel />
     {:else if system.tab === "security"}
       <SecurityPanel />
+    {:else if system.tab === "firewall"}
+      <FirewallPanel />
     {:else if system.tab === "updates"}
       <UpdatesPanel />
     {:else if system.tab === "vms"}

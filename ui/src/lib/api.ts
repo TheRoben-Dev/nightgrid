@@ -24,6 +24,13 @@ import {
   type InstalledJob_Serialize as InstalledJob,
   type TimerJob_Serialize as TimerJob,
   type CronEdit,
+  type FirewallView_Serialize as FirewallView,
+  type FirewallReport_Serialize as FirewallReport,
+  type FwChange_Serialize as FwChange,
+  type ChangeCheck_Serialize as ChangeCheck,
+  type PendingChange,
+  type UfwRule_Serialize as UfwRule,
+  type Zone as FirewallZone,
   type CalendarPreview,
   type AlertKind,
   type Dependency as AlertDependency,
@@ -253,6 +260,7 @@ import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
 import { mockAccess } from "./mockAccess";
 import { mockJobs } from "./mockJobs";
+import { mockFirewall } from "./mockFirewall";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -324,6 +332,13 @@ export type {
   TimerJob,
   CronEdit,
   CalendarPreview,
+  FirewallView,
+  FirewallReport,
+  FwChange,
+  ChangeCheck,
+  PendingChange,
+  UfwRule,
+  FirewallZone,
   SavedLogSearch,
   SavedLogSearchInput,
   UpsInput,
@@ -585,7 +600,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.33-web",
+      version: "0.10.34-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1037,6 +1052,13 @@ export const api = {
   timerJobSave: (hostId: number, job: TimerJob, replaces: string | null, sudo: SudoInput | null): Promise<InstalledJob> =>
     T() ? commands.timerJobSave(hostId, job, replaces, sudo) : mockJobs.saveTimer(job, replaces),
   timerJobRemove: (hostId: number, unit: string, sudo: SudoInput | null): Promise<null> => (T() ? commands.timerJobRemove(hostId, unit, sudo) : mockJobs.removeTimer(unit)),
+  firewallRead: (hostId: number, sudo: SudoInput | null): Promise<FirewallView> => (T() ? commands.firewallRead(hostId, sudo) : mockFirewall.read(hostId)),
+  firewallCheck: (hostId: number, change: FwChange): Promise<ChangeCheck> => (T() ? commands.firewallCheck(hostId, change) : mockFirewall.check(hostId, change)),
+  firewallApply: (hostId: number, change: FwChange, secs: number, typed: string | null, sudo: SudoInput | null): Promise<PendingChange> =>
+    T() ? commands.firewallApply(hostId, change, secs, typed, sudo) : mockFirewall.apply(hostId, change, secs, typed),
+  firewallTest: (hostId: number): Promise<number> => (T() ? commands.firewallTest(hostId) : mockFirewall.test(hostId)),
+  firewallKeep: (hostId: number, token: string): Promise<null> => (T() ? commands.firewallKeep(hostId, token) : mockFirewall.finish(hostId, token, true)),
+  firewallUndo: (hostId: number, token: string): Promise<null> => (T() ? commands.firewallUndo(hostId, token) : mockFirewall.finish(hostId, token, false)),
   timerCalendarPreview: (hostId: number, calendar: string): Promise<CalendarPreview> => (T() ? commands.timerCalendarPreview(hostId, calendar) : mockJobs.preview(calendar)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),

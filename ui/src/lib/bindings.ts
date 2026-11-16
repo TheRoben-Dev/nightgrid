@@ -473,6 +473,24 @@ export const commands = {
 	timerJobRemove: (hostId: number, unit: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("timer_job_remove", { hostId, unit, sudo }, options),
 	/**  What systemd on the host makes of an `OnCalendar=` expression. */
 	timerCalendarPreview: (hostId: number, calendar: string, options?: InvokeOptions) => __TAURI_INVOKE<CalendarPreview>("timer_calendar_preview", { hostId, calendar }, options),
+	/**  Reads the host's firewall (root). */
+	firewallRead: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<FirewallView_Serialize>("firewall_read", { hostId, sudo }, options),
+	/**  What a change does and whether it could lock Nightgrid out. */
+	firewallCheck: (hostId: number, change: FwChange_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ChangeCheck_Serialize>("firewall_check", { hostId, change }, options),
+	/**
+	 *  Applies one change behind a rollback armed for `secs`. A change that
+	 *  could lock Nightgrid out needs `typed` to be the host name (rule 5).
+	 */
+	firewallApply: (hostId: number, change: FwChange_Deserialize, secs: number, typed: string | null, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PendingChange>("firewall_apply", { hostId, change, secs, typed, sudo }, options),
+	/**
+	 *  Opens a brand-new SSH connection (not the pooled one) and runs `true`:
+	 *  what a new login would get after the change. Returns milliseconds.
+	 */
+	firewallTest: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<number>("firewall_test", { hostId }, options),
+	/**  Keeps the change: cancels the rollback on the host. */
+	firewallKeep: (hostId: number, token: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("firewall_keep", { hostId, token }, options),
+	/**  Puts the old rules back now. */
+	firewallUndo: (hostId: number, token: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("firewall_undo", { hostId, token }, options),
 	/**  Searches the chosen hosts (all when none are chosen), connecting where needed. */
 	logSearch: (query: LogSearchQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<LogSearchResult>("log_search", { query }, options),
 	logSearchesList: (options?: InvokeOptions) => __TAURI_INVOKE<SavedSearch_Serialize[]>("log_searches_list", undefined, options),
@@ -1201,6 +1219,8 @@ export type AutomationEvent_Serialize = { kind: "hostStart"; hostId: number } | 
 /**  Exit code of the last command step that ran. */
 code: number | null; error: string | null; needs: HostNeeds | null; ms: number; stopped: boolean } | { kind: "done"; stopped: boolean };
 
+export type Backend = "ufw" | "firewalld" | "nftables" | "iptables" | "none";
+
 export type BackupFolder = BackupFolder_Serialize | BackupFolder_Deserialize;
 
 export type BackupFolder_Deserialize = {
@@ -1428,6 +1448,20 @@ export type Change = "changed" |
 "added" | 
 /**  Only on the left (the baseline, or the first host). */
 "removed";
+
+export type ChangeCheck = ChangeCheck_Serialize | ChangeCheck_Deserialize;
+
+export type ChangeCheck_Deserialize = {
+	summary: string,
+	/**  Why it could lock Nightgrid out; the host name must then be typed. */
+	risk?: string | null,
+};
+
+export type ChangeCheck_Serialize = {
+	summary: string,
+	/**  Why it could lock Nightgrid out; the host name must then be typed. */
+	risk: string | null,
+};
 
 export type ChatTurn = {
 	/**  `system`, `user` or `assistant`. */
@@ -2188,6 +2222,46 @@ export type Finding = {
 
 export type FindingLevel = "info" | "warn" | "bad";
 
+export type FirewallReport = FirewallReport_Serialize | FirewallReport_Deserialize;
+
+export type FirewallReport_Deserialize = {
+	backend: Backend,
+	active: boolean,
+	ufw?: UfwState_Deserialize | null,
+	zones: Zone[],
+	/**  `nft list ruleset` or `iptables-save` (read-only view), clipped. */
+	raw: string,
+	/**  A rollback is armed on the host right now. */
+	rollbackArmed: boolean,
+};
+
+export type FirewallReport_Serialize = {
+	backend: Backend,
+	active: boolean,
+	ufw: UfwState_Serialize | null,
+	zones: Zone[],
+	/**  `nft list ruleset` or `iptables-save` (read-only view), clipped. */
+	raw: string,
+	/**  A rollback is armed on the host right now. */
+	rollbackArmed: boolean,
+};
+
+export type FirewallView = FirewallView_Serialize | FirewallView_Deserialize;
+
+export type FirewallView_Deserialize = {
+	report: FirewallReport_Deserialize,
+	pending?: PendingChange | null,
+	/**  The port Nightgrid connects to SSH on. */
+	sshPort: number,
+};
+
+export type FirewallView_Serialize = {
+	report: FirewallReport_Serialize,
+	pending: PendingChange | null,
+	/**  The port Nightgrid connects to SSH on. */
+	sshPort: number,
+};
+
 /**  File errors in a shape the UI can act on. Messages never contain secrets. */
 export type FsError = FsError_Serialize | FsError_Deserialize;
 
@@ -2200,6 +2274,27 @@ export type FsError_Deserialize = { kind: "notFound"; path: string } | { kind: "
 export type FsError_Serialize = { kind: "notFound"; path: string } | { kind: "permissionDenied"; path: string } | { kind: "exists"; path: string } | { kind: "isDir"; path: string } | { kind: "tooLarge"; path: string; size: number; limit: number } | { kind: "notText"; path: string } | 
 /**  The file changed on disk since it was opened (save conflict). */
 { kind: "changed"; path: string; current: Entry_Serialize } | { kind: "disconnected" } | { kind: "cancelled" } | { kind: "other"; message: string };
+
+/**  One change to the firewall. */
+export type FwChange = FwChange_Serialize | FwChange_Deserialize;
+
+/**  One change to the firewall. */
+export type FwChange_Deserialize = { op: "ufwAdd"; action: UfwAction; port: string; proto: Proto; from?: string | null; comment?: string | null } | 
+/**  A rule from the report, by its spec. */
+{ op: "ufwDelete"; spec: string } | { op: "ufwEnable"; enabled: boolean } | 
+/**  The incoming default: `allow`, `deny` or `reject`. */
+{ op: "ufwDefault"; policy: string } | { op: "firewalldService"; zone: string; service: string; add: boolean } | { op: "firewalldPort"; zone: string; port: string; proto: Proto; add: boolean } | 
+/**  Accept traffic from a source address (optionally to one port). */
+{ op: "firewalldSource"; zone: string; source: string; port?: string | null; proto: Proto; add: boolean };
+
+/**  One change to the firewall. */
+export type FwChange_Serialize = { op: "ufwAdd"; action: UfwAction; port: string; proto: Proto; from: string | null; comment: string | null } | 
+/**  A rule from the report, by its spec. */
+{ op: "ufwDelete"; spec: string } | { op: "ufwEnable"; enabled: boolean } | 
+/**  The incoming default: `allow`, `deny` or `reject`. */
+{ op: "ufwDefault"; policy: string } | { op: "firewalldService"; zone: string; service: string; add: boolean } | { op: "firewalldPort"; zone: string; port: string; proto: Proto; add: boolean } | 
+/**  Accept traffic from a source address (optionally to one port). */
+{ op: "firewalldSource"; zone: string; source: string; port: string | null; proto: Proto; add: boolean };
 
 /**
  *  One GPU (NVIDIA through `nvidia-smi`, AMD through sysfs). Fields a
@@ -3546,6 +3641,13 @@ export type PackageUpdate_Serialize = {
 	repo: string | null,
 };
 
+export type PendingChange = {
+	token: string,
+	/**  Unix seconds when the host rolls back by itself. */
+	deadline: number,
+	change: string,
+};
+
 /**  Scripts in `/etc/cron.<period>/` (run by run-parts or anacron). */
 export type Periodic = {
 	/**  `hourly`, `daily`, `weekly` or `monthly`. */
@@ -3819,6 +3921,8 @@ export type PortainerStatus_Serialize = {
 export type PowerAction = "reboot" | "shutdown" | "suspend";
 
 export type PromptKind = "password" | "passphrase";
+
+export type Proto = "tcp" | "udp" | "any";
 
 export type ProxyFound = ProxyFound_Serialize | ProxyFound_Deserialize;
 
@@ -5153,6 +5257,45 @@ export type TunnelView = {
 	state: TunnelState,
 } & Tunnel;
 
+export type UfwAction = "allow" | "deny" | "reject" | "limit";
+
+/**  One ufw rule as `ufw show added` prints it, without the leading `ufw`. */
+export type UfwRule = UfwRule_Serialize | UfwRule_Deserialize;
+
+/**  One ufw rule as `ufw show added` prints it, without the leading `ufw`. */
+export type UfwRule_Deserialize = {
+	/**  `allow from 192.168.1.0/24 to any port 22 proto tcp comment 'lan'` */
+	spec: string,
+	/**  `allow`, `deny`, `reject`, `limit`. */
+	action: string,
+	comment?: string | null,
+};
+
+/**  One ufw rule as `ufw show added` prints it, without the leading `ufw`. */
+export type UfwRule_Serialize = {
+	/**  `allow from 192.168.1.0/24 to any port 22 proto tcp comment 'lan'` */
+	spec: string,
+	/**  `allow`, `deny`, `reject`, `limit`. */
+	action: string,
+	comment: string | null,
+};
+
+export type UfwState = UfwState_Serialize | UfwState_Deserialize;
+
+export type UfwState_Deserialize = {
+	/**  `deny`, `allow` or `reject` for incoming traffic. */
+	defaultIn: string,
+	defaultOut: string,
+	rules: UfwRule_Deserialize[],
+};
+
+export type UfwState_Serialize = {
+	/**  `deny`, `allow` or `reject` for incoming traffic. */
+	defaultIn: string,
+	defaultOut: string,
+	rules: UfwRule_Serialize[],
+};
+
 export type Unit = Unit_Serialize | Unit_Deserialize;
 
 export type UnitAction = "start" | "stop" | "restart" | "reload" | "enable" | "disable";
@@ -5690,4 +5833,16 @@ export type Widget = {
 	y: number,
 	w: number,
 	h: number,
+};
+
+export type Zone = {
+	name: string,
+	active: boolean,
+	default: boolean,
+	target: string,
+	interfaces: string[],
+	sources: string[],
+	services: string[],
+	ports: string[],
+	richRules: string[],
 };
