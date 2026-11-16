@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.56] - 2026-11-16
+
+### Fixed
+- **macOS: no more crash when Nightgrid restarts** after installing an update or importing a profile, or when it quits, while DRIFT's model is loaded. The model is now freed first; llama.cpp's Metal backend aborted when it was still in memory at exit.
+- **macOS: network scans with a sweep finish in seconds again.** `nc` on macOS ignored the one-second limit for addresses that never answer, so a sweep could take minutes.
+
+### Added: who's on the network (network map, part 1)
+- **Names from more places.** A scan now also reads reverse DNS for every address it saw, the scanning host's own DHCP leases (dnsmasq, Pi-hole, ISC dhcpd) when it hands out addresses, NetBIOS names (when Samba's `nmblookup` is there) and UPnP descriptions (friendly name, maker and model, read from the devices with `python3`).
+- **What each device probably is.** Phones, laptops, TVs, speakers, printers, cameras, NAS boxes, smart-home gear, consoles, access points and the router are guessed from the maker, names, announced services and open ports. The guess shows with a "?" on the map and fills the label's type; a label you save always wins.
+- **Inventory.** Every device a scan sees is remembered with when it was first and last seen. Devices seen for the first time show **NEW** on the map and under **New this scan**; known devices in the swept range that didn't answer are listed under **Missing**. **Trust** marks a device as expected; **Forget** removes it.
+- **Routed ranges.** Type subnets the scanner can reach through a router, VPN or Tailscale subnet route (`10.20.0.0/24`, up to 4, /24 to /30) and the scan sweeps them too, from whichever host or computer you scan from. MAC addresses, makers and local names don't cross a router, so those devices carry less detail and say so.
+
 ## [0.10.55] - 2026-11-16
 
 ### Added: choose DRIFT's model

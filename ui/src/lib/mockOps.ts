@@ -28,6 +28,7 @@ import type {
   VmReport_Serialize as VmReport,
   Discovery_Serialize as Discovery,
   Device_Serialize as Device,
+  NetDevice_Serialize as NetDevice,
   DeviceLabel,
 } from "./bindings";
 
@@ -58,20 +59,29 @@ let guests: Vm[] = [
   { kind: "lxc", id: "200", name: "pihole", state: "running", vcpus: 1, memoryMb: 512, autostart: true },
   { kind: "libvirt", id: "debian-lab", name: "debian-lab", state: "paused", vcpus: 2, memoryMb: 2048, autostart: false },
 ];
-const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, vendor: null, also: [], ...d });
+const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false, ...d });
 
 /** A made-up home LAN for the network map. Addresses are documentation-style examples. */
-function discovery(sweep: boolean): Discovery {
+function discovery(sweep: boolean, ranges: string[] = []): Discovery {
+  const day = 86400;
+  const now = Math.floor(Date.now() / 1000);
   const devices: Device[] = [
-    dev("192.168.1.1", { mac: "a4:2b:b0:11:22:33", names: ["router.lan"], seen: ["gateway", "neighbour"] }),
-    dev("192.168.1.20", { mac: "00:11:32:aa:bb:cc", vendor: "Synology", names: ["nas.local"], services: ["_smb._tcp", "_http._tcp", "NFS share → /mnt/media"], seen: ["neighbour", "mdns", "mount"] }),
-    dev("192.168.1.31", { mac: "b8:27:eb:12:34:56", names: ["octoprint.local"], services: ["_octoprint._tcp", "_http._tcp"], seen: ["mdns"] }),
-    dev("192.168.1.44", { mac: "f0:18:98:de:ad:01", names: ["Living Room TV"], services: ["_airplay._tcp"], seen: ["neighbour", "mdns"] }),
-    dev("192.168.1.52", { mac: "3c:22:fb:00:00:52", vendor: "Apple", seen: ["neighbour"] }),
-    dev("100.101.7.12", { names: ["macbook"], seen: ["tailscale"], os: "macOS", online: true }),
-    dev("100.88.1.9", { names: ["phone"], seen: ["tailscale"], os: "iOS", online: false }),
+    dev("192.168.1.1", { mac: "a4:2b:b0:11:22:33", names: ["router.lan", "Home Router"], seen: ["gateway", "neighbour", "ssdp"], kind: "router", model: "Example R7000", services: ["upnp:InternetGatewayDevice"], trusted: true, firstSeen: now - 90 * day }),
+    dev("192.168.1.20", { mac: "00:11:32:aa:bb:cc", vendor: "Synology", names: ["nas.local"], services: ["_smb._tcp", "_http._tcp", "NFS share → /mnt/media"], seen: ["neighbour", "mdns", "mount"], kind: "nas", trusted: true, firstSeen: now - 80 * day }),
+    dev("192.168.1.31", { mac: "b8:27:eb:12:34:56", vendor: "Raspberry Pi Foundation", names: ["octoprint.local"], services: ["_octoprint._tcp", "_http._tcp"], seen: ["mdns"], kind: "server", firstSeen: now - 40 * day }),
+    dev("192.168.1.44", { mac: "f0:18:98:de:ad:01", names: ["Living Room TV"], services: ["_airplay._tcp"], seen: ["neighbour", "mdns"], kind: "tv", firstSeen: now - 30 * day }),
+    dev("192.168.1.48", { mac: "24:0a:c4:aa:00:48", vendor: "Espressif Inc.", names: ["kitchen-lamp.lan"], seen: ["neighbour"], kind: "iot", firstSeen: now - 12 * day }),
+    dev("192.168.1.52", { mac: "3c:22:fb:00:00:52", vendor: "Apple", seen: ["neighbour"], firstSeen: now - 5 * day }),
+    dev("192.168.1.61", { mac: "5c:aa:fd:00:00:61", vendor: "Sonos, Inc.", names: ["Kitchen"], model: "Sonos One", seen: ["neighbour", "ssdp"], kind: "speaker", firstSeen: now, isNew: true }),
+    dev("100.101.7.12", { names: ["macbook"], seen: ["tailscale"], os: "macOS", online: true, kind: "laptop", firstSeen: now - 60 * day }),
+    dev("100.88.1.9", { names: ["phone"], seen: ["tailscale"], os: "iOS", online: false, kind: "phone", firstSeen: now - 60 * day }),
   ];
-  if (sweep) devices.push(dev("192.168.1.77", { seen: ["ping"] }), dev("192.168.1.78", { seen: ["ping"] }));
+  if (sweep) devices.push(dev("192.168.1.77", { seen: ["ping"], firstSeen: now, isNew: true }), dev("192.168.1.78", { seen: ["ping"], firstSeen: now - 3 * day }));
+  for (const r of ranges) {
+    const base = r.split("/")[0].split(".").slice(0, 3).join(".");
+    devices.push(dev(`${base}.10`, { seen: ["ping", "probe"], services: ["tcp/22"], names: [`gw.${base.replace(/\./g, "-")}.example`], kind: "server", routed: true, firstSeen: now, isNew: true }));
+    devices.push(dev(`${base}.25`, { seen: ["probe"], services: ["tcp/80"], kind: "printer", names: ["printer.site2.example"], routed: true, firstSeen: now, isNew: true }));
+  }
   return {
     ifaces: [
       { name: "eth0", addr: "192.168.1.40", prefix: 24, kind: "private" },
@@ -85,10 +95,16 @@ function discovery(sweep: boolean): Discovery {
       { kind: "funnel", port: 8080, public: "https://lab.example-tailnet.ts.net", target: "http://127.0.0.1:8080", detail: "Tailscale Funnel" },
       { kind: "tunnel", port: 3000, public: "status.example.com", target: "http://localhost:3000", detail: "cloudflared" },
     ],
-    swept: sweep ? "192.168.1.0/24" : null,
-    notes: [],
+    swept: sweep ? "192.168.1.0/24" : (ranges[0] ?? null),
+    ranges: [...(sweep ? ["192.168.1.0/24"] : []), ...ranges],
+    missing: sweep
+      ? [{ key: "aa:bb:cc:00:00:90", ip: "192.168.1.90", name: "garage-camera", vendor: "Reolink", kind: "camera", lastSeen: now - 2 * day, trusted: true }]
+      : [],
+    notes: ranges.length ? ["Devices in routed ranges show no maker or local names: MAC addresses, mDNS and NetBIOS don't cross a router. Scan from a host on that network for the full picture."] : [],
   };
 }
+
+const inventory = new Map<string, NetDevice>();
 
 let status: StatusPageSettings = { enabled: false, bind: "lan", port: 8787 };
 let tok = "3f9c2a71d0b84e6f9a1c5d7e2b4f6a8c0e1d3b5a7c9e2f4a6b8d0c1e3f5a7b9";
@@ -264,7 +280,29 @@ export const mockOps = {
     labels = labels.filter((x) => x.key !== key);
     return null;
   },
-  discover: (_hostId: number, sweep: boolean): Promise<Discovery> => delay(discovery(sweep), sweep ? 1200 : 500),
+  discover: (_hostId: number, sweep: boolean, ranges: string[] = []): Promise<Discovery> => {
+    const bad = ranges.find((r) => !/^(10|172|192|100)\.\d+\.\d+\.\d+\/(2[4-9]|30)$/.test(r.trim()));
+    if (bad) return Promise.reject(new Error(`${bad}: write a private range from /24 to /30, like 10.20.0.0/24`));
+    const d = discovery(sweep, ranges);
+    for (const x of d.devices) {
+      const k = x.mac ?? `ip:${x.ip}`;
+      const was = inventory.get(k);
+      x.trusted = was?.trusted ?? x.trusted;
+      inventory.set(k, { key: k, ip: x.ip, vendor: x.vendor, kind: x.kind, name: x.names[0] ?? null, origin: "1", firstSeen: was?.firstSeen ?? x.firstSeen ?? 0, lastSeen: Math.floor(Date.now() / 1000), trusted: x.trusted });
+    }
+    return delay(d, sweep ? 1200 : 500);
+  },
+  inventory: async (): Promise<NetDevice[]> => [...inventory.values()].sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0)),
+  trust: async (key: string, trusted: boolean): Promise<null> => {
+    const d = inventory.get(key);
+    if (!d) throw new Error("invalid value for key: no such device in the inventory");
+    d.trusted = trusted;
+    return null;
+  },
+  forget: async (key: string): Promise<null> => {
+    inventory.delete(key);
+    return null;
+  },
   vms: (_hostId: number, elevate: boolean): Promise<VmReport> =>
     delay(
       elevate

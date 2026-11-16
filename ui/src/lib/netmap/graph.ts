@@ -236,7 +236,9 @@ export function buildGraph(
       sub:
         named && named.kind !== "other"
           ? `${KIND_LABEL[named.kind] ?? named.kind} · ${d.ip}`
-          : named?.name || d.names[0]
+          : d.kind && d.kind !== "other"
+            ? `${KIND_LABEL[d.kind] ?? d.kind}? · ${d.ip}`
+            : named?.name || d.names[0]
             ? d.ip
             : d.vendor && d.mac
               ? `${d.vendor} · ${d.mac}`

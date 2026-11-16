@@ -18,6 +18,7 @@ use std::sync::LazyLock;
 
 use serde::Serialize;
 
+use crate::netident::{guess_kind, parse_leases, parse_names, parse_ssdp};
 use crate::ssh::client::Connection;
 
 const MARK: &str = "@@NGNET@@";
@@ -68,6 +69,8 @@ pub enum Seen {
     Mount,
     /// The scanned host has an open TCP connection to it.
     Connection,
+    /// Answered a UPnP (SSDP) search.
+    Ssdp,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -89,6 +92,37 @@ pub struct Device {
     pub vendor: Option<String>,
     /// Other addresses of the same device (same MAC), e.g. its IPv6 address.
     pub also: Vec<String>,
+    /// What it probably is (a `device_labels::KINDS` id), guessed from its
+    /// maker, names, announced services and open ports. "other" when unsure.
+    pub kind: String,
+    /// Model from its UPnP description ("Sonos One", "HP LaserJet …").
+    pub model: Option<String>,
+    /// Found in a routed subnet (not on the scanning host's own network):
+    /// no MAC, vendor or local names can be seen across a router.
+    pub routed: bool,
+    /// Inventory (filled by the app): first time any scan saw it (unix s).
+    #[cfg_attr(feature = "specta", specta(type = Option<f64>))]
+    pub first_seen: Option<i64>,
+    /// First seen by this scan.
+    pub is_new: bool,
+    /// Marked as known and expected.
+    pub trusted: bool,
+}
+
+/// A device the inventory knows that this scan didn't see, in a subnet this
+/// scan covered (filled by the app).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct MissingDevice {
+    pub key: String,
+    pub ip: String,
+    pub name: Option<String>,
+    pub vendor: Option<String>,
+    pub kind: String,
+    #[cfg_attr(feature = "specta", specta(type = f64))]
+    pub last_seen: i64,
+    pub trusted: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -129,6 +163,10 @@ pub struct Discovery {
     pub exposures: Vec<Exposure>,
     /// The subnet that was swept, when asked.
     pub swept: Option<String>,
+    /// Every subnet swept: the host's own and any routed ranges asked for.
+    pub ranges: Vec<String>,
+    /// Inventory devices in the swept subnets that didn't answer this time.
+    pub missing: Vec<MissingDevice>,
     /// Tools that were missing or failed, in words.
     pub notes: Vec<String>,
 }
@@ -185,11 +223,15 @@ pub fn sweep_range(iface: &Iface) -> Option<(Ipv4Addr, u32)> {
 /// Ports tried, in order, on addresses of a sweep (SSH, web, SMB, NFS, rpcbind).
 pub const PROBE_PORTS: &str = "22 445 80 443 2049 111 139";
 
-pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
+pub fn discover_command(sweeps: &[(Ipv4Addr, u32)]) -> String {
     // `t N cmd`: `timeout` where it exists (macOS and BSDs don't ship it).
+    // macOS nc's -w doesn't bound the connect: -G does (an unanswered SYN
+    // otherwise waits ~75 s per port).
     let mut s = String::from(
         "export LC_ALL=C\nt() { if command -v timeout >/dev/null 2>&1; then timeout \"$@\"; else shift; \"$@\"; fi; }\n\
-         case $(uname 2>/dev/null) in Darwin|*BSD) pw='-t 1' ;; *) pw='-W 1' ;; esac\n",
+         case $(uname 2>/dev/null) in Darwin|*BSD) pw='-t 1' ;; *) pw='-W 1' ;; esac\n\
+         case $(uname 2>/dev/null) in Darwin) ncw='-G 1 -w 1' ;; *) ncw='-w 1' ;; esac\n\
+         NGT=$(mktemp 2>/dev/null || echo \"/tmp/ngnet.$$\"); : > \"$NGT\"\n",
     );
     let sec = |s: &mut String, name: &str, body: &str| {
         s.push_str(&format!("echo '{MARK} {name}'\n{body}\n"));
@@ -201,7 +243,7 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
         "{ ip -4 route show default 2>/dev/null; ip -4 route show table all 2>/dev/null | grep '^default'; ip -6 route show default 2>/dev/null; } | grep . \
          || netstat -rn 2>/dev/null | awk '$1==\"default\"||$1==\"0.0.0.0\"'",
     );
-    if let Some((net, n)) = sweep {
+    for &(net, n) in sweeps {
         let o = net.octets();
         let base = u32::from(net);
         let last = Ipv4Addr::from(base + n);
@@ -210,8 +252,8 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
             &mut s,
             &format!("sweep {net}/{}", 32 - (n + 1).next_power_of_two().trailing_zeros()),
             &format!(
-                "if command -v fping >/dev/null 2>&1; then fping -a -q -r 0 -t 300 -g {}.{}.{}.{} {} 2>/dev/null; \
-                 else i=1; while [ $i -le {n} ]; do ip=\"{}.{}.{}.$(( {} + i ))\"; (ping -c 1 $pw \"$ip\" >/dev/null 2>&1 && echo \"$ip\") & \
+                "if command -v fping >/dev/null 2>&1; then fping -a -q -r 0 -t 300 -g {}.{}.{}.{} {} 2>/dev/null | tee -a \"$NGT\"; \
+                 else i=1; while [ $i -le {n} ]; do ip=\"{}.{}.{}.$(( {} + i ))\"; (ping -c 1 $pw \"$ip\" >/dev/null 2>&1 && echo \"$ip\" && echo \"$ip\" >> \"$NGT\") & \
                  i=$((i+1)); if [ $((i % 64)) -eq 0 ]; then wait; fi; done; wait; fi",
                 o[0],
                 o[1],
@@ -230,10 +272,10 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
             &mut s,
             "probe",
             &format!(
-                "pr() {{ if command -v nc >/dev/null 2>&1; then nc -z -w 1 \"$1\" \"$2\" 2>/dev/null; \
+                "pr() {{ if command -v nc >/dev/null 2>&1; then nc -z $ncw \"$1\" \"$2\" 2>/dev/null; \
                  elif command -v bash >/dev/null 2>&1; then t 2 bash -c \"</dev/tcp/$1/$2\" 2>/dev/null; else return 1; fi; }}; \
                  i=1; while [ $i -le {n} ]; do ip=\"{}.{}.{}.$(( {} + i ))\"; \
-                 (for p in {PROBE_PORTS}; do if pr \"$ip\" $p; then echo \"$ip $p\"; break; fi; done) & \
+                 (for p in {PROBE_PORTS}; do if pr \"$ip\" $p; then echo \"$ip $p\"; echo \"$ip\" >> \"$NGT\"; break; fi; done) & \
                  i=$((i+1)); if [ $((i % 64)) -eq 0 ]; then wait; fi; done; wait",
                 o[0],
                 o[1],
@@ -243,6 +285,7 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
         );
     }
     sec(&mut s, "neigh", "ip neigh show 2>/dev/null || arp -an 2>/dev/null");
+    s.push_str(IDENT_SCRIPT);
     // Network shares this host mounts, and LAN peers it talks to right now.
     sec(
         &mut s,
@@ -283,9 +326,77 @@ pub fn discover_command(sweep: Option<(Ipv4Addr, u32)>) -> String {
          for f in /etc/cloudflared/config.yml /etc/cloudflared/config.yaml \"$HOME/.cloudflared/config.yml\" \"$HOME/.cloudflared/config.yaml\"; do \
          [ -r \"$f\" ] && grep -E '^[[:space:]-]*(hostname|service):' \"$f\" | head -n 100; done; fi",
     );
-    sec(&mut s, "end", "");
+    sec(&mut s, "end", "rm -f \"$NGT\" \"$NGT.ips\"");
     s
 }
+
+/// Names for what the scan found: reverse DNS and NetBIOS for every address
+/// seen (neighbours and sweep answers), the host's own DHCP leases, and a
+/// UPnP search with descriptions read from the devices themselves.
+const IDENT_SCRIPT: &str = r#"{ ip neigh show 2>/dev/null | awk '{print $1}'; arp -an 2>/dev/null | sed -n 's/.*(\([0-9.]*\)).*/\1/p'; cat "$NGT" 2>/dev/null; } \
+ | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' | sort -u | head -n 600 > "$NGT.ips"
+echo '@@NGNET@@ rdns'
+i=0; while read -r ip; do
+ ( if command -v getent >/dev/null 2>&1; then n=$(t 2 getent hosts "$ip" | awk '{print $2; exit}');
+   elif command -v host >/dev/null 2>&1; then n=$(t 2 host -W 1 "$ip" 2>/dev/null | awk '/pointer/ {print $NF; exit}'); fi
+   [ -n "$n" ] && echo "$ip $n" ) &
+ i=$((i+1)); if [ $((i % 64)) -eq 0 ]; then wait; fi
+done < "$NGT.ips"; wait
+echo '@@NGNET@@ leases'
+for f in /var/lib/misc/dnsmasq.leases /tmp/dnsmasq.leases /etc/pihole/dhcp.leases /var/lib/dnsmasq/dnsmasq.leases /tmp/dhcp.leases; do
+ [ -r "$f" ] && sed 's/^/dnsmasq /' "$f" | head -n 1000; done
+for f in /var/lib/dhcp/dhcpd.leases /var/lib/dhcpd/dhcpd.leases; do
+ [ -r "$f" ] && tr -d '";' < "$f" | awk '/^lease /{ip=$2} /hardware ethernet/{mac=$3} /client-hostname/{h=$2} /^}/{if(ip!=""&&h!="")print "isc", ip, mac, h; ip="";mac="";h=""}' | tail -n 1000; done
+echo '@@NGNET@@ netbios'
+if command -v nmblookup >/dev/null 2>&1; then
+ i=0; while read -r ip; do
+  ( t 3 nmblookup -A "$ip" 2>/dev/null | awk -v ip="$ip" '/<00>/ && !/GROUP/ {print ip, $1; exit}' ) &
+  i=$((i+1)); if [ $((i % 64)) -eq 0 ]; then wait; fi
+ done < "$NGT.ips"; wait
+else echo missing; fi
+echo '@@NGNET@@ ssdp'
+if command -v python3 >/dev/null 2>&1; then t 15 python3 - <<'NGPY' 2>/dev/null
+import socket, time, re, urllib.request
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.settimeout(0.4)
+s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 2)
+m = b'M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\nMX: 2\r\nST: ssdp:all\r\n\r\n'
+try:
+    s.sendto(m, ("239.255.255.250", 1900))
+except Exception:
+    raise SystemExit
+seen = {}
+end = time.time() + 3
+while time.time() < end:
+    try:
+        d, a = s.recvfrom(8192)
+    except Exception:
+        continue
+    h = {}
+    for l in d.decode("latin1").split("\r\n")[1:]:
+        if ":" in l:
+            k, v = l.split(":", 1)
+            h[k.strip().lower()] = v.strip()
+    e = seen.setdefault(a[0], {"server": "", "loc": ""})
+    e["server"] = e["server"] or h.get("server", "")
+    loc = h.get("location", "")
+    if loc.startswith("http://") and not e["loc"]:
+        e["loc"] = loc
+for ip, e in list(seen.items())[:60]:
+    f = mk = mo = dt = ""
+    if e["loc"]:
+        try:
+            x = urllib.request.urlopen(e["loc"], timeout=1.5).read(65536).decode("utf-8", "replace")
+            def g(t):
+                r = re.search("<" + t + ">([^<]*)</" + t + ">", x)
+                return r.group(1).strip() if r else ""
+            f, mk, mo, dt = g("friendlyName"), g("manufacturer"), g("modelName"), g("deviceType")
+        except Exception:
+            pass
+    print("\t".join(v.replace("\t", " ").replace("\n", " ") for v in [ip, e["server"], f, mk, mo, dt]))
+NGPY
+else echo missing; fi
+"#;
 
 fn sections(out: &str) -> Vec<(String, Vec<&str>)> {
     let mut v: Vec<(String, Vec<&str>)> = Vec::new();
@@ -369,7 +480,7 @@ pub fn is_container_bridge(name: &str) -> bool {
         || name.starts_with("cali")
 }
 
-fn in_v4_subnet(ip: &str, net: &str, prefix: u8) -> bool {
+pub fn in_v4_subnet(ip: &str, net: &str, prefix: u8) -> bool {
     match (ip.parse::<Ipv4Addr>(), net.parse::<Ipv4Addr>()) {
         (Ok(a), Ok(n)) if prefix <= 32 => {
             let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - u32::from(prefix)) };
@@ -641,8 +752,11 @@ pub fn parse_discovery(out: &str) -> Discovery {
         devices: Vec::new(),
         exposures: Vec::new(),
         swept: None,
+        ranges: Vec::new(),
+        missing: Vec::new(),
         notes: Vec::new(),
     };
+    let mut ssdp_missing = false;
     let mut devs: BTreeMap<String, Device> = BTreeMap::new();
     let mut link_local: HashMap<String, String> = HashMap::new();
     let mut conns: Vec<String> = Vec::new();
@@ -652,7 +766,12 @@ pub fn parse_discovery(out: &str) -> Discovery {
             "addr" => d.ifaces = parse_addrs(&body),
             "route" => d.gateway = parse_gateway(&body),
             "sweep" => {
-                d.swept = name.split_whitespace().nth(1).map(str::to_owned);
+                if let Some(r) = name.split_whitespace().nth(1) {
+                    if d.swept.is_none() {
+                        d.swept = Some(r.to_owned());
+                    }
+                    d.ranges.push(r.to_owned());
+                }
                 for l in &body {
                     let ip = l.trim();
                     if ip.parse::<IpAddr>().is_ok() {
@@ -720,6 +839,61 @@ pub fn parse_discovery(out: &str) -> Discovery {
                     }
                     e.os = os;
                     e.online = online;
+                }
+            }
+            "rdns" | "netbios" => {
+                if body.first().is_some_and(|l| l.trim() == "missing") {
+                    continue;
+                }
+                for (ip, n) in parse_names(&body) {
+                    if let Some(e) = devs.get_mut(&ip) {
+                        if !e.names.iter().any(|x| x.eq_ignore_ascii_case(&n)) {
+                            e.names.push(n);
+                        }
+                    }
+                }
+            }
+            "leases" => {
+                for (ip, mac, n) in parse_leases(&body) {
+                    // Leases name devices the scan saw; a lease alone isn't a sighting.
+                    if let Some(e) = devs.get_mut(&ip) {
+                        if e.mac.is_none() {
+                            e.mac = mac;
+                        }
+                        if !e.names.iter().any(|x| x.eq_ignore_ascii_case(&n)) {
+                            e.names.push(n);
+                        }
+                    }
+                }
+            }
+            "ssdp" => {
+                if body.first().is_some_and(|l| l.trim() == "missing") {
+                    ssdp_missing = true;
+                    continue;
+                }
+                for x in parse_ssdp(&body) {
+                    let e = add(&mut devs, &x.ip, Seen::Ssdp);
+                    if !x.friendly.is_empty() && !e.names.iter().any(|n| n.eq_ignore_ascii_case(&x.friendly)) {
+                        e.names.push(x.friendly.clone());
+                    }
+                    let model = [x.maker.as_str(), x.model.as_str()]
+                        .iter()
+                        .filter(|s| !s.is_empty())
+                        .copied()
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    if !model.is_empty() {
+                        e.model = Some(model);
+                    }
+                    if !x.device_type.is_empty() {
+                        let svc = format!("upnp:{}", x.device_type);
+                        if !e.services.contains(&svc) {
+                            e.services.push(svc);
+                        }
+                    }
+                    if !x.server.is_empty() && e.os.is_none() {
+                        e.os = Some(x.server.clone());
+                    }
                 }
             }
             "funnel" => d.exposures.extend(parse_funnel(&body)),
@@ -829,8 +1003,25 @@ pub fn parse_discovery(out: &str) -> Discovery {
             }
         }
     }
+    if ssdp_missing {
+        d.notes.push("No UPnP names or models: python3 isn't installed on the scanning host.".into());
+    }
+    // Ranges that aren't on one of the host's own subnets were reached
+    // through a router.
+    let own_nets: Vec<(String, u8)> = d
+        .ifaces
+        .iter()
+        .filter(|i| !i.addr.contains(':') && i.kind != AddrKind::Loopback)
+        .map(|i| (i.addr.clone(), i.prefix))
+        .collect();
     for x in devs.values_mut() {
         x.vendor = x.mac.as_deref().and_then(mac_vendor);
+        x.routed = x.ip.contains('.')
+            && x.mac.is_none()
+            && x.seen.iter().all(|s| matches!(s, Seen::Ping | Seen::Probe | Seen::Ssdp))
+            && !own_nets.iter().any(|(net, p)| in_v4_subnet(&x.ip, net, *p));
+        x.names.retain(|n| !n.is_empty());
+        x.kind = guess_kind(x, d.gateway.as_deref()).into();
     }
     for i in &d.ifaces {
         if i.kind == AddrKind::Public {
@@ -865,6 +1056,12 @@ fn add<'a>(devs: &'a mut BTreeMap<String, Device>, ip: &str, seen: Seen) -> &'a 
         online: None,
         vendor: None,
         also: Vec::new(),
+        kind: "other".into(),
+        model: None,
+        routed: false,
+        first_seen: None,
+        is_new: false,
+        trusted: false,
     });
     if !e.seen.contains(&seen) {
         e.seen.push(seen);
@@ -880,9 +1077,30 @@ fn ip_sort_key(ip: &str) -> (u8, u128) {
     }
 }
 
-/// Runs discovery on `conn`, optionally sweeping its LAN subnet.
-pub async fn discover(conn: &Connection, sweep: bool) -> Result<Discovery, String> {
-    discover_with(sweep, |script| async move {
+/// Most routed ranges one scan sweeps.
+pub const MAX_RANGES: usize = 4;
+
+/// A routed range the user asked to sweep: an IPv4 CIDR of /24 to /30 (a
+/// bigger range takes too long over one SSH session).
+pub fn parse_range(r: &str) -> Result<(Ipv4Addr, u32), String> {
+    let r = r.trim();
+    let (ip, p) = r.split_once('/').ok_or_else(|| format!("{r}: write a range like 10.20.0.0/24"))?;
+    let ip: Ipv4Addr = ip.trim().parse().map_err(|_| format!("{r}: not an IPv4 address"))?;
+    let p: u8 = p.trim().parse().map_err(|_| format!("{r}: the part after / is the prefix length"))?;
+    if !(24..=30).contains(&p) {
+        return Err(format!("{r}: ranges from /24 (254 addresses) to /30 can be swept"));
+    }
+    if addr_kind(&IpAddr::V4(ip)) == AddrKind::Public {
+        return Err(format!("{r}: only private ranges are swept (10.x, 172.16–31.x, 192.168.x, 100.64.x)"));
+    }
+    let mask = u32::MAX << (32 - u32::from(p));
+    Ok((Ipv4Addr::from(u32::from(ip) & mask), (!mask).saturating_sub(1)))
+}
+
+/// Runs discovery on `conn`, optionally sweeping its LAN subnet and any
+/// routed `ranges` it can reach.
+pub async fn discover(conn: &Connection, sweep: bool, ranges: &[String]) -> Result<Discovery, String> {
+    discover_with(sweep, ranges, |script| async move {
         let (_, out, _) = conn.exec(&script).await.map_err(|e| e.to_string())?;
         Ok(String::from_utf8_lossy(&out).into_owned())
     })
@@ -891,15 +1109,15 @@ pub async fn discover(conn: &Connection, sweep: bool) -> Result<Discovery, Strin
 
 /// Runs discovery on this computer (macOS, Linux and BSDs; `sh` with the same script).
 #[cfg(unix)]
-pub async fn discover_local(sweep: bool) -> Result<Discovery, String> {
-    discover_with(sweep, |script| async move {
+pub async fn discover_local(sweep: bool, ranges: &[String]) -> Result<Discovery, String> {
+    discover_with(sweep, ranges, |script| async move {
         let run = tokio::process::Command::new("/bin/sh")
             .arg("-c")
             .arg(&script)
             .stdin(std::process::Stdio::null())
             .kill_on_drop(true)
             .output();
-        let out = tokio::time::timeout(std::time::Duration::from_secs(90), run)
+        let out = tokio::time::timeout(std::time::Duration::from_secs(150), run)
             .await
             .map_err(|_| "discovery took too long".to_string())?
             .map_err(|e| e.to_string())?;
@@ -909,35 +1127,55 @@ pub async fn discover_local(sweep: bool) -> Result<Discovery, String> {
 }
 
 #[cfg(not(unix))]
-pub async fn discover_local(_sweep: bool) -> Result<Discovery, String> {
+pub async fn discover_local(_sweep: bool, _ranges: &[String]) -> Result<Discovery, String> {
     Err("Scanning from this computer works on macOS and Linux. On Windows, scan from one of your hosts.".into())
 }
 
-async fn discover_with<F, Fut>(sweep: bool, exec: F) -> Result<Discovery, String>
+async fn discover_with<F, Fut>(sweep: bool, ranges: &[String], exec: F) -> Result<Discovery, String>
 where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Result<String, String>>,
 {
-    let range = if sweep {
-        let out = exec(discover_command(None)).await?;
+    if ranges.len() > MAX_RANGES {
+        return Err(format!("At most {MAX_RANGES} ranges per scan."));
+    }
+    let mut sweeps: Vec<(Ipv4Addr, u32)> = Vec::new();
+    for r in ranges {
+        let x = parse_range(r)?;
+        if !sweeps.contains(&x) {
+            sweeps.push(x);
+        }
+    }
+    let mut own_missing = false;
+    if sweep {
+        let out = exec(discover_command(&[])).await?;
         let first = parse_discovery(&out);
         let gw = first.gateway.as_deref().and_then(|g| g.parse::<Ipv4Addr>().ok());
         // The interface that holds the gateway, else the first private /24.
-        first
+        let own = first
             .ifaces
             .iter()
             .filter(|i| i.kind == AddrKind::Private)
             .filter_map(|i| sweep_range(i).map(|r| (i, r)))
             .find(|(_, (net, n))| gw.is_some_and(|g| (u32::from(g).wrapping_sub(u32::from(*net))) <= *n))
             .or_else(|| first.ifaces.iter().filter_map(|i| sweep_range(i).map(|r| (i, r))).next())
-            .map(|(_, r)| r)
-    } else {
-        None
-    };
-    let out = exec(discover_command(range)).await?;
+            .map(|(_, r)| r);
+        match own {
+            Some(r) if !sweeps.contains(&r) => sweeps.insert(0, r),
+            Some(_) => {}
+            None => own_missing = true,
+        }
+    }
+    let out = exec(discover_command(&sweeps)).await?;
     let mut d = parse_discovery(&out);
-    if sweep && range.is_none() {
+    if own_missing {
         d.notes.push("No private /24 (or smaller) subnet to sweep on this host.".into());
+    }
+    if d.devices.iter().any(|x| x.routed) {
+        d.notes.push(
+            "Devices in routed ranges show no maker or local names: MAC addresses, mDNS and NetBIOS don't cross a router. Scan from a host on that network for the full picture."
+                .into(),
+        );
     }
     Ok(d)
 }
@@ -996,7 +1234,7 @@ mod tests {
         assert_eq!(d.devices[3].seen, [Seen::Connection]);
         assert_eq!(d.devices[4].services, ["tcp/445"]);
         assert_eq!(parse_conns(&["10.0.0.5.2049", "::ffff:10.0.0.6:22"]), ["10.0.0.5", "10.0.0.6"]);
-        assert!(discover_command(Some(("192.168.1.0".parse().unwrap(), 254))).contains("probe"));
+        assert!(discover_command(&[("192.168.1.0".parse().unwrap(), 254)]).contains("probe"));
     }
 
     #[test]
@@ -1026,9 +1264,49 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn runs_locally() {
-        let d = discover_local(false).await.expect("local discovery");
+        let d = discover_local(false, &[]).await.expect("local discovery");
         assert!(d.swept.is_none());
         assert!(d.ifaces.iter().all(|i| i.kind != AddrKind::Loopback));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn sweeps_a_routed_range_locally() {
+        let d = discover_local(false, &["127.0.0.0/30".into()]).await.expect("local discovery");
+        assert_eq!(d.ranges, ["127.0.0.0/30"]);
+        assert!(discover_local(false, &["8.8.8.0/24".into()]).await.is_err());
+    }
+
+    #[test]
+    fn ranges_and_identity_sections() {
+        assert_eq!(parse_range("10.20.0.7/24"), Ok(("10.20.0.0".parse().unwrap(), 254)));
+        assert!(parse_range("10.20.0.0/16").unwrap_err().contains("/24"));
+        assert!(parse_range("203.0.113.0/24").unwrap_err().contains("private"));
+        let m = MARK;
+        let out = format!(
+            "{m} addr\n2: eth0    inet 192.168.1.10/24 brd 192.168.1.255 scope global eth0\n\
+             {m} route\ndefault via 192.168.1.1 dev eth0\n\
+             {m} sweep 10.20.0.0/24\n10.20.0.5\n\
+             {m} neigh\n192.168.1.1 dev eth0 lladdr b8:27:eb:00:00:01 REACHABLE\n192.168.1.30 dev eth0 lladdr aa:bb:cc:00:00:30 REACHABLE\n\
+             {m} rdns\n192.168.1.30 lamp-kitchen.lan.\n10.20.0.5 printer.site2.example\n\
+             {m} leases\ndnsmasq 1 aa:bb:cc:00:00:30 192.168.1.30 kitchen-lamp *\n\
+             {m} netbios\nmissing\n\
+             {m} ssdp\n192.168.1.1\tLinux UPnP/1.0\tHome Router\tExample\tR7000\turn:schemas-upnp-org:device:InternetGatewayDevice:1\n\
+             {m} end\n"
+        );
+        let d = parse_discovery(&out);
+        let lamp = d.devices.iter().find(|x| x.ip == "192.168.1.30").unwrap();
+        assert_eq!(lamp.names, ["lamp-kitchen.lan", "kitchen-lamp"]);
+        assert_eq!(lamp.kind, "iot");
+        let gw = d.devices.iter().find(|x| x.ip == "192.168.1.1").unwrap();
+        assert_eq!(gw.kind, "router");
+        assert_eq!(gw.model.as_deref(), Some("Example R7000"));
+        assert!(gw.names.contains(&"Home Router".to_string()));
+        let far = d.devices.iter().find(|x| x.ip == "10.20.0.5").unwrap();
+        assert!(far.routed);
+        assert_eq!(far.kind, "printer");
+        assert!(!lamp.routed);
+        assert_eq!(d.ranges, ["10.20.0.0/24"]);
     }
 
     #[test]
@@ -1130,7 +1408,7 @@ running\n\
 
     #[test]
     fn script_runs_under_sh() {
-        let s = discover_command(Some(("127.0.0.0".parse().unwrap(), 2)));
+        let s = discover_command(&[("127.0.0.0".parse().unwrap(), 2)]);
         let o = std::process::Command::new("sh").arg("-c").arg(&s).output().unwrap();
         assert!(o.status.success() || o.status.code().is_some());
         let out = String::from_utf8_lossy(&o.stdout);

@@ -117,6 +117,7 @@ pub async fn update_install(app: AppHandle, on_progress: Channel<UpdateProgress>
             tracing::warn!("update install failed: {e}");
             format!("Update failed: {e}")
         })?;
+    crate::helper_cmd::shutdown(&app);
     app.restart();
 }
 

@@ -345,6 +345,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::system_vms,
         system_cmd::netmap_discover,
         system_cmd::netmap_discover_local,
+        system_cmd::netmap_inventory,
+        system_cmd::netmap_device_trust,
+        system_cmd::netmap_device_forget,
         system_cmd::system_vm_action,
         desktop_cmd::desktop_open,
         desktop_cmd::desktop_input,
@@ -438,6 +441,11 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 tray::show_main(app);
+            }
+            // Quit (menu, tray, Cmd+Q): free the helper's model first, or
+            // llama.cpp's Metal teardown aborts during exit.
+            if let tauri::RunEvent::Exit = event {
+                helper_cmd::shutdown(app);
             }
             let _ = (app, event);
         });

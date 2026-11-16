@@ -3,13 +3,18 @@
  * from the node selected on the map (a host or this computer), port audits
  * reuse System → Security.
  */
-import { api, errorText, systemError, type DeviceLabel, type Discovery } from "../api";
+import { api, errorText, systemError, type DeviceLabel, type Discovery, type NetDevice } from "../api";
 import { buildGraph, type NetGraph } from "../netmap/graph";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
 class NetmapStore {
   sweep = $state(false);
+  /** Routed subnets to sweep from the scanner, comma or space separated. */
+  ranges = $state("");
+  /** Every device any scan has seen (the inventory). */
+  inventory = $state<NetDevice[]>([]);
+  inventoryError = $state<string | null>(null);
   result = $state<Discovery | null>(null);
   /** Where the current result was scanned from. */
   resultHost = $state<number | "local" | null>(null);
@@ -52,9 +57,11 @@ class NetmapStore {
     this.loading = true;
     this.error = null;
     try {
-      this.result = id === "local" ? await api.netmapDiscoverLocal(this.sweep) : await api.netmapDiscover(id, this.sweep);
+      const ranges = this.rangeList;
+      this.result = id === "local" ? await api.netmapDiscoverLocal(this.sweep, ranges) : await api.netmapDiscover(id, this.sweep, ranges);
       this.resultHost = id;
       this.scannedAt = Date.now();
+      void this.loadInventory();
     } catch (e) {
       const { connect } = systemError(e);
       this.error =
@@ -63,6 +70,52 @@ class NetmapStore {
           : errorText(e);
     } finally {
       this.loading = false;
+    }
+  }
+
+  get rangeList(): string[] {
+    return this.ranges.split(/[\s,]+/).map((r) => r.trim()).filter(Boolean);
+  }
+
+  /** Devices this scan saw for the first time and nobody has marked trusted. */
+  get newDevices() {
+    return this.result?.devices.filter((d) => d.isNew && !d.trusted) ?? [];
+  }
+
+  async loadInventory() {
+    try {
+      this.inventory = await api.netmapInventory();
+      this.inventoryError = null;
+    } catch (e) {
+      this.inventoryError = errorText(e);
+    }
+  }
+
+  /** Marks a device as known and expected (or not). */
+  async trust(key: string, trusted: boolean) {
+    try {
+      await api.netmapDeviceTrust(key, trusted);
+      if (this.result) {
+        this.result = {
+          ...this.result,
+          devices: this.result.devices.map((d) => ((d.mac ?? `ip:${d.ip}`).toLowerCase() === key ? { ...d, trusted } : d)),
+          missing: this.result.missing.map((m) => (m.key === key ? { ...m, trusted } : m)),
+        };
+      }
+      this.inventory = this.inventory.map((d) => (d.key === key ? { ...d, trusted } : d));
+    } catch (e) {
+      this.inventoryError = errorText(e);
+    }
+  }
+
+  /** Forgets a device: the next scan that sees it calls it new. */
+  async forget(key: string) {
+    try {
+      await api.netmapDeviceForget(key);
+      this.inventory = this.inventory.filter((d) => d.key !== key);
+      if (this.result) this.result = { ...this.result, missing: this.result.missing.filter((m) => m.key !== key) };
+    } catch (e) {
+      this.inventoryError = errorText(e);
     }
   }
 

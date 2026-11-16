@@ -76,7 +76,19 @@
 
   onMount(() => {
     if (!netmap.labelsLoaded) void netmap.loadLabels();
+    void netmap.loadInventory();
   });
+
+  const devKey = (d: { mac: string | null; ip: string }) => labelKey(d.mac, d.ip);
+  const kindText = (k: string | null | undefined) => (k && k !== "other" ? (KIND_LABEL[k] ?? k) : "");
+  const since = (t: number | null | undefined) => {
+    if (!t) return "";
+    const s = Math.max(0, Date.now() / 1000 - t);
+    if (s < 3600) return "just now";
+    if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+    return `${Math.round(s / 86400)} days ago`;
+  };
+  let showInventory = $state(false);
 
   // Label form for the selected device (or router).
   let fName = $state("");
@@ -92,7 +104,7 @@
     fKey = k;
     const l = netmap.current?.named;
     fName = l?.name ?? "";
-    fKind = l?.kind ?? "other";
+    fKind = l?.kind ?? netmap.current?.device?.kind ?? "other";
     fTags = l?.tags.map((t) => "#" + t).join(" ") ?? "";
     fNote = l?.note ?? "";
     saved = false;
@@ -151,6 +163,10 @@
         onchange={(v) => (netmap.sweep = v)}
       />
     </div>
+    <label class="ranges" data-guide="netmap-ranges" title="Subnets behind a router, VPN or Tailscale subnet route that the scanner can reach: ping and port answers, reverse DNS and UPnP only (no MAC or local names across a router). /24 to /30, up to 4.">
+      <span class="lbl">ROUTED RANGES</span>
+      <input class="input mono" placeholder="10.20.0.0/24" bind:value={netmap.ranges} spellcheck="false" />
+    </label>
     <button
       type="button"
       class="btn primary"
@@ -173,7 +189,9 @@
   {#if netmap.result}
     <p class="meta muted">
       Scanned from <strong>{netmap.resultHost === "local" ? "this computer" : (hosts.byId(netmap.resultHost ?? -1)?.name ?? "?")}</strong> at {ago(netmap.scannedAt)}
-      · {netmap.result.devices.length} devices{#if netmap.result.swept} · swept {netmap.result.swept}{/if}
+      · {netmap.result.devices.length} devices{#if netmap.result.ranges.length} · swept {netmap.result.ranges.join(", ")}{/if}
+      {#if netmap.newDevices.length}<span class="newc"> · {netmap.newDevices.length} new</span>{/if}
+      {#if netmap.result.missing.length}<span class="miss"> · {netmap.result.missing.length} missing</span>{/if}
       {#each netmap.result.notes as n (n)}<span class="note"> · {n}</span>{/each}
     </p>
   {:else}
@@ -225,6 +243,12 @@
               {/if}
               {#if n.kind === "device" && n.device?.online === false}
                 <text class="badge off" x={W - 10} y="21" text-anchor="end">offline</text>
+              {:else if n.kind === "device" && n.device?.isNew && !n.device.trusted}
+                <text class="badge new" x={W - 10} y="21" text-anchor="end"><title>First seen in this scan</title>NEW</text>
+              {:else if n.kind === "device" && n.device?.routed}
+                <text class="badge routed" x={W - 10} y="21" text-anchor="end"><title>In a routed range</title>⇢</text>
+              {:else if n.kind === "device" && n.device?.trusted}
+                <text class="badge trusted" x={W - 10} y="21" text-anchor="end"><title>Trusted</title>✓</text>
               {/if}
             </g>
           {/each}
@@ -235,6 +259,51 @@
     <aside class="detail" aria-label="Details">
       {#if !netmap.current}
         <p class="muted">Select a node for details. Hosts show their listening ports once audited; other devices can be labelled or added as hosts.</p>
+        {#if netmap.newDevices.length}
+          <h4 class="new-h" data-guide="netmap-new">NEW THIS SCAN</h4>
+          <ul class="plain labelled">
+            {#each netmap.newDevices as d (d.ip)}
+              <li>
+                <button type="button" class="linkish" onclick={() => (netmap.selected = `d${d.ip}`)}>{d.names[0] ?? d.ip}</button>
+                <span class="muted">{[kindText(d.kind), d.vendor, d.ip].filter(Boolean).join(" · ")}</span>
+                <button type="button" class="btn ghost tiny" onclick={() => netmap.trust(devKey(d), true)}>TRUST</button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        {#if netmap.result?.missing.length}
+          <h4 class="miss-h" data-guide="netmap-missing">MISSING</h4>
+          <p class="muted small">Seen before in the swept range, didn't answer this time. Off, asleep, or gone.</p>
+          <ul class="plain labelled">
+            {#each netmap.result.missing as m (m.key)}
+              <li>
+                <span>{m.name ?? m.ip}{m.trusted ? " ✓" : ""}</span>
+                <span class="muted">{[kindText(m.kind), m.vendor, m.ip, `last seen ${since(m.lastSeen)}`].filter(Boolean).join(" · ")}</span>
+                <button type="button" class="btn ghost tiny" title="Remove from the inventory" onclick={() => netmap.forget(m.key)}>FORGET</button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+        <h4>
+          <button type="button" class="linkish" data-guide="netmap-inventory" onclick={() => ((showInventory = !showInventory), showInventory && void netmap.loadInventory())}>
+            {showInventory ? "▾" : "▸"} INVENTORY ({netmap.inventory.length})
+          </button>
+        </h4>
+        {#if showInventory}
+          <p class="muted small">Every device a scan has seen, from any scanner. Trusted devices are ones you expect; the rest show as NEW the first time.</p>
+          {#if netmap.inventoryError}<p class="err">{netmap.inventoryError}</p>{/if}
+          <ul class="plain labelled inv">
+            {#each netmap.inventory as d (d.key)}
+              <li>
+                <span>{d.name ?? d.ip}</span>
+                <span class="muted">{[kindText(d.kind), d.vendor, d.ip, `first ${since(d.firstSeen)}`, `last ${since(d.lastSeen)}`].filter(Boolean).join(" · ")}</span>
+                <button type="button" class="btn ghost tiny" onclick={() => netmap.trust(d.key, !d.trusted)}>{d.trusted ? "✓ TRUSTED" : "TRUST"}</button>
+              </li>
+            {:else}
+              <li class="muted">Nothing yet: scan to fill it.</li>
+            {/each}
+          </ul>
+        {/if}
         {#if labelled.length}
           <h4>LABELLED DEVICES</h4>
           <ul class="plain labelled">
@@ -335,7 +404,10 @@
         {:else if n.kind === "device" && n.device}
           {@const d = n.device}
           <dl>
-            <dt>ADDRESS</dt><dd class="mono">{d.ip}</dd>
+            <dt>ADDRESS</dt><dd class="mono">{d.ip}{d.routed ? " (routed range)" : ""}</dd>
+            {#if kindText(d.kind)}<dt>LOOKS LIKE</dt><dd>{kindText(d.kind)} <span class="muted">(a guess from its maker, names and services; set the type in the label to override)</span></dd>{/if}
+            {#if d.model}<dt>MODEL</dt><dd>{d.model}</dd>{/if}
+            {#if d.firstSeen}<dt>FIRST SEEN</dt><dd>{d.isNew ? "in this scan" : since(d.firstSeen)}</dd>{/if}
             {#if d.mac}<dt>MAC</dt><dd class="mono">{d.mac}{d.vendor ? ` · ${d.vendor}` : ""}</dd>{/if}
             {#if d.also.length}<dt>ALSO</dt><dd class="mono">{d.also.join(", ")}</dd>{/if}
             {#if d.names.length}<dt>NAMES</dt><dd>{d.names.join(", ")}</dd>{/if}
@@ -349,6 +421,7 @@
           <p class="muted">Not one of your hosts. Add it to manage it over SSH; nothing is sent to it until you connect.</p>
           <div class="actions">
             <button type="button" class="btn primary" data-guide="netmap-add-host" onclick={() => addAsHost(n)}>ADD AS HOST</button>
+            <button type="button" class="btn ghost" data-guide="netmap-trust" title="Trusted devices are ones you expect on the network" onclick={() => netmap.trust(devKey(d), !d.trusted)}>{d.trusted ? "✓ TRUSTED" : "TRUST"}</button>
           </div>
         {/if}
       {/if}
@@ -357,6 +430,43 @@
 </div>
 
 <style>
+  .ranges {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ranges input {
+    width: 180px;
+  }
+  .lbl {
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    color: var(--text-2);
+  }
+  .newc,
+  .new-h {
+    color: var(--cyan);
+  }
+  .miss,
+  .miss-h {
+    color: var(--warn);
+  }
+  .badge.new {
+    fill: var(--cyan);
+  }
+  .badge.trusted {
+    fill: var(--mint);
+  }
+  .badge.routed {
+    fill: var(--text-2);
+  }
+  .labelled .tiny {
+    align-self: flex-start;
+  }
+  .inv {
+    max-height: 320px;
+    overflow: auto;
+  }
   .labelform {
     display: flex;
     flex-direction: column;

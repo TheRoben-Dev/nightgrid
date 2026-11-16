@@ -296,6 +296,27 @@ pub fn helper_delete_model(
     model::delete(&models_dir(&state), m).map_err(|e| format!("Couldn't delete the model: {e}"))
 }
 
+/// Frees the model before the app quits or restarts. llama.cpp's Metal
+/// backend aborts in its static destructors (`ggml_metal_rsets_free`) when a
+/// model's GPU buffers are still alive at `exit`, which crashed restarts
+/// after an update or an import. Stops a reply in progress and waits briefly
+/// for it to let go of the model.
+pub fn shutdown(app: &AppHandle) {
+    let Some(helper) = app.try_state::<Helper>() else { return };
+    helper.stop.store(true, Ordering::SeqCst);
+    let taken = helper.engine.lock().expect("poisoned").take();
+    if let Some((_, e)) = taken {
+        let until = Instant::now() + Duration::from_secs(3);
+        while Arc::strong_count(&e) > 1 && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(20));
+        }
+        if Arc::strong_count(&e) > 1 {
+            tracing::warn!("helper model still in use at shutdown");
+        }
+        drop(e);
+    }
+}
+
 /// Frees the model's memory (it loads again on the next question).
 #[tauri::command]
 #[specta::specta]
