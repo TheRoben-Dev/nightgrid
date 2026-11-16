@@ -25,6 +25,7 @@ mod logging;
 mod logsearch_cmd;
 mod metrics_cmd;
 mod netperf_cmd;
+mod netwatch_cmd;
 mod notes_cmd;
 mod platform;
 mod proxmox_cmd;
@@ -351,6 +352,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::netmap_layout_get,
         system_cmd::netmap_layout_save,
         system_cmd::net_tool,
+        system_cmd::netmap_security,
+        netwatch_cmd::netmap_watch_last,
         system_cmd::net_mac_vendor,
         system_cmd::net_wake,
         system_cmd::system_vm_action,

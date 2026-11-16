@@ -593,6 +593,22 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
         ));
     }
 
+    // Scheduled network watch (D-145): new devices, missing ones, risks.
+    if !(cfg.feature("network") && cfg.net_watch.enabled) {
+        crate::netwatch_cmd::reset(app);
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "netwatch", hosts: None },
+            vec![],
+            now,
+        ));
+    } else if let Some(conds) = crate::netwatch_cmd::evaluate(app, &cfg.net_watch, now) {
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "netwatch", hosts: None },
+            conds,
+            now,
+        ));
+    }
+
     // Log anomalies on connected hosts, every 10 minutes each (opt-in).
     if !rules.log_anomaly {
         changes.extend(hub.tracker.lock().expect("poisoned").report(

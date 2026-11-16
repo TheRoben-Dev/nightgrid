@@ -45,6 +45,13 @@ pub enum AlertKind {
     UpsOnBattery,
     /// A saved log search with alerts on found new lines (M10u).
     LogMatch,
+    /// The network watch saw a device for the first time (D-145).
+    NetNewDevice,
+    /// A device in the expected network map didn't answer (D-145).
+    NetMissing,
+    /// Risky exposure the network watch found: a port forward to SSH or RDP,
+    /// a second DHCP server (D-145).
+    NetRisk,
 }
 
 impl AlertKind {
@@ -87,6 +94,9 @@ impl AlertKind {
             AlertKind::PoolDegraded => "POOL DEGRADED",
             AlertKind::UpsOnBattery => "ON BATTERY",
             AlertKind::LogMatch => "LOG MATCH",
+            AlertKind::NetNewDevice => "NEW DEVICE",
+            AlertKind::NetMissing => "DEVICE MISSING",
+            AlertKind::NetRisk => "NETWORK RISK",
         }
     }
 }

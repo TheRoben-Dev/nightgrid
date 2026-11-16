@@ -77,13 +77,30 @@ export const TRIAGE: Record<AlertKind, Triage> = {
     causes: ["A disk failed or dropped out of the pool", "A loose cable or controller reset"],
     checks: ["`zpool status -x` / `cat /proc/mdstat` / `btrfs device stats`", "Check backups, then replace the device (`zpool replace`)", "Avoid heavy writes and reboots until it's resilvered"],
     where: "Fleet → DISKS",
-  },  upsOnBattery: {
+  },
+  upsOnBattery: {
     causes: ["A power cut or a tripped breaker", "The UPS input is unplugged or its fuse/outlet failed", "RB flag: the battery is worn out and won't hold a charge"],
     checks: ["`upsc <ups>` on the host it's plugged into: status, battery.charge, battery.runtime", "Is the shutdown group right, and can each host shut down without a sudo password?", "For RB: run the UPS self-test and plan a battery swap"],
     where: "Fleet → UPS",
-  },  logMatch: {
+  },
+  logMatch: {
     causes: ["What the saved search looks for happened again: read the matching lines first", "A noisy pattern that also matches harmless lines"],
     checks: ["Open Fleet → LOGS and run the saved search to see every match with its host and source", "Narrow the search (a unit, a container, a regular expression) if it matches harmless lines"],
     where: "Fleet → LOGS",
+  },
+  netNewDevice: {
+    causes: ["A new phone, guest, smart-home gadget or VM joined the network", "A device got a new random (private) MAC address", "Someone or something you don't know is on the LAN"],
+    checks: ["Look it up on the network map: vendor, name, open ports (SERVICES)", "If it's yours, mark it trusted; if not, block it on the router or change the Wi-Fi password"],
+    where: "Network → map (click the device)",
+  },
+  netMissing: {
+    causes: ["It's off, asleep, out of range or on another network", "Its address changed or it now uses a random MAC", "It no longer answers ping (firewall)"],
+    checks: ["Check it's powered and connected", "Tools → Ping and Neighbours from the scanning host", "If it's gone for good, take it off the expected map"],
+    where: "Network → map (expected view)",
+  },
+  netRisk: {
+    causes: ["The router forwards a risky port from the internet (UPnP or a manual rule)", "A second DHCP server is handing out addresses", "A device has a public address on its interface"],
+    checks: ["Read the finding's detail: it names the device and port", "Turn off UPnP or the forward on the router; put remote access behind Tailscale or a VPN", "Find the rogue DHCP server by its address (Tools → Neighbours for its MAC)"],
+    where: "Network → SECURITY",
   },
 };

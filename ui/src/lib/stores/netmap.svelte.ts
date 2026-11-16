@@ -3,7 +3,7 @@
  * from the node selected on the map (a host or this computer), port audits
  * reuse System → Security.
  */
-import { api, errorText, systemError, type DeviceLabel, type Discovery, type LayoutEntry, type NetDevice, type ToolResult } from "../api";
+import { api, errorText, systemError, type DeviceLabel, type Discovery, type LayoutEntry, type NetDevice, type NetFinding, type NetWatchRun, type ToolResult } from "../api";
 import { buildGraph, type NetGraph } from "../netmap/graph";
 import { buildTopology, canAttach, entryFor, expectedEntries, type Topology } from "../netmap/layout";
 import { hosts } from "./hosts.svelte";
@@ -265,6 +265,45 @@ class NetmapStore {
     this.svc = { ...this.svc, [key]: next };
   }
 
+  /** The web security check of the scanned devices (D-145). */
+  security = $state<{ running: boolean; findings: NetFinding[] | null; error: string | null; at: number }>({ running: false, findings: null, error: null, at: 0 });
+
+  /** Everything the scan and the web check found, worst first. */
+  readonly findings: NetFinding[] = $derived(
+    [...(this.result?.findings ?? []), ...(this.security.findings ?? [])].sort((a, b) => TONE_RANK[b.level] - TONE_RANK[a.level]),
+  );
+
+  /** The worst finding about one address. */
+  findingRisk(ip: string | null | undefined): "bad" | "warn" | null {
+    if (!ip) return null;
+    const f = this.findings.filter((x) => x.ip === ip);
+    return f.some((x) => x.level === "bad") ? "bad" : f.some((x) => x.level === "warn") ? "warn" : null;
+  }
+
+  /** Reads one page or certificate on each web port of the scanned devices. */
+  async checkSecurity() {
+    if (this.security.running || !this.result) return;
+    const ips = this.result.devices.filter((d) => /^\d+\.\d+\.\d+\.\d+$/.test(d.ip)).map((d) => d.ip).slice(0, 64);
+    const from = this.resultHost ?? "local";
+    this.security = { ...this.security, running: true, error: null };
+    try {
+      const findings = await api.netmapSecurity(from === "local" ? null : from, ips);
+      this.security = { running: false, findings, error: null, at: Math.floor(Date.now() / 1000) };
+    } catch (e) {
+      this.security = { ...this.security, running: false, error: errorText(e) };
+    }
+  }
+
+  /** The last scheduled watch scan (Settings → Alerts → network watch). */
+  watchLast = $state<NetWatchRun | null>(null);
+  async loadWatch() {
+    try {
+      this.watchLast = await api.netmapWatchLast();
+    } catch {
+      this.watchLast = null;
+    }
+  }
+
   /** Port audit for one host (the same check as System → Security). */
   async audit(id: number) {
     if (this.auditing.includes(id)) return;
@@ -279,6 +318,8 @@ class NetmapStore {
     }
   }
 }
+
+const TONE_RANK = { info: 0, ok: 1, warn: 2, bad: 3 } as const;
 
 function readMode(): "graph" | "list" {
   try {

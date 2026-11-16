@@ -5,6 +5,7 @@
 import type {
   HostSchedule_Serialize as HostSchedule,
   HostEvent,
+  NetFinding_Serialize as NetFinding,
   Timeline,
   DriftReport_Serialize as DriftReport,
   FileDiff_Serialize as FileDiff,
@@ -105,6 +106,11 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
     missing: sweep
       ? [{ key: "aa:bb:cc:00:00:90", ip: "192.168.1.90", name: "garage-camera", vendor: "Reolink", kind: "camera", lastSeen: now - 2 * day, trusted: true }]
       : [],
+    dhcp: ["192.168.1.1"],
+    findings: [
+      { ip: "192.168.1.40", port: 32400, level: "warn", title: "192.168.1.40:32400 is forwarded from the internet", detail: "A UPnP mapping on the router (Plex Media Server). Check it should be public." },
+      { ip: null, port: null, level: "warn", title: "The router accepts UPnP port forwards", detail: "Any device on the LAN can open ports to the internet. Turn UPnP off on the router if nothing needs it." },
+    ],
     notes: ranges.length ? ["Devices in routed ranges show no maker or local names: MAC addresses, mDNS and NetBIOS don't cross a router. Scan from a host on that network for the full picture."] : [],
   };
 }
@@ -356,6 +362,15 @@ export const mockOps = {
     return null;
   },
   tool: async (_host: number | null, r: ToolRequest): Promise<ToolResult> => delay(mockTool(r), r.tool === "path" ? 1500 : 600),
+  security: async (ips: string[]): Promise<NetFinding[]> => {
+    await new Promise((r) => setTimeout(r, 300));
+    const out: NetFinding[] = [];
+    if (ips.includes("192.168.1.31"))
+      out.push({ ip: "192.168.1.31", port: 443, level: "info", title: "Self-signed certificate", detail: "CN=raspberrypi, expires in 210 days. Browsers will warn; fine on a LAN if you know it." });
+    if (ips.includes("192.168.1.48"))
+      out.push({ ip: "192.168.1.48", port: 80, level: "bad", title: "Login page over plain HTTP on 192.168.1.48:80", detail: "Passwords typed here cross the network unencrypted." });
+    return out;
+  },
   macVendor: async (mac: string): Promise<string | null> => {
     const hex = mac.replace(/[^0-9a-f]/gi, "").toLowerCase();
     if (hex.length !== 12) return null;

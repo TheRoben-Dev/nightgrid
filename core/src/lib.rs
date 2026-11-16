@@ -36,6 +36,7 @@ pub mod netinv;
 pub mod netlayout;
 pub mod netmap;
 pub mod netperf;
+pub mod netsec;
 pub mod nettools;
 pub mod notes;
 pub mod power;
