@@ -190,3 +190,19 @@ describe("part 5 helpers", () => {
     expect(m.ifaceProblem({ ...m.newIface("vlan", ifs), iface: "vlan30" })).toMatch(/VLAN/);
   });
 });
+
+describe("part 6 helpers", () => {
+  it("describes and checks firewall rules", async () => {
+    const m = await import("./proxmox");
+    const r = { ...m.blankRule(), macro: "SSH", source: "+management" };
+    expect(m.ruleText(r)).toBe("IN ACCEPT SSH from +management");
+    expect(m.ruleText({ ...m.blankRule(), proto: "tcp", dport: "8006", iface: "vmbr0" })).toBe("IN ACCEPT tcp port 8006 on vmbr0");
+    expect(m.ruleText({ ...m.blankRule(), kind: "group", action: "webservers" })).toBe("group webservers");
+    expect(m.ruleProblem(r)).toBeNull();
+    expect(m.ruleProblem({ ...r, action: "ALLOW" })).toMatch(/action/);
+    expect(m.ruleProblem({ ...m.blankRule(), dport: "22" })).toMatch(/protocol/);
+    expect(m.ruleProblem({ ...r, source: "1.2.3.4; reboot" })).toMatch(/Source/);
+    expect(m.ruleSpec({ ...r, pos: 3 })).toEqual(r);
+    expect(m.scopeOf("node", { node: "pve1" })).toEqual({ level: "node", node: "pve1", kind: "", vmid: 0, group: "" });
+  });
+});

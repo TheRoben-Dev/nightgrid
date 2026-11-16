@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.47 (Proxmox part 6)
+
+1. Proxmox → **FIREWALL**, scope Datacenter: rules, groups and aliases match the web UI's Datacenter → Firewall.
+2. **+ Rule**: in, ACCEPT, macro SSH, source your tailnet range (e.g. 100.64.0.0/10) → **Add**. The Keep countdown appears; press **Keep**. The rule shows in the web UI.
+3. Click a guest → **FIREWALL** → **+ Rule**: it applies without a countdown, since a guest's rules can't block the node.
+4. Safety net (optional, on a test node): add an in DROP rule for your own address on top at datacenter level and don't press Keep. The connection stalls, and about 90 s later the rule is gone again.
+
 ### macOS: testing 0.10.46 (Proxmox part 5)
 
 1. Proxmox → **NETWORK**: the list matches the web UI's node → System → Network.

@@ -1,0 +1,1 @@
+[{"name":"lan","cidr":"192.168.1.0/24","comment":"home LAN","ipversion":4,"digest":"b2"},{"name":"nas","cidr":"192.168.1.129","ipversion":4,"digest":"b2"}]

@@ -100,6 +100,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "proxmox-hardware", view: "proxmox", what: "a guest's HARDWARE tab: cores, memory, disks (grow, add, detach), network devices, PCI/USB passthrough and boot options (click a guest's name first)" },
   { id: "proxmox-tab-network", view: "proxmox", what: "NETWORK: the node's bridges, bonds and VLANs; changes are staged, shown as a diff, then applied with an automatic rollback" },
   { id: "proxmox-network-apply", view: "proxmox", what: "apply the staged network changes; the node rolls back by itself unless you press Keep within 90 seconds" },
+  { id: "proxmox-tab-firewall", view: "proxmox", what: "FIREWALL: the Proxmox firewall for the datacenter, this node and security groups: on/off, policies, ordered rules, groups, aliases; host-level changes roll back unless kept within 90 s" },
+  { id: "proxmox-guest-firewall", view: "proxmox", what: "a guest's own firewall rules and policy (in the guest's window)" },
   { id: "proxmox-images", view: "proxmox", what: "ISO images and container templates on this node, with Download ISO… and Get CT template… (STORAGE tab)" },
   { id: "dashboard-presets", view: "overview", what: "apply a built-in or saved layout preset, or save this layout as a preset (in edit mode)" },
   { id: "dashboard-new", view: "overview", what: "make another named dashboard (in edit mode)" },

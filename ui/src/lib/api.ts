@@ -93,6 +93,10 @@ import {
   type PveNetwork_Serialize as PveNetwork,
   type PveIfaceSpec_Deserialize as PveIfaceSpec,
   type PveNetApply_Serialize as PveNetApply,
+  type PveFirewall_Serialize as PveFirewall,
+  type PveFwScope,
+  type PveFwRuleSpec,
+  type PveFwRun,
   type PveSetting,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
@@ -385,6 +389,10 @@ export type {
   PveNetwork,
   PveIfaceSpec,
   PveNetApply,
+  PveFirewall,
+  PveFwScope,
+  PveFwRuleSpec,
+  PveFwRun,
   DnsList,
   DnsRecord,
   AmpInstance,
@@ -691,7 +699,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.46-web",
+      version: "0.10.47-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1222,6 +1230,18 @@ export const api = {
   pveNetworkRevert: (hostId: number, node: string, sudo: SudoInput | null): Promise<null> => (T() ? commands.pveNetworkRevert(hostId, node, sudo) : mockProxmox.networkRevert()),
   pveNetworkApply: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveNetApply> => (T() ? commands.pveNetworkApply(hostId, node, sudo) : mockProxmox.networkApply(node)),
   pveNetworkSettle: (hostId: number, token: string, keep: boolean, sudo: SudoInput | null): Promise<null> => (T() ? commands.pveNetworkSettle(hostId, token, keep, sudo) : mockProxmox.networkSettle(keep)),
+  pveFirewall: (hostId: number, scope: PveFwScope, sudo: SudoInput | null): Promise<PveFirewall> => (T() ? commands.pveFirewall(hostId, scope, sudo) : mockProxmox.firewall(scope)),
+  pveFwRuleSave: (hostId: number, scope: PveFwScope, local: string, token: string | null, pos: number | null, digest: string, rule: PveFwRuleSpec, sudo: SudoInput | null): Promise<PveFwRun> =>
+    T() ? commands.pveFwRuleSave(hostId, scope, local, token, pos, digest, rule, sudo) : mockProxmox.fwRuleSave(scope, token, pos, rule),
+  pveFwRuleMove: (hostId: number, scope: PveFwScope, local: string, token: string | null, pos: number, to: number, digest: string, sudo: SudoInput | null): Promise<PveFwRun> =>
+    T() ? commands.pveFwRuleMove(hostId, scope, local, token, pos, to, digest, sudo) : mockProxmox.fwRuleMove(scope, token, pos, to),
+  pveFwRuleDelete: (hostId: number, scope: PveFwScope, local: string, token: string | null, pos: number, digest: string, sudo: SudoInput | null): Promise<PveFwRun> =>
+    T() ? commands.pveFwRuleDelete(hostId, scope, local, token, pos, digest, sudo) : mockProxmox.fwRuleDelete(scope, token, pos),
+  pveFwOptions: (hostId: number, scope: PveFwScope, local: string, token: string | null, enable: boolean, policyIn: string, policyOut: string, digest: string, sudo: SudoInput | null): Promise<PveFwRun> =>
+    T() ? commands.pveFwOptions(hostId, scope, local, token, enable, policyIn, policyOut, digest, sudo) : mockProxmox.fwOptions(scope, token, enable, policyIn, policyOut),
+  pveFwObject: (hostId: number, local: string, token: string | null, op: string, name: string, cidr: string, comment: string, sudo: SudoInput | null): Promise<PveFwRun> =>
+    T() ? commands.pveFwObject(hostId, local, token, op, name, cidr, comment, sudo) : mockProxmox.fwObject(token, op, name, cidr, comment),
+  pveFwSettle: (hostId: number, token: string, keep: boolean, sudo: SudoInput | null): Promise<null> => (T() ? commands.pveFwSettle(hostId, token, keep, sudo) : mockProxmox.fwSettle(keep)),
   pveAppliances: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveAppliance[]> => (T() ? commands.pveAppliances(hostId, node, sudo) : mockProxmox.appliances()),
   pveApplianceDownload: (hostId: number, node: string, storage: string, template: string, sudo: SudoInput | null): Promise<string> =>
     T() ? commands.pveApplianceDownload(hostId, node, storage, template, sudo) : mockProxmox.applianceDownload(node, storage, template),

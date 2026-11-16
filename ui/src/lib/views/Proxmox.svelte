@@ -10,6 +10,7 @@
   import PveGuestPanel from "../components/proxmox/PveGuestPanel.svelte";
   import PveMakeDialogs from "../components/proxmox/PveMakeDialogs.svelte";
   import PveNetworkTab from "../components/proxmox/PveNetworkTab.svelte";
+  import PveFirewall from "../components/proxmox/PveFirewall.svelte";
   import {
     ACTION_CONSEQUENCE,
     ACTION_WORD,
@@ -40,6 +41,7 @@
     { id: "backups", label: "BACKUPS" },
     { id: "storage", label: "STORAGE" },
     { id: "network", label: "NETWORK" },
+    { id: "firewall", label: "FIREWALL" },
     { id: "tasks", label: "TASKS" },
   ];
 
@@ -272,6 +274,8 @@
       </div>
     {:else if proxmox.tab === "network"}
       <PveNetworkTab />
+    {:else if proxmox.tab === "firewall"}
+      <div class="scroll fwpad"><PveFirewall /></div>
     {:else if proxmox.tab === "tasks"}
       <div class="scroll">
         <div class="trow headrow" aria-hidden="true"><span>STARTED</span><span>TASK</span><span>NODE</span><span>USER</span><span>RESULT</span></div>
@@ -557,6 +561,9 @@
   }
   .sp {
     margin-left: auto;
+  }
+  .fwpad {
+    padding: 4px 8px;
   }
   .hd {
     margin: 0;

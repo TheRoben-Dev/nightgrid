@@ -12,6 +12,7 @@ use crate::files::path::shell_quote;
 
 pub mod backup;
 pub mod create;
+pub mod firewall;
 pub mod hardware;
 pub mod network;
 

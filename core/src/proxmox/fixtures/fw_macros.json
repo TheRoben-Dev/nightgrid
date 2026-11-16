@@ -1,0 +1,1 @@
+[{"macro":"HTTP","descr":"Hypertext Transfer Protocol (WWW)"},{"macro":"HTTPS","descr":"Hypertext Transfer Protocol (WWW) over SSL"},{"macro":"SSH","descr":"Secure shell traffic"},{"macro":"DNS","descr":"Domain Name System traffic (upd and tcp)"},{"macro":"Ping","descr":"ICMP echo request"}]

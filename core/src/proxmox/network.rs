@@ -519,5 +519,11 @@ mod tests {
         )
         .unwrap();
         assert!(restore.contains("cp -a \"$D/interfaces\" /etc/network/interfaces") && restore.contains("ifreload -a"));
+        for script in
+            [a, confirm_script("1").unwrap(), rollback_script("1").unwrap(), network_script("pve1").unwrap(), restore]
+        {
+            let ok = std::process::Command::new("/bin/sh").arg("-n").arg("-c").arg(&script).status().unwrap().success();
+            assert!(ok, "{script}");
+        }
     }
 }

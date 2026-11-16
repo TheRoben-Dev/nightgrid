@@ -535,3 +535,41 @@ export function ifaceProblem(s: PveIfaceSpec): string | null {
   if (s.mtu != null && (s.mtu < 1280 || s.mtu > 65520)) return "MTU: 1280 to 65520.";
   return null;
 }
+
+// ---- part 6: firewall ----
+
+import type { PveFwNamed, PveFwRule, PveFwRuleSpec, PveFwScope } from "./bindings";
+export type { PveFwNamed, PveFwRule, PveFwRuleSpec, PveFwScope };
+
+export const FW_ACTIONS = ["ACCEPT", "DROP", "REJECT"];
+export const FW_LOGS = ["", "nolog", "info", "notice", "warning", "err", "debug"];
+
+export const scopeOf = (level: string, x: Partial<PveFwScope> = {}): PveFwScope => ({ level, node: "", kind: "", vmid: 0, group: "", ...x });
+
+export function blankRule(): PveFwRuleSpec {
+  return { kind: "in", action: "ACCEPT", macro: "", source: "", dest: "", proto: "", sport: "", dport: "", iface: "", log: "", enable: true, comment: "" };
+}
+
+export function ruleSpec(r: PveFwRule): PveFwRuleSpec {
+  const { pos: _pos, ...rest } = r;
+  void _pos;
+  return rest;
+}
+
+/** One line for a rule: "IN ACCEPT SSH from +management". */
+export function ruleText(r: PveFwRuleSpec): string {
+  if (r.kind === "group") return `group ${r.action}`;
+  const what = r.macro || [r.proto, r.dport && `port ${r.dport}`].filter(Boolean).join(" ") || "any";
+  return [r.kind.toUpperCase(), r.action, what, r.source && `from ${r.source}`, r.dest && `to ${r.dest}`, r.iface && `on ${r.iface}`].filter(Boolean).join(" ");
+}
+
+/** Mirrors the backend's rule checks for inline feedback. */
+export function ruleProblem(r: PveFwRuleSpec): string | null {
+  if (r.kind === "group" ? !/^[A-Za-z][A-Za-z0-9_-]{1,17}$/.test(r.action) : !FW_ACTIONS.includes(r.action)) return "Pick an action or a security group.";
+  const addr = /^[A-Za-z0-9.:/,+\-_!]*$/;
+  if (!addr.test(r.source) || !addr.test(r.dest)) return "Source and destination: addresses, CIDRs, ranges, aliases or +ipsets.";
+  if (!/^[A-Za-z0-9:,-]*$/.test(r.dport) || !/^[A-Za-z0-9:,-]*$/.test(r.sport)) return "Ports: numbers, ranges (1000:2000), lists or service names.";
+  if ((r.dport || r.sport) && !r.proto && !r.macro) return "Ports need a protocol (tcp or udp).";
+  if (r.comment.length > 200) return "Comment: up to 200 characters.";
+  return null;
+}
