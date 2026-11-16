@@ -151,6 +151,23 @@ async fn open(conn: &Connection, auth: &SudoAuth, inner: &str) -> SystemResult<r
     Ok(ch)
 }
 
+/// Starts `inner` as root for a two-way stream: sudo's password (if any) is
+/// the first stdin line, after which stdin belongs to the command.
+pub async fn open_interactive(
+    conn: &Connection,
+    auth: &SudoAuth,
+    inner: &str,
+) -> SystemResult<russh::Channel<russh::client::Msg>> {
+    let ch = conn.open_exec(&wrap(auth, inner)).await.map_err(SystemError::other)?;
+    if let SudoAuth::Password(pw) = auth {
+        let mut line = Zeroizing::new(Vec::with_capacity(pw.expose().len() + 1));
+        line.extend_from_slice(pw.expose().as_bytes());
+        line.push(b'\n');
+        ch.data(&line[..]).await.map_err(SystemError::other)?;
+    }
+    Ok(ch)
+}
+
 /// Runs `inner` as root and collects its output. Fails with a sudo error if
 /// sudo itself refused.
 pub async fn run(conn: &Connection, auth: &SudoAuth, inner: &str) -> SystemResult<Output> {

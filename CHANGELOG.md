@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.21] - 2026-11-16
+
+### Added: VM desktops (M10n)
+- **Screen** on a running VM in System → VMS opens its graphical console in the new **Desktops** view (`Mod+Shift+M`), one tab per guest. It is a VNC viewer built into Nightgrid: the picture travels over the host's existing SSH connection, so no port is opened, no API token is needed and nothing gets installed. libvirt/KVM guests with a VNC display (the usual `listen='127.0.0.1'`) and Proxmox VE VMs work; a guest with a password on its VNC display is handled when the host shows it to root. A SPICE-only guest says how to add VNC.
+- Click the screen to type into the guest; click outside to get the keyboard back. The toolbar has **Ctrl+Alt+Del**, **Type text…** (sends text key by key, for installers and login screens), **Send clipboard** / **Copy guest clipboard** (needs a clipboard agent in the guest), **1:1** / **Fit**, **Full**, **Redraw**, **Disconnect** and **Reconnect**.
+- **RDP** on a running VM finds the guest's address (libvirt DHCP leases or the QEMU guest agent), lets you pick or type one, and opens a tunnel from a free port on 127.0.0.1 through the host to the guest's RDP port. Nightgrid then opens a `.rdp` file for it in this computer's RDP client (Windows App / Microsoft Remote Desktop on macOS, `mstsc` on Windows, whatever handles `.rdp` on Linux). Tunnels show in the Desktops view with **Stop**. The file holds only the local address; you sign in inside the RDP client.
+
 ## [0.10.20] - 2026-11-15
 
 ### Added: backup monitor with test restores (completes M10m)

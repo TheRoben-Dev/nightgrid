@@ -41,5 +41,6 @@ pub mod tailnet;
 pub mod term;
 pub mod timeline;
 pub mod tunnels;
+pub mod vnc;
 
 pub use error::{Error, Result};

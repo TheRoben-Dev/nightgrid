@@ -7,6 +7,7 @@ mod backup_cmd;
 mod backup_jobs_cmd;
 mod commands;
 mod confdiff_cmd;
+mod desktop_cmd;
 mod docker_cmd;
 mod expiry_cmd;
 mod files_cmd;
@@ -34,6 +35,11 @@ use tauri_specta::{collect_commands, Builder};
 
 /// Path the TypeScript bindings are written to (relative to this crate).
 pub const BINDINGS_PATH: &str = "../ui/src/lib/bindings.ts";
+
+/// Commands outside the typed surface (raw byte responses).
+fn raw_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![desktop_cmd::desktop_frame]
+}
 
 /// The typed command surface shared by the app and the bindings exporter.
 pub fn specta_builder() -> Builder<tauri::Wry> {
@@ -226,6 +232,13 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::netmap_discover,
         system_cmd::netmap_discover_local,
         system_cmd::system_vm_action,
+        desktop_cmd::desktop_open,
+        desktop_cmd::desktop_input,
+        desktop_cmd::desktop_close,
+        desktop_cmd::desktop_guest_addrs,
+        desktop_cmd::desktop_rdp_open,
+        desktop_cmd::desktop_rdp_list,
+        desktop_cmd::desktop_rdp_close,
         term_cmd::term_open_vm_console,
         status_cmd::status_page_get,
         status_cmd::status_page_set,
@@ -263,7 +276,14 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().pubkey(update_cmd::PUBKEY.trim()).build())
         .manage(update_cmd::PendingUpdate::default())
         .manage(helper_cmd::Helper::default())
-        .invoke_handler(builder.invoke_handler())
+        .manage(desktop_cmd::Desktops::default())
+        .invoke_handler({
+            // desktop_frame returns raw bytes, which specta can't type, so it's
+            // registered beside the typed commands.
+            let typed = builder.invoke_handler();
+            let raw = raw_handler();
+            move |invoke| if invoke.message.command() == "desktop_frame" { raw(invoke) } else { typed(invoke) }
+        })
         .setup(move |app| {
             builder.mount_events(app);
 

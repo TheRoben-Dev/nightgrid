@@ -43,6 +43,7 @@
     "nav.notes": "Notes",
     "nav.network": "Network map",
     "nav.fleet": "Fleet (updates across hosts)",
+    "nav.desktops": "Desktops (VM screens)",
     "effects.toggle": "Toggle effects",
     "palette.openAlt": "Command palette (works in terminal)",
     "term.newLocal": "New local terminal",

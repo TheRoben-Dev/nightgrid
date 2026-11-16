@@ -1,5 +1,7 @@
 <script lang="ts">
   import Modal from "../Modal.svelte";
+  import RdpDialog from "../desktop/RdpDialog.svelte";
+  import { desktops } from "../../stores/desktops.svelte";
   import { system } from "../../stores/system.svelte";
   import { vmActions, vmCounts, vmKey, vmTone, vms, VM_ACTION_WORD, VM_CONSEQUENCE, VM_KIND_LABEL } from "../../stores/vms.svelte";
 
@@ -68,6 +70,24 @@
             <button type="button" class="btn tiny {a === 'start' ? 'primary' : a === 'stop' ? 'danger' : 'ghost'}" disabled={busy} onclick={() => vms.request(v, a)}>{VM_ACTION_WORD[a]}</button>
           {/each}
           <span class="spacer"></span>
+          {#if v.kind !== "lxc"}
+            <button
+              type="button"
+              class="btn ghost tiny"
+              data-guide="vms-screen"
+              disabled={v.state !== "running" && v.state !== "paused"}
+              title="The VM's screen in the Desktops view (VNC over SSH)"
+              onclick={() => desktops.open(v)}>Screen</button
+            >
+            <button
+              type="button"
+              class="btn ghost tiny"
+              data-guide="vms-rdp"
+              disabled={v.state !== "running"}
+              title="Remote Desktop through an SSH tunnel, in this computer's RDP client"
+              onclick={() => desktops.askRdp(v)}>RDP</button
+            >
+          {/if}
           <button
             type="button"
             class="btn ghost tiny"
@@ -80,6 +100,8 @@
     {/each}
   </div>
 </div>
+
+<RdpDialog />
 
 <Modal open={!!pending} title={pending ? `${VM_ACTION_WORD[pending.action].toUpperCase()} GUEST` : ""} tone="danger" width={520} onclose={() => (vms.pending = null)}>
   {#if pending}
