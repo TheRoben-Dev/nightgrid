@@ -1,0 +1,1 @@
+{"config":{"dns":{"hosts":["192.168.1.10 nas.lan","192.168.1.11 server01.lan","fd00::5 printer.lan"]}},"took":0.0}

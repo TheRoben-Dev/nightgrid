@@ -5,7 +5,7 @@
   import Modal from "../Modal.svelte";
   import Toggle from "../Toggle.svelte";
 
-  const KINDS: IntegrationKind[] = ["plex", "amp", "kuma", "portainer"];
+  const KINDS: IntegrationKind[] = ["plex", "amp", "kuma", "portainer", "pihole", "adguard"];
   const open = $derived(integrations.editing !== null);
   const existing = $derived(integrations.editing ? integrations.byId(integrations.editing) : undefined);
 
@@ -31,7 +31,7 @@
   });
 
   const kind = $derived(form.kind ?? "plex");
-  const needsSecret = $derived(kind === "plex" || kind === "amp");
+  const needsSecret = $derived(kind === "plex" || kind === "amp" || kind === "pihole" || kind === "adguard");
   const secretLabel = $derived(kind === "plex" ? "Plex token" : "Password");
   const urlOk = $derived(/^https?:\/\/[^/\s@?#]+/i.test(form.baseUrl?.trim() ?? ""));
   const PLACEHOLDER: Record<IntegrationKind, string> = {
@@ -39,6 +39,8 @@
     amp: "https://amp.example.lan",
     kuma: "http://server01:3001",
     portainer: "https://server01:9443",
+    pihole: "http://192.168.1.2",
+    adguard: "http://192.168.1.2:3000",
   };
 
   /** null keeps the saved secret, "" removes it. */
@@ -122,13 +124,13 @@
       <p class="span6 muted help">{KIND_HELP[kind]}</p>
       <label class="field span2">
         <span>Name</span>
-        <input class="input" bind:value={form.name} placeholder={KIND_LABEL[kind].replace("UPTIME KUMA", "Uptime Kuma")} autocomplete="off" />
+        <input class="input" bind:value={form.name} placeholder={KIND_LABEL[kind].replace("UPTIME KUMA", "Uptime Kuma").replace("PI-HOLE", "Pi-hole").replace("ADGUARD HOME", "AdGuard Home")} autocomplete="off" />
       </label>
       <label class="field span4">
         <span>URL</span>
         <input class="input" bind:value={form.baseUrl} placeholder={PLACEHOLDER[kind]} required autocomplete="off" spellcheck="false" aria-invalid={!!form.baseUrl?.trim() && !urlOk} />
       </label>
-      {#if kind === "amp"}
+      {#if kind === "amp" || kind === "adguard"}
         <label class="field span3">
           <span>Login name</span>
           <input class="input" bind:value={form.username} autocomplete="off" spellcheck="false" required />

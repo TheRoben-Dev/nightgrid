@@ -3,6 +3,7 @@
   import Panel from "../components/Panel.svelte";
   import ServiceCard from "../components/services/ServiceCard.svelte";
   import IntegrationCard from "../components/integrations/IntegrationCard.svelte";
+  import DnsDashboard from "../components/integrations/DnsDashboard.svelte";
   import ExpiryPanel from "../components/services/ExpiryPanel.svelte";
   import Modal from "../components/Modal.svelte";
   import { scramble } from "../scramble";
@@ -104,6 +105,8 @@
 
   <ExpiryPanel />
 </div>
+
+<DnsDashboard />
 
 <Modal
   open={!!pendingAmp}

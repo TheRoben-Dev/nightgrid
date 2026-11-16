@@ -62,6 +62,10 @@ import {
   type AlertsSnapshot_Serialize as AlertsSnapshot,
   type Severity,
   type AmpAction,
+  type DnsAction_Serialize as DnsAction,
+  type DnsStatus_Serialize as DnsStatus,
+  type DnsList_Serialize as DnsList,
+  type DnsRecord,
   type AutomationEvent_Serialize as AutomationEvent,
   type DockerAction as AutomationDockerAction,
   type HostNeeds,
@@ -315,6 +319,10 @@ export type {
   Step,
   Variable,
   AmpAction,
+  DnsAction,
+  DnsStatus,
+  DnsList,
+  DnsRecord,
   AmpInstance,
   Integration,
   IntegrationInput,
@@ -619,7 +627,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.35-web",
+      version: "0.10.36-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -966,6 +974,7 @@ export const api = {
     T() ? commands.integrationTest(id, i, secret) : mockIntegrations.test(i),
   ampInstanceAction: (id: number, instance: string, action: AmpAction): Promise<null> =>
     T() ? commands.ampInstanceAction(id, instance, action) : mockIntegrations.ampAction(id, instance, action),
+  dnsFilterAction: (id: number, action: DnsAction): Promise<null> => (T() ? commands.dnsFilterAction(id, action) : mockIntegrations.dnsAction(id, action)),
   snippetsList: (): Promise<Snippet[]> => (T() ? commands.snippetsList() : mockAutomation.snippets()),
   snippetSave: (id: number | null, i: SnippetInput): Promise<Snippet> =>
     T() ? commands.snippetSave(id, i) : mockAutomation.saveSnippet(id, i),

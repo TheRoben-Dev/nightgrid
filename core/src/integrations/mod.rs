@@ -7,12 +7,15 @@
 //!   start, stop and restart.
 //! - **Uptime Kuma**: monitors from a public status page (no API key needed).
 //! - **Portainer**: version check plus deep links into its UI.
+//! - **Pi-hole** and **AdGuard Home**: DNS stats, blocking on/off, lists and
+//!   local records (M10v).
 //!
 //! Every client goes through [`crate::http`], so certificates are verified
 //! unless the integration allows untrusted ones, and nothing is sent anywhere
 //! but the configured URL.
 
 pub mod amp;
+pub mod dns;
 pub mod kuma;
 pub mod plex;
 pub mod portainer;
@@ -34,6 +37,8 @@ pub enum IntegrationKind {
     Amp,
     Kuma,
     Portainer,
+    Pihole,
+    Adguard,
 }
 
 impl IntegrationKind {
@@ -43,6 +48,8 @@ impl IntegrationKind {
             Self::Amp => "amp",
             Self::Kuma => "kuma",
             Self::Portainer => "portainer",
+            Self::Pihole => "pihole",
+            Self::Adguard => "adguard",
         }
     }
 
@@ -52,13 +59,15 @@ impl IntegrationKind {
             "amp" => Self::Amp,
             "kuma" => Self::Kuma,
             "portainer" => Self::Portainer,
+            "pihole" => Self::Pihole,
+            "adguard" => Self::Adguard,
             _ => return None,
         })
     }
 
     /// Whether this kind needs a secret (token or password) to work.
     pub fn needs_secret(self) -> bool {
-        matches!(self, Self::Plex | Self::Amp)
+        matches!(self, Self::Plex | Self::Amp | Self::Pihole | Self::Adguard)
     }
 }
 
@@ -132,11 +141,16 @@ pub fn normalize(i: &IntegrationInput) -> Result<(IntegrationKind, IntegrationIn
             IntegrationKind::Amp => "AMP",
             IntegrationKind::Kuma => "Uptime Kuma",
             IntegrationKind::Portainer => "Portainer",
+            IntegrationKind::Pihole => "Pi-hole",
+            IntegrationKind::Adguard => "AdGuard Home",
         }
         .into();
     }
     match kind {
         IntegrationKind::Amp if n.username.is_empty() => return Err(inv("username", "AMP needs a login name")),
+        IntegrationKind::Adguard if n.username.is_empty() => {
+            return Err(inv("username", "AdGuard Home needs its login name"))
+        }
         IntegrationKind::Kuma => {
             if n.slug.is_empty() {
                 return Err(inv("slug", "the status page slug, e.g. \"home\" from /status/home"));
@@ -147,7 +161,7 @@ pub fn normalize(i: &IntegrationInput) -> Result<(IntegrationKind, IntegrationIn
         }
         _ => {}
     }
-    if kind != IntegrationKind::Amp {
+    if !matches!(kind, IntegrationKind::Amp | IntegrationKind::Adguard) {
         n.username.clear();
     }
     if kind != IntegrationKind::Kuma {
@@ -171,6 +185,8 @@ pub enum IntegrationStatus {
     Amp(amp::AmpStatus),
     Kuma(kuma::KumaStatus),
     Portainer(portainer::PortainerStatus),
+    Pihole(dns::DnsStatus),
+    Adguard(dns::DnsStatus),
 }
 
 /// Reads an integration's status. `secret` is the token/password from the
@@ -185,6 +201,12 @@ pub async fn status(i: &Integration, secret: Option<&str>) -> std::result::Resul
         }
         IntegrationKind::Kuma => kuma::status(i).await.map(IntegrationStatus::Kuma),
         IntegrationKind::Portainer => portainer::status(i).await.map(IntegrationStatus::Portainer),
+        IntegrationKind::Pihole => {
+            dns::status(i, secret.ok_or("no Pi-hole password saved")?).await.map(IntegrationStatus::Pihole)
+        }
+        IntegrationKind::Adguard => {
+            dns::status(i, secret.ok_or("no AdGuard Home password saved")?).await.map(IntegrationStatus::Adguard)
+        }
     }
 }
 

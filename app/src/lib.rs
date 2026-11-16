@@ -186,6 +186,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         integrations_cmd::integration_status,
         integrations_cmd::integration_test,
         integrations_cmd::amp_instance_action,
+        integrations_cmd::dns_filter_action,
         notes_cmd::notes_list,
         notes_cmd::note_save,
         notes_cmd::note_delete,
