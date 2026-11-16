@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.22 (customizable Overview)
+
+1. The Overview looks like before (host tiles, alerts, services, fleet health). Press **Edit**: widgets get dashed frames and a grid shows behind them.
+2. Drag ALERTS by its title onto NODES: NODES moves down, nothing overlaps. Drag a corner to make a widget wider and taller. **×** removes one, **+ Widget → NOTES** adds pinned notes. **Undo** reverses each step.
+3. **+ New** → start from **Operations**: a second tab appears. Rename it, switch tabs, quit and reopen the app: both dashboards and the tab you were on come back.
+4. **Presets → Save this layout as a preset…**, then on the other tab apply it from **Presets → SAVED**.
+5. Tab to a widget's grip (⠿): arrows move it, Shift+arrows resize, Delete removes.
+6. Settings → export a profile, import it on a fresh install (or after **Reset**): the dashboards come back.
+
 ### macOS: testing 0.10.21 (VM desktops)
 
 1. On a libvirt host with a running VM that has a VNC display (virt-manager's default): **System → VMS → Screen**. The Desktops view (`Cmd+Shift+M`) opens a tab and the guest's screen appears within a second or two. On the host, `ss -tlnp` shows nothing new listening.

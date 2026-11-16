@@ -884,6 +884,12 @@ export type AppSettings_Deserialize = {
 	profileReminderSnooze?: number | null,
 	/**  Read-only phone status page served by the app. Machine-specific. */
 	statusPage?: StatusPageSettings_Deserialize,
+	/**  Overview dashboards (M10o). Empty means the built-in default. */
+	dashboards?: Dashboard[],
+	/**  Index of the dashboard shown. */
+	dashboardActive?: number,
+	/**  Layouts saved as named presets. */
+	dashboardPresets?: Dashboard[],
 };
 
 /**
@@ -985,6 +991,12 @@ export type AppSettings_Serialize = {
 	profileReminderSnooze: number | null,
 	/**  Read-only phone status page served by the app. Machine-specific. */
 	statusPage: StatusPageSettings_Serialize,
+	/**  Overview dashboards (M10o). Empty means the built-in default. */
+	dashboards: Dashboard[],
+	/**  Index of the dashboard shown. */
+	dashboardActive: number,
+	/**  Layouts saved as named presets. */
+	dashboardPresets: Dashboard[],
 };
 
 export type AuthMethod = 
@@ -1512,6 +1524,11 @@ export type CronJob_Serialize = {
 	command: string,
 	/**  Next run, unix seconds (none for `@reboot` or a schedule that never matches). */
 	next: number | null,
+};
+
+export type Dashboard = {
+	name: string,
+	widgets: Widget[],
 };
 
 /**  A new stack's compose file (and optional `.env`) for the deploy wizard. */
@@ -4897,4 +4914,14 @@ export type WebhookInfo_Serialize = {
 	configured: boolean,
 	/**  Scheme and host only (the path usually holds the token). */
 	host: string | null,
+};
+
+export type Widget = {
+	/**  Stable within its dashboard (lets the UI keep state while moving). */
+	id: string,
+	kind: string,
+	x: number,
+	y: number,
+	w: number,
+	h: number,
 };

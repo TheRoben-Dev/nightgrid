@@ -272,6 +272,12 @@ _Last updated: M2 (SFTP + editor)._
 - **Handheld and controllers:** `data-handheld="on"` on `<html>` raises `--hit` (every button, field, toggle and rail item uses it as its minimum size); `ui/src/lib/gamepad.ts` turns Gamepad API snapshots into actions (`PadReader`) and moves focus spatially (`pickNext`, `moveFocus`), started from `App.svelte` with hooks for view switching, the palette and the sidebar (D-060).
 - **CSP-safe Svelte:** the CSP has no `'unsafe-inline'`, so components must not use static `style="..."` attributes; use `style:prop={...}` directives (CSSOM) or classes.
 
+## Overview dashboards (M10o)
+
+- `ui/src/lib/dashboard.ts` owns placement as pure, tested functions on a 12-column grid: `clampWidget` (size limits per widget kind), `place` (put the moved widget, push what it covers down, then `compact` everything upwards), `add` (first free spot, top-left first), `remove`, and `gridDelta` (pointer pixels to grid steps). The built-in presets live there too.
+- `views/Overview.svelte` renders a CSS grid (`grid-column`/`grid-row` set through `style:` directives, CSP-safe) and keeps a draft layout while a drag is in progress; the layout is saved on pointer-up, so a drag is one settings write. `components/dashboard/DashWidget.svelte` draws each kind from stores the app already has; nothing in it starts SSH work.
+- Layouts are stored in `AppSettings` (`dashboards`, `dashboardActive`, `dashboardPresets`); `core/src/dashboard.rs` only validates them (known kinds, ids, inside the grid, no overlaps, counts). If saved dashboards are broken, `AppSettings::load` drops just them and keeps the rest of the settings (D-106).
+
 ## Security posture (M9)
 
 - CSP: `default-src 'self'`, no inline script/style, no remote origins; `connect-src` limited to Tauri IPC. Runtime `<style>` elements (xterm) are mirrored into constructable stylesheets instead of relaxing the CSP (D-013).
