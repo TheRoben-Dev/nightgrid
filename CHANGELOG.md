@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.25] - 2026-11-16
+
+### Added: DRIFT as a guide (M10q)
+- **Guided tours**: step-by-step walkthroughs that put brackets around one control at a time, say what to do and wait for you: a click on the control, opening a view, a dialog opening or closing, or **Next** for steps that only explain. DRIFT never clicks, types or switches views itself. The callout has **Back**, **Skip step** and **End tour**, says when the control isn't on screen, and stays above open dialogs; Esc ends a tour.
+- Seven tours: Getting around, Add your first host, Customize the Overview, Watch your services, Check fleet health, Back up your setup, Open a VM's screen. They work without the model.
+- **What can I do here?** (**HERE?** in the DRIFT panel): the current view's controls that are on screen, each one click away from being pointed out, and the tours, those for this view first.
+- DRIFT can offer a tour at the end of a reply when a question is a multi-step task.
+- **First-run offer**: a one-time card offers the Getting around tour; either answer is remembered, and every tour can be replayed from **Settings → Helper**.
+
 ## [0.10.24] - 2026-11-16
 
 ### Added: DRIFT skills, part 2 (completes M10p)

@@ -113,6 +113,8 @@ pub struct AppSettings {
     pub dashboard_active: u8,
     /// Layouts saved as named presets.
     pub dashboard_presets: Vec<crate::dashboard::Dashboard>,
+    /// DRIFT has offered its first-run tour (M10q).
+    pub tour_offered: bool,
 }
 
 pub const STATUS_BINDS: &[&str] = &["lan", "tailscale", "all"];
@@ -250,6 +252,7 @@ impl Default for AppSettings {
             helper_enabled: false,
             dashboards: Vec::new(),
             dashboard_active: 0,
+            tour_offered: false,
             dashboard_presets: Vec::new(),
         }
     }

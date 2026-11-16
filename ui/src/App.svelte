@@ -49,6 +49,8 @@
   import { tunnels } from "./lib/stores/tunnels.svelte";
   import HelperPanel from "./lib/components/helper/HelperPanel.svelte";
   import Spotlight from "./lib/components/helper/Spotlight.svelte";
+  import TourOverlay from "./lib/components/helper/TourOverlay.svelte";
+  import TourOffer from "./lib/components/helper/TourOffer.svelte";
   import ProfileReminder from "./lib/components/backup/ProfileReminder.svelte";
   import { helper } from "./lib/stores/helper.svelte";
 
@@ -166,7 +168,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.24"} />
+  <LeftRail version={info?.version ?? "0.10.25"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network" || section.id === "fleet" || section.id === "desktops"} aria-label={section.label}>
@@ -219,6 +221,8 @@
   {#if helper.open}<HelperPanel />{/if}
 </div>
 <Spotlight />
+<TourOverlay />
+<TourOffer />
 <ProfileReminder />
 
 <CommandPalette open={ui.paletteOpen} {commands} onclose={() => (ui.paletteOpen = false)} />

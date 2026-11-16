@@ -5,6 +5,7 @@
 import { api, type HelperStatus } from "../api";
 import { guideTarget } from "../helper/guide";
 import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
+import { tour } from "./tour.svelte";
 import { buildTurns, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
 import { sectionById } from "../sections";
 import { labelLines } from "../netmap/graph";
@@ -382,6 +383,11 @@ class HelperStore {
 
   /** Runs a reply's actions in order: switch view, then spotlight targets one after another. */
   async run(actions: HelperAction[]) {
+    const t = actions.find((a) => a.kind === "tour");
+    if (t && t.kind === "tour") {
+      tour.start(t.id);
+      return;
+    }
     const show = actions.find((a) => a.kind === "show");
     if (show && show.kind === "show") ui.go(show.view);
     const points = actions.filter((a): a is Extract<HelperAction, { kind: "point" }> => a.kind === "point");

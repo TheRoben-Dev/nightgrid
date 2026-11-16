@@ -890,6 +890,8 @@ export type AppSettings_Deserialize = {
 	dashboardActive?: number,
 	/**  Layouts saved as named presets. */
 	dashboardPresets?: Dashboard[],
+	/**  DRIFT has offered its first-run tour (M10q). */
+	tourOffered?: boolean,
 };
 
 /**
@@ -997,6 +999,8 @@ export type AppSettings_Serialize = {
 	dashboardActive: number,
 	/**  Layouts saved as named presets. */
 	dashboardPresets: Dashboard[],
+	/**  DRIFT has offered its first-run tour (M10q). */
+	tourOffered: boolean,
 };
 
 export type AuthMethod = 

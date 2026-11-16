@@ -523,6 +523,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dashboards: [],
   dashboardActive: 0,
   dashboardPresets: [],
+  tourOffered: false,
   profileReminderSnooze: null,
   statusPage: { enabled: false, bind: "lan", port: 8787 },
 };
@@ -532,7 +533,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.24-web",
+      version: "0.10.25-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",

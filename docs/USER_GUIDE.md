@@ -170,6 +170,8 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 - **Runbook notes**: **Save as runbook note** under any answer opens a new note with the question, the checks and the answer to edit and save.
 - **Regex**: write `/pattern/` (or "regex \`…\`") and select some lines: DRIFT explains the pattern and says how many lines match.
 - With shell history shared, DRIFT also searches older history for the words in your question ("when did I last restart nginx on the nas?").
+- **Guided tours**: DRIFT can walk you through a task one control at a time. It puts brackets around the control, says what to do and waits until you've done it (clicked it, opened the view, opened or closed the dialog); for steps that only explain, press **Next**. It never clicks anything itself. **Back**, **Skip step** and **End tour** are on the callout, and Esc ends a tour (when no dialog or palette is open). Tours: Getting around, Add your first host, Customize the Overview, Watch your services, Check fleet health, Back up your setup and Open a VM's screen. They don't need the model: start them from **HERE?** in the DRIFT panel or **Settings → Helper**, and DRIFT offers one in a reply when it fits ("how do I set up backups?"). On first start Nightgrid offers the Getting around tour once.
+- **What can I do here?**: **HERE?** at the top of the DRIFT panel lists the controls of the current view that are on screen (click one to have it pointed out) and the tours, those for this view first.
 - Answers can be wrong. Commands DRIFT suggests are yours to run, and Nightgrid still asks before anything destructive.
 
 ## Power

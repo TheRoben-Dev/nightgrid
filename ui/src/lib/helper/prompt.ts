@@ -6,6 +6,7 @@
 import { SECTIONS, type SectionId } from "../sections";
 import { GUIDE_TARGETS, guideTarget, VIEW_IDS } from "./guide";
 import type { Chunk } from "./knowledge";
+import { TOURS, tourById } from "./tours";
 
 export interface Turn {
   role: "system" | "user" | "assistant";
@@ -30,7 +31,7 @@ export interface HelperContext {
   checks?: string | null;
 }
 
-export type HelperAction = { kind: "show"; view: SectionId } | { kind: "point"; id: string; note: string };
+export type HelperAction = { kind: "show"; view: SectionId } | { kind: "point"; id: string; note: string } | { kind: "tour"; id: string };
 
 /** Longest selection passed to the model (it's small; keep room to answer). */
 export const MAX_SELECTION = 6000;
@@ -57,6 +58,7 @@ const viewLabel = (id: SectionId) => SECTIONS.find((s) => s.id === id)?.label ??
 export function systemPrompt(): string {
   const views = SECTIONS.map((s) => `${s.id} (${s.label})`).join(", ");
   const targets = GUIDE_TARGETS.map((t) => `${t.id}: ${t.what}`).join("\n");
+  const tours = TOURS.map((t) => `${t.id} (${t.what})`).join("; ");
   return `You are DRIFT, the built-in helper of Nightgrid, a desktop app that manages servers over SSH (terminals, files, Docker, monitoring, services, tunnels, system tasks, automation). You run locally on the user's computer.
 
 How to answer:
@@ -74,7 +76,11 @@ Showing the user where things are: when it helps, end your reply with action lin
 "show" switches to a view: ${views}.
 "point" highlights a control (it never clicks it). Only use these TARGET ids:
 ${targets}
-Use at most one show and three points, in the order the user should follow.`;
+Use at most one show and three points, in the order the user should follow.
+For a task with several steps across views, offer a guided tour instead (it waits for the user at each step):
+[[tour TOUR]]
+Tours: ${tours}
+Offer at most one tour, and only when it fits the question.`;
 }
 
 export function contextBlock(ctx: HelperContext, docs: Chunk[]): string {
@@ -114,7 +120,7 @@ export function buildTurns(history: Turn[], question: string, ctx: HelperContext
   ];
 }
 
-const ACTION = /^\s*\[\[\s*(show|point)\s+([a-z0-9-]+)\s*(?::\s*(.*?))?\s*\]\]\s*$/i;
+const ACTION = /^\s*\[\[\s*(show|point|tour)\s+([a-z0-9-]+)\s*(?::\s*(.*?))?\s*\]\]\s*$/i;
 
 /** Splits a reply into display text and validated actions. */
 export function parseReply(reply: string): { text: string; actions: HelperAction[] } {
@@ -127,7 +133,9 @@ export function parseReply(reply: string): { text: string; actions: HelperAction
       continue;
     }
     const [, kind, id, note] = m;
-    if (kind.toLowerCase() === "show") {
+    if (kind.toLowerCase() === "tour") {
+      if (tourById(id) && !actions.some((a) => a.kind === "tour")) actions.push({ kind: "tour", id });
+    } else if (kind.toLowerCase() === "show") {
       if ((VIEW_IDS as string[]).includes(id) && !actions.some((a) => a.kind === "show")) actions.push({ kind: "show", view: id as SectionId });
     } else if (guideTarget(id) && actions.filter((a) => a.kind === "point").length < 3) {
       actions.push({ kind: "point", id, note: (note ?? "").slice(0, 160) });
