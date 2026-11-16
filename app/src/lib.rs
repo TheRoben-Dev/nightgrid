@@ -16,6 +16,7 @@ mod hosts_cmd;
 mod integrations_cmd;
 mod keys_cmd;
 mod logging;
+mod logsearch_cmd;
 mod metrics_cmd;
 mod notes_cmd;
 mod platform;
@@ -224,6 +225,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         uptime_cmd::uptime_outages,
         uptime_cmd::uptime_report,
         uptime_cmd::uptime_report_export,
+        logsearch_cmd::log_search,
+        logsearch_cmd::log_searches_list,
+        logsearch_cmd::log_search_save,
+        logsearch_cmd::log_search_delete,
         alerts_cmd::alerts_webhook_get,
         alerts_cmd::alerts_webhook_set,
         alerts_cmd::alerts_test,

@@ -43,6 +43,8 @@ pub enum AlertKind {
     PoolDegraded,
     /// A UPS runs on battery, is low, or needs a new battery (M10s).
     UpsOnBattery,
+    /// A saved log search with alerts on found new lines (M10u).
+    LogMatch,
 }
 
 impl AlertKind {
@@ -84,6 +86,7 @@ impl AlertKind {
             AlertKind::DiskFilling => "FILLING UP",
             AlertKind::PoolDegraded => "POOL DEGRADED",
             AlertKind::UpsOnBattery => "ON BATTERY",
+            AlertKind::LogMatch => "LOG MATCH",
         }
     }
 }

@@ -515,6 +515,15 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
         ));
     }
 
+    // Saved log searches with alerts on (M10u), every 5 minutes.
+    if let Some((conds, covered)) = crate::logsearch_cmd::evaluate(app, &connected, now).await {
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "logsearch", hosts: covered.as_ref() },
+            conds,
+            now,
+        ));
+    }
+
     // Log anomalies on connected hosts, every 10 minutes each (opt-in).
     if !rules.log_anomaly {
         changes.extend(hub.tracker.lock().expect("poisoned").report(

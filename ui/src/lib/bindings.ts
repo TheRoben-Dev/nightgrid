@@ -450,6 +450,11 @@ export const commands = {
 	 *  `None` when cancelled.
 	 */
 	uptimeReportExport: (year: number, month: number, target: number | null, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("uptime_report_export", { year, month, target }, options),
+	/**  Searches the chosen hosts (all when none are chosen), connecting where needed. */
+	logSearch: (query: LogSearchQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<LogSearchResult>("log_search", { query }, options),
+	logSearchesList: (options?: InvokeOptions) => __TAURI_INVOKE<SavedSearch_Serialize[]>("log_searches_list", undefined, options),
+	logSearchSave: (input: SavedSearchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<SavedSearch_Serialize>("log_search_save", { input }, options),
+	logSearchDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("log_search_delete", { id }, options),
 	alertsWebhookGet: (options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_get", undefined, options),
 	/**  Saves the webhook URL in the keychain (`None` or empty removes it). */
 	alertsWebhookSet: (url: string | null, options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_set", { url }, options),
@@ -592,7 +597,9 @@ export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceD
 /**  A ZFS pool, RAID array or btrfs filesystem lost a device or has errors (M10m). */
 "poolDegraded" | 
 /**  A UPS runs on battery, is low, or needs a new battery (M10s). */
-"upsOnBattery";
+"upsOnBattery" | 
+/**  A saved log search with alerts on found new lines (M10u). */
+"logMatch";
 
 /**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
 export type AlertSettings = AlertSettings_Serialize | AlertSettings_Deserialize;
@@ -2350,6 +2357,11 @@ export type HostKeyInfo = {
 	openssh: string,
 };
 
+export type HostLogError = {
+	hostId: number,
+	message: string,
+};
+
 /**  Why a host couldn't start, when the user can fix it. */
 export type HostNeeds = 
 /**  Connect once from a terminal (host key or password prompt). */
@@ -2958,6 +2970,15 @@ export type LogEvent_Serialize = { kind: "lines"; lines: LogLine_Serialize[] } |
 /**  The stream ended (container stopped, backlog sent, or an error). */
 { kind: "end"; error: string | null };
 
+export type LogHit = {
+	hostId: number,
+	/**  `journal/sshd` or `container/web`. */
+	source: string,
+	/**  Unix seconds. */
+	ts: number | null,
+	text: string,
+};
+
 export type LogLine = LogLine_Serialize | LogLine_Deserialize;
 
 export type LogLine_Deserialize = {
@@ -2990,6 +3011,56 @@ export type LogQuery_Serialize = {
 	tail: number | null,
 	/**  Unix seconds. */
 	since: number | null,
+};
+
+export type LogSearchQuery = LogSearchQuery_Serialize | LogSearchQuery_Deserialize;
+
+export type LogSearchQuery_Deserialize = {
+	/**  Text to find; empty matches every line (useful with a unit filter). */
+	text?: string,
+	regex?: boolean,
+	caseSensitive?: boolean,
+	/**  Hosts to search; empty means every host. */
+	hosts?: number[],
+	journal?: boolean,
+	containers?: boolean,
+	/**  Only this systemd unit (journal). */
+	unit?: string | null,
+	/**  Only containers whose name contains this. */
+	container?: string | null,
+	/**  Most verbose journal priority, 0 (emerg) to 7 (debug). */
+	priority?: number | null,
+	/**  How far back, in minutes. */
+	sinceMins?: number,
+};
+
+export type LogSearchQuery_Serialize = {
+	/**  Text to find; empty matches every line (useful with a unit filter). */
+	text: string,
+	regex: boolean,
+	caseSensitive: boolean,
+	/**  Hosts to search; empty means every host. */
+	hosts: number[],
+	journal: boolean,
+	containers: boolean,
+	/**  Only this systemd unit (journal). */
+	unit: string | null,
+	/**  Only containers whose name contains this. */
+	container: string | null,
+	/**  Most verbose journal priority, 0 (emerg) to 7 (debug). */
+	priority: number | null,
+	/**  How far back, in minutes. */
+	sinceMins: number,
+};
+
+export type LogSearchResult = {
+	hits: LogHit[],
+	/**  More lines matched than are shown. */
+	truncated: boolean,
+	/**  Hosts that couldn't be searched, and why. */
+	errors: HostLogError[],
+	/**  Hosts searched. */
+	hosts: number[],
 };
 
 export type LogStream = "out" | "err";
@@ -3812,6 +3883,46 @@ export type SaveResult_Serialize = {
 	 *  writable, or the owner could not be preserved through a new file).
 	 */
 	atomic: boolean,
+};
+
+export type SavedSearch = SavedSearch_Serialize | SavedSearch_Deserialize;
+
+export type SavedSearchInput = SavedSearchInput_Serialize | SavedSearchInput_Deserialize;
+
+export type SavedSearchInput_Deserialize = {
+	id?: number | null,
+	name: string,
+	query: LogSearchQuery_Deserialize,
+	alert: boolean,
+};
+
+export type SavedSearchInput_Serialize = {
+	id: number | null,
+	name: string,
+	query: LogSearchQuery_Serialize,
+	alert: boolean,
+};
+
+export type SavedSearch_Deserialize = {
+	id: number,
+	name: string,
+	query: LogSearchQuery_Deserialize,
+	/**
+	 *  Raise an alert when new lines match (checked every few minutes on
+	 *  connected hosts).
+	 */
+	alert: boolean,
+};
+
+export type SavedSearch_Serialize = {
+	id: number,
+	name: string,
+	query: LogSearchQuery_Serialize,
+	/**
+	 *  Raise an alert when new lines match (checked every few minutes on
+	 *  connected hosts).
+	 */
+	alert: boolean,
 };
 
 /**

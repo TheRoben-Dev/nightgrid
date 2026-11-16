@@ -25,6 +25,11 @@ import {
   type Outage as UptimeOutage,
   type UptimeDay,
   type UptimeSeries,
+  type LogHit,
+  type LogSearchQuery_Serialize as LogSearchQuery,
+  type LogSearchResult,
+  type SavedSearch_Serialize as SavedLogSearch,
+  type SavedSearchInput_Serialize as SavedLogSearchInput,
   type SlaReport_Serialize as UptimeReport,
   type UpsInput_Deserialize as UpsInput,
   type UpsReading_Serialize as UpsReading,
@@ -238,6 +243,7 @@ import {
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockUptime } from "./mockUptime";
+import { mockLogs } from "./mockLogs";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -299,6 +305,11 @@ export type {
   UptimeDay,
   UptimeSeries,
   UptimeReport,
+  LogHit,
+  LogSearchQuery,
+  LogSearchResult,
+  SavedLogSearch,
+  SavedLogSearchInput,
   UpsInput,
   UpsReading,
   UpsStatus,
@@ -558,7 +569,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.30-web",
+      version: "0.10.31-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -996,6 +1007,10 @@ export const api = {
     T() ? commands.uptimeReport(year, month, target) : mockUptime.report(year, month, target),
   uptimeReportExport: (year: number, month: number, target: number): Promise<string | null> =>
     T() ? commands.uptimeReportExport(year, month, target) : Promise.resolve(`/Users/you/Downloads/nightgrid-uptime-${year}-${String(month).padStart(2, "0")}.html`),
+  logSearch: (query: LogSearchQuery): Promise<LogSearchResult> => (T() ? commands.logSearch(query) : mockLogs.search(query)),
+  logSearchesList: (): Promise<SavedLogSearch[]> => (T() ? commands.logSearchesList() : mockLogs.list()),
+  logSearchSave: (input: SavedLogSearchInput): Promise<SavedLogSearch> => (T() ? commands.logSearchSave(input) : mockLogs.save(input)),
+  logSearchDelete: (id: number): Promise<null> => (T() ? commands.logSearchDelete(id) : mockLogs.delete(id)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {

@@ -81,5 +81,9 @@ export const TRIAGE: Record<AlertKind, Triage> = {
     causes: ["A power cut or a tripped breaker", "The UPS input is unplugged or its fuse/outlet failed", "RB flag: the battery is worn out and won't hold a charge"],
     checks: ["`upsc <ups>` on the host it's plugged into: status, battery.charge, battery.runtime", "Is the shutdown group right, and can each host shut down without a sudo password?", "For RB: run the UPS self-test and plan a battery swap"],
     where: "Fleet → UPS",
+  },  logMatch: {
+    causes: ["What the saved search looks for happened again: read the matching lines first", "A noisy pattern that also matches harmless lines"],
+    checks: ["Open Fleet → LOGS and run the saved search to see every match with its host and source", "Narrow the search (a unit, a container, a regular expression) if it matches harmless lines"],
+    where: "Fleet → LOGS",
   },
 };

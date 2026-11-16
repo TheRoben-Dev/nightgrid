@@ -127,6 +127,8 @@ const TABLES: &[Table] = &[
         fks: &[("host_id", "hosts", Missing::Skip), ("group_id", "host_groups", Missing::Null)],
         keys: &[&["host_id", "target"]],
     },
+    // Host ids inside the saved query aren't remapped; unknown ones are ignored.
+    Table { name: "log_searches", id: true, fks: &[], keys: &[&["name"]] },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];
 
