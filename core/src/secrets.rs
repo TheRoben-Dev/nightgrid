@@ -32,6 +32,8 @@ pub enum SecretKind {
     IntegrationToken,
     /// Key that encrypts the built-in Tailscale node's state file (M10j).
     TailnetStateKey,
+    /// An age identity of the .env vault (M10w), by key id.
+    VaultKey,
 }
 
 impl SecretKind {
@@ -45,13 +47,21 @@ impl SecretKind {
             Self::SudoPassword => "sudo-password",
             Self::IntegrationToken => "integration-token",
             Self::TailnetStateKey => "tailnet-state-key",
+            Self::VaultKey => "vault-key",
         }
     }
 
     pub fn parse(s: &str) -> Option<Self> {
-        [Self::HostPassword, Self::KeyPassphrase, Self::SudoPassword, Self::IntegrationToken, Self::TailnetStateKey]
-            .into_iter()
-            .find(|k| k.as_str() == s)
+        [
+            Self::HostPassword,
+            Self::KeyPassphrase,
+            Self::SudoPassword,
+            Self::IntegrationToken,
+            Self::TailnetStateKey,
+            Self::VaultKey,
+        ]
+        .into_iter()
+        .find(|k| k.as_str() == s)
     }
 }
 
@@ -80,6 +90,11 @@ impl SecretRef {
     /// The alerts webhook URL (it can carry a token).
     pub fn alerts_webhook() -> Self {
         Self::new(SecretKind::IntegrationToken, "alerts-webhook")
+    }
+
+    /// A .env vault key by its id; `"current"` is the one new values use.
+    pub fn vault(key_id: &str) -> Self {
+        Self::new(SecretKind::VaultKey, key_id)
     }
 
     /// The keychain "account"/"username" field, e.g. `host-password:42`.

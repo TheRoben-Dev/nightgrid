@@ -7,6 +7,8 @@
   import { availableCount, composeFile, envFile, opConsequence, opLabel, runLabel, stackKey, stacks } from "../../stores/stacks.svelte";
   import DeployWizard from "./DeployWizard.svelte";
   import StackTools from "./StackTools.svelte";
+  import EnvVault from "./EnvVault.svelte";
+  import { envVault } from "../../stores/envvault.svelte";
   import { layout } from "../../stores/layout.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
   import Modal from "../Modal.svelte";
@@ -106,6 +108,13 @@
             <button type="button" class="btn ghost tiny" title="Edit {envFile(s)} (created on save if missing)" onclick={() => edit(s, "env")}
               >.env</button
             >
+            <button
+              type="button"
+              class="btn ghost tiny"
+              data-guide="docker-env-vault"
+              title="Keep this stack's variables encrypted in Nightgrid, masked, and deploy them to {envFile(s)}"
+              onclick={() => void envVault.open(s)}>Vault</button
+            >
           </span>
           <span class="ops" role="cell">
             <button
@@ -201,6 +210,7 @@
 </Modal>
 
 <StackTools />
+<EnvVault />
 <DeployWizard />
 
 <style>
