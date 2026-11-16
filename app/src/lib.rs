@@ -15,6 +15,7 @@ mod files_cmd;
 mod helper_cmd;
 mod hosts_cmd;
 mod integrations_cmd;
+mod jobs_cmd;
 mod keys_cmd;
 mod logging;
 mod logsearch_cmd;
@@ -227,6 +228,13 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         uptime_cmd::uptime_report,
         uptime_cmd::uptime_report_export,
         access_cmd::access_audit,
+        jobs_cmd::cron_read,
+        jobs_cmd::cron_apply,
+        jobs_cmd::cron_describe,
+        jobs_cmd::timer_jobs,
+        jobs_cmd::timer_job_save,
+        jobs_cmd::timer_job_remove,
+        jobs_cmd::timer_calendar_preview,
         logsearch_cmd::log_search,
         logsearch_cmd::log_searches_list,
         logsearch_cmd::log_search_save,

@@ -456,6 +456,23 @@ export const commands = {
 	 *  with `elevate` true a missing password is asked for.
 	 */
 	accessAudit: (hostId: number, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<AccessReport_Serialize>("access_audit", { hostId, elevate, sudo }, options),
+	/**  The login user's crontab (`user` empty) or another user's, as root. */
+	cronRead: (hostId: number, user: string | null, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<Crontab_Serialize>("cron_read", { hostId, user, sudo }, options),
+	/**
+	 *  Applies one change to the crontab read with `hash`; refused when it
+	 *  changed since. Removing a job was confirmed in the UI with the job shown
+	 *  (security rule 5). The old crontab is saved on the host first.
+	 */
+	cronApply: (hostId: number, user: string | null, hash: string, edit: CronEdit, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<Crontab_Serialize>("cron_apply", { hostId, user, hash, edit, sudo }, options),
+	/**  Plain words for a cron schedule, or `None` when it isn't one. */
+	cronDescribe: (schedule: string, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("cron_describe", { schedule }, options),
+	timerJobs: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<InstalledJob_Serialize[]>("timer_jobs", { hostId }, options),
+	/**  Creates or replaces a Nightgrid timer (`replaces`: the unit being edited). */
+	timerJobSave: (hostId: number, job: TimerJob_Deserialize, replaces: string | null, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<InstalledJob_Serialize>("timer_job_save", { hostId, job, replaces, sudo }, options),
+	/**  Removes a Nightgrid timer; confirmed in the UI with its name (rule 5). */
+	timerJobRemove: (hostId: number, unit: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("timer_job_remove", { hostId, unit, sudo }, options),
+	/**  What systemd on the host makes of an `OnCalendar=` expression. */
+	timerCalendarPreview: (hostId: number, calendar: string, options?: InvokeOptions) => __TAURI_INVOKE<CalendarPreview>("timer_calendar_preview", { hostId, calendar }, options),
 	/**  Searches the chosen hosts (all when none are chosen), connecting where needed. */
 	logSearch: (query: LogSearchQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<LogSearchResult>("log_search", { query }, options),
 	logSearchesList: (options?: InvokeOptions) => __TAURI_INVOKE<SavedSearch_Serialize[]>("log_searches_list", undefined, options),
@@ -1381,6 +1398,15 @@ export type Bookmark_Serialize = {
 	label: string,
 };
 
+/**  What systemd makes of a calendar expression. */
+export type CalendarPreview = {
+	ok: boolean,
+	/**  The normalized form, or systemd's complaint. */
+	normalized: string,
+	/**  The next runs as systemd prints them (host time). */
+	next: string[],
+};
+
 export type CertInfo = CertInfo_Serialize | CertInfo_Deserialize;
 
 export type CertInfo_Deserialize = {
@@ -1632,6 +1658,9 @@ export type ContainerView_Serialize = {
 	composeFiles: string[],
 };
 
+/**  A change to one crontab. */
+export type CronEdit = { op: "add"; schedule: string; command: string } | { op: "update"; line: number; schedule: string; command: string } | { op: "remove"; line: number } | { op: "setEnabled"; line: number; enabled: boolean };
+
 /**  One cron entry. */
 export type CronJob = CronJob_Serialize | CronJob_Deserialize;
 
@@ -1663,6 +1692,60 @@ export type CronJob_Serialize = {
 	command: string,
 	/**  Next run, unix seconds (none for `@reboot` or a schedule that never matches). */
 	next: number | null,
+};
+
+/**  A user's crontab as read. */
+export type Crontab = Crontab_Serialize | Crontab_Deserialize;
+
+/**  One job line of a crontab. */
+export type CrontabJob = CrontabJob_Serialize | CrontabJob_Deserialize;
+
+/**  One job line of a crontab. */
+export type CrontabJob_Deserialize = {
+	/**  1-based line number in the text. */
+	line: number,
+	schedule: string,
+	every: string,
+	command: string,
+	enabled: boolean,
+	/**  Next run, unix seconds (none when off, `@reboot` or never). */
+	next?: number | null,
+};
+
+/**  One job line of a crontab. */
+export type CrontabJob_Serialize = {
+	/**  1-based line number in the text. */
+	line: number,
+	schedule: string,
+	every: string,
+	command: string,
+	enabled: boolean,
+	/**  Next run, unix seconds (none when off, `@reboot` or never). */
+	next: number | null,
+};
+
+/**  A user's crontab as read. */
+export type Crontab_Deserialize = {
+	/**  `None`: the login user's. */
+	user?: string | null,
+	text: string,
+	/**  Identifies this text; a write is refused if the crontab changed. */
+	hash: string,
+	jobs: CrontabJob_Deserialize[],
+	/**  `MAILTO`, `PATH`, … settings in order. */
+	env: string[],
+};
+
+/**  A user's crontab as read. */
+export type Crontab_Serialize = {
+	/**  `None`: the login user's. */
+	user: string | null,
+	text: string,
+	/**  Identifies this text; a write is refused if the crontab changed. */
+	hash: string,
+	jobs: CrontabJob_Serialize[],
+	/**  `MAILTO`, `PATH`, … settings in order. */
+	env: string[],
 };
 
 export type Dashboard = {
@@ -2652,6 +2735,23 @@ export type ImportSummary = {
 	/**  Previously imported entries no longer in the file. */
 	removed: number,
 	stale: string[],
+};
+
+/**  One installed Nightgrid timer. */
+export type InstalledJob = InstalledJob_Serialize | InstalledJob_Deserialize;
+
+/**  One installed Nightgrid timer. */
+export type InstalledJob_Deserialize = {
+	/**  `nightgrid-job-…` (without `.timer`). */
+	unit: string,
+	job: TimerJob_Deserialize,
+};
+
+/**  One installed Nightgrid timer. */
+export type InstalledJob_Serialize = {
+	/**  `nightgrid-job-…` (without `.timer`). */
+	unit: string,
+	job: TimerJob_Serialize,
 };
 
 /**  One installed schedule. */
@@ -4877,6 +4977,33 @@ export type Timeline = {
 
 /**  One systemd timer. */
 export type Timer = Timer_Serialize | Timer_Deserialize;
+
+/**  A scheduled job as a systemd timer. */
+export type TimerJob = TimerJob_Serialize | TimerJob_Deserialize;
+
+/**  A scheduled job as a systemd timer. */
+export type TimerJob_Deserialize = {
+	name: string,
+	command: string,
+	/**  `OnCalendar=`, such as `*-*-* 03:00:00` or `Mon..Fri 08:00`. */
+	calendar: string,
+	/**  `User=`; root when empty. */
+	runAs?: string | null,
+	/**  Catch up on a run missed while the host was off. */
+	persistent: boolean,
+};
+
+/**  A scheduled job as a systemd timer. */
+export type TimerJob_Serialize = {
+	name: string,
+	command: string,
+	/**  `OnCalendar=`, such as `*-*-* 03:00:00` or `Mon..Fri 08:00`. */
+	calendar: string,
+	/**  `User=`; root when empty. */
+	runAs: string | null,
+	/**  Catch up on a run missed while the host was off. */
+	persistent: boolean,
+};
 
 /**  One systemd timer. */
 export type Timer_Deserialize = {

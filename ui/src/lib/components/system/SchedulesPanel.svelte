@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
-   * Systemd timers and cron jobs on the host (read-only). Times are shown
+   * Systemd timers and cron jobs on the host, with the crontab and timer
+   * editors (M10v). Times are shown
    * relative to the host's clock; cron commands that look like they carry a
    * secret are masked until clicked (security rule 6).
    */
@@ -10,6 +11,22 @@
   import { system } from "../../stores/system.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
   import PowerSchedules from "./PowerSchedules.svelte";
+  import CronEditor from "./CronEditor.svelte";
+  import TimerJobEditor from "./TimerJobEditor.svelte";
+  import { jobs } from "../../stores/jobs.svelte";
+  import { jobFor } from "../../jobs";
+  import type { InstalledJob } from "../../api";
+
+  let cronOpen = $state(false);
+  let timerOpen = $state(false);
+  let timerEditing = $state<InstalledJob | null>(null);
+  function newTimer() {
+    timerEditing = null;
+    timerOpen = true;
+  }
+  $effect(() => {
+    if (s) void jobs.loadTimers();
+  });
 
   const s = $derived(system.schedules);
   let query = $state("");
@@ -78,6 +95,8 @@
     <span class="spacer"></span>
     <input class="input filter" type="search" placeholder="Filter jobs" bind:value={query} aria-label="Filter jobs" />
     {#if s}<ExplainButton source="scheduled jobs" text={explainText} question="Summarise what these scheduled jobs do. Do any look wrong, risky or failing, and what should I check?" />{/if}
+    <button type="button" class="btn ghost tiny" data-guide="schedules-crontab" onclick={() => (cronOpen = true)}>Crontab…</button>
+    {#if s?.systemd}<button type="button" class="btn ghost tiny" data-guide="schedules-new-timer" onclick={newTimer}>+ Timer</button>{/if}
     <button type="button" class="btn ghost tiny" onclick={() => Promise.all([system.loadSchedules(), system.loadPowerSchedules()])} disabled={system.schedulesLoading}>{system.schedulesLoading ? "…" : "Refresh"}</button>
   </div>
 
@@ -102,6 +121,7 @@
               ><span></span>
             </div>
             {#each timers as t (t.name)}
+              {@const own = jobFor(t, jobs.timers)}
               <div class="row" class:fail={isFailure(t)} class:off={t.active !== "active"} role="row">
                 <span class="name" title={t.description}>
                   <code>{t.name}</code>
@@ -113,6 +133,9 @@
                   >{rel(t.last)}{#if t.result}<span class="res" class:ok={t.result === "success"}>{resultWord(t)}</span>{/if}</span
                 >
                 <span class="acts">
+                  {#if own}<button type="button" class="btn ghost tiny" onclick={() => ((timerEditing = own), (timerOpen = true))}>Edit</button>{/if}
+                  {#if t.unit}<button type="button" class="btn ghost tiny" title="Start {t.unit} now" disabled={system.unitBusy.includes(t.unit)} onclick={() => system.request(t.unit, "start")}>Run now</button>{/if}
+                  {#if t.enabled === "enabled" || t.enabled === "disabled"}<button type="button" class="btn ghost tiny" disabled={system.unitBusy.includes(t.name)} onclick={() => system.request(t.name, t.enabled === "enabled" ? "disable" : "enable")}>{t.enabled === "enabled" ? "Disable" : "Enable"}</button>{/if}
                   {#if t.unit}<button type="button" class="btn ghost tiny" title="Journal of {t.unit}, last 7 days" onclick={() => system.showJournal(t.unit)}
                       >Journal</button
                     >{/if}
@@ -158,12 +181,15 @@
           </div>
         {/if}
         <p class="muted small note">
-          Read-only. Other users' crontabs in <code>/var/spool/cron</code> need root and aren't listed. Edit yours with <code>crontab -e</code> in a terminal.
+          Other users' crontabs in <code>/var/spool/cron</code> need root and aren't listed here: open them with <b>Crontab…</b>, which also edits yours. Files in <code>/etc/cron.d</code> are shown but not edited.
         </p>
       </section>
     {/if}
   </div>
 </div>
+
+<CronEditor open={cronOpen} onclose={() => (cronOpen = false)} />
+<TimerJobEditor open={timerOpen} editing={timerEditing} onclose={() => (timerOpen = false)} />
 
 <style>
   .schedules {
@@ -224,7 +250,7 @@
   }
   .timers .head,
   .timers .row {
-    grid-template-columns: minmax(180px, 1.3fr) minmax(120px, 1fr) 110px 150px 70px;
+    grid-template-columns: minmax(180px, 1.3fr) minmax(120px, 1fr) 100px 140px 260px;
   }
   .cron .head,
   .cron .row {
@@ -300,7 +326,10 @@
     color: var(--mint);
   }
   .acts {
-    text-align: right;
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    white-space: nowrap;
   }
   .periodic {
     padding: 6px 10px 0;

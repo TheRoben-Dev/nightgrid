@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.33] - 2026-11-16
+
+### Added: host config editors, part 1: cron and timer editor (M10v)
+- **System → Schedules → Crontab…**: edit your own crontab, root's or another user's (through sudo). Tick a job to turn it on or off (an off job stays in the file as a `#nightgrid-off` line), **Edit** or **Delete…** it, or add a new one with a schedule (common ones in a list) shown in plain words as you type. Every change is checked first: a broken schedule, a second line or an unescaped `%` (which cron turns into a line break) is refused with the reason. A change is refused if the crontab was edited elsewhere since it was opened, and the previous crontab is saved on the host in `~/.nightgrid/cron-backups` (the last 20).
+- **+ Timer**: run a command on a schedule as a systemd timer: a name, the command, an `OnCalendar` schedule (common ones in a list; **Check** asks systemd on the host what it means and when it next runs), the user to run as and whether to catch up on runs missed while the host was off. It becomes a `nightgrid-job-…` service and timer on the host; **Edit** on its row changes it, **Remove…** deletes it.
+- Every timer row now has **Run now** (starts its service once) and **Enable** / **Disable**.
+
 ## [0.10.32] - 2026-11-16
 
 ### Added: logs & access, part 2: login & access audit (M10u)
@@ -11,6 +18,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - The report: **logins** (when, who, from where, and which key, named when it is one of your own keys from Settings → SSH keys), **failed attempts by address** with the user names tried, **fail2ban** jails and **CrowdSec** decisions, **users with a shell** (sudo and service accounts marked, keys per user), **sudo rules**, every user's **authorized keys**, the **sshd** settings that matter (effective values from `sshd -T` when possible) and recent sessions from `last`.
 - **Findings** pick out what needs a look: another uid 0 account, root password logins allowed, empty passwords, password logins on while attempts fail and nothing bans them, password logins that happened, many failures without fail2ban or CrowdSec, and passwordless sudo for everything.
 - Read as root when that needs no prompt (root login, passwordless sudo or a remembered sudo password); otherwise the report says what it couldn't see and **Read as root…** asks for the password. Logins come from the journal or `/var/log/auth.log` / `/var/log/secure`. Nothing is installed on hosts and nothing is stored: audit again to refresh. **Explain** sends the report to DRIFT.
+- Fixed a test that could fail on a busy machine (a freed port reused by another test).
 
 ## [0.10.31] - 2026-11-16
 
