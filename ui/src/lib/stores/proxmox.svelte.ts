@@ -3,7 +3,7 @@
  * root (the sudo prompt asks when needed). Power actions start Proxmox tasks;
  * the task's log is followed until it ends, then the view reloads.
  */
-import { api, errorText, type PveOverview, type PveTaskDetail } from "../api";
+import { api, errorText, type PveAppliance, type PveCloneSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
 import { ACTION_WORD, backupTargets, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
@@ -19,6 +19,9 @@ export interface PveConfirm {
   typed?: string;
   run: () => Promise<void>;
 }
+
+/** Which "make something" dialog is open. */
+export type PveMake = { kind: "vm" } | { kind: "ct" } | { kind: "clone"; guest: PveGuest } | { kind: "iso" } | { kind: "appliance" };
 
 export interface GuestDetail {
   guest: PveGuest;
@@ -65,6 +68,10 @@ class ProxmoxStore {
   backupsLoading = $state(false);
   backupsError = $state<string | null>(null);
   confirm = $state<PveConfirm | null>(null);
+  make = $state<PveMake | null>(null);
+  createInfo = $state<PveCreateInfo | null>(null);
+  createInfoError = $state<string | null>(null);
+  appliances = $state<PveAppliance[] | null>(null);
   private seq = 0;
   private follow: ReturnType<typeof setTimeout> | null = null;
 
@@ -81,6 +88,8 @@ class ProxmoxStore {
     this.node = null;
     this.backups = null;
     this.detail = null;
+    this.createInfo = null;
+    this.appliances = null;
     this.stopFollowing();
     try {
       if (id) localStorage.setItem(HOST_KEY, String(id));
@@ -291,6 +300,110 @@ class ProxmoxStore {
         await this.loadBackups();
       },
     };
+  }
+
+  // ---- part 3: create, clone, templates, ISOs ----
+
+  /** The node this host is (where new guests and downloads go). */
+  get localNode(): string | null {
+    return this.overview?.nodes.find((n) => n.local)?.name ?? this.overview?.nodes[0]?.name ?? null;
+  }
+
+  private storagesWith(content: string, node: string): string[] {
+    return [...new Set((this.overview?.storages ?? []).filter((s) => s.node === node && s.status === "available" && s.content.includes(content)).map((s) => s.storage))];
+  }
+
+  async loadCreateInfo() {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    try {
+      this.createInfo = await this.sudo("read bridges and ISOs", (s) => api.pveCreateInfo(id, node, this.storagesWith("iso", node), this.storagesWith("vztmpl", node), s));
+      this.createInfoError = null;
+    } catch (e) {
+      this.createInfoError = errorText(e);
+    }
+  }
+
+  open(make: PveMake) {
+    this.make = make;
+    void this.loadCreateInfo();
+    if (make.kind === "appliance" && !this.appliances) void this.loadAppliances();
+  }
+
+  async loadAppliances() {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    try {
+      this.appliances = await this.sudo("list container templates", (s) => api.pveAppliances(id, node, s));
+    } catch (e) {
+      this.createInfoError = errorText(e);
+    }
+  }
+
+  async createVm(spec: PveVmSpec) {
+    const id = this.hostId;
+    if (id === null) return;
+    await this.startTask(`Create VM ${spec.name}`, spec.node, (s) => api.pveVmCreate(id, spec, s));
+    this.make = null;
+  }
+
+  async createCt(spec: PveCtSpec) {
+    const id = this.hostId;
+    if (id === null) return;
+    await this.startTask(`Create CT ${spec.hostname}`, spec.node, (s) => api.pveCtCreate(id, spec, s));
+    this.make = null;
+  }
+
+  async clone(spec: PveCloneSpec) {
+    const id = this.hostId;
+    if (id === null) return;
+    await this.startTask(`Clone ${spec.vmid} to ${spec.newid}`, spec.node, (s) => api.pveClone(id, spec, s));
+    this.make = null;
+  }
+
+  askTemplate(g: PveGuest) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.confirm = {
+      title: "CONVERT TO TEMPLATE",
+      body: `Turn ${g.name} (${g.vmid}) on ${g.node} into a template? A template can't be started or changed back; you clone it to make new guests. Its disks become read-only bases for linked clones.`,
+      button: `Make ${g.name} a template`,
+      run: () => this.startTask(`Template ${g.name}`, g.node, (s) => api.pveTemplate(id, g.node, g.kind, g.vmid, s)),
+    };
+  }
+
+  askDestroy(g: PveGuest) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.confirm = {
+      title: g.template ? "DESTROY TEMPLATE" : "DESTROY GUEST",
+      body: `Destroy ${g.name} (${g.vmid}) on ${g.node}? Its configuration and all of its disks are deleted, and it is removed from backup jobs and HA. Backups on backup storages stay.`,
+      button: `Destroy ${g.vmid}`,
+      typed: g.name || String(g.vmid),
+      run: () => this.startTask(`Destroy ${g.name || g.vmid}`, g.node, (s) => api.pveDestroy(id, g.node, g.kind, g.vmid, s)),
+    };
+  }
+
+  async downloadIso(storage: string, url: string, filename: string, sha256: string | null) {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    await this.startTask(`Download ${filename}`, node, (s) => api.pveIsoDownload(id, node, storage, url, filename, sha256, s), () => void this.loadCreateInfo());
+    this.make = null;
+  }
+
+  async downloadAppliance(storage: string, template: string) {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    await this.startTask(`Download ${template}`, node, (s) => api.pveApplianceDownload(id, node, storage, template, s), () => void this.loadCreateInfo());
+  }
+
+  storagesFor(content: string): string[] {
+    const node = this.localNode;
+    return node ? this.storagesWith(content, node) : [];
   }
 
   async runConfirm() {

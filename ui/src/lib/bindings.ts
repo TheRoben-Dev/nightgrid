@@ -424,6 +424,17 @@ export const commands = {
 	pveRestore: (hostId: number, node: string, kind: string, vmid: number, volid: string, storage: string, force: boolean, start: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_restore", { hostId, node, kind, vmid, volid, storage, force, start, sudo }, options),
 	pveBackupProtect: (hostId: number, node: string, volid: string, protect: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_backup_protect", { hostId, node, volid, protect, sudo }, options),
 	pveBackupDelete: (hostId: number, volid: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_backup_delete", { hostId, volid, sudo }, options),
+	/**  Bridges, ISOs, CT templates and the next free id on `node`. */
+	pveCreateInfo: (hostId: number, node: string, isoStorages: string[], tmplStorages: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveCreateInfo_Serialize>("pve_create_info", { hostId, node, isoStorages, tmplStorages, sudo }, options),
+	pveVmCreate: (hostId: number, spec: PveVmSpec_Deserialize, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_vm_create", { hostId, spec, sudo }, options),
+	pveCtCreate: (hostId: number, spec: PveCtSpec_Deserialize, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_ct_create", { hostId, spec, sudo }, options),
+	pveClone: (hostId: number, spec: PveCloneSpec_Deserialize, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_clone", { hostId, spec, sudo }, options),
+	pveTemplate: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_template", { hostId, node, kind, vmid, sudo }, options),
+	pveDestroy: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_destroy", { hostId, node, kind, vmid, sudo }, options),
+	pveIsoDownload: (hostId: number, node: string, storage: string, url: string, filename: string, sha256: string | null, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_iso_download", { hostId, node, storage, url, filename, sha256, sudo }, options),
+	/**  Container templates Proxmox offers for download. */
+	pveAppliances: (hostId: number, node: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveAppliance[]>("pve_appliances", { hostId, node, sudo }, options),
+	pveApplianceDownload: (hostId: number, node: string, storage: string, template: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_appliance_download", { hostId, node, storage, template, sudo }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -4631,6 +4642,15 @@ export type PushOutcome = "added" | "alreadyThere";
 /**  Power actions on a guest. */
 export type PveAction = "start" | "shutdown" | "reboot" | "stop" | "suspend" | "resume";
 
+export type PveAppliance = {
+	template: string,
+	headline: string,
+	os: string,
+	/**  system, turnkeylinux, mail, … */
+	section: string,
+	version: string,
+};
+
 export type PveBackupFile = PveBackupFile_Serialize | PveBackupFile_Deserialize;
 
 export type PveBackupFile_Deserialize = {
@@ -4713,6 +4733,123 @@ export type PveBackups_Serialize = {
 	/**  Guests no backup job includes. */
 	uncovered: PveUncovered[],
 	notes: string[],
+};
+
+export type PveBridge = PveBridge_Serialize | PveBridge_Deserialize;
+
+export type PveBridge_Deserialize = {
+	name: string,
+	cidr?: string | null,
+	vlanAware: boolean,
+	ports: string,
+	comment: string,
+	active: boolean,
+};
+
+export type PveBridge_Serialize = {
+	name: string,
+	cidr: string | null,
+	vlanAware: boolean,
+	ports: string,
+	comment: string,
+	active: boolean,
+};
+
+export type PveCloneSpec = PveCloneSpec_Serialize | PveCloneSpec_Deserialize;
+
+export type PveCloneSpec_Deserialize = {
+	node: string,
+	kind: string,
+	vmid: number,
+	newid: number,
+	name: string,
+	/**  A full copy; otherwise a linked clone (templates only, shares the base disk). */
+	full: boolean,
+	/**  Where a full clone's disks go (default: same as the source). */
+	storage?: string | null,
+};
+
+export type PveCloneSpec_Serialize = {
+	node: string,
+	kind: string,
+	vmid: number,
+	newid: number,
+	name: string,
+	/**  A full copy; otherwise a linked clone (templates only, shares the base disk). */
+	full: boolean,
+	/**  Where a full clone's disks go (default: same as the source). */
+	storage: string | null,
+};
+
+/**  What the create forms need from one node. */
+export type PveCreateInfo = PveCreateInfo_Serialize | PveCreateInfo_Deserialize;
+
+/**  What the create forms need from one node. */
+export type PveCreateInfo_Deserialize = {
+	nextId: number,
+	bridges: PveBridge_Deserialize[],
+	isos: PveVolume[],
+	templates: PveVolume[],
+	notes: string[],
+};
+
+/**  What the create forms need from one node. */
+export type PveCreateInfo_Serialize = {
+	nextId: number,
+	bridges: PveBridge_Serialize[],
+	isos: PveVolume[],
+	templates: PveVolume[],
+	notes: string[],
+};
+
+export type PveCtSpec = PveCtSpec_Serialize | PveCtSpec_Deserialize;
+
+export type PveCtSpec_Deserialize = {
+	node: string,
+	vmid: number,
+	hostname: string,
+	/**  Container template (volume id). */
+	template: string,
+	storage: string,
+	diskGb: number,
+	cores: number,
+	memoryMb: number,
+	swapMb: number,
+	bridge: string,
+	vlan?: number | null,
+	/**  `dhcp`, or an address with prefix like `192.168.1.50/24`. */
+	ip: string,
+	gateway?: string | null,
+	/**  OpenSSH public keys for root, one per line (no password is ever set). */
+	sshKeys: string,
+	unprivileged: boolean,
+	/**  Lets the container run Docker and systemd's newer features. */
+	nesting: boolean,
+	start: boolean,
+};
+
+export type PveCtSpec_Serialize = {
+	node: string,
+	vmid: number,
+	hostname: string,
+	/**  Container template (volume id). */
+	template: string,
+	storage: string,
+	diskGb: number,
+	cores: number,
+	memoryMb: number,
+	swapMb: number,
+	bridge: string,
+	vlan: number | null,
+	/**  `dhcp`, or an address with prefix like `192.168.1.50/24`. */
+	ip: string,
+	gateway: string | null,
+	/**  OpenSSH public keys for root, one per line (no password is ever set). */
+	sshKeys: string,
+	unprivileged: boolean,
+	/**  Lets the container run Docker and systemd's newer features. */
+	nesting: boolean,
+	start: boolean,
 };
 
 export type PveGuest = PveGuest_Serialize | PveGuest_Deserialize;
@@ -4948,6 +5085,55 @@ export type PveUncovered = {
 	vmid: number,
 	name: string,
 	kind: string,
+};
+
+export type PveVmSpec = PveVmSpec_Serialize | PveVmSpec_Deserialize;
+
+export type PveVmSpec_Deserialize = {
+	node: string,
+	vmid: number,
+	name: string,
+	cores: number,
+	memoryMb: number,
+	diskStorage: string,
+	diskGb: number,
+	/**  Install ISO (volume id), or none. */
+	iso?: string | null,
+	bridge: string,
+	vlan?: number | null,
+	/**  l26 (Linux), win11, win10, other. */
+	ostype: string,
+	/**  UEFI (OVMF) with an EFI disk; Windows 11 also gets a TPM. */
+	uefi: boolean,
+	start: boolean,
+};
+
+export type PveVmSpec_Serialize = {
+	node: string,
+	vmid: number,
+	name: string,
+	cores: number,
+	memoryMb: number,
+	diskStorage: string,
+	diskGb: number,
+	/**  Install ISO (volume id), or none. */
+	iso: string | null,
+	bridge: string,
+	vlan: number | null,
+	/**  l26 (Linux), win11, win10, other. */
+	ostype: string,
+	/**  UEFI (OVMF) with an EFI disk; Windows 11 also gets a TPM. */
+	uefi: boolean,
+	start: boolean,
+};
+
+export type PveVolume = {
+	volid: string,
+	/**  iso or vztmpl. */
+	content: string,
+	size: number | null,
+	/**  The file name part of the volume id. */
+	name: string,
 };
 
 /**  Throughput of one network interface or block device, in bytes/s. */

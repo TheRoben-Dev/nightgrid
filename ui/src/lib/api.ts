@@ -83,6 +83,11 @@ import {
   type PveSnapshot_Serialize as PveSnapshot,
   type PveBackups_Serialize as PveBackups,
   type PveStorageRef,
+  type PveCreateInfo_Serialize as PveCreateInfo,
+  type PveVmSpec_Deserialize as PveVmSpec,
+  type PveCtSpec_Deserialize as PveCtSpec,
+  type PveCloneSpec_Deserialize as PveCloneSpec,
+  type PveAppliance,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
   type DnsRecord,
@@ -366,6 +371,11 @@ export type {
   PveSnapshot,
   PveBackups,
   PveStorageRef,
+  PveCreateInfo,
+  PveVmSpec,
+  PveCtSpec,
+  PveCloneSpec,
+  PveAppliance,
   DnsList,
   DnsRecord,
   AmpInstance,
@@ -672,7 +682,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.43-web",
+      version: "0.10.44-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1178,6 +1188,20 @@ export const api = {
   pveBackupProtect: (hostId: number, node: string, volid: string, protect: boolean, sudo: SudoInput | null): Promise<null> =>
     T() ? commands.pveBackupProtect(hostId, node, volid, protect, sudo) : mockProxmox.protect(volid, protect),
   pveBackupDelete: (hostId: number, volid: string, sudo: SudoInput | null): Promise<null> => (T() ? commands.pveBackupDelete(hostId, volid, sudo) : mockProxmox.deleteBackup(volid)),
+  pveCreateInfo: (hostId: number, node: string, isoStorages: string[], tmplStorages: string[], sudo: SudoInput | null): Promise<PveCreateInfo> =>
+    T() ? commands.pveCreateInfo(hostId, node, isoStorages, tmplStorages, sudo) : mockProxmox.createInfo(),
+  pveVmCreate: (hostId: number, spec: PveVmSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveVmCreate(hostId, spec, sudo) : mockProxmox.vmCreate(spec)),
+  pveCtCreate: (hostId: number, spec: PveCtSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveCtCreate(hostId, spec, sudo) : mockProxmox.ctCreate(spec)),
+  pveClone: (hostId: number, spec: PveCloneSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveClone(hostId, spec, sudo) : mockProxmox.clone(spec)),
+  pveTemplate: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveTemplate(hostId, node, kind, vmid, sudo) : mockProxmox.template(node, vmid),
+  pveDestroy: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveDestroy(hostId, node, kind, vmid, sudo) : mockProxmox.destroy(node, vmid),
+  pveIsoDownload: (hostId: number, node: string, storage: string, url: string, filename: string, sha256: string | null, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveIsoDownload(hostId, node, storage, url, filename, sha256, sudo) : mockProxmox.isoDownload(node, storage, filename),
+  pveAppliances: (hostId: number, node: string, sudo: SudoInput | null): Promise<PveAppliance[]> => (T() ? commands.pveAppliances(hostId, node, sudo) : mockProxmox.appliances()),
+  pveApplianceDownload: (hostId: number, node: string, storage: string, template: string, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveApplianceDownload(hostId, node, storage, template, sudo) : mockProxmox.applianceDownload(node, storage, template),
   cmdWidgetsList: (): Promise<CmdWidget[]> => (T() ? commands.cmdWidgetsList() : mockCmdWidgets.list()),
   cmdWidgetSave: (widget: CmdWidget): Promise<CmdWidget> => (T() ? commands.cmdWidgetSave(widget) : mockCmdWidgets.save(widget)),
   cmdWidgetDelete: (id: number): Promise<boolean> => (T() ? commands.cmdWidgetDelete(id) : mockCmdWidgets.remove(id)),

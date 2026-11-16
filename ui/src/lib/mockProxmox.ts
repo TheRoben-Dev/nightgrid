@@ -8,6 +8,12 @@ import type {
   PveBackups_Serialize as PveBackups,
   PveBackupFile_Serialize as PveBackupFile,
   PveSnapshot_Serialize as PveSnapshot,
+  PveAppliance,
+  PveCloneSpec_Deserialize as PveCloneSpec,
+  PveCreateInfo_Serialize as PveCreateInfo,
+  PveCtSpec_Deserialize as PveCtSpec,
+  PveVmSpec_Deserialize as PveVmSpec,
+  PveVolume,
   PveGuest_Serialize as PveGuest,
   PveOverview_Serialize as PveOverview,
   PveTask_Serialize as PveTask,
@@ -108,7 +114,75 @@ const task = (node: string, kind: string, id: string): PveTask => {
   return { upid: UPID(node, kind, id, ts), node, kind, id, user: "root@pam", start: now(), end: null, status: null };
 };
 
+let isos: PveVolume[] = [
+  { volid: "local:iso/Win11_24H2_English_x64.iso", content: "iso", size: 6.2 * GiB, name: "Win11_24H2_English_x64.iso" },
+  { volid: "local:iso/ubuntu-24.04.1-live-server-amd64.iso", content: "iso", size: 2.6 * GiB, name: "ubuntu-24.04.1-live-server-amd64.iso" },
+];
+let tmpls: PveVolume[] = [{ volid: "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst", content: "vztmpl", size: 0.12 * GiB, name: "debian-12-standard_12.7-1_amd64.tar.zst" }];
+const nextFree = () => {
+  let id = 100;
+  while (guests.some((x) => x.vmid === id)) id++;
+  return id;
+};
+
 export const mockProxmox = {
+  createInfo: async (): Promise<PveCreateInfo> => ({
+    nextId: nextFree(),
+    bridges: [
+      { name: "vmbr0", cidr: "192.168.1.20/24", vlanAware: false, ports: "enp3s0", comment: "LAN", active: true },
+      { name: "vmbr1", cidr: null, vlanAware: true, ports: "", comment: "lab vlans", active: true },
+    ],
+    isos: [...isos],
+    templates: [...tmpls],
+    notes: [],
+  }),
+  vmCreate: async (v: PveVmSpec): Promise<string> => {
+    if (guests.some((x) => x.vmid === v.vmid)) throw new Error(`unable to create VM ${v.vmid} - VM ${v.vmid} already exists on node '${v.node}'`);
+    const t = task(v.node, "qmcreate", String(v.vmid));
+    finishLater(t, () => (guests = [...guests, g(v.vmid, "qemu", v.node, v.name, v.start ? "running" : "stopped", { maxcpu: v.cores, maxmem: v.memoryMb * 1024 ** 2, maxdisk: v.diskGb * GiB })]));
+    return t.upid;
+  },
+  ctCreate: async (c: PveCtSpec): Promise<string> => {
+    if (guests.some((x) => x.vmid === c.vmid)) throw new Error(`CT ${c.vmid} already exists on node '${c.node}'`);
+    const t = task(c.node, "vzcreate", String(c.vmid));
+    finishLater(t, () => (guests = [...guests, g(c.vmid, "lxc", c.node, c.hostname, c.start ? "running" : "stopped", { maxcpu: c.cores, maxmem: c.memoryMb * 1024 ** 2, maxdisk: c.diskGb * GiB })]));
+    return t.upid;
+  },
+  clone: async (c: PveCloneSpec): Promise<string> => {
+    const src = guests.find((x) => x.vmid === c.vmid);
+    if (!src) throw new Error("source not found");
+    const t = task(c.node, c.kind === "qemu" ? "qmclone" : "vzclone", String(c.vmid));
+    finishLater(t, () => (guests = [...guests, { ...src, vmid: c.newid, name: c.name, template: false, status: "stopped", uptime: 0, cpu: 0, mem: 0, tags: [] }]), 2500);
+    return t.upid;
+  },
+  template: async (node: string, vmid: number): Promise<string> => {
+    const t = task(node, "qmtemplate", String(vmid));
+    finishLater(t, () => (guests = guests.map((x) => (x.vmid === vmid ? { ...x, template: true } : x))));
+    return t.upid;
+  },
+  destroy: async (node: string, vmid: number): Promise<string> => {
+    const x = guests.find((y) => y.vmid === vmid);
+    if (x?.status === "running") throw new Error(`VM ${vmid} is running - destroy failed`);
+    const t = task(node, "qmdestroy", String(vmid));
+    finishLater(t, () => (guests = guests.filter((y) => y.vmid !== vmid)));
+    return t.upid;
+  },
+  isoDownload: async (node: string, storage: string, filename: string): Promise<string> => {
+    const t = task(node, "download", filename);
+    finishLater(t, () => (isos = [...isos, { volid: `${storage}:iso/${filename}`, content: "iso", size: 3 * GiB, name: filename }]), 3000);
+    return t.upid;
+  },
+  appliances: async (): Promise<PveAppliance[]> => [
+    { template: "debian-12-standard_12.7-1_amd64.tar.zst", headline: "Debian 12 Bookworm (standard)", os: "debian-12", section: "system", version: "12.7-1" },
+    { template: "ubuntu-24.04-standard_24.04-2_amd64.tar.zst", headline: "Ubuntu 24.04 Noble (standard)", os: "ubuntu-24.04", section: "system", version: "24.04-2" },
+    { template: "alpine-3.20-default_20240908_amd64.tar.xz", headline: "Alpine Linux 3.20", os: "alpine-3.20", section: "system", version: "3.20-0" },
+    { template: "debian-12-turnkey-wordpress_18.0-1_amd64.tar.gz", headline: "TurnKey WordPress", os: "debian-12", section: "turnkeylinux", version: "18.0-1" },
+  ],
+  applianceDownload: async (node: string, storage: string, template: string): Promise<string> => {
+    const t = task(node, "download", template);
+    finishLater(t, () => (tmpls = [...tmpls, { volid: `${storage}:vztmpl/${template}`, content: "vztmpl", size: 0.1 * GiB, name: template }]));
+    return t.upid;
+  },
   snapshots: async (_node: string, vmid: number): Promise<PveSnapshot[]> => snaps[vmid] ?? [],
   snapshotCreate: async (node: string, vmid: number, name: string, description: string, vmstate: boolean): Promise<string> => {
     if ((snaps[vmid] ?? []).some((x) => x.name === name)) throw new Error(`snapshot name '${name}' already used`);

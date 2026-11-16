@@ -285,3 +285,163 @@ pub async fn pve_backup_delete(
     note(&app, host_id, Level::Warn, "Proxmox: backup deleted".into(), volid);
     Ok(())
 }
+
+// ---------------------------------------------------------------- part 3
+
+use nightgrid_core::proxmox::create::{self as pcr, PveAppliance, PveCloneSpec, PveCreateInfo, PveCtSpec, PveVmSpec};
+
+/// Bridges, ISOs, CT templates and the next free id on `node`.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_create_info(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    iso_storages: Vec<String>,
+    tmpl_storages: Vec<String>,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveCreateInfo> {
+    let script = pcr::create_info_script(&node, &iso_storages, &tmpl_storages).ok_or_else(|| invalid("storage"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    Ok(pcr::parse_create_info(&out))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_vm_create(
+    app: AppHandle,
+    host_id: HostId,
+    spec: PveVmSpec,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let s = pcr::vm_create_script(&spec).map_err(other)?;
+    let upid = start_task(&app, host_id, sudo, Some(s), "VM").await?;
+    note(
+        &app,
+        host_id,
+        Level::Info,
+        format!("Proxmox: VM {} ({}) created", spec.vmid, spec.name),
+        format!("on {}", spec.node),
+    );
+    Ok(upid)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_ct_create(
+    app: AppHandle,
+    host_id: HostId,
+    spec: PveCtSpec,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let s = pcr::ct_create_script(&spec).map_err(other)?;
+    let upid = start_task(&app, host_id, sudo, Some(s), "container").await?;
+    note(
+        &app,
+        host_id,
+        Level::Info,
+        format!("Proxmox: CT {} ({}) created", spec.vmid, spec.hostname),
+        format!("on {}", spec.node),
+    );
+    Ok(upid)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_clone(
+    app: AppHandle,
+    host_id: HostId,
+    spec: PveCloneSpec,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let s = pcr::clone_script(&spec).map_err(other)?;
+    let upid = start_task(&app, host_id, sudo, Some(s), "clone").await?;
+    note(
+        &app,
+        host_id,
+        Level::Info,
+        format!("Proxmox: {} cloned to {} ({})", spec.vmid, spec.newid, spec.name),
+        format!("{} clone on {}", if spec.full { "full" } else { "linked" }, spec.node),
+    );
+    Ok(upid)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_template(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    kind: String,
+    vmid: u32,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let upid = start_task(&app, host_id, sudo, pcr::template_script(&node, &kind, vmid), "guest").await?;
+    note(&app, host_id, Level::Info, format!("Proxmox: {vmid} made a template"), format!("{kind} on {node}"));
+    Ok(upid)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_destroy(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    kind: String,
+    vmid: u32,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let upid = start_task(&app, host_id, sudo, pcr::destroy_script(&node, &kind, vmid), "guest").await?;
+    note(&app, host_id, Level::Warn, format!("Proxmox: {vmid} destroyed"), format!("{kind} on {node}, disks purged"));
+    Ok(upid)
+}
+
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_iso_download(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    storage: String,
+    url: String,
+    filename: String,
+    sha256: Option<String>,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let s =
+        pcr::iso_download_script(&node, &storage, &url, &filename, sha256.as_deref().filter(|h| !h.trim().is_empty()));
+    let upid = start_task(&app, host_id, sudo, s, "URL, file name or checksum").await?;
+    note(&app, host_id, Level::Info, format!("Proxmox: downloading {filename}"), url);
+    Ok(upid)
+}
+
+/// Container templates Proxmox offers for download.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_appliances(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<Vec<PveAppliance>> {
+    let script = pcr::appliances_script(&node).ok_or_else(|| invalid("node"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    Ok(pcr::parse_appliances(&out).map_err(other)?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_appliance_download(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    storage: String,
+    template: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let s = pcr::appliance_download_script(&node, &storage, &template);
+    let upid = start_task(&app, host_id, sudo, s, "template").await?;
+    note(&app, host_id, Level::Info, format!("Proxmox: downloading {template}"), format!("to {storage}"));
+    Ok(upid)
+}

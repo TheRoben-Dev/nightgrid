@@ -99,3 +99,32 @@ describe("proxmox snapshots and backups", async () => {
     expect(rows.some((r) => r.vmid === 9000)).toBe(false);
   });
 });
+
+describe("part 3 helpers", () => {
+  it("checks guest names, IPs, keys and ISO names", async () => {
+    const m = await import("./proxmox");
+    expect(m.validGuestName("web-1.lab")).toBe(true);
+    expect(m.validGuestName("-bad")).toBe(false);
+    expect(m.validGuestName("has space")).toBe(false);
+    expect(m.validCtIp("dhcp")).toBe(true);
+    expect(m.validCtIp("192.168.1.50/24")).toBe(true);
+    expect(m.validCtIp("192.168.1.50")).toBe(false);
+    expect(m.validCtIp("192.168.1.300/24")).toBe(false);
+    expect(m.validSshKeys("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample you@laptop")).toBe(true);
+    expect(m.validSshKeys("")).toBe(false);
+    expect(m.validSshKeys("hunter2")).toBe(false);
+    expect(m.isoNameFromUrl("https://releases.example.com/24.04/os-24.04-amd64.iso?x=1")).toBe("os-24.04-amd64.iso");
+    expect(m.isoNameFromUrl("https://example.com/download")).toBe("");
+    expect(m.validIsoName("a b.iso")).toBe(false);
+    expect(m.validIsoName("os.iso")).toBe(true);
+    expect(m.validSha256("a".repeat(64))).toBe(true);
+    expect(m.validUrl("ftp://example.com/x.iso")).toBe(false);
+  });
+  it("knows which ids are free", async () => {
+    const m = await import("./proxmox");
+    const o = { guests: [{ vmid: 100 }] } as unknown as Parameters<typeof m.vmidFree>[0];
+    expect(m.vmidFree(o, 100)).toBe(false);
+    expect(m.vmidFree(o, 101)).toBe(true);
+    expect(m.vmidFree(o, 99)).toBe(false);
+  });
+});
