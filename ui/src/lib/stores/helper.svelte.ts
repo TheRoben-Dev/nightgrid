@@ -8,6 +8,7 @@ import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
 import { tour } from "./tour.svelte";
 import { buildTurns, setFeatureCheck, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
 import { railTarget, sectionById } from "../sections";
+import { settingsTabFor } from "../settingsTabs";
 import { labelLines } from "../netmap/graph";
 import { keymap } from "../term/keyhints";
 import { historyTerms, hostFacts, mentionedHosts } from "../helper/hostFacts";
@@ -408,8 +409,8 @@ class HelperStore {
       ui.lastInRail = { ...ui.lastInRail, [rt.row]: rt.view };
     }
     if (t.view && ui.section !== t.view) ui.go(t.view);
-    // Settings has two tabs; the feature controls live on the second.
-    if (t.view === "settings") ui.settingsTab = id.startsWith("settings-feature") ? "features" : id === "settings-tab-features" ? ui.settingsTab : "general";
+    // Settings has tabs: open the one that holds the control.
+    if (t.view === "settings") ui.settingsTab = settingsTabFor(id) ?? ui.settingsTab;
     // Let the view render before looking for the control.
     await new Promise((r) => setTimeout(r, 60));
     const el = document.querySelector<HTMLElement>(`[data-guide="${id}"]`);

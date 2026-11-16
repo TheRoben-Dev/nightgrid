@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.54] - 2026-11-16
+
+### Changed: Settings in tabs
+- Settings is split into tabs by topic instead of one long GENERAL page: **GENERAL** (tray and window, app updates, diagnostics), **APPEARANCE** (theme, custom colours, scale and effects), **TERMINAL** (terminal options, keyboard shortcuts), **MONITORING** (metrics, service checks), **ALERTS** (alert rules, log rules and mutes, dependencies, notifications), **CONNECTIONS** (built-in Tailscale, SSH keys), **DRIFT** (the helper, its model, tours), **DATA** (profile export and import, phone status page) and **FEATURES**.
+- DRIFT's spotlights and tours open the tab that holds the control they point at. **Alert rules…** in the Alerts panel opens the ALERTS tab.
+
 ## [0.10.53] - 2026-11-16
 
 ### Fixed: log alerts that weren't errors

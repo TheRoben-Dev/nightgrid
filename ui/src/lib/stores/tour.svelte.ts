@@ -5,6 +5,7 @@
  */
 import { tourById, type Tour, type TourStep } from "../helper/tours";
 import { railTarget } from "../sections";
+import { settingsTabFor } from "../settingsTabs";
 import { settings } from "./settings.svelte";
 import { ui } from "./ui.svelte";
 
@@ -70,6 +71,9 @@ class TourStore {
     // A click on a shared sidebar row opens the view this step asks for.
     const rt = step.target ? railTarget(step.target) : null;
     if (rt) ui.lastInRail = { ...ui.lastInRail, [rt.row]: rt.view };
+    // A step on a Settings control opens the tab that holds it.
+    const tab = step.target ? settingsTabFor(step.target) : null;
+    if (tab) ui.settingsTab = tab;
     const done = () => {
       if (this.step === step && this.index === at) this.next();
     };

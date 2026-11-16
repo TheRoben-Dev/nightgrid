@@ -1,4 +1,5 @@
 import { railFor, type SectionId } from "../sections";
+import type { SettingsTab } from "../settingsTabs";
 
 class UiStore {
   section = $state<SectionId>("overview");
@@ -9,7 +10,7 @@ class UiStore {
   keychain = $state(false);
 
   /** Settings tab shown. */
-  settingsTab = $state<"general" | "features">("general");
+  settingsTab = $state<SettingsTab>("general");
   /** A turned-off view someone tried to open; Settings → Features points at it. */
   featureAsked = $state<string | null>(null);
   /** Whether a section is on (set by the app from Settings → Features). */

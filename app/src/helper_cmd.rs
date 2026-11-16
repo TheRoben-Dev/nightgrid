@@ -182,7 +182,7 @@ async fn engine(app: &AppHandle, on_event: &Channel<HelperEvent>) -> Result<Arc<
     }
     let path = model::model_path(&models_dir(&app.state::<AppState>()), &DEFAULT_MODEL);
     if model::state(&models_dir(&app.state::<AppState>()), &DEFAULT_MODEL) != ModelState::Ready {
-        return Err("Download the model first (Settings → Helper).".into());
+        return Err("Download the model first (Settings → DRIFT).".into());
     }
     let _ = on_event.send(HelperEvent::Loading);
     let started = Instant::now();
@@ -208,7 +208,7 @@ pub async fn helper_ask(
         .map_err(|e| e.to_string())?
         .effective();
     if !settings.helper_enabled {
-        return Err("The helper is off (Settings → Helper).".into());
+        return Err("The helper is off (Settings → DRIFT).".into());
     }
     if messages.is_empty() || messages.iter().any(|m| !matches!(m.role.as_str(), "system" | "user" | "assistant")) {
         return Err("bad conversation".into());

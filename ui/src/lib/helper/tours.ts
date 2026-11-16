@@ -56,7 +56,7 @@ export const TOURS: Tour[] = [
       { text: "Type a few letters to filter; Enter runs the highlighted entry. Press Esc to close it and I'll go on.", wait: { kind: "gone", selector: '[aria-label="Command palette"]' } },
       { target: "hosts-add", text: "Add a host here (or import your ~/.ssh/config with the button next to it). Everything else builds on your hosts.", wait: { kind: "next" } },
       { target: "dashboard-edit", text: "The Overview is a dashboard you can rearrange: Edit lets you move, resize and add widgets.", wait: { kind: "next" } },
-      { text: "Ask me anything with Mod+J. I can explain logs and errors, check a command before you run it, and replay this tour from Settings → Helper.", wait: { kind: "next" } },
+      { text: "Ask me anything with Mod+J. I can explain logs and errors, check a command before you run it, and replay this tour from Settings → DRIFT.", wait: { kind: "next" } },
     ],
   },
   {

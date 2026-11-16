@@ -14,8 +14,9 @@ describe("guide targets", () => {
       const sysTab = t.id.startsWith("system-tab-") && markup.includes('data-guide="system-tab-{t.id}"');
       const fleetTab = t.id.startsWith("fleet-tab-") && markup.includes('data-guide="fleet-tab-{t.id}"');
       const pveTab = t.id.startsWith("proxmox-tab-") && markup.includes('data-guide="proxmox-tab-{t.id}"');
+      const setTab = t.id.startsWith("settings-tab-") && markup.includes('data-guide="settings-tab-{t.id}"');
       const viewTab = t.id.startsWith("viewtab-") && markup.includes('data-guide="viewtab-{v.id}"');
-      expect(literal || rail || sysTab || fleetTab || pveTab || viewTab, t.id).toBe(true);
+      expect(literal || rail || sysTab || fleetTab || pveTab || viewTab || setTab, t.id).toBe(true);
     }
   });
   it("views that share a sidebar row point at the row and say where they are", () => {
