@@ -28,7 +28,7 @@ Bring other tools' live status into Nightgrid's Services board: what's playing o
 
 #### Check
 
-- [ ] Each card shows live data; removing an integration also removes its token from the keychain.
+- [ ] Each card shows live data.
 
 ## Limits and gotchas
 
