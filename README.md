@@ -613,6 +613,13 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing device identity and inventory (0.10.56)
+
+1. Network (`Cmd+0`): select a server marked ◉, tick **Ping sweep**, **Scan from …**. Devices show a guessed type with a "?" (Router, TV?, Printer? …); names now include reverse DNS, DHCP leases (if that server is your DHCP server), NetBIOS and UPnP names. On the first scan everything is **NEW**.
+2. With nothing selected: **New this scan** lists them. **Trust** a few. Scan again: they're no longer new. Unplug or switch off one device and scan: it's under **Missing**.
+3. **Inventory** lists every device seen with first and last seen. **Forget** one: the next scan calls it new again.
+4. Type a routed range you can reach from that server (another VLAN, a site over VPN, a Tailscale subnet route) into **Routed ranges** and scan: its devices appear marked ⇢, with no MAC or maker.
+
 ### macOS: testing DRIFT's model picker (0.10.55)
 
 1. Settings → DRIFT → turn on DRIFT. Under **Model**: your chip, core count and memory, then Light, Balanced and Best with FITS / TIGHT / WON'T FIT. On a 16 GB Mac, Balanced is RECOMMENDED and Best says WON'T FIT; on 32 GB or more, Best is recommended.

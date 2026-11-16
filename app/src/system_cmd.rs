@@ -187,28 +187,76 @@ pub async fn system_security(app: AppHandle, host_id: HostId) -> SysResult<Secur
     Ok(security::audit(&conn).await?)
 }
 
+fn now_secs() -> i64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
+}
+
+/// Records a scan in the device inventory and fills its new/missing/trusted
+/// fields. An inventory error doesn't lose the scan.
+fn with_inventory(
+    app: &AppHandle,
+    origin: &str,
+    mut d: nightgrid_core::netmap::Discovery,
+) -> nightgrid_core::netmap::Discovery {
+    if let Err(e) = app.state::<AppState>().store().net_inventory_merge(origin, &mut d, now_secs()) {
+        tracing::warn!("device inventory: {e}");
+        d.notes.push(format!("The device inventory couldn't be updated: {e}"));
+    }
+    d
+}
+
 /// What `host_id` sees of its network (M10i): interfaces, gateway,
-/// neighbours, mDNS, Tailscale peers and what faces the internet. `sweep`
-/// also pings the host's own LAN subnet (/24 or smaller). Only on a click.
+/// neighbours, names (mDNS, reverse DNS, DHCP leases, NetBIOS, UPnP),
+/// Tailscale peers and what faces the internet. `sweep` also pings the
+/// host's own LAN subnet (/24 or smaller); `ranges` are routed subnets the
+/// host can reach. Only on a click.
 #[tauri::command]
 #[specta::specta]
 pub async fn netmap_discover(
     app: AppHandle,
     host_id: HostId,
     sweep: bool,
+    ranges: Vec<String>,
 ) -> SysResult<nightgrid_core::netmap::Discovery> {
     let conn = connect_host(&app, host_id).await?;
-    tracing::info!(host = %host_id, sweep, "network discovery");
-    nightgrid_core::netmap::discover(&conn, sweep).await.map_err(|e| SystemError::other(e).into())
+    tracing::info!(host = %host_id, sweep, ranges = ranges.len(), "network discovery");
+    let d = nightgrid_core::netmap::discover(&conn, sweep, &ranges).await.map_err(SystemError::other)?;
+    Ok(with_inventory(&app, &host_id.to_string(), d))
 }
 
 /// Network discovery run on this computer (macOS and Linux), for the map's
 /// "This computer" option. Same script as on a host, run with the local `sh`.
 #[tauri::command]
 #[specta::specta]
-pub async fn netmap_discover_local(sweep: bool) -> SysResult<nightgrid_core::netmap::Discovery> {
-    tracing::info!(sweep, "network discovery from this computer");
-    nightgrid_core::netmap::discover_local(sweep).await.map_err(|e| SystemError::other(e).into())
+pub async fn netmap_discover_local(
+    app: AppHandle,
+    sweep: bool,
+    ranges: Vec<String>,
+) -> SysResult<nightgrid_core::netmap::Discovery> {
+    tracing::info!(sweep, ranges = ranges.len(), "network discovery from this computer");
+    let d = nightgrid_core::netmap::discover_local(sweep, &ranges).await.map_err(SystemError::other)?;
+    Ok(with_inventory(&app, "local", d))
+}
+
+/// Every device the network map has seen, newest first.
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_inventory(state: State<'_, AppState>) -> CmdResult<Vec<nightgrid_core::netinv::NetDevice>> {
+    Ok(state.store().net_devices()?)
+}
+
+/// Marks a device as trusted (known and expected) or not.
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_device_trust(state: State<'_, AppState>, key: String, trusted: bool) -> CmdResult<()> {
+    Ok(state.store().net_device_trust(&key, trusted)?)
+}
+
+/// Forgets a device; it counts as new the next time a scan sees it.
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_device_forget(state: State<'_, AppState>, key: String) -> CmdResult<()> {
+    Ok(state.store().net_device_forget(&key)?)
 }
 
 /// Searches the login user's shell history (opt-in setting). Secret-looking

@@ -716,15 +716,23 @@ export const commands = {
 	systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<VmReport_Serialize>("system_vms", { hostId, elevate, sudo }, options),
 	/**
 	 *  What `host_id` sees of its network (M10i): interfaces, gateway,
-	 *  neighbours, mDNS, Tailscale peers and what faces the internet. `sweep`
-	 *  also pings the host's own LAN subnet (/24 or smaller). Only on a click.
+	 *  neighbours, names (mDNS, reverse DNS, DHCP leases, NetBIOS, UPnP),
+	 *  Tailscale peers and what faces the internet. `sweep` also pings the
+	 *  host's own LAN subnet (/24 or smaller); `ranges` are routed subnets the
+	 *  host can reach. Only on a click.
 	 */
-	netmapDiscover: (hostId: number, sweep: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover", { hostId, sweep }, options),
+	netmapDiscover: (hostId: number, sweep: boolean, ranges: string[], options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover", { hostId, sweep, ranges }, options),
 	/**
 	 *  Network discovery run on this computer (macOS and Linux), for the map's
 	 *  "This computer" option. Same script as on a host, run with the local `sh`.
 	 */
-	netmapDiscoverLocal: (sweep: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover_local", { sweep }, options),
+	netmapDiscoverLocal: (sweep: boolean, ranges: string[], options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover_local", { sweep, ranges }, options),
+	/**  Every device the network map has seen, newest first. */
+	netmapInventory: (options?: InvokeOptions) => __TAURI_INVOKE<NetDevice_Serialize[]>("netmap_inventory", undefined, options),
+	/**  Marks a device as trusted (known and expected) or not. */
+	netmapDeviceTrust: (key: string, trusted: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_device_trust", { key, trusted }, options),
+	/**  Forgets a device; it counts as new the next time a scan sees it. */
+	netmapDeviceForget: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_device_forget", { key }, options),
 	/**
 	 *  Starts, shuts down, reboots or stops a guest. Everything but start was
 	 *  confirmed in the UI with the guest and host named (security rule 5).
@@ -2230,6 +2238,24 @@ export type Device_Deserialize = {
 	vendor?: string | null,
 	/**  Other addresses of the same device (same MAC), e.g. its IPv6 address. */
 	also: string[],
+	/**
+	 *  What it probably is (a `device_labels::KINDS` id), guessed from its
+	 *  maker, names, announced services and open ports. "other" when unsure.
+	 */
+	kind: string,
+	/**  Model from its UPnP description ("Sonos One", "HP LaserJet …"). */
+	model?: string | null,
+	/**
+	 *  Found in a routed subnet (not on the scanning host's own network):
+	 *  no MAC, vendor or local names can be seen across a router.
+	 */
+	routed: boolean,
+	/**  Inventory (filled by the app): first time any scan saw it (unix s). */
+	firstSeen?: number | null,
+	/**  First seen by this scan. */
+	isNew: boolean,
+	/**  Marked as known and expected. */
+	trusted: boolean,
 };
 
 export type Device_Serialize = {
@@ -2250,6 +2276,24 @@ export type Device_Serialize = {
 	vendor: string | null,
 	/**  Other addresses of the same device (same MAC), e.g. its IPv6 address. */
 	also: string[],
+	/**
+	 *  What it probably is (a `device_labels::KINDS` id), guessed from its
+	 *  maker, names, announced services and open ports. "other" when unsure.
+	 */
+	kind: string,
+	/**  Model from its UPnP description ("Sonos One", "HP LaserJet …"). */
+	model: string | null,
+	/**
+	 *  Found in a routed subnet (not on the scanning host's own network):
+	 *  no MAC, vendor or local names can be seen across a router.
+	 */
+	routed: boolean,
+	/**  Inventory (filled by the app): first time any scan saw it (unix s). */
+	firstSeen: number | null,
+	/**  First seen by this scan. */
+	isNew: boolean,
+	/**  Marked as known and expected. */
+	trusted: boolean,
 };
 
 export type DiffLine = DiffLine_Serialize | DiffLine_Deserialize;
@@ -2279,6 +2323,10 @@ export type Discovery_Deserialize = {
 	exposures: Exposure_Deserialize[],
 	/**  The subnet that was swept, when asked. */
 	swept?: string | null,
+	/**  Every subnet swept: the host's own and any routed ranges asked for. */
+	ranges: string[],
+	/**  Inventory devices in the swept subnets that didn't answer this time. */
+	missing: MissingDevice_Deserialize[],
 	/**  Tools that were missing or failed, in words. */
 	notes: string[],
 };
@@ -2290,6 +2338,10 @@ export type Discovery_Serialize = {
 	exposures: Exposure_Serialize[],
 	/**  The subnet that was swept, when asked. */
 	swept: string | null,
+	/**  Every subnet swept: the host's own and any routed ranges asked for. */
+	ranges: string[],
+	/**  Inventory devices in the swept subnets that didn't answer this time. */
+	missing: MissingDevice_Serialize[],
 	/**  Tools that were missing or failed, in words. */
 	notes: string[],
 };
@@ -4282,6 +4334,40 @@ export type MetricsEvent_Deserialize = { kind: "sample"; hostId: number; sample:
 
 export type MetricsEvent_Serialize = { kind: "sample"; hostId: number; sample: Sample_Serialize } | { kind: "state"; hostId: number; state: PollState; message: string | null; retrySecs: number | null };
 
+/**
+ *  A device the inventory knows that this scan didn't see, in a subnet this
+ *  scan covered (filled by the app).
+ */
+export type MissingDevice = MissingDevice_Serialize | MissingDevice_Deserialize;
+
+/**
+ *  A device the inventory knows that this scan didn't see, in a subnet this
+ *  scan covered (filled by the app).
+ */
+export type MissingDevice_Deserialize = {
+	key: string,
+	ip: string,
+	name?: string | null,
+	vendor?: string | null,
+	kind: string,
+	lastSeen: number | null,
+	trusted: boolean,
+};
+
+/**
+ *  A device the inventory knows that this scan didn't see, in a subnet this
+ *  scan covered (filled by the app).
+ */
+export type MissingDevice_Serialize = {
+	key: string,
+	ip: string,
+	name: string | null,
+	vendor: string | null,
+	kind: string,
+	lastSeen: number | null,
+	trusted: boolean,
+};
+
 export type ModelOption = {
 	id: string,
 	name: string,
@@ -4370,6 +4456,36 @@ export type MountView_Serialize = {
 	destination: string,
 	rw: boolean,
 	name: string | null,
+};
+
+export type NetDevice = NetDevice_Serialize | NetDevice_Deserialize;
+
+export type NetDevice_Deserialize = {
+	key: string,
+	ip: string,
+	vendor?: string | null,
+	kind: string,
+	/**  The first name the scan found for it. */
+	name?: string | null,
+	/**  A host id or `local`. */
+	origin: string,
+	firstSeen: number | null,
+	lastSeen: number | null,
+	trusted: boolean,
+};
+
+export type NetDevice_Serialize = {
+	key: string,
+	ip: string,
+	vendor: string | null,
+	kind: string,
+	/**  The first name the scan found for it. */
+	name: string | null,
+	/**  A host id or `local`. */
+	origin: string,
+	firstSeen: number | null,
+	lastSeen: number | null,
+	trusted: boolean,
 };
 
 export type NetTest = NetTest_Serialize | NetTest_Deserialize;
@@ -6210,7 +6326,9 @@ export type Seen =
 /**  The scanned host mounts a network share from it (NFS, SMB). */
 "mount" | 
 /**  The scanned host has an open TCP connection to it. */
-"connection";
+"connection" | 
+/**  Answered a UPnP (SSDP) search. */
+"ssdp";
 
 export type Service = Service_Serialize | Service_Deserialize;
 

@@ -280,6 +280,8 @@ import {
   type VncInput,
   type Discovery_Serialize as Discovery,
   type Device_Serialize as Device,
+  type MissingDevice_Serialize as MissingDevice,
+  type NetDevice_Serialize as NetDevice,
   type Exposure_Serialize as Exposure,
   type ExposureKind,
   type Iface,
@@ -608,6 +610,8 @@ export type {
   VncInput,
   Discovery,
   Device,
+  MissingDevice,
+  NetDevice,
   Exposure,
   ExposureKind,
   Iface,
@@ -719,7 +723,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.55-web",
+      version: "0.10.56-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1038,10 +1042,13 @@ export const api = {
     T() ? commands.desktopRdpOpen(hostId, guest, addr, port) : mockDesktop.rdpOpen(hostId, guest, addr),
   desktopRdpList: (): Promise<RdpTunnel[]> => (T() ? commands.desktopRdpList() : mockDesktop.rdpList()),
   desktopRdpClose: (id: number): Promise<void> => (T() ? commands.desktopRdpClose(id) : Promise.resolve(mockDesktop.rdpClose(id))),
-  netmapDiscover: (hostId: number, sweep: boolean): Promise<Discovery> =>
-    T() ? commands.netmapDiscover(hostId, sweep) : mockOps.discover(hostId, sweep),
-  netmapDiscoverLocal: (sweep: boolean): Promise<Discovery> =>
-    T() ? commands.netmapDiscoverLocal(sweep) : mockOps.discover(0, sweep),
+  netmapDiscover: (hostId: number, sweep: boolean, ranges: string[] = []): Promise<Discovery> =>
+    T() ? commands.netmapDiscover(hostId, sweep, ranges) : mockOps.discover(hostId, sweep, ranges),
+  netmapDiscoverLocal: (sweep: boolean, ranges: string[] = []): Promise<Discovery> =>
+    T() ? commands.netmapDiscoverLocal(sweep, ranges) : mockOps.discover(0, sweep, ranges),
+  netmapInventory: (): Promise<NetDevice[]> => (T() ? commands.netmapInventory() : mockOps.inventory()),
+  netmapDeviceTrust: (key: string, trusted: boolean): Promise<null> => (T() ? commands.netmapDeviceTrust(key, trusted) : mockOps.trust(key, trusted)),
+  netmapDeviceForget: (key: string): Promise<null> => (T() ? commands.netmapDeviceForget(key) : mockOps.forget(key)),
   deviceLabelsList: (): Promise<DeviceLabel[]> => (T() ? commands.deviceLabelsList() : mockOps.labelsList()),
   deviceLabelSave: (l: DeviceLabel): Promise<DeviceLabel | null> => (T() ? commands.deviceLabelSave(l) : mockOps.labelSave(l)),
   tailnetStatus: (): Promise<TailnetStatus> => (T() ? commands.tailnetStatus() : mockTailnet.status()),

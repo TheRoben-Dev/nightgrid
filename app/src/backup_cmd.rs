@@ -294,5 +294,6 @@ pub fn backup_clear_folder(state: State<'_, AppState>) -> CmdResult<()> {
 #[tauri::command]
 #[specta::specta]
 pub fn app_restart(app: AppHandle) {
+    crate::helper_cmd::shutdown(&app);
     app.restart();
 }
