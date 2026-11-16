@@ -8,10 +8,12 @@
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
-use nightgrid_core::helper::model::{self, DownloadEnd, ModelState, Policy, DEFAULT_MODEL};
+use nightgrid_core::helper::hardware::{self, Hardware};
+use nightgrid_core::helper::model::{self, DownloadEnd, ModelSpec, ModelState, Policy, MODELS};
+use nightgrid_core::helper::think::{self, ThinkFilter};
 use nightgrid_llm::{Engine, Finish, GenOptions, LoadOptions, Message};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -23,23 +25,49 @@ use crate::state::AppState;
 /// Runtime state of the helper (not persisted).
 #[derive(Default)]
 pub struct Helper {
-    engine: Mutex<Option<Arc<Engine>>>,
+    /// The loaded model and its id.
+    engine: Mutex<Option<(&'static str, Arc<Engine>)>>,
     /// Serializes model loading so two first questions don't load twice.
     loading: tokio::sync::Mutex<()>,
-    downloading: AtomicBool,
+    /// The model being downloaded (one at a time).
+    downloading: Mutex<Option<&'static str>>,
     cancel_download: Arc<AtomicBool>,
     /// Set to stop the reply being generated.
     stop: Arc<AtomicBool>,
     busy: AtomicBool,
+    /// Read once per run: hardware doesn't change while the app is open.
+    hardware: OnceLock<Hardware>,
 }
 
 fn models_dir(state: &AppState) -> PathBuf {
     state.data_dir.join("models")
 }
 
+/// The model the settings pick (the default if the id is unknown).
+fn active(state: &AppState) -> &'static ModelSpec {
+    nightgrid_core::settings::AppSettings::load(&state.store())
+        .ok()
+        .and_then(|s| model::model_by_id(&s.helper_model))
+        .unwrap_or(&MODELS[0])
+}
+
+fn spec(id: &str) -> Result<&'static ModelSpec, String> {
+    model::model_by_id(id).ok_or_else(|| "That model isn't offered.".into())
+}
+
+fn state_of(dir: &std::path::Path, m: &ModelSpec) -> (&'static str, u64) {
+    match model::state(dir, m) {
+        ModelState::Missing => ("missing", 0),
+        ModelState::Partial(n) => ("partial", n),
+        ModelState::Ready => ("ready", m.bytes),
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct HelperStatus {
+    /// The model in use (from settings).
+    pub id: String,
     pub model: String,
     pub license: String,
     /// Full size of the model file in bytes.
@@ -48,26 +76,29 @@ pub struct HelperStatus {
     pub state: String,
     /// Bytes already on disk for a partial download.
     pub have: f64,
+    /// A download is running (of any model).
     pub downloading: bool,
+    /// Which model is downloading.
+    pub downloading_id: Option<String>,
     pub loaded: bool,
     /// The build offloads to the GPU (Metal on macOS); otherwise CPU.
     pub gpu: bool,
 }
 
 fn status(state: &AppState, helper: &Helper) -> HelperStatus {
-    let (st, have) = match model::state(&models_dir(state), &DEFAULT_MODEL) {
-        ModelState::Missing => ("missing", 0),
-        ModelState::Partial(n) => ("partial", n),
-        ModelState::Ready => ("ready", DEFAULT_MODEL.bytes),
-    };
+    let m = active(state);
+    let (st, have) = state_of(&models_dir(state), m);
+    let dl = *helper.downloading.lock().expect("poisoned");
     HelperStatus {
-        model: DEFAULT_MODEL.name.into(),
-        license: DEFAULT_MODEL.license.into(),
-        bytes: DEFAULT_MODEL.bytes as f64,
+        id: m.id.into(),
+        model: m.name.into(),
+        license: m.license.into(),
+        bytes: m.bytes as f64,
         state: st.into(),
         have: have as f64,
-        downloading: helper.downloading.load(Ordering::Relaxed),
-        loaded: helper.engine.lock().expect("poisoned").is_some(),
+        downloading: dl.is_some(),
+        downloading_id: dl.map(Into::into),
+        loaded: helper.engine.lock().expect("poisoned").as_ref().is_some_and(|(id, _)| *id == m.id),
         gpu: nightgrid_llm::gpu_build(),
     }
 }
@@ -80,36 +111,152 @@ pub fn helper_status(state: State<'_, AppState>, helper: State<'_, Helper>) -> H
 
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
+pub struct GpuView {
+    pub name: String,
+    /// Dedicated memory in bytes (0: shared or unknown).
+    pub vram: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HardwareView {
+    pub os: String,
+    pub arch: String,
+    pub cpu: String,
+    pub cores: u32,
+    /// Bytes (0: couldn't read).
+    pub memory: f64,
+    pub unified: bool,
+    pub gpus: Vec<GpuView>,
+    pub gpu_build: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelOption {
+    pub id: String,
+    pub name: String,
+    /// `light`, `balanced` or `best`.
+    pub tier: String,
+    pub params: String,
+    pub blurb: String,
+    pub license: String,
+    pub bytes: f64,
+    /// Memory it needs while answering.
+    pub need: f64,
+    /// `missing`, `partial` or `ready`.
+    pub state: String,
+    pub have: f64,
+    /// `good`, `tight`, `no` or `unknown`.
+    pub fit: String,
+    /// Why, in a line.
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HelperModels {
+    pub hardware: HardwareView,
+    pub recommended: String,
+    pub active: String,
+    pub models: Vec<ModelOption>,
+}
+
+/// The models on offer, how each fits this computer, and which to pick.
+#[tauri::command]
+#[specta::specta]
+pub async fn helper_models(app: AppHandle) -> Result<HelperModels, String> {
+    let helper = app.state::<Helper>();
+    let hw = match helper.hardware.get() {
+        Some(h) => h.clone(),
+        None => {
+            let h = tauri::async_runtime::spawn_blocking(|| hardware::detect(nightgrid_llm::gpu_build()))
+                .await
+                .map_err(|e| e.to_string())?;
+            tracing::info!(memory = h.memory, cpu = %h.cpu, gpus = h.gpus.len(), "hardware read for model picks");
+            helper.hardware.get_or_init(|| h).clone()
+        }
+    };
+    let state = app.state::<AppState>();
+    let dir = models_dir(&state);
+    let models = MODELS
+        .iter()
+        .map(|m| {
+            let (st, have) = state_of(&dir, m);
+            ModelOption {
+                id: m.id.into(),
+                name: m.name.into(),
+                tier: m.tier.into(),
+                params: m.params.into(),
+                blurb: m.blurb.into(),
+                license: m.license.into(),
+                bytes: m.bytes as f64,
+                need: hardware::needed(m) as f64,
+                state: st.into(),
+                have: have as f64,
+                fit: hardware::fit(&hw, m).as_str().into(),
+                reason: hardware::reason(&hw, m),
+            }
+        })
+        .collect();
+    Ok(HelperModels {
+        recommended: hardware::recommend(&hw, MODELS).id.into(),
+        active: active(&state).id.into(),
+        models,
+        hardware: HardwareView {
+            os: hw.os,
+            arch: hw.arch,
+            cpu: hw.cpu,
+            cores: hw.cores,
+            memory: hw.memory as f64,
+            unified: hw.unified,
+            gpus: hw.gpus.into_iter().map(|g| GpuView { name: g.name, vram: g.vram as f64 }).collect(),
+            gpu_build: hw.gpu_build,
+        },
+    })
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
 pub struct DownloadProgress {
     pub done: f64,
     pub total: f64,
 }
 
-/// Downloads (or resumes) the model, then verifies its checksum. Returns
-/// `false` if it was cancelled.
+/// Downloads (or resumes) a model, then verifies its checksum. Returns
+/// `false` if it was cancelled. The model in use stays in use.
 #[tauri::command]
 #[specta::specta]
-pub async fn helper_download(app: AppHandle, on_progress: Channel<DownloadProgress>) -> Result<bool, String> {
+pub async fn helper_download(
+    app: AppHandle,
+    model_id: String,
+    on_progress: Channel<DownloadProgress>,
+) -> Result<bool, String> {
+    let m = spec(&model_id)?;
     let helper = app.state::<Helper>();
-    if helper.downloading.swap(true, Ordering::SeqCst) {
-        return Err("The model is already downloading.".into());
+    {
+        let mut d = helper.downloading.lock().expect("poisoned");
+        if d.is_some() {
+            return Err("A model is already downloading.".into());
+        }
+        *d = Some(m.id);
     }
     helper.cancel_download.store(false, Ordering::SeqCst);
     let dir = models_dir(&app.state::<AppState>());
     let cancel = helper.cancel_download.clone();
     let mut last = Instant::now() - Duration::from_secs(1);
-    tracing::info!(url = DEFAULT_MODEL.url, "helper model download started");
-    let r = model::download(&dir, &DEFAULT_MODEL, &Policy::default(), &cancel, |done, total| {
+    tracing::info!(url = m.url, "helper model download started");
+    let r = model::download(&dir, m, &Policy::default(), &cancel, |done, total| {
         if done == total || last.elapsed() >= Duration::from_millis(200) {
             last = Instant::now();
             let _ = on_progress.send(DownloadProgress { done: done as f64, total: total as f64 });
         }
     })
     .await;
-    helper.downloading.store(false, Ordering::SeqCst);
+    *helper.downloading.lock().expect("poisoned") = None;
     match r {
         Ok(DownloadEnd::Done) => {
-            tracing::info!("helper model downloaded and verified");
+            tracing::info!(model = m.id, "helper model downloaded and verified");
             Ok(true)
         }
         Ok(DownloadEnd::Cancelled) => Ok(false),
@@ -126,15 +273,27 @@ pub fn helper_cancel_download(helper: State<'_, Helper>) {
     helper.cancel_download.store(true, Ordering::SeqCst);
 }
 
-/// Unloads and deletes the model (and any partial download).
+/// Deletes a model's file (and any partial download), unloading it first.
 #[tauri::command]
 #[specta::specta]
-pub fn helper_delete_model(state: State<'_, AppState>, helper: State<'_, Helper>) -> Result<(), String> {
-    if helper.downloading.load(Ordering::SeqCst) || helper.busy.load(Ordering::SeqCst) {
-        return Err("Stop the download or reply first.".into());
+pub fn helper_delete_model(
+    state: State<'_, AppState>,
+    helper: State<'_, Helper>,
+    model_id: String,
+) -> Result<(), String> {
+    let m = spec(&model_id)?;
+    if *helper.downloading.lock().expect("poisoned") == Some(m.id) {
+        return Err("Stop the download first.".into());
     }
-    *helper.engine.lock().expect("poisoned") = None;
-    model::delete(&models_dir(&state), &DEFAULT_MODEL).map_err(|e| format!("Couldn't delete the model: {e}"))
+    let mut e = helper.engine.lock().expect("poisoned");
+    if e.as_ref().is_some_and(|(id, _)| *id == m.id) {
+        if helper.busy.load(Ordering::SeqCst) {
+            return Err("Stop the reply first.".into());
+        }
+        *e = None;
+    }
+    drop(e);
+    model::delete(&models_dir(&state), m).map_err(|e| format!("Couldn't delete the model: {e}"))
 }
 
 /// Frees the model's memory (it loads again on the next question).
@@ -174,26 +333,38 @@ pub struct HelperReply {
     pub seconds: f64,
 }
 
-async fn engine(app: &AppHandle, on_event: &Channel<HelperEvent>) -> Result<Arc<Engine>, String> {
+async fn engine(app: &AppHandle, on_event: &Channel<HelperEvent>) -> Result<(&'static ModelSpec, Arc<Engine>), String> {
     let helper = app.state::<Helper>();
     let _guard = helper.loading.lock().await;
-    if let Some(e) = helper.engine.lock().expect("poisoned").clone() {
-        return Ok(e);
+    let state = app.state::<AppState>();
+    let m = active(&state);
+    if let Some((id, e)) = helper.engine.lock().expect("poisoned").clone() {
+        if id == m.id {
+            return Ok((m, e));
+        }
     }
-    let path = model::model_path(&models_dir(&app.state::<AppState>()), &DEFAULT_MODEL);
-    if model::state(&models_dir(&app.state::<AppState>()), &DEFAULT_MODEL) != ModelState::Ready {
-        return Err("Download the model first (Settings → DRIFT).".into());
+    let dir = models_dir(&state);
+    if model::state(&dir, m) != ModelState::Ready {
+        return Err(format!("Download {} first (Settings → DRIFT).", m.name));
     }
+    // Free the model that was in use before loading the next one.
+    *helper.engine.lock().expect("poisoned") = None;
+    let path = model::model_path(&dir, m);
     let _ = on_event.send(HelperEvent::Loading);
     let started = Instant::now();
     let e = tauri::async_runtime::spawn_blocking(move || Engine::load(&path, LoadOptions::default()))
         .await
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())?;
-    tracing::info!(secs = started.elapsed().as_secs_f32(), gpu = nightgrid_llm::gpu_build(), "helper model loaded");
+    tracing::info!(
+        model = m.id,
+        secs = started.elapsed().as_secs_f32(),
+        gpu = nightgrid_llm::gpu_build(),
+        "helper model loaded"
+    );
     let e = Arc::new(e);
-    *helper.engine.lock().expect("poisoned") = Some(e.clone());
-    Ok(e)
+    *helper.engine.lock().expect("poisoned") = Some((m.id, e.clone()));
+    Ok((m, e))
 }
 
 /// Generates DRIFT's reply to `messages`, streaming it over `on_event`.
@@ -219,16 +390,32 @@ pub async fn helper_ask(
     }
     helper.stop.store(false, Ordering::SeqCst);
     let r = async {
-        let engine = engine(&app, &on_event).await?;
+        let (spec, engine) = engine(&app, &on_event).await?;
         let stop = helper.stop.clone();
-        let msgs: Vec<Message> = messages.into_iter().map(|m| Message { role: m.role, content: m.content }).collect();
+        let mut msgs: Vec<Message> =
+            messages.into_iter().map(|m| Message { role: m.role, content: m.content }).collect();
+        if spec.no_think {
+            // Qwen3's soft switch: answer directly.
+            if let Some(m) = msgs.iter_mut().find(|m| m.role == "system") {
+                m.content.push_str("\n/no_think");
+            }
+        }
         let ch = on_event.clone();
         let started = Instant::now();
         let _ = on_event.send(HelperEvent::Thinking);
         let out = tauri::async_runtime::spawn_blocking(move || {
-            engine.generate(&msgs, &GenOptions::default(), &stop, |t| {
-                let _ = ch.send(HelperEvent::Text { text: t.to_owned() });
-            })
+            let mut f = ThinkFilter::new();
+            let r = engine.generate(&msgs, &GenOptions::default(), &stop, |t| {
+                let t = f.push(t);
+                if !t.is_empty() {
+                    let _ = ch.send(HelperEvent::Text { text: t });
+                }
+            });
+            let rest = f.finish();
+            if !rest.is_empty() {
+                let _ = ch.send(HelperEvent::Text { text: rest });
+            }
+            r
         })
         .await
         .map_err(|e| e.to_string())?
@@ -236,7 +423,7 @@ pub async fn helper_ask(
         let seconds = started.elapsed().as_secs_f64();
         tracing::debug!(prompt = out.prompt_tokens, tokens = out.tokens, seconds, "helper reply");
         Ok(HelperReply {
-            text: out.text,
+            text: think::strip(&out.text),
             finish: match out.finish {
                 Finish::Done => "done",
                 Finish::Length => "length",

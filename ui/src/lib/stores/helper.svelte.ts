@@ -2,7 +2,7 @@
  * DRIFT helper state: the side panel, the conversation, the attached view
  * context, the model download and the "show me" spotlight.
  */
-import { api, type HelperStatus } from "../api";
+import { api, type HelperModels, type HelperStatus } from "../api";
 import { guideTarget } from "../helper/guide";
 import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
 import { tour } from "./tour.svelte";
@@ -107,6 +107,11 @@ class HelperStore {
   status = $state<HelperStatus | null>(null);
   progress = $state<{ done: number; total: number } | null>(null);
   downloadError = $state<string | null>(null);
+  /** The models on offer and how each fits this computer (Settings → DRIFT). */
+  models = $state<HelperModels | null>(null);
+  /** The model being downloaded, and whether to switch to it once ready. */
+  downloadingId = $state<string | null>(null);
+  private switchWhenReady = false;
   /** Context attached to the next question (the user can drop parts). */
   context = $state<HelperContext>({ view: "overview" });
   spotlight = $state<Spotlight | null>(null);
@@ -188,30 +193,62 @@ class HelperStore {
     this.clearSpotlight();
   }
 
-  async download() {
-    this.downloadError = null;
-    this.progress = { done: this.status?.have ?? 0, total: this.status?.bytes ?? 0 };
+  async loadModels() {
     try {
-      await api.helperDownload((p) => (this.progress = { done: p.done ?? 0, total: p.total ?? 0 }));
+      this.models = await api.helperModels();
+    } catch (e) {
+      this.downloadError = errMsg(e);
+    }
+  }
+
+  /**
+   * Downloads a model (the one in use when no id is given). The model in use
+   * keeps answering meanwhile; with `use`, DRIFT switches once it's ready.
+   */
+  async download(id?: string, use = false) {
+    const target = id ?? this.status?.id;
+    if (!target) return;
+    const m = this.models?.models.find((x) => x.id === target);
+    this.downloadError = null;
+    this.downloadingId = target;
+    this.switchWhenReady = use;
+    this.progress = m ? { done: m.have ?? 0, total: m.bytes ?? 0 } : { done: this.status?.have ?? 0, total: this.status?.bytes ?? 0 };
+    try {
+      const done = await api.helperDownload(target, (p) => (this.progress = { done: p.done ?? 0, total: p.total ?? 0 }));
+      if (done && this.switchWhenReady) await this.useModel(target);
     } catch (e) {
       this.downloadError = errMsg(e);
     } finally {
       this.progress = null;
+      this.downloadingId = null;
+      this.switchWhenReady = false;
       await this.refresh();
+      if (this.models) await this.loadModels();
     }
+  }
+
+  /** Switches DRIFT to a downloaded model; it loads on the next question. */
+  async useModel(id: string) {
+    await settings.update({ helperModel: id });
+    await api.helperUnload();
+    await this.refresh();
+    if (this.models) await this.loadModels();
   }
 
   cancelDownload() {
     void api.helperCancelDownload();
   }
 
-  async deleteModel() {
+  async deleteModel(id?: string) {
+    const target = id ?? this.status?.id;
+    if (!target) return;
     try {
-      await api.helperDeleteModel();
+      await api.helperDeleteModel(target);
     } catch (e) {
       this.downloadError = errMsg(e);
     }
     await this.refresh();
+    if (this.models) await this.loadModels();
   }
 
   async setEnabled(on: boolean) {

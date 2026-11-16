@@ -14,7 +14,7 @@
       <span class="name">{s.model}</span>
       <span class="muted small">{s.license} · {gb(s.bytes ?? 0)} · {s.gpu ? "GPU (Metal)" : "CPU"}</span>
     </div>
-    {#if helper.progress}
+    {#if helper.progress && (!helper.downloadingId || helper.downloadingId === s.id)}
       <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={pct}>
         <span class="fill">{"█".repeat(Math.round(pct / 4))}</span><span class="rest">{"░".repeat(25 - Math.round(pct / 4))}</span>
       </div>

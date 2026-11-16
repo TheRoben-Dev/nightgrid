@@ -369,7 +369,7 @@
 </div>
 {:else if ui.settingsTab === "drift"}
 <div class="grid">
-  <HelperSettings />
+  <div class="wide"><HelperSettings /></div>
 </div>
 {:else if ui.settingsTab === "data"}
 <div class="grid">

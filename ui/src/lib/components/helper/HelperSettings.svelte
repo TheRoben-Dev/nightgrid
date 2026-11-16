@@ -4,7 +4,7 @@
   import { helper } from "../../stores/helper.svelte";
   import Panel from "../Panel.svelte";
   import Toggle from "../Toggle.svelte";
-  import ModelCard from "./ModelCard.svelte";
+  import ModelPicker from "./ModelPicker.svelte";
   import { TOURS } from "../../helper/tours";
   import { tour } from "../../stores/tour.svelte";
 
@@ -19,7 +19,7 @@
     onchange={(v) => void helper.setEnabled(v)}
   />
   {#if helper.enabled}
-    <ModelCard />
+    <ModelPicker />
     {#if helper.status?.loaded}
       <button type="button" class="btn ghost" disabled={helper.busy} onclick={() => void helper.unload()}>
         Free memory (unload model)
@@ -41,6 +41,9 @@
 </Panel>
 
 <style>
+  .tours {
+    margin-top: 10px;
+  }
   .tours p {
     margin: 0 0 4px;
   }

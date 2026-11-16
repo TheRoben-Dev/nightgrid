@@ -27,25 +27,82 @@ pub struct ModelSpec {
     pub id: &'static str,
     /// Shown in the UI.
     pub name: &'static str,
+    /// `light`, `balanced` or `best`.
+    pub tier: &'static str,
+    /// Parameter count as people say it ("8B parameters", "30B parameters, 3B active").
+    pub params: &'static str,
+    /// What it's like to use, one line.
+    pub blurb: &'static str,
     pub license: &'static str,
     pub file: &'static str,
     pub url: &'static str,
     pub sha256: &'static str,
     pub bytes: u64,
+    /// Memory on top of the file while answering (8k context cache and
+    /// buffers), from the model's layer and head counts.
+    pub overhead: u64,
+    /// A hybrid model that thinks unless told not to: DRIFT asks it not to
+    /// and drops any `<think>` block.
+    pub no_think: bool,
 }
 
-/// Qwen3-4B-Instruct-2507, Q4_K_M (Apache-2.0): ~2.5 GB on disk, ~3.5 GB
-/// with an 8k context, so it fits 6–8 GB GPUs and 8 GB Apple Silicon. See
-/// D-063.
-pub const DEFAULT_MODEL: ModelSpec = ModelSpec {
-    id: "qwen3-4b-instruct-2507-q4km",
-    name: "Qwen3 4B Instruct (2507), Q4_K_M",
-    license: "Apache-2.0",
-    file: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-    url: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
-    sha256: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
-    bytes: 2_497_281_120,
-};
+/// The models DRIFT offers, small to big. URLs are pinned to a repository
+/// commit and every file is checked against its SHA-256 (D-063, D-139).
+pub const MODELS: &[ModelSpec] = &[
+    // Qwen3-4B-Instruct-2507, Q4_K_M: fits 8 GB Apple Silicon and 6–8 GB GPUs.
+    ModelSpec {
+        id: "qwen3-4b-instruct-2507-q4km",
+        name: "Qwen3 4B Instruct (2507), Q4_K_M",
+        tier: "light",
+        params: "4B parameters",
+        blurb: "Quick and small. Good for questions about the app and short log explanations.",
+        license: "Apache-2.0",
+        file: "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+        url: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/a06e946bb6b655725eafa393f4a9745d460374c9/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+        sha256: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
+        bytes: 2_497_281_120,
+        overhead: 1_000_000_000,
+        no_think: false,
+    },
+    // Qwen3-8B (hybrid), Q4_K_M: 16 GB machines.
+    ModelSpec {
+        id: "qwen3-8b-q4km",
+        name: "Qwen3 8B, Q4_K_M",
+        tier: "balanced",
+        params: "8B parameters",
+        blurb: "Twice the size: follows the facts it's given more closely and explains errors better. A little slower.",
+        license: "Apache-2.0",
+        file: "Qwen3-8B-Q4_K_M.gguf",
+        url: "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/a6adef130ffb23ddaf1a62fec9dced968c9bc482/Qwen3-8B-Q4_K_M.gguf",
+        sha256: "120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4",
+        bytes: 5_027_784_512,
+        overhead: 1_500_000_000,
+        no_think: true,
+    },
+    // Qwen3-30B-A3B-Instruct-2507 (mixture of experts, 3B active per token),
+    // Q4_K_M: 32 GB+ machines; about as fast as a 4B model once loaded.
+    ModelSpec {
+        id: "qwen3-30b-a3b-instruct-2507-q4km",
+        name: "Qwen3 30B-A3B Instruct (2507), Q4_K_M",
+        tier: "best",
+        params: "30B parameters, 3B active",
+        blurb: "The most knowledgeable, and quick for its size because only part of it works on each word. Needs a lot of memory.",
+        license: "Apache-2.0",
+        file: "Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf",
+        url: "https://huggingface.co/unsloth/Qwen3-30B-A3B-Instruct-2507-GGUF/resolve/eea7b2be5805a5f151f8847ede8e5f9a9284bf77/Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf",
+        sha256: "6c997b8af17debdfb01d890214400ccbab00db6acc0ba8da5de1cc906c4774d0",
+        bytes: 18_556_686_752,
+        overhead: 1_300_000_000,
+        no_think: false,
+    },
+];
+
+/// The model used until the user picks another.
+pub const DEFAULT_MODEL: ModelSpec = MODELS[0];
+
+pub fn model_by_id(id: &str) -> Option<&'static ModelSpec> {
+    MODELS.iter().find(|m| m.id == id)
+}
 
 /// Hosts a model download may touch, including redirects (suffix match).
 pub const DOWNLOAD_HOSTS: &[&str] = &["huggingface.co", "hf.co"];
@@ -334,7 +391,7 @@ mod tests {
 
     fn spec_for(data: &[u8], url: &'static str) -> ModelSpec {
         let sha: &'static str = Box::leak(hex(&Sha256::digest(data)).into_boxed_str());
-        ModelSpec { id: "t", name: "t", license: "x", file: "m.gguf", url, sha256: sha, bytes: data.len() as u64 }
+        ModelSpec { url, sha256: sha, bytes: data.len() as u64, file: "m.gguf", ..DEFAULT_MODEL }
     }
 
     /// Serves `data` (honouring Range) on /m, redirects /r to /m, and cuts

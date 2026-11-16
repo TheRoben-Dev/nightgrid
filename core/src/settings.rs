@@ -44,6 +44,8 @@ pub struct AppSettings {
     pub controller_nav: bool,
     /// The DRIFT helper (local model). Off until the user turns it on.
     pub helper_enabled: bool,
+    /// The DRIFT model in use (an id from `helper::model::MODELS`).
+    pub helper_model: String,
     /// Terminal font size in px.
     pub term_font_size: u16,
     /// Terminal scrollback lines.
@@ -305,6 +307,7 @@ impl Default for AppSettings {
             handheld: false,
             controller_nav: true,
             helper_enabled: false,
+            helper_model: crate::helper::model::DEFAULT_MODEL.id.into(),
             dashboards: Vec::new(),
             dashboard_active: 0,
             tour_offered: false,
@@ -383,6 +386,9 @@ impl AppSettings {
                 field: "disabledFeatures",
                 reason: "at most 64 ids of lowercase letters, digits, dots and dashes".into(),
             });
+        }
+        if crate::helper::model::model_by_id(&self.helper_model).is_none() {
+            return Err(Error::Invalid { field: "helper_model", reason: "not one of the offered models".into() });
         }
         let h = &self.tailnet_hostname;
         if h.is_empty()
