@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.35] - 2026-11-16
+
+### Added: host config editors, part 3: reverse proxy route editor (M10v)
+- **Docker → Routes → Edit routes…**: change where your reverse proxy sends each domain, for Caddy (a Caddy container or Caddy installed on the host) and Traefik.
+- **Caddy**: every site in the Caddyfile with its upstreams. **Add site…** (domains and an upstream such as `app:8080`), **Change…** a site's upstream, **Remove…** a site, or **Edit as text** for anything else. Every change shows a diff first (secrets masked until you reveal them). On save, Caddy checks the new file (`caddy validate`) and loads it (`caddy reload`); if it won't load, the old file is put back. A copy of the previous Caddyfile stays in `.nightgrid-backups` next to it. A change is refused if the Caddyfile was edited elsewhere since it was opened.
+- **Traefik**: add, edit and remove routes (name, domains, upstream, entry points, TLS and certificate resolver from Traefik's own configuration). They are written to `nightgrid.yml` in Traefik's file provider directory, which Traefik picks up by itself; routes from container labels stay as they are. Without a file provider directory the editor says which flag to add.
+- The Routes list now includes the Traefik routes Nightgrid keeps.
+
 ## [0.10.34] - 2026-11-16
 
 ### Added: host config editors, part 2: firewall manager (M10v)

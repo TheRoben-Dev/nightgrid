@@ -5,6 +5,7 @@
 
 pub mod compose;
 pub mod proxy;
+pub mod proxy_edit;
 pub mod registry;
 pub mod snapshot;
 pub mod transport;

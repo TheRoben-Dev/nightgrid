@@ -23,6 +23,7 @@ mod logsearch_cmd;
 mod metrics_cmd;
 mod notes_cmd;
 mod platform;
+mod proxy_cmd;
 mod services_cmd;
 mod state;
 mod status_cmd;
@@ -242,6 +243,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         firewall_cmd::firewall_test,
         firewall_cmd::firewall_keep,
         firewall_cmd::firewall_undo,
+        proxy_cmd::proxy_edit_targets,
+        proxy_cmd::caddy_edit_preview,
+        proxy_cmd::caddy_save,
+        proxy_cmd::traefik_save,
         logsearch_cmd::log_search,
         logsearch_cmd::log_searches_list,
         logsearch_cmd::log_search_save,
