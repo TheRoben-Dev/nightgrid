@@ -8,6 +8,8 @@
   import DeployWizard from "./DeployWizard.svelte";
   import StackTools from "./StackTools.svelte";
   import EnvVault from "./EnvVault.svelte";
+  import GitStacks from "./GitStacks.svelte";
+  import { gitStacks } from "../../stores/gitstacks.svelte";
   import { envVault } from "../../stores/envvault.svelte";
   import { layout } from "../../stores/layout.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
@@ -65,6 +67,7 @@
       {#if !stacks.dirsOpen}<span class="muted">only stacks with containers are listed; add a folder to find the rest</span>{/if}
     {/each}
     <span class="spacer"></span>
+    <button type="button" class="btn ghost tiny" data-guide="docker-git-stacks" title="Stacks whose compose files come from a git repository" onclick={() => void gitStacks.show()}>From git…</button>
     <button type="button" class="btn tiny" data-guide="docker-new-stack" onclick={() => (stacks.wizardOpen = true)}>+ New stack</button>
     {#if stacks.dirsOpen}
       <form class="adddir" onsubmit={addDir}>
@@ -211,6 +214,7 @@
 
 <StackTools />
 <EnvVault />
+<GitStacks />
 <DeployWizard />
 
 <style>

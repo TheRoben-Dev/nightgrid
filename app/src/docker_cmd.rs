@@ -288,7 +288,15 @@ pub async fn docker_stacks(app: AppHandle, host_id: HostId) -> DockerResult<Vec<
     let dirs: Vec<String> = {
         let state = app.state::<AppState>();
         let list = state.store().list_stack_dirs(host_id).map_err(|e| DockerCmdError::msg(e.to_string()))?;
-        list.into_iter().map(|d| d.path).collect()
+        let git = state.store().git_stacks(host_id).map_err(|e| DockerCmdError::msg(e.to_string()))?;
+        let mut dirs: Vec<String> = list.into_iter().map(|d| d.path).collect();
+        // A git stack's own folder (scan_command looks in it and one level down).
+        for d in git.iter().map(|g| g.stack_dir()) {
+            if !dirs.contains(&d) {
+                dirs.push(d);
+            }
+        }
+        dirs
     };
     Ok(docker_for(&app, host_id).await?.stacks(&dirs).await?)
 }

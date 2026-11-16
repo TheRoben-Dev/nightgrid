@@ -371,6 +371,24 @@ export const commands = {
 	 *  The UI shows the preview first and names the stack and host (rule 5).
 	 */
 	envDeploy: (hostId: number, stack: Stack, options?: InvokeOptions) => __TAURI_INVOKE<EnvDeployed_Serialize>("env_deploy", { hostId, stack }, options),
+	gitStacksList: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<GitStack_Serialize[]>("git_stacks_list", { hostId }, options),
+	/**
+	 *  Clones the repository into the folder on the host (or adopts a checkout
+	 *  of the same URL there) and starts tracking it.
+	 */
+	gitStackAdd: (hostId: number, input: GitStackInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<GitStackAdded_Serialize>("git_stack_add", { hostId, input }, options),
+	/**  Fetches the tracked branch and says what's new. */
+	gitStackCheck: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<GitStatus_Serialize>("git_stack_check", { id }, options),
+	/**  The diff from the checkout to `target`, limited to the stack's folder. */
+	gitStackDiff: (id: number, target: string, options?: InvokeOptions) => __TAURI_INVOKE<string>("git_stack_diff", { id, target }, options),
+	/**
+	 *  Moves the checkout to `target` (a reviewed commit, forward or back) after a
+	 *  stack snapshot. The UI confirms naming the stack, host and commit (rule 5)
+	 *  and then runs the normal "Up".
+	 */
+	gitStackDeploy: (id: number, target: string, options?: InvokeOptions) => __TAURI_INVOKE<GitDeployed_Serialize>("git_stack_deploy", { id, target }, options),
+	/**  Stops tracking; the checkout and the stack stay on the host. */
+	gitStackRemove: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("git_stack_remove", { id }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -2553,6 +2571,171 @@ export type FwChange_Serialize = { op: "ufwAdd"; action: UfwAction; port: string
 { op: "ufwDefault"; policy: string } | { op: "firewalldService"; zone: string; service: string; add: boolean } | { op: "firewalldPort"; zone: string; port: string; proto: Proto; add: boolean } | 
 /**  Accept traffic from a source address (optionally to one port). */
 { op: "firewalldSource"; zone: string; source: string; port: string | null; proto: Proto; add: boolean };
+
+export type GitCommit = {
+	id: string,
+	/**  Unix seconds. */
+	at: number | null,
+	author: string,
+	subject: string,
+};
+
+export type GitDeployed = GitDeployed_Serialize | GitDeployed_Deserialize;
+
+export type GitDeployed_Deserialize = {
+	git: GitStack_Deserialize,
+	from?: string | null,
+	to: string,
+	/**  The stack to bring up, when the folder has a compose file. */
+	stack?: Stack | null,
+	/**  A stack snapshot was saved first. */
+	snapshot: boolean,
+	snapshotError?: string | null,
+};
+
+export type GitDeployed_Serialize = {
+	git: GitStack_Serialize,
+	from: string | null,
+	to: string,
+	/**  The stack to bring up, when the folder has a compose file. */
+	stack: Stack | null,
+	/**  A stack snapshot was saved first. */
+	snapshot: boolean,
+	snapshotError: string | null,
+};
+
+export type GitFileStat = GitFileStat_Serialize | GitFileStat_Deserialize;
+
+export type GitFileStat_Deserialize = {
+	path: string,
+	/**  `None` for binary files. */
+	added?: number | null,
+	removed?: number | null,
+};
+
+export type GitFileStat_Serialize = {
+	path: string,
+	/**  `None` for binary files. */
+	added: number | null,
+	removed: number | null,
+};
+
+export type GitStack = GitStack_Serialize | GitStack_Deserialize;
+
+export type GitStackAdded = GitStackAdded_Serialize | GitStackAdded_Deserialize;
+
+export type GitStackAdded_Deserialize = {
+	git: GitStack_Deserialize,
+	/**  The folder already held a checkout of this repository. */
+	adopted: boolean,
+	/**  `None` when the folder has no compose file yet. */
+	stack?: Stack | null,
+};
+
+export type GitStackAdded_Serialize = {
+	git: GitStack_Serialize,
+	/**  The folder already held a checkout of this repository. */
+	adopted: boolean,
+	/**  `None` when the folder has no compose file yet. */
+	stack: Stack | null,
+};
+
+export type GitStackInput = GitStackInput_Serialize | GitStackInput_Deserialize;
+
+export type GitStackInput_Deserialize = {
+	url: string,
+	branch: string,
+	dir: string,
+	subdir?: string,
+};
+
+export type GitStackInput_Serialize = {
+	url: string,
+	branch: string,
+	dir: string,
+	subdir: string,
+};
+
+export type GitStack_Deserialize = {
+	id: number,
+	hostId: number,
+	/**  Checkout folder on the host (absolute or `~/…`). */
+	dir: string,
+	url: string,
+	branch: string,
+	/**  The stack's folder inside the repository, "" for the root. */
+	subdir: string,
+	/**  Commit of the last deploy from Nightgrid. */
+	deployed?: string | null,
+	/**  Commit before that, for "Roll back". */
+	previous?: string | null,
+	/**  Unix seconds. */
+	deployedAt?: number | null,
+};
+
+export type GitStack_Serialize = {
+	id: number,
+	hostId: number,
+	/**  Checkout folder on the host (absolute or `~/…`). */
+	dir: string,
+	url: string,
+	branch: string,
+	/**  The stack's folder inside the repository, "" for the root. */
+	subdir: string,
+	/**  Commit of the last deploy from Nightgrid. */
+	deployed: string | null,
+	/**  Commit before that, for "Roll back". */
+	previous: string | null,
+	/**  Unix seconds. */
+	deployedAt: number | null,
+};
+
+/**  Where a checkout stands after a fetch. */
+export type GitStatus = GitStatus_Serialize | GitStatus_Deserialize;
+
+/**  Where a checkout stands after a fetch. */
+export type GitStatus_Deserialize = {
+	/**  Checked-out branch (`HEAD` when detached). */
+	branch: string,
+	head: string,
+	current?: GitCommit | null,
+	/**  Tip of the tracked branch on the remote, after the fetch. */
+	remote?: string | null,
+	/**  Commits on the remote the checkout doesn't have, touching the stack's folder. */
+	behind: number,
+	ahead: number,
+	incoming: GitCommit[],
+	files: GitFileStat_Deserialize[],
+	/**  Tracked files changed on the host (`git status --porcelain` lines). */
+	dirty: string[],
+	/**  Folder with the compose file (resolved on the host). */
+	stackDir?: string | null,
+	composeFile?: string | null,
+	/**  Fetch failure, with a hint. */
+	error?: string | null,
+};
+
+/**  Where a checkout stands after a fetch. */
+export type GitStatus_Serialize = {
+	/**  Checked-out branch (`HEAD` when detached). */
+	branch: string,
+	head: string,
+	current: GitCommit | null,
+	/**  Tip of the tracked branch on the remote, after the fetch. */
+	remote: string | null,
+	/**  Commits on the remote the checkout doesn't have, touching the stack's folder. */
+	behind: number,
+	ahead: number,
+	incoming: GitCommit[],
+	files: GitFileStat_Serialize[],
+	/**  Tracked files changed on the host (`git status --porcelain` lines). */
+	dirty: string[],
+	/**  Folder with the compose file (resolved on the host). */
+	stackDir: string | null,
+	composeFile: string | null,
+	/**  Fetch failure, with a hint. */
+	error: string | null,
+};
 
 /**
  *  One GPU (NVIDIA through `nvidia-smi`, AMD through sysfs). Fields a

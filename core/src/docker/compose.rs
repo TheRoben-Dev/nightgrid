@@ -95,7 +95,7 @@ pub fn project_from_dir(dir: &str) -> String {
 }
 
 /// Quotes a stack folder for the shell, expanding a leading `~`.
-fn quote_dir(dir: &str) -> String {
+pub(crate) fn quote_dir(dir: &str) -> String {
     if dir == "~" {
         "\"$HOME\"".into()
     } else if let Some(rest) = dir.strip_prefix("~/") {
