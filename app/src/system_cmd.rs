@@ -259,6 +259,56 @@ pub fn netmap_device_forget(state: State<'_, AppState>, key: String) -> CmdResul
     Ok(state.store().net_device_forget(&key)?)
 }
 
+/// Runs a network tool (ping, path, DNS, ports, HTTP/TLS, neighbours,
+/// connections) on a host, or on this computer when `host_id` is null (D-142).
+#[tauri::command]
+#[specta::specta]
+pub async fn net_tool(
+    app: AppHandle,
+    host_id: Option<HostId>,
+    req: nightgrid_core::nettools::ToolRequest,
+) -> SysResult<nightgrid_core::nettools::ToolResult> {
+    tracing::info!(tool = ?req.tool, host = ?host_id, "network tool");
+    let r = match host_id {
+        Some(id) => {
+            let conn = connect_host(&app, id).await?;
+            nightgrid_core::nettools::run(&conn, &req).await
+        }
+        None => nightgrid_core::nettools::run_local(&req).await,
+    };
+    Ok(r.map_err(SystemError::other)?)
+}
+
+/// The maker of a MAC address (offline list).
+#[tauri::command]
+#[specta::specta]
+pub fn net_mac_vendor(mac: String) -> Option<String> {
+    nightgrid_core::netmap::mac_vendor(&mac)
+}
+
+/// Sends a Wake-on-LAN packet for `mac` from a host (null: this computer).
+#[tauri::command]
+#[specta::specta]
+pub async fn net_wake(app: AppHandle, host_id: Option<HostId>, mac: String) -> SysResult<String> {
+    let m = power::parse_mac(&mac).map_err(SystemError::other)?;
+    tracing::info!(host = ?host_id, "wake-on-lan from the tools");
+    match host_id {
+        Some(id) => {
+            let conn = connect_host(&app, id).await?;
+            let (code, _, err) =
+                tokio::time::timeout(std::time::Duration::from_secs(10), conn.exec(&power::wake_relay_command(&m)))
+                    .await
+                    .map_err(|_| SystemError::other("the host took too long to answer"))?
+                    .map_err(SystemError::other)?;
+            if code != 0 {
+                return Err(SystemError::other(String::from_utf8_lossy(&err).trim().to_owned()).into());
+            }
+        }
+        None => power::wake_local(&m, None).await.map_err(SystemError::other)?,
+    }
+    Ok(power::format_mac(&m))
+}
+
 /// The network map as the user arranged it: positions, hand-set parents
 /// and the expected picture (D-141).
 #[tauri::command]

@@ -613,6 +613,13 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing network tools (0.10.58)
+
+1. Network → **Tools** (`Cmd+Shift+N`). **Run from**: This computer. **Ping** your router: Answers yes, loss 0%, round trip. **Path** to `example.com` lists the hops.
+2. **Run from** a server. **DNS** a local name with type A, then the address with PTR. **Ports** `22,80,443` on the NAS: open ones in green. **HTTP / TLS** on a self-signed admin page (e.g. `https://<nas>:5001`): SELF-SIGNED and NOT TRUSTED, with days left.
+3. **Neighbours** and **Connections** on that server fill tables. **Subnet** `192.168.1.77/22` shows 192.168.0.0/22, 1022 hosts. **MAC lookup** on a device's MAC names its maker.
+4. On the Map, select a device: **Tools → Ports** opens Ports with its address and the scanning server picked. **Wake** with a sleeping machine's MAC wakes it (from a server on the same LAN).
+
 ### macOS: testing the topology map (0.10.57)
 
 1. Network (`Cmd+0`): select a server marked ◉, tick **Ping sweep**, scan. The map draws Internet → Router → devices in a LAN region, the tailnet in its own region, and hosts the scan didn't see in a row below. Wheel zooms, dragging the background pans, **FIT** fits.

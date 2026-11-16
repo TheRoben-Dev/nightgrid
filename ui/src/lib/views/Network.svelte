@@ -7,6 +7,7 @@
   import { exposureIp, KIND_LABEL, labelKey, seenText, serviceLabel, type MapLink, type MapNode } from "../netmap/graph";
   import { hosts } from "../stores/hosts.svelte";
   import { netmap } from "../stores/netmap.svelte";
+  import { nettools } from "../stores/nettools.svelte";
   import { system } from "../stores/system.svelte";
 
   const W = 196;
@@ -140,6 +141,18 @@
     hosts.addFrom({ name, hostname: n.ip ?? "" });
   }
 </script>
+
+{#snippet toolRow(ip: string, mac: string | null | undefined)}
+  <div class="toolrow" data-guide="netmap-tools">
+    <span class="lbl">TOOLS</span>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("ping", ip, netmap.resultHost)}>PING</button>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("ports", ip, netmap.resultHost)}>PORTS</button>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("http", ip, netmap.resultHost)}>WEB</button>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("path", ip, netmap.resultHost)}>PATH</button>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("dns", ip, netmap.resultHost)}>DNS</button>
+    {#if mac}<button type="button" class="btn ghost tiny" title="Wake-on-LAN from the machine that scanned" onclick={() => nettools.open("wol", mac, netmap.resultHost)}>WAKE</button>{/if}
+  </div>
+{/snippet}
 
 {#snippet labelForm()}
   <form class="labelform" data-guide="netmap-label" onsubmit={(e) => { e.preventDefault(); void saveLabel(); }}>
@@ -386,6 +399,7 @@
           </ul>
         {:else if n.kind === "gateway"}
           {#if n.device?.mac}<p class="mono muted">MAC {n.device.mac}{n.device.vendor ? ` · ${n.device.vendor}` : ""}</p>{/if}
+          {#if n.ip}{@render toolRow(n.ip, n.device?.mac)}{/if}
           {#if n.device}{@render labelForm()}{/if}
           <p>The default route of the scanned host. Router port forwards (UPnP) are listed under <strong>Internet</strong> and on the host they land on.</p>
         {:else if n.kind === "tailnet"}
@@ -428,6 +442,7 @@
               {#each netmap.result.ifaces as f (f.name + f.addr)}<li>{f.name} {f.addr}/{f.prefix} <span class="muted">{f.kind}</span></li>{/each}
             </ul>
           {/if}
+          {#if n.ip}{@render toolRow(n.ip, null)}{/if}
           <h4>LISTENING PORTS</h4>
           {#if ls}
             <table>
@@ -468,6 +483,7 @@
             {#if d.os}<dt>OS</dt><dd>{d.os}{d.online === false ? " (offline)" : ""}</dd>{/if}
             <dt>SEEN BY</dt><dd>{seenText(d)}</dd>
           </dl>
+          {@render toolRow(d.ip, d.mac)}
           {#if n.named?.note}<p class="note">{n.named.note}</p>{/if}
           {#if n.named?.tags.length}<p class="tags">{#each n.named.tags as t (t)}<span class="chip">#{t}</span>{/each}</p>{/if}
           {@render labelForm()}
@@ -520,6 +536,16 @@
   .seg button.on {
     background: color-mix(in srgb, var(--cyan) 18%, transparent);
     color: var(--text-0);
+  }
+  .toolrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin: 8px 0;
+  }
+  .toolrow .lbl {
+    margin-right: 4px;
   }
   .through {
     display: flex;

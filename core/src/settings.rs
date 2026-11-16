@@ -145,6 +145,7 @@ pub const FEATURES: &[&str] = &[
     "desktops",
     "proxmox",
     "network",
+    "nettools",
     "automation",
     "notes",
     "drift",
