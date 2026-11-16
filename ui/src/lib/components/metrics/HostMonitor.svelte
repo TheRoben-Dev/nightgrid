@@ -25,6 +25,8 @@
     { id: "24h", label: "24H", secs: 86400 },
     { id: "7d", label: "7D", secs: 7 * 86400 },
     { id: "30d", label: "30D", secs: 30 * 86400 },
+    { id: "90d", label: "90D", secs: 90 * 86400 },
+    { id: "1y", label: "1Y", secs: 365 * 86400 },
   ] as const;
   const KINDS = ["cpu", "mem", "net", "io", "temp", "gpu"] as const;
   type Kind = (typeof KINDS)[number];
@@ -32,10 +34,10 @@
   let kind = $state<Kind>("cpu");
   let points = $state<MetricPoint[]>([]);
   let span = $state({ from: 0, to: 0 });
+  /** A span dragged on the chart (M10t); replaces the range until reset. */
+  let zoom = $state<{ from: number; to: number } | null>(null);
 
-  async function loadHistory(hostId: number, secs: number) {
-    const to = Math.floor(Date.now() / 1000);
-    const from = to - secs;
+  async function loadSpan(hostId: number, from: number, to: number) {
     try {
       const p = await api.metricsHistory(hostId, from, to);
       if (metrics.detailId === hostId) {
@@ -46,6 +48,10 @@
       points = [];
     }
   }
+  const loadHistory = (hostId: number, secs: number) => {
+    const to = Math.floor(Date.now() / 1000);
+    return loadSpan(hostId, to - secs, to);
+  };
   // Forecasts use the last 14 days (15-minute rollups), refreshed every 10 minutes.
   let longPoints = $state<MetricPoint[]>([]);
   $effect(() => {
@@ -69,7 +75,16 @@
   const hasGpu = $derived(!!s?.gpus.length || points.some((p) => p.gpu != null));
 
   $effect(() => {
+    void id;
+    void range;
+    zoom = null;
+  });
+  $effect(() => {
     if (id == null) return;
+    if (zoom) {
+      void loadSpan(id, zoom.from, zoom.to);
+      return;
+    }
     const secs = RANGES.find((r) => r.id === range)!.secs;
     void loadHistory(id, secs);
     const t = setInterval(() => void loadHistory(id, secs), 60_000);
@@ -257,11 +272,13 @@
         <span class="spacer"></span>
         <div class="seg" role="tablist" aria-label="Range">
           {#each RANGES as r (r.id)}
-            <button type="button" role="tab" aria-selected={range === r.id} class:on={range === r.id} onclick={() => (range = r.id)}>{r.label}</button>
+            <button type="button" role="tab" aria-selected={!zoom && range === r.id} class:on={!zoom && range === r.id} onclick={() => ((range = r.id), (zoom = null))}>{r.label}</button>
           {/each}
         </div>
+        {#if zoom}<button type="button" class="btn ghost tiny" onclick={() => (zoom = null)}>Reset zoom</button>{/if}
       </div>
-      <HistoryChart ts={chart.ts} series={chart.series} max={chart.max} format={chart.format} from={span.from} to={span.to} />
+      <HistoryChart ts={chart.ts} series={chart.series} max={chart.max} format={chart.format} from={span.from} to={span.to} onzoom={(z) => (zoom = z)} />
+      <p class="trend muted">Drag across the chart to zoom in, double-click to zoom out. {span.to - span.from > 31 * 86400 ? "Hourly averages." : span.to - span.from > 2 * 86400 ? "15-minute averages." : "1-minute averages."}</p>
     </section>
   {/if}
 </Modal>

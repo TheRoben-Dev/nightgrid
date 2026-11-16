@@ -6,6 +6,7 @@
   import { api, errorText, type DepNode, type UptimeOutage, type UptimeSeries } from "../../api";
   import { hosts } from "../../stores/hosts.svelte";
   import { services } from "../../stores/services.svelte";
+  import UptimeReport from "./UptimeReport.svelte";
   import { barTitle, barTone, dayBars, DAY, durText, nodeKey, outageLen, outageStats, outageWhen, pctText, totals, utcOffsetMin } from "../../uptime";
 
   const RANGES = [
@@ -19,6 +20,7 @@
   let open = $state<string | null>(null);
   let outages = $state<UptimeOutage[]>([]);
   let outagesLoading = $state(false);
+  let reportOpen = $state(false);
 
   async function load() {
     try {
@@ -81,6 +83,7 @@
     <span class="muted small">Up out of the time Nightgrid was watching; sleep doesn't count as down.</span>
     <span class="spacer"></span>
     {#if overall.pct != null}<span class="small">ALL <strong class="t-{barTone(overall.pct)}">{pctText(overall.pct)}</strong></span>{/if}
+    <button type="button" class="btn ghost tiny" data-guide="uptime-report" onclick={() => (reportOpen = true)}>Monthly report…</button>
   </div>
   {#if error}<p class="bad small" role="alert">{error}</p>{/if}
   {#if loaded && !series.length}
@@ -132,6 +135,8 @@
     {/each}
   </div>
 </div>
+
+<UptimeReport open={reportOpen} onclose={() => (reportOpen = false)} />
 
 <style>
   .uptime {

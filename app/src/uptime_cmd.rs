@@ -7,10 +7,11 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use nightgrid_core::depgraph::Node;
+use nightgrid_core::sla::{self, SlaReport};
 use nightgrid_core::uptime::{availability, Observation, Outage, Recorder, Seen, UptimeSeries};
 use tauri::{AppHandle, Manager, State};
 
-use crate::commands::CmdResult;
+use crate::commands::{CmdResult, CommandError};
 use crate::metrics_cmd::PollState;
 use crate::state::AppState;
 
@@ -125,4 +126,78 @@ pub fn uptime_days(state: State<'_, AppState>, days: u32, utc_offset_min: i32) -
 #[specta::specta]
 pub fn uptime_outages(state: State<'_, AppState>, node: Option<Node>, from: u32, to: u32) -> CmdResult<Vec<Outage>> {
     Ok(state.store().outages(node, i64::from(from), i64::from(to))?)
+}
+
+/// Local midnight on the 1st of `month` to the 1st of the next, as unix seconds.
+fn month_bounds(year: u32, month: u32) -> Option<(i64, i64)> {
+    use chrono::{Local, TimeZone};
+    let y = i32::try_from(year).ok()?;
+    if !(1..=12).contains(&month) {
+        return None;
+    }
+    let start = Local.with_ymd_and_hms(y, month, 1, 0, 0, 0).earliest()?;
+    let (ny, nm) = if month == 12 { (y + 1, 1) } else { (y, month + 1) };
+    let end = Local.with_ymd_and_hms(ny, nm, 1, 0, 0, 0).earliest()?;
+    Some((start.timestamp(), end.timestamp()))
+}
+
+/// Hosts by name, then checked services by name.
+fn subjects(app: &AppHandle) -> Vec<(Node, String)> {
+    let state = app.state::<AppState>();
+    let store = state.store();
+    let mut hosts: Vec<(Node, String)> =
+        store.list_hosts().unwrap_or_default().into_iter().map(|h| (Node::Host(h.id), h.name)).collect();
+    hosts.sort_by_key(|(_, n)| n.to_lowercase());
+    let mut services: Vec<(Node, String)> = store
+        .list_services()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|s| s.check_enabled)
+        .map(|s| (Node::Service(s.id), s.name))
+        .collect();
+    services.sort_by_key(|(_, n)| n.to_lowercase());
+    hosts.extend(services);
+    hosts
+}
+
+fn build_report(app: &AppHandle, year: u32, month: u32, target: f64) -> CmdResult<SlaReport> {
+    let (from, to) = month_bounds(year, month).ok_or_else(|| CommandError::msg("pick a month"))?;
+    let now = nightgrid_core::services::check::now_unix();
+    let label = format!("{} {year}", sla::MONTHS[(month - 1) as usize]);
+    let target = if target.is_finite() { target.clamp(50.0, 99.999) } else { 99.9 };
+    let subjects = subjects(app);
+    Ok(app.state::<AppState>().store().sla_report(&subjects, from, to.min(now + 1), &label, target, now)?)
+}
+
+/// The uptime report for a calendar month (local time), checked against
+/// `target` percent.
+#[tauri::command]
+#[specta::specta]
+pub fn uptime_report(app: AppHandle, year: u32, month: u32, target: f64) -> CmdResult<SlaReport> {
+    build_report(&app, year, month, target)
+}
+
+/// Saves the month's report as an HTML page picked with a save dialog.
+/// `None` when cancelled.
+#[tauri::command]
+#[specta::specta]
+pub async fn uptime_report_export(app: AppHandle, year: u32, month: u32, target: f64) -> CmdResult<Option<String>> {
+    use tauri_plugin_dialog::DialogExt;
+    let report = build_report(&app, year, month, target)?;
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .file()
+        .set_title("Save uptime report")
+        .set_file_name(format!("nightgrid-uptime-{year}-{month:02}.html"))
+        .add_filter("HTML page", &["html"])
+        .save_file(move |p| {
+            let _ = tx.send(p);
+        });
+    let Some(path) = rx.await.ok().flatten().and_then(|p| p.into_path().ok()) else { return Ok(None) };
+    let offset = chrono::Local::now().offset().local_minus_utc() / 60;
+    let html = sla::render_html(&report, offset);
+    tokio::fs::write(&path, html)
+        .await
+        .map_err(|e| CommandError::msg(format!("Couldn't write {}: {e}", path.display())))?;
+    Ok(Some(path.display().to_string()))
 }

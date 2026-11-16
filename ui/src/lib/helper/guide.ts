@@ -76,6 +76,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "ups-cancel", view: "overview", what: "cancel a running UPS shutdown countdown (shown at the top of every view)" },
   { id: "fleet-tab-uptime", view: "fleet", what: "Fleet UPTIME tab: 30 or 90 days of daily uptime bars for every host and service, availability and outages" },
   { id: "fleet-uptime", view: "fleet", what: "uptime per host and service; click one to list its outages with the longest and total downtime" },
+  { id: "uptime-report", view: "fleet", what: "monthly uptime report: availability per host and service against a target (99.9% etc.), outages, HTML export" },
   { id: "backups-test", view: "fleet", what: "test restore: restore one file from the job's latest backup into a temporary folder and check it" },
   { id: "fleet-check", view: "fleet", what: "check every host for pending package updates and reboot flags" },
   { id: "fleet-images", view: "fleet", what: "check container images of every stack for newer versions (asks the registries)" },
