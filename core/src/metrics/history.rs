@@ -68,6 +68,15 @@ pub struct Point {
     /// Busiest GPU, busy %.
     #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
     pub gpu: Option<f32>,
+    /// Fullest GPU memory, % of its VRAM.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub gpu_mem: Option<f32>,
+    /// Hottest GPU, °C.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub gpu_temp: Option<f32>,
+    /// All GPUs together, watts.
+    #[cfg_attr(feature = "specta", specta(type = Option<u32>))]
+    pub gpu_power: Option<f32>,
 }
 
 impl Point {
@@ -86,6 +95,16 @@ impl Point {
             disk_write: Some(s.disk_write),
             temp: s.cpu_temp,
             gpu: s.gpus.iter().filter_map(|g| g.util).reduce(f32::max),
+            gpu_mem: s
+                .gpus
+                .iter()
+                .filter_map(|g| match (g.mem_used, g.mem_total) {
+                    (Some(u), Some(t)) => pct(u, t),
+                    _ => None,
+                })
+                .reduce(f32::max),
+            gpu_temp: s.gpus.iter().filter_map(|g| g.temp).reduce(f32::max),
+            gpu_power: s.gpus.iter().filter_map(|g| g.power).reduce(|a, b| a + b),
         }
     }
 }
@@ -133,7 +152,7 @@ impl MinuteAverager {
 }
 
 /// Number of stored columns.
-const N: usize = 11;
+const N: usize = 14;
 
 fn values(p: &Point) -> [Option<f64>; N] {
     let f = |v: Option<f32>| v.map(f64::from);
@@ -149,6 +168,9 @@ fn values(p: &Point) -> [Option<f64>; N] {
         p.disk_write,
         f(p.temp),
         f(p.gpu),
+        f(p.gpu_mem),
+        f(p.gpu_temp),
+        f(p.gpu_power),
     ]
 }
 
@@ -167,10 +189,19 @@ fn point(ts: i64, v: &[Option<f64>]) -> Point {
         disk_write: v[8],
         temp: f(v[9]),
         gpu: f(v[10]),
+        gpu_mem: f(v[11]),
+        gpu_temp: f(v[12]),
+        gpu_power: f(v[13]),
     }
 }
 
-const COLS: &str = "cpu, mem, swap, load1, disk, net_rx, net_tx, disk_read, disk_write, temp, gpu";
+const COLS: &str =
+    "cpu, mem, swap, load1, disk, net_rx, net_tx, disk_read, disk_write, temp, gpu, gpu_mem, gpu_temp, gpu_power";
+
+/// `?4, ?5, …` for the stored columns after host, res and ts.
+fn placeholders() -> String {
+    (4..4 + N).map(|i| format!("?{i}")).collect::<Vec<_>>().join(", ")
+}
 
 impl Store {
     /// Stores a minute point and folds it into its 15-minute and hourly rollups.
@@ -178,12 +209,18 @@ impl Store {
         let ts = (p.ts as i64).div_euclid(MINUTE) * MINUTE;
         let v = values(p);
         let tx = self.conn_mut().transaction()?;
+        let args = |res: i64, ts: i64| {
+            let mut a: Vec<rusqlite::types::Value> = vec![host_id.into(), res.into(), ts.into()];
+            a.extend(v.iter().map(|x| x.map_or(rusqlite::types::Value::Null, rusqlite::types::Value::Real)));
+            rusqlite::params_from_iter(a)
+        };
+        let ph = placeholders();
         let inserted = tx.execute(
             &format!(
-                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, {ph})
                  ON CONFLICT (host_id, res, ts) DO NOTHING"
             ),
-            params![host_id, MINUTE, ts, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10]],
+            args(MINUTE, ts),
         )?;
         if inserted == 0 {
             // Already have this minute (e.g. a reconnect replayed it).
@@ -200,30 +237,12 @@ impl Store {
             })
             .collect();
         let sql = format!(
-            "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+            "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, {ph})
              ON CONFLICT (host_id, res, ts) DO UPDATE SET {}, n = n + 1",
             upd.join(", ")
         );
         for res in [ROLLUP, HOURLY] {
-            tx.execute(
-                &sql,
-                params![
-                    host_id,
-                    res,
-                    ts.div_euclid(res) * res,
-                    v[0],
-                    v[1],
-                    v[2],
-                    v[3],
-                    v[4],
-                    v[5],
-                    v[6],
-                    v[7],
-                    v[8],
-                    v[9],
-                    v[10]
-                ],
-            )?;
+            tx.execute(&sql, args(res, ts.div_euclid(res) * res))?;
         }
         tx.commit()?;
         Ok(())
@@ -289,6 +308,41 @@ mod tests {
         let p = s.metric_history(h.id, 0, 100 * 86400).unwrap();
         assert_eq!(p.len(), 1);
         assert_eq!((p[0].ts, p[0].cpu, p[0].temp, p[0].mem), (7200.0, Some(25.0), Some(50.0), None));
+    }
+
+    #[test]
+    fn stores_gpu_memory_temperature_and_power() {
+        let mut s = Store::open_in_memory().unwrap();
+        let h = s
+            .create_host(&HostInput { name: "gpu01".into(), hostname: "gpu01.lan".into(), ..Default::default() })
+            .unwrap();
+        let a = Point {
+            ts: 60.0,
+            gpu: Some(50.0),
+            gpu_mem: Some(40.0),
+            gpu_temp: Some(60.0),
+            gpu_power: Some(100.0),
+            ..Default::default()
+        };
+        let b = Point {
+            ts: 61.0,
+            gpu: Some(70.0),
+            gpu_mem: None,
+            gpu_temp: Some(70.0),
+            gpu_power: Some(200.0),
+            ..Default::default()
+        };
+        s.insert_metric_point(h.id, &a).unwrap();
+        s.insert_metric_point(h.id, &Point { ts: 120.0, ..b.clone() }).unwrap();
+        let p = s.metric_history(h.id, 0, 600).unwrap();
+        assert_eq!(p.len(), 2);
+        assert_eq!((p[0].gpu_mem, p[0].gpu_temp, p[0].gpu_power), (Some(40.0), Some(60.0), Some(100.0)));
+        // The 15-minute rollup averages; a missing VRAM reading doesn't count.
+        let r = s.metric_history(h.id, 0, 7 * 86400).unwrap();
+        assert_eq!(
+            (r[0].gpu, r[0].gpu_mem, r[0].gpu_temp, r[0].gpu_power),
+            (Some(60.0), Some(40.0), Some(65.0), Some(150.0))
+        );
     }
 
     #[test]

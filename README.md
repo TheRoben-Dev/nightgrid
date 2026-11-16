@@ -164,6 +164,12 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.39 (GPU history)
+
+1. On a host with an NVIDIA card (`nvidia-smi` works) or an AMD card, open its monitor: **GPU** shows busy and VRAM lines, **TEMP** has a "GPU temp (hottest)" line, **GPU W** shows power. Run a GPU load (a transcode or `glmark2`) and watch them rise within a minute.
+2. **Overview → Edit → Add → GPUS**: the widget lists each GPU with busy %, VRAM, temperature and watts; clicking one opens that host's monitor.
+3. Switch the history to **24H** after a few hours: the lines continue from the 15-minute rollups.
+
 ### macOS: testing 0.10.38 (stacks from git)
 
 1. Make a repository (GitHub, Gitea…) with `media/compose.yaml` holding a small service such as `nginx:1.27`. On the host, add its public key as a read-only deploy key (or use a public repository).

@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.39] - 2026-11-16
+
+### Added: more signals, part 1: GPU history (M10x)
+- The monitor's **GPU** chart now shows VRAM use (the fullest GPU) next to how busy it is, **TEMP** adds the hottest GPU next to the CPU, and a new **GPU W** chart shows the power all GPUs draw. All of it is kept like the other metrics: a year of hourly points, with zoom.
+- New Overview widget **GPUS** (Edit → Add): every GPU across your hosts with busy %, VRAM, temperature and power; click one to open its host's monitor.
+
 ## [0.10.38] - 2026-11-16
 
 ### Added: deploy & secrets, part 2: stacks from git (M10w)

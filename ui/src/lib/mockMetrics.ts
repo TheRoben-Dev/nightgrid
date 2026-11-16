@@ -122,6 +122,9 @@ export const mockMetrics = {
         diskWrite: wave(hostId + 5, t, 0, 12e6),
         temp: wave(hostId, t, 41, 67),
         gpu: hostId % 4 === 1 ? wave(hostId + 7, t, 0, 80) : null,
+        gpuMem: hostId % 4 === 1 ? wave(hostId + 8, t / 4, 20, 45) : null,
+        gpuTemp: hostId % 4 === 1 ? wave(hostId + 7, t, 38, 71) : null,
+        gpuPower: hostId % 4 === 1 ? wave(hostId + 7, t, 14, 160) : null,
       });
     }
     return Promise.resolve(out);

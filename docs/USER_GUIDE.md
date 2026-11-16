@@ -67,7 +67,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - Click a host for history charts, from 1 hour to 1 year. Minute detail is kept for the days set in Settings → Monitoring, 15-minute averages for at least 90 days and hourly averages for 400 days. Drag across a chart to zoom into that span (finer detail loads when it is stored); **Reset zoom** or a double-click goes back.
 - Hosts that need a password or a new host key wait until you open a terminal on them; monitoring never prompts.
 - **Forecasts**: the monitor fits a trend to the last 14 days and says when the fullest disk reaches 100 % (orange within two months, red within two weeks). Memory gets a line only when it keeps climbing towards 95 %, which can point at a leak. It needs at least two days of history.
-- **GPUs**: NVIDIA cards (through `nvidia-smi`, if the driver is installed) and AMD cards (amdgpu) show busy %, VRAM, temperature and power in the monitor, with a GPU history chart. Intel GPUs aren't read yet.
+- **GPUs**: NVIDIA cards (through `nvidia-smi`, if the driver is installed) and AMD cards (amdgpu) show busy %, VRAM, temperature and power in the monitor. History keeps the busiest GPU, the fullest VRAM (**GPU** chart), the hottest GPU (**TEMP**) and the total power (**GPU W**). The **GPUS** Overview widget lists every GPU across hosts. Intel GPUs aren't read yet.
 
 ## Services and integrations
 

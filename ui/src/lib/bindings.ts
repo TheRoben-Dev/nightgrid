@@ -4213,6 +4213,12 @@ export type Point_Deserialize = {
 	temp?: number | null,
 	/**  Busiest GPU, busy %. */
 	gpu?: number | null,
+	/**  Fullest GPU memory, % of its VRAM. */
+	gpuMem?: number | null,
+	/**  Hottest GPU, °C. */
+	gpuTemp?: number | null,
+	/**  All GPUs together, watts. */
+	gpuPower?: number | null,
 };
 
 /**  One stored point (averages over its bucket). */
@@ -4235,6 +4241,12 @@ export type Point_Serialize = {
 	temp: number | null,
 	/**  Busiest GPU, busy %. */
 	gpu: number | null,
+	/**  Fullest GPU memory, % of its VRAM. */
+	gpuMem: number | null,
+	/**  Hottest GPU, °C. */
+	gpuTemp: number | null,
+	/**  All GPUs together, watts. */
+	gpuPower: number | null,
 };
 
 /**  Why a host has no fresh sample. */

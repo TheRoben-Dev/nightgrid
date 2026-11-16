@@ -23,7 +23,7 @@ pub const MAX_NAME: usize = 40;
 /// Widget kinds the UI knows how to draw. Unknown kinds in a saved layout
 /// (from a newer version) are refused on save but drawn as a placeholder.
 pub const WIDGET_KINDS: &[&str] =
-    &["nodes", "alerts", "services", "updates", "disks", "backups", "tunnels", "notes", "desktops", "status"];
+    &["nodes", "alerts", "services", "updates", "disks", "backups", "tunnels", "notes", "desktops", "status", "gpus"];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
