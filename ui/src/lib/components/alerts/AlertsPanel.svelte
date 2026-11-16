@@ -4,22 +4,28 @@
   import { scramble } from "../../scramble";
   import type { Alert } from "../../api";
   import { ago, alerts, isLogAlert, KIND_LABEL, logSource, targetLabel } from "../../stores/alerts.svelte";
+  import { triageCheck } from "../../helper/skills";
   import { helper } from "../../stores/helper.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { ui } from "../../stores/ui.svelte";
 
-  /** "What broke?": the alert plus its recent error lines go to DRIFT (local). */
-  async function whatBroke(a: Alert) {
-    const lines = await alerts.samples(a).catch(() => [] as string[]);
+  /**
+   * Triage: the alert, its usual causes and first checks, and (for log
+   * alerts) its recent error lines go to DRIFT (local).
+   */
+  async function triage(a: Alert) {
+    const log = isLogAlert(a);
+    const lines = log ? await alerts.samples(a).catch(() => [] as string[]) : [];
     const host = hosts.hosts.find((h) => h.id === a.hostId)?.name ?? null;
     const src = logSource(a) ?? a.title;
-    const text = [`${KIND_LABEL[a.kind]}: ${a.title}`, a.detail, "", ...lines].join("\n");
+    const text = [`${KIND_LABEL[a.kind]}: ${a.title}`, a.detail, `Since: ${new Date(a.since * 1000).toLocaleString()}`, ...(lines.length ? ["", ...lines] : [])].join("\n");
     alerts.open = false;
     void helper.explain({
-      source: `Error lines: ${src} · ${lines.length} lines`,
+      source: log ? `Error lines: ${src} · ${lines.length} lines` : `Alert: ${a.title}`,
       text,
-      question: "What broke here, what is the likely cause, and how do I check and fix it?",
+      question: log ? "What broke here, what is the likely cause, and how do I check and fix it?" : "Triage this alert: what is the likely cause, what should I check first, and where?",
       host,
+      checks: [triageCheck(a.kind, a.title)],
     });
   }
 
@@ -48,9 +54,9 @@
             <span class="detail">{a.detail}</span>
           </div>
           <span class="when" title="Since {new Date(a.since * 1000).toLocaleString()}">{ago(a.since, now)}</span>
-          {#if helper.enabled && isLogAlert(a)}
-            <button type="button" class="btn ghost tiny" title="Ask DRIFT what broke (stays on this computer)" disabled={helper.busy} onclick={() => void whatBroke(a)}
-              ><span aria-hidden="true">✦ </span>What broke?</button
+          {#if helper.enabled}
+            <button type="button" class="btn ghost tiny" data-guide="alert-triage" title="Ask DRIFT for the likely cause and first checks (stays on this computer)" disabled={helper.busy} onclick={() => void triage(a)}
+              ><span aria-hidden="true">✦ </span>{isLogAlert(a) ? "What broke?" : "Triage"}</button
             >
           {/if}
           <button type="button" class="btn ghost tiny" onclick={() => alerts.go(a)}>{targetLabel(a)}</button>

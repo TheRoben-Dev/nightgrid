@@ -410,7 +410,7 @@ export const commands = {
 	 *  they hold a secret are dropped before they leave this side (same filter
 	 *  as Tasks → History search).
 	 */
-	helperHostHistory: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<HistoryEntry_Serialize[]>("helper_host_history", { hostId }, options),
+	helperHostHistory: (hostId: number, terms: string[], options?: InvokeOptions) => __TAURI_INVOKE<HostHistory_Serialize>("helper_host_history", { hostId, terms }, options),
 	/**  Registers the UI channel and sends the current snapshot. */
 	alertsSubscribe: (onEvent: Channel<AlertsSnapshot_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_subscribe", { onEvent }, options),
 	/**  Re-evaluates now (after alert settings change). */
@@ -2186,6 +2186,25 @@ export type HostEvent = {
 	title: string,
 	detail: string,
 	origin: Origin,
+};
+
+/**  Shell history for DRIFT: the newest lines plus older ones that match the question. */
+export type HostHistory = HostHistory_Serialize | HostHistory_Deserialize;
+
+/**  Shell history for DRIFT: the newest lines plus older ones that match the question. */
+export type HostHistory_Deserialize = {
+	/**  Newest lines, oldest first. */
+	recent: HistoryEntry_Deserialize[],
+	/**  Older lines that mention the question's words, best first. */
+	matches: HistoryEntry_Deserialize[],
+};
+
+/**  Shell history for DRIFT: the newest lines plus older ones that match the question. */
+export type HostHistory_Serialize = {
+	/**  Newest lines, oldest first. */
+	recent: HistoryEntry_Serialize[],
+	/**  Older lines that mention the question's words, best first. */
+	matches: HistoryEntry_Serialize[],
 };
 
 /**  Fields the user edits. Missing optional fields mean "unset". */

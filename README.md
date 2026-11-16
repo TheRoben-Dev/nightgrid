@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.24 (DRIFT skills, part 2)
+
+1. Ask DRIFT "write a command that shows the 10 biggest folders in /var": the reply's code block has **TERMINAL**. Press it: the Terminal view shows the command at the prompt, not run. Ask for something dangerous (`rm -rf` on a folder): the block shows DANGER and the button asks **SEND ANYWAY?** first.
+2. Open the alerts list from the status bar and press **✦ Triage** on an alert: the checks card lists usual causes, first checks and where to look.
+3. Ask "give me a daily summary of my lab": the card lists hosts, alerts, services, and says updates/disks weren't checked unless you ran those checks.
+4. Under any answer press **Save as runbook note**: Notes opens a new note with the question, checks and answer; save it.
+5. Ask "what does /^(\d+)\s+err/ match?" with a few log lines selected: the regex card explains it and counts matching lines.
+6. With **DRIFT may read shell history** on for a host, ask "when did I last restart <service> on <host>?": "What I was given" shows older matching history lines.
+
 ### macOS: testing 0.10.23 (DRIFT skills, part 1)
 
 1. Open DRIFT (`Cmd+J`) with an empty conversation: four skill chips are under the suggestions. **Is this command safe?** puts the caret between backticks; type `rm -rf $DIR/` and ask. A checks card with DANGER lines appears above the answer, and the answer explains them.

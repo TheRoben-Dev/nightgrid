@@ -7,6 +7,10 @@ import { checkCommand, looksLikeCommand, type Level } from "./command";
 import { looksLikeCompose, reviewCompose } from "./compose";
 import { cronFromWords, describeCron, findCron, nextRuns, toOnCalendar } from "./cron";
 import { lookupErrors } from "./errors";
+import { explainRegex, findRegex, testRegex, toolNotes } from "./regex";
+import { summaryFacts, type SummaryInput } from "./summary";
+import { TRIAGE } from "./triage";
+import type { AlertKind } from "../../api";
 
 export interface CheckItem {
   level?: Level;
@@ -14,7 +18,7 @@ export interface CheckItem {
 }
 
 export interface Check {
-  kind: "command" | "compose" | "errors" | "cron";
+  kind: "command" | "compose" | "errors" | "cron" | "regex" | "triage" | "summary";
   title: string;
   items: CheckItem[];
 }
@@ -84,7 +88,36 @@ export function runSkills(question: string, selection: string | null | undefined
       checks.push({ kind: "cron", title: "Cron from your words", items });
     }
   }
+  const rx = findRegex(question) ?? (sel && !sel.includes("\n") ? findRegex(sel) : null);
+  if (rx) {
+    const items: CheckItem[] = explainRegex(rx.pattern).map((t) => ({ text: t }));
+    const sample = sel && findRegex(sel) === null ? sel : "";
+    if (sample) {
+      const t = testRegex(rx.pattern, rx.flags, sample);
+      items.push(t.error ? { level: "caution", text: `Doesn't compile in JavaScript: ${t.error}` } : { text: `On the attached text: ${t.matched} of ${t.lines} lines match${t.samples.length ? `, e.g. ${t.samples.join("; ")}` : ""}.` });
+    } else {
+      const t = testRegex(rx.pattern, rx.flags, "");
+      if (t.error) items.push({ level: "caution", text: `Doesn't compile in JavaScript: ${t.error}` });
+    }
+    for (const n of toolNotes(rx.pattern, question)) items.push({ level: "info", text: n });
+    checks.push({ kind: "regex", title: `Regex: /${rx.pattern}/${rx.flags}`, items });
+  }
   return checks;
+}
+
+/** Usual causes and first checks for an alert of `kind`. */
+export function triageCheck(kind: AlertKind, title: string): Check {
+  const t = TRIAGE[kind];
+  return {
+    kind: "triage",
+    title: `Triage: ${title}`,
+    items: [...t.causes.map((c) => ({ text: `Usual cause: ${c}` })), ...t.checks.map((c) => ({ text: `Check: ${c}` })), { text: `In Nightgrid: ${t.where}` }],
+  };
+}
+
+/** The last 24 hours as Nightgrid knows them. */
+export function summaryCheck(i: SummaryInput): Check {
+  return { kind: "summary", title: "Today, from Nightgrid's own data", items: summaryFacts(i).map((t) => ({ text: t })) };
 }
 
 const TAG: Record<Level, string> = { danger: "DANGER", caution: "CAUTION", info: "NOTE" };

@@ -125,9 +125,27 @@ export interface HostFactsInput {
   alerts: Alert[];
   /** Recent shell history (oldest first), when the host shares it. */
   history?: HistoryEntry[] | null;
+  /** Older history lines that mention the question's words (M10p). */
+  historyMatches?: HistoryEntry[] | null;
   historyError?: string | null;
   /** Unix seconds. */
   now: number;
+}
+
+const TERM_SKIP = new Set([...COMMON, "did", "does", "why", "how", "when", "who", "where", "which", "was", "were", "has", "have", "had", "can", "could", "should", "would", "this", "that", "there", "last", "time", "check", "history", "shell", "run", "ran", "command", "commands", "happened", "about", "from", "into", "again", "today", "yesterday", "after", "before", "its", "his", "her", "their", "you", "your", "me", "please", "show", "tell", "find", "look", "anything", "something", "wrong", "broken", "work", "working"]);
+
+/**
+ * The words of a question worth searching shell history for: not host
+ * names, not common words, at least three letters (M10p).
+ */
+export function historyTerms(q: string, hostNames: string[]): string[] {
+  const skip = new Set(hostNames.flatMap((n) => words(n)));
+  const out: string[] = [];
+  for (const w of q.toLowerCase().split(/[^a-z0-9_.-]+/)) {
+    const t = w.replace(/^[.-]+|[.-]+$/g, "");
+    if (t.length >= 3 && !TERM_SKIP.has(t) && !skip.has(t) && !out.includes(t)) out.push(t);
+  }
+  return out.slice(0, 8);
 }
 
 /** A plain-text block of facts about one host. */
@@ -167,8 +185,14 @@ export function hostFacts(i: HostFactsInput): string {
       `Recent shell history (oldest first, the user allowed this; secret-looking lines removed):\n` +
         i.history.map((e) => `- ${e.when ? `[${when(e.when)}] ` : ""}${e.command}`).join("\n"),
     );
-  } else if (i.historyError) lines.push(`Shell history: couldn't read it (${i.historyError}).`);
-  else if (i.history) lines.push("Shell history: empty.");
-  else if (!h.driftHistory) lines.push("Shell history: not shared (the user can allow it in the host's settings).");
+  }
+  if (i.historyMatches?.length) {
+    lines.push(`Older shell history lines that mention the question's words (best match first):\n` + i.historyMatches.map((e) => `- ${e.when ? `[${when(e.when)}] ` : ""}${e.command}`).join("\n"));
+  }
+  if (!i.history?.length && !i.historyMatches?.length) {
+    if (i.historyError) lines.push(`Shell history: couldn't read it (${i.historyError}).`);
+    else if (i.history) lines.push("Shell history: empty.");
+    else if (!h.driftHistory) lines.push("Shell history: not shared (the user can allow it in the host's settings).");
+  }
   return lines.join("\n");
 }

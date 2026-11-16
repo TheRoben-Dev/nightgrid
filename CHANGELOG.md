@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.24] - 2026-11-16
+
+### Added: DRIFT skills, part 2 (completes M10p)
+- **Words → command**: a one-line command in a DRIFT reply has a **TERMINAL** button that types it at the prompt of the host you're asking about (or the focused shell). Nothing runs until you press Enter. Commands the command check marks as dangerous show a DANGER badge and need a second click (**SEND ANYWAY?**).
+- **Alert triage**: every alert in the alerts list has **✦ Triage** (log alerts keep **What broke?** with their error lines). DRIFT gets the alert, the usual causes for that kind of alert, the first things to check and where to look in Nightgrid.
+- **Daily summary**: ask for "a daily summary" or "what happened overnight" and DRIFT gets what Nightgrid knows about the last 24 hours: unreachable and restarted hosts, active and resolved alerts, services down, pending updates and reboots, disk and backup problems (from the checks that ran this session). Nothing extra is fetched.
+- **Runbook notes**: **Save as runbook note** under a reply opens a new note (tagged `runbook`) with the question, what was attached, the checks and the answer, ready to edit and save.
+- **Regex helper**: a `/pattern/` or a backticked pattern after "regex" is explained piece by piece and tried on the attached lines (how many match, with the groups), with notes on grep/sed/awk differences.
+- **Deeper shell history**: for hosts that share their history, DRIFT now also gets up to 25 older lines that mention the question's words ("when did I last restart nginx?"), not just the newest 60.
+- New skill chips: Regex, Draft a command, Daily summary.
+
 ## [0.10.23] - 2026-11-16
 
 ### Added: DRIFT skills, part 1 (M10p)
