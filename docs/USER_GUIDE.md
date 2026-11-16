@@ -246,7 +246,16 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
   - SMART reports a warning;
   - a backup job failed or is stale;
   - a UPS is on battery, low, or needs a new battery (Fleet → UPS);
-  - (opt-in) a burst of errors or an error never seen before in a container's logs or the journal. **✦ What broke?** asks DRIFT about the recent error lines, on this computer.
+  - (opt-in) a burst of errors, or a new error that keeps happening, in a container's logs or the journal. The rules:
+    - Only ERROR, FATAL and panic lines count. WARN, INFO and DEBUG never do, whatever words they contain. Lines without a level are judged by their wording.
+    - A stack trace or multi-line error (indented lines, `at …`, `status:`, `code:`) is one error.
+    - HTTP 404 / NOT_FOUND lines are requests for missing pages, not faults. They only alert when they spike well above the container's usual rate (**404s are noise**).
+    - "New" means the pattern (the line with times, ids and numbers blanked) was never seen on that container. Patterns are remembered across restarts. One seen more than a day ago is never new again.
+    - A new error alerts once it repeats (**Alert after** 3× **within** 10 min by default). Fewer show under **NOTED, NOT ALERTED** in the Alerts panel. FATAL/panic, or a container that's unhealthy or restarting, alerts at once.
+    - For a few minutes after a container, or a reverse proxy on its host (Caddy, Traefik, nginx…), starts, its log errors are only noted (**Grace after restart**). FATAL still alerts.
+    - **Mute pattern** on a log alert or note stops that pattern on that container. **Settings → Alerts** lists mutes (remove them there) and takes regex mutes. The Alerts panel shows how many lines were muted or left out as 404s, so nothing disappears silently.
+    - Exited, crash-looping and unhealthy containers are separate alerts and always fire.
+    **✦ What broke?** sends DRIFT (on this computer) the lines as these rules judge them, the container's real state (running, health, uptime, restarts), a verdict and commands that work as written. DRIFT is told to answer only from those and to say "unknown" instead of guessing. One-off 404s and WARN lines on a healthy container come back as likely harmless.
 - **Dependencies** (Settings → Dependencies): when something is down, alerts for what depends on it are folded under its alert ("explains 3 more alerts") and only the cause notifies. Everything about a host (containers, disks, backups, services checked on it) already depends on that host; add your own links such as "Media server depends on the NAS" or "everything depends on the router" (add the router as a host or a service check). In a chain the furthest-up outage is the cause. If a service goes down while its host is still inside the 2-minute grace for "offline", its notification waits up to 5 minutes for the host's alert, so you get one notification instead of two. Turn folding off with **Fold alerts under their cause**.
 - Alerts arrive as desktop notifications, and optionally through an ntfy, Discord or JSON webhook. Quiet hours hold notifications but still show alerts in the app.
 - The tray (menu bar on macOS) icon offers quick connect, lets you start and stop tunnels, and shows the alert count.

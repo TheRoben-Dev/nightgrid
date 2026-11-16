@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.53] - 2026-11-16
+
+### Fixed: log alerts that weren't errors
+- Log levels decide. WARN, INFO and DEBUG lines are never errors, even when the logger's class is called `GlobalExceptionHandler`. Only ERROR, FATAL, CRITICAL and panic lines count, or wording like "uncaught exception" in lines without a level.
+- A stack trace or multi-line error is one event. Indented lines, `at …`, `status:` and `code:` belong to the line above, so "(+1 more new)" from one trace is gone.
+- HTTP 404 / NOT_FOUND is noise by default. It only alerts when it spikes well above that container's usual rate.
+- "New" is remembered. Each pattern's fingerprint (times, thread ids, numbers, UUIDs and request ids blanked; stored as a hash) is kept in the database. A pattern seen before a restart isn't new after it, and one first seen over a day ago is never new again.
+- New errors need to repeat. A pattern alerts at 3 times in 10 minutes by default; fewer become a **note** in the Alerts panel. FATAL/panic, or a container that's unhealthy or restarting, alerts at once.
+- Grace after restarts. Errors in the first 5 minutes after a container starts, or after a reverse proxy on its host starts (Caddy, Traefik, nginx, HAProxy, Nginx Proxy Manager…), are notes, not alerts. FATAL still alerts.
+- Mutes. **Mute pattern** on a log alert or note mutes that pattern for its container. Settings → Alerts lists mutes and takes regex mutes per container. Muted lines and 404s left out are counted in the Alerts panel.
+- Each new pattern is its own alert, so muting one never hides another.
+- Exited, crash-looping and unhealthy containers still alert immediately (unchanged, now covered by tests next to the new rules).
+- New settings (Settings → Alerts, under Log anomalies): **Alert after** (1–10×), **Within** (10–120 min), **Grace after restart** (off–15 min), **404s are noise**, **Muted patterns**.
+
+### Fixed: DRIFT guessing in triage
+- **What broke?** now sends DRIFT the attached lines as the log rules judge them (one event per trace, likely harmless or not, and why), the container's real state (running, health, uptime, restart count), a verdict, and commands that work as written (`docker inspect …`, `docker logs --since 30m …`). The generic "usual causes" are gone for log alerts.
+- DRIFT is told to answer only from those facts, never to invent paths, variables or settings, to say "unknown" instead, never to use placeholder commands, and not to call a running, healthy container failed.
+- Numbered lists in DRIFT's replies count up again (1, 2, 3) when the model splits them with bullets or code.
+
+### Added: Export diagnostics
+- **Settings → Diagnostics → Export diagnostics…** (also in the command palette) saves one text file: version, platform, settings, active and recent alerts and the newest app logs. Passwords, tokens and secret-looking lines are removed.
+
 ## [0.10.52] - 2026-11-16
 
 ### Changed: Overview widgets say more

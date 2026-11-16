@@ -13,6 +13,31 @@
   const DISK_STEPS = [80, 85, 90, 95, 98] as const;
   const CERT_STEPS = [3, 7, 14, 21, 30] as const;
   const FORECAST_STEPS = [3, 7, 14, 30, 60] as const;
+  const REPEAT_STEPS = [1, 2, 3, 5, 10] as const;
+  const WINDOW_STEPS = [10, 20, 30, 60, 120] as const;
+  const GRACE_STEPS = [0, 2, 5, 10, 15] as const;
+
+  const mutes = $derived(a.logMutes ?? []);
+  let muteSource = $state("");
+  let muteRegex = $state("");
+  let muteError = $state<string | null>(null);
+  async function addMute() {
+    muteError = null;
+    const regex = muteRegex.trim();
+    const source = muteSource.trim();
+    if (!regex) return;
+    try {
+      new RegExp(regex);
+    } catch (e) {
+      muteError = `Not a valid regex: ${(e as Error).message}`;
+      return;
+    }
+    const src = source && !source.includes("/") ? `container/${source}` : source;
+    await set({ logMutes: [...mutes, { source: src, regex, fingerprint: "", label: regex }] });
+    if (settings.error) muteError = settings.error;
+    else muteRegex = "";
+  }
+  const removeMute = (i: number) => set({ logMutes: mutes.filter((_, j) => j !== i) });
   const WEBHOOKS = [
     { id: "none", label: "Off" },
     { id: "ntfy", label: "ntfy" },
@@ -117,6 +142,44 @@
       disabled={!a.enabled}
       onchange={(v) => set({ logAnomaly: v })}
     />
+    {#if a.logAnomaly}
+      <div class="logrules" data-guide="settings-log-rules">
+        <p class="note">
+          Only ERROR, FATAL and panic lines count (WARN, INFO and DEBUG never do), and a stack trace counts as one error. A new pattern alerts once it repeats; fewer become a note in the
+          Alerts panel. FATAL/panic, or a container that's unhealthy or restarting, alerts at once, and so do exited or crash-looping containers.
+        </p>
+        <SegmentSlider label="ALERT AFTER" steps={REPEAT_STEPS} value={a.logRepeatCount ?? 3} format={(v) => `${v}×`} onchange={(v) => set({ logRepeatCount: v })} />
+        <SegmentSlider label="WITHIN" steps={WINDOW_STEPS} value={a.logRepeatMinutes ?? 10} format={(v) => `${v} min`} onchange={(v) => set({ logRepeatMinutes: v })} />
+        <SegmentSlider label="GRACE AFTER RESTART" steps={GRACE_STEPS} value={a.logGraceMinutes ?? 5} format={(v) => (v ? `${v} min` : "off")} onchange={(v) => set({ logGraceMinutes: v })} />
+        <Toggle
+          label="404s are noise"
+          hint="HTTP 404 / NOT_FOUND lines never alert on their own (requests for missing pages, not faults). A spike well above the container's usual rate still does."
+          checked={a.logNotFoundNoise ?? true}
+          onchange={(v) => set({ logNotFoundNoise: v })}
+        />
+        <span class="label">MUTED PATTERNS</span>
+        {#if mutes.length}
+          <ul class="mutes" aria-label="Muted log patterns">
+            {#each mutes as m, i (i)}
+              <li>
+                <span class="src">{m.source ? m.source.replace(/^container\//, "") : "any"}</span>
+                <code title={m.fingerprint ? `fingerprint ${m.fingerprint}` : "regex"}>{m.label || m.regex || m.fingerprint}</code>
+                <button type="button" class="btn ghost tiny" aria-label="Unmute {m.label}" onclick={() => removeMute(i)}>Remove</button>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="note">None yet. Use <b>Mute pattern</b> on a log alert or note, or add a regex here.</p>
+        {/if}
+        <div class="row">
+          <input class="input" placeholder="container (any)" aria-label="Container to mute in" bind:value={muteSource} />
+          <input class="input mono" placeholder="regex" aria-label="Regex to mute" bind:value={muteRegex} onkeydown={(e) => e.key === "Enter" && void addMute()} />
+          <button type="button" class="btn tiny" disabled={!muteRegex.trim()} onclick={() => void addMute()}>Mute</button>
+        </div>
+        {#if muteError}<p class="error" role="alert">{muteError}</p>{/if}
+        <p class="note">Muted lines are still counted: the Alerts panel shows how many were left out.</p>
+      </div>
+    {/if}
   </div>
 </Panel>
 
@@ -232,6 +295,39 @@
   .seg button.on {
     color: var(--magenta);
     box-shadow: inset 0 -2px 0 var(--magenta);
+  }
+  .logrules {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-left: 12px;
+    border-left: 1px solid var(--line);
+  }
+  .mutes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .mutes li {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: var(--fs-sm);
+  }
+  .mutes .src {
+    color: var(--text-1);
+    min-width: 10ch;
+  }
+  .mutes code {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--cyan);
   }
   .note {
     margin: 8px 0 0;

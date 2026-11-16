@@ -76,7 +76,14 @@ export function parseMd(src: string, opts: MdOptions = {}): Block[] {
     const num = /^\s*\d+[.)]\s+(.*)$/;
     if (bullet.test(line) || num.test(line)) {
       const re = bullet.test(line) ? bullet : num;
-      const start = re === num ? parseInt(line, 10) : undefined;
+      let start = re === num ? parseInt(line, 10) : undefined;
+      // Models often write "1." for every step and put bullets or code between
+      // them, which splits one list into several: keep counting from the last one.
+      // (Not across a heading: that's a new list.)
+      let at = blocks.length - 1;
+      while (at >= 0 && blocks[at].kind !== "ol") at--;
+      const prev = at >= 0 ? blocks[at] : null;
+      if (start === 1 && prev?.kind === "ol" && !blocks.slice(at).some((b) => b.kind === "h")) start = (prev.start ?? 1) + prev.items.length;
       const items: Inline[][] = [];
       const checks: (boolean | null)[] = [];
       while (i < lines.length && re.test(lines[i])) {

@@ -2,8 +2,9 @@
   import { onMount } from "svelte";
   import Modal from "../Modal.svelte";
   import { scramble } from "../../scramble";
-  import type { Alert } from "../../api";
-  import { ago, alerts, groupByCause, isLogAlert, KIND_LABEL, logSource, targetLabel } from "../../stores/alerts.svelte";
+  import { api, errorText, type Alert, type LogNote } from "../../api";
+  import { ago, alerts, groupByCause, isLogAlert, KIND_LABEL, logFingerprint, logSource, targetLabel } from "../../stores/alerts.svelte";
+  import { factsFrom, logTriage, type ContainerFacts } from "../../helper/logTriage";
   import { triageCheck } from "../../helper/skills";
   import { helper } from "../../stores/helper.svelte";
   import { hosts } from "../../stores/hosts.svelte";
@@ -49,26 +50,53 @@
   }
 
   /**
-   * Triage: the alert, its usual causes and first checks, and (for log
-   * alerts) its recent error lines go to DRIFT (local).
+   * Triage. Log alerts and notes go to DRIFT with their events judged by the
+   * log rules, the container's real state and a verdict (no guesswork);
+   * other alerts with their usual causes and first checks.
    */
   async function triage(a: Alert) {
-    const log = isLogAlert(a);
-    const lines = log ? await alerts.samples(a).catch(() => [] as string[]) : [];
+    if (isLogAlert(a)) {
+      const lines = await alerts.samples(a).catch(() => [] as string[]);
+      await triageLog({ title: a.title, hostId: a.hostId, source: logSource(a) ?? a.title, text: [`${KIND_LABEL[a.kind]}: ${a.title}`, a.detail, "", ...lines].join("\n"), lines: lines.join("\n") });
+      return;
+    }
     const host = hosts.hosts.find((h) => h.id === a.hostId)?.name ?? null;
-    const src = logSource(a) ?? a.title;
-    const text = [`${KIND_LABEL[a.kind]}: ${a.title}`, a.detail, `Since: ${new Date(a.since * 1000).toLocaleString()}`, ...(lines.length ? ["", ...lines] : [])].join("\n");
+    const text = [`${KIND_LABEL[a.kind]}: ${a.title}`, a.detail, `Since: ${new Date(a.since * 1000).toLocaleString()}`].join("\n");
     alerts.open = false;
     const mine = runbooks(a);
     const check = triageCheck(a.kind, a.title);
     if (mine.length) check.items.push({ text: `Your runbook${mine.length > 1 ? "s" : ""} for this: ${mine.map((n) => `"${n.title}"`).join(", ")} (in Knowledge; follow it first)` });
-    void helper.explain({
-      source: log ? `Error lines: ${src} · ${lines.length} lines` : `Alert: ${a.title}`,
-      text,
-      question: log ? "What broke here, what is the likely cause, and how do I check and fix it?" : "Triage this alert: what is the likely cause, what should I check first, and where?",
-      host,
-      checks: [check],
-    });
+    void helper.explain({ source: `Alert: ${a.title}`, text, question: "Triage this alert: what is the likely cause, what should I check first, and where?", host, checks: [check] });
+  }
+
+  async function triageLog(o: { title: string; hostId: number | null; source: string; text: string; lines: string }) {
+    const host = hosts.hosts.find((h) => h.id === o.hostId)?.name ?? null;
+    const events = await api.logClassify(o.lines).catch(() => []);
+    const [kind, name] = o.source.split("/", 2);
+    let container: ContainerFacts | null = null;
+    if (kind === "container" && name && o.hostId != null) {
+      try {
+        container = factsFrom(name, await api.dockerInspect(o.hostId, name), null);
+      } catch (e) {
+        container = factsFrom(name, null, errorText(e));
+      }
+    }
+    const t = logTriage({ title: o.title, source: o.source, events, container, now: Math.floor(Date.now() / 1000) });
+    alerts.open = false;
+    const n = o.lines ? o.lines.split("\n").length : 0;
+    void helper.explain({ source: `Log lines: ${o.source} · ${n} line${n === 1 ? "" : "s"}`, text: o.text, question: t.question, host, checks: [t.check] });
+  }
+
+  const noteTitle = (n: LogNote) => `${n.source.split("/").pop()} on ${hosts.hosts.find((h) => h.id === n.hostId)?.name ?? "host"}`;
+  const WHY: Record<LogNote["why"], string> = { once: "seen once, below the repeat threshold", grace: "right after a restart (grace period)" };
+  let muteError = $state<string | null>(null);
+  async function mute(hostId: number, source: string, fp: string) {
+    muteError = null;
+    try {
+      await alerts.mute(hostId, source, fp);
+    } catch (e) {
+      muteError = errorText(e);
+    }
   }
 
   let now = $state(Math.floor(Date.now() / 1000));
@@ -112,6 +140,9 @@
           {:else}
             <button type="button" class="btn ghost tiny" title="Write a runbook for this kind of alert" onclick={() => newRunbook(a)}>+ Runbook</button>
           {/if}
+          {#if logFingerprint(a) && a.hostId != null}
+            <button type="button" class="btn ghost tiny" data-guide="alert-mute" title="Never alert on this pattern from {logSource(a)} again (it's still counted)" onclick={() => void mute(a.hostId ?? 0, logSource(a) ?? "", logFingerprint(a) ?? "")}>Mute pattern</button>
+          {/if}
           <button type="button" class="btn ghost tiny" onclick={() => alerts.go(a)}>{targetLabel(a)}</button>
           {#if pick === a.id && rb.length > 1}
             <div class="fold">
@@ -144,6 +175,41 @@
     </ul>
   {:else}
     <p class="muted clear">Nothing needs attention. Hosts, disks, containers, services, certificates, SMART and backups are watched in the background (and logs, if turned on).</p>
+  {/if}
+
+  {#if muteError}<p class="err" role="alert">{muteError}</p>{/if}
+
+  {#if alerts.notes.length}
+    <div class="sub">
+      <span class="label">NOTED, NOT ALERTED</span>
+      <span class="muted small sublead">new log errors that didn't meet the alert rules</span>
+    </div>
+    <ul class="list past" aria-label="Noted log errors">
+      {#each alerts.notes.slice(0, 20) as n (`${n.hostId}|${n.source}|${n.fingerprint}`)}
+        <li class="row note">
+          <span class="bar" aria-hidden="true"></span>
+          <div class="txt">
+            <span class="kind">NOTE · {noteTitle(n)} · {WHY[n.why]}</span>
+            <span class="detail">{n.sample?.split("\n")[0] ?? "(a line that looked like it held a secret)"}</span>
+          </div>
+          <span class="when">{ago(n.at, now)} ago</span>
+          {#if helper.enabled && n.sample}
+            <button type="button" class="btn ghost tiny" disabled={helper.busy} onclick={() => void triageLog({ title: noteTitle(n), hostId: n.hostId, source: n.source, text: n.sample ?? "", lines: n.sample ?? "" })}
+              ><span aria-hidden="true">✦ </span>What is it?</button
+            >
+          {/if}
+          <button type="button" class="btn ghost tiny" title="Don't note this pattern from {n.source} again" onclick={() => void mute(n.hostId, n.source, n.fingerprint)}>Mute pattern</button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+  {#if alerts.quietLogs.length}
+    <p class="muted small quietlogs" data-guide="alert-log-quiet">
+      Left out on purpose:
+      {#each alerts.quietLogs as q, i (`${q.hostId}|${q.source}`)}{i ? " · " : ""}{q.source.split("/").pop()}{q.muted ? ` ${q.muted} muted` : ""}{q.notFound ? ` ${q.notFound} not-found (404)` : ""}{/each}
+      <span>(since the app started; mutes are in Settings → Alerts).</span>
+    </p>
   {/if}
 
   {#if alerts.history.length}
@@ -182,6 +248,24 @@
 </Modal>
 
 <style>
+  .err {
+    color: var(--danger);
+    font-size: var(--fs-sm);
+  }
+  .row.note .bar {
+    background: var(--cyan);
+    opacity: 0.5;
+  }
+  .sublead {
+    margin-left: 10px;
+    letter-spacing: normal;
+  }
+  .quietlogs {
+    margin: 8px 0 0;
+  }
+  .small {
+    font-size: var(--fs-xs);
+  }
   .head {
     display: flex;
     gap: 12px;

@@ -239,6 +239,16 @@ impl Tracker {
         changes
     }
 
+    /// Resolves the active alert with this key now (the user muted it).
+    pub fn resolve_key(&mut self, key: &str, now: i64) -> Option<Alert> {
+        self.pending.remove(key);
+        self.clearing.remove(key);
+        let mut a = self.active.remove(key)?;
+        a.resolved = Some(now);
+        self.push_history(a.clone());
+        Some(a)
+    }
+
     /// Forgets active and pending alerts without recording them (alerts were
     /// turned off).
     pub fn drop_active(&mut self) {
@@ -324,7 +334,9 @@ pub fn backup(
     })
 }
 
-/// An error burst or new error pattern in one log source of a host.
+/// Error bursts, 404 spikes and new error patterns in one log source of a
+/// host. Each new pattern is its own alert, keyed by its fingerprint, so
+/// "Mute this pattern" knows what to mute.
 pub fn log_anomaly(host: HostId, host_name: &str, source: &str, finding: &crate::logwatch::Finding) -> Vec<Condition> {
     let mut out = Vec::new();
     let label = source.split_once('/').map_or(source, |(_, n)| n);
@@ -334,20 +346,38 @@ pub fn log_anomaly(host: HostId, host_name: &str, source: &str, finding: &crate:
             kind: AlertKind::LogBurst,
             severity: Severity::Warn,
             title: format!("{label} on {host_name}"),
-            detail: format!("{n} error lines since the last check (usually about {:.0})", usual.max(0.0)),
+            detail: format!("{n} errors since the last check (usually about {:.0})", usual.max(0.0)),
             host_id: Some(host),
         });
     }
-    if let Some(first) = finding.new_patterns.first() {
-        let more = finding.new_patterns.len() - 1;
-        let sample = first.sample.clone().unwrap_or_else(|| first.pattern.clone());
-        let sample: String = sample.chars().take(160).collect();
+    if let Some((n, usual)) = finding.not_found_spike {
         out.push(Condition {
-            key: format!("logs:{host}:{source}:new"),
-            kind: AlertKind::LogNewError,
+            key: format!("logs:{host}:{source}:404"),
+            kind: AlertKind::LogBurst,
             severity: Severity::Warn,
             title: format!("{label} on {host_name}"),
-            detail: if more > 0 { format!("{sample} (+{more} more new)") } else { sample },
+            detail: format!(
+                "{n} \"not found\" (404) responses since the last check (usually about {:.0}). Requests for missing pages, which may be a scan or a broken link, not a fault",
+                usual.max(0.0)
+            ),
+            host_id: Some(host),
+        });
+    }
+    for p in &finding.new_patterns {
+        let sample = p.sample.clone().unwrap_or_else(|| p.pattern.clone());
+        let first = sample.lines().next().unwrap_or_default();
+        let mut detail: String = first.chars().take(160).collect();
+        let why = match p.loud {
+            Some(w) => w.to_owned(),
+            None => format!("{} times in the last few minutes", p.recent),
+        };
+        detail.push_str(&format!(" ({why})"));
+        out.push(Condition {
+            key: format!("logs:{host}:{source}:new:{}", p.fingerprint),
+            kind: AlertKind::LogNewError,
+            severity: if p.fatal { Severity::Critical } else { Severity::Warn },
+            title: format!("{label} on {host_name}"),
+            detail,
             host_id: Some(host),
         });
     }
@@ -782,6 +812,61 @@ mod tests {
         assert!(w.conditions(1, "s1", &[ctr("web", "exited", "Exited (1) now", None)]).is_empty());
         let c = w.conditions(1, "s1", &[ctr("loop", "restarting", "Restarting (1) 2 seconds ago", None)]);
         assert_eq!(c[0].severity, Severity::Critical);
+    }
+
+    #[test]
+    fn real_failures_stay_loud_with_log_guardrails() {
+        use crate::logwatch::{Detector, RawLine, Rules, SourceCtx};
+        let raw = |l: &[&str]| l.iter().map(|t| RawLine::new(None, *t)).collect::<Vec<_>>();
+        let convertx = raw(&[
+            "error: NOT_FOUND",
+            " status: 404,",
+            "   code: \"NOT_FOUND\"",
+            "      at NotFoundError (/app/node_modules/elysia/src/error.ts:132:3)",
+        ]);
+        let mut d = Detector::new();
+        let rules = Rules::default();
+        d.observe("container/convertx", &raw(&["INFO up"]), &SourceCtx::default(), &rules, 0);
+        let f = d.observe("container/convertx", &convertx, &SourceCtx::default(), &rules, 600);
+        assert!(log_anomaly(1, "lumen", "container/convertx", &f).is_empty(), "a lone 404 doesn't alert");
+        // The container exits or crash-loops: that alerts at once, whatever the logs said.
+        let mut w = ContainerWatch::new();
+        assert!(w
+            .conditions(1, "lumen", &[ctr("convertx", "running", "Up 3 hours (healthy)", Some("healthy"))])
+            .is_empty());
+        let c = w.conditions(1, "lumen", &[ctr("convertx", "exited", "Exited (1) 5 seconds ago", None)]);
+        assert_eq!((c.len(), c[0].severity), (1, Severity::Critical));
+        let c = w.conditions(1, "lumen", &[ctr("convertx", "restarting", "Restarting (1) 2 seconds ago", None)]);
+        assert_eq!(c[0].kind, AlertKind::ContainerDown);
+        let c = w.conditions(1, "lumen", &[ctr("convertx", "running", "Up 1 minute (unhealthy)", Some("unhealthy"))]);
+        assert_eq!(c[0].detail, "running but unhealthy");
+        // And repeated errors from a crash-looping container alert immediately too.
+        let looping = SourceCtx { restarting: true, ..Default::default() };
+        let f = d.observe("container/convertx", &raw(&["ERROR cannot open /data/db.sqlite"]), &looping, &rules, 1200);
+        let conds = log_anomaly(1, "lumen", "container/convertx", &f);
+        assert_eq!(conds.len(), 1);
+        assert!(conds[0].key.starts_with("logs:1:container/convertx:new:"));
+        assert!(conds[0].detail.contains("restarting"));
+        let f = d.observe("container/convertx", &raw(&["FATAL disk I/O error"]), &SourceCtx::default(), &rules, 1300);
+        assert_eq!(log_anomaly(1, "lumen", "container/convertx", &f)[0].severity, Severity::Critical);
+    }
+
+    #[test]
+    fn muting_resolves_now() {
+        let mut t = Tracker::new();
+        let c = Condition {
+            key: "logs:1:container/x:new:00112233aabbccdd".into(),
+            kind: AlertKind::LogNewError,
+            severity: Severity::Warn,
+            title: "x".into(),
+            detail: "d".into(),
+            host_id: Some(1),
+        };
+        t.report(&Scope { source: "logs", hosts: None }, vec![c], 0);
+        assert_eq!(t.active().len(), 1);
+        assert!(t.resolve_key("logs:1:container/x:new:00112233aabbccdd", 5).is_some());
+        assert!(t.active().is_empty());
+        assert_eq!(t.history()[0].resolved, Some(5));
     }
 
     #[test]

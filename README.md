@@ -613,6 +613,16 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing log alert guardrails and diagnostics (0.10.53)
+
+1. Settings → Alerts → turn on **Log anomalies**. Under it: **Alert after**, **Within**, **Grace after restart**, **404s are noise**, **Muted patterns**.
+2. Open a page on a container that logs a WARN line or a 404 (Stirling-PDF, ConvertX): no NEW ERROR alert. The Alerts panel's "left out on purpose" line counts the 404s after the next 10-minute round.
+3. A container logging one new ERROR line shows under **NOTED, NOT ALERTED**. Three of the same within 10 minutes alerts. **Mute pattern** on either removes it, and it shows under Settings → Alerts → Muted patterns.
+4. Restart Caddy (or any reverse proxy container) and load each site. Errors in the next 5 minutes show as notes marked "right after a restart".
+5. `docker stop`-kill a container (`docker kill <name>`): CONTAINER DOWN fires as before.
+6. **✦ What broke?** on a log alert or a note: the checklist shows the container's state, one line per event with "likely harmless" where it applies, a verdict, and `docker inspect`/`docker logs` commands without placeholders. Numbered steps in the reply count 1, 2, 3.
+7. Settings → Diagnostics → **Export diagnostics…**: save the file and open it. It has the version, settings, alerts and app logs. Search it for a password or token you know: it isn't there.
+
 ### Linux: blank or glitchy window (WebKitGTK)
 
 On the NVIDIA proprietary driver, NIGHTGRID disables WebKitGTK's DMA-BUF renderer automatically. To force it either way:

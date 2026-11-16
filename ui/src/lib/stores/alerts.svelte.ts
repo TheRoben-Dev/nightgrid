@@ -4,6 +4,7 @@ import { fleet } from "./fleet.svelte";
 import { metrics } from "./metrics.svelte";
 import { system } from "./system.svelte";
 import { ui } from "./ui.svelte";
+import { settings } from "./settings.svelte";
 
 export const KIND_LABEL: Record<AlertKind, string> = {
   hostOffline: "HOST OFFLINE",
@@ -26,10 +27,16 @@ export const KIND_LABEL: Record<AlertKind, string> = {
 /** Log alerts can be explained from their recent error lines. */
 export const isLogAlert = (a: Alert): boolean => a.kind === "logBurst" || a.kind === "logNewError";
 
-/** `logs:3:container/web:burst` → "container/web". */
+const LOG_KEY = /^logs:\d+:(.+?):(burst|404|new:([0-9a-f]{16})|new)$/;
+
+/** `logs:3:container/web:burst` or `logs:3:container/web:new:<fingerprint>` → "container/web". */
 export function logSource(a: Alert): string | null {
-  const m = /^logs:\d+:(.+):(burst|new)$/.exec(a.key);
-  return m ? m[1] : null;
+  return LOG_KEY.exec(a.key)?.[1] ?? null;
+}
+
+/** The pattern behind a NEW ERROR alert, for "Mute this pattern". */
+export function logFingerprint(a: Alert): string | null {
+  return LOG_KEY.exec(a.key)?.[3] ?? null;
 }
 
 /** Where clicking an alert takes you. */
@@ -188,6 +195,22 @@ class AlertsStore {
   /** Recent error lines behind a log alert, for "what broke". */
   samples(a: Alert): Promise<string[]> {
     return api.alertsLogSamples(a.key);
+  }
+
+  /** New log errors that were only noted, newest first. */
+  get notes() {
+    return this.snap?.logNotes ?? [];
+  }
+
+  /** Events left out by mutes or as 404 noise, per source. */
+  get quietLogs() {
+    return (this.snap?.logQuiet ?? []).filter((q) => q.muted || q.notFound);
+  }
+
+  /** "Mute this pattern": it stops alerting and being noted (still counted). */
+  async mute(hostId: number, source: string, fingerprint: string) {
+    const s = await api.alertsLogMute(hostId, source, fingerprint);
+    settings.value = s;
   }
 
   clearHistory() {
