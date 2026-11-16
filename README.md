@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.29 (uptime history)
+
+1. Leave Nightgrid running (the tray is enough) with a couple of monitored hosts and checked services for a few minutes. **Fleet → UPTIME**: today's bar is green and the rows show 100% (earlier days are grey: no data yet).
+2. Stop a test service (or block its port) for a couple of minutes, then start it again. Its bar for today turns yellow or red, the row shows the downtime, and clicking it lists one outage with its length and the error.
+3. Suspend a host from System → POWER and wake it: the time it slept shows as "asleep" in the bar's tooltip and doesn't lower its percentage.
+4. With the phone status page on (Settings → Status page), open it: every host card and service line has a strip of 90 day bars with the percentage.
+
 ### macOS: testing 0.10.28 (UPS shutdown)
 
 1. On a host with a UPS on USB, install NUT (`sudo apt install nut`, set the driver in `/etc/nut/ups.conf`, `MODE=standalone` in `nut.conf`) and check `upsc ups@localhost`. No UPS? Any NUT server you can reach works, including a NAS's.

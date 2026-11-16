@@ -27,6 +27,9 @@ pub struct HostStatus {
     pub disk: Option<(f32, String)>,
     pub temp: Option<f32>,
     pub uptime_secs: Option<f64>,
+    /// Availability per day, oldest first (M10t); `None`: nothing seen that day.
+    #[serde(default)]
+    pub days: Vec<Option<f32>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -48,6 +51,9 @@ pub struct ServiceLine {
     /// "up", "down", "unknown".
     pub state: String,
     pub latency_ms: Option<u32>,
+    /// Availability per day, oldest first (M10t).
+    #[serde(default)]
+    pub days: Vec<Option<f32>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -115,6 +121,30 @@ fn uptime(secs: f64) -> String {
     }
 }
 
+/// Availability over the days that have data, e.g. "99.95%".
+pub fn days_pct(days: &[Option<f32>]) -> Option<f32> {
+    let seen: Vec<f32> = days.iter().flatten().copied().collect();
+    (!seen.is_empty()).then(|| seen.iter().sum::<f32>() / seen.len() as f32)
+}
+
+/// A strip of one bar per day (M10t), with the availability over those days.
+fn days_strip(days: &[Option<f32>]) -> String {
+    let Some(avg) = days_pct(days) else { return String::new() };
+    let mut h = String::from("<div class=\"days\" aria-label=\"daily uptime\">");
+    for d in days {
+        let cls = match d {
+            None => "none",
+            Some(p) if *p >= 99.9 => "ok",
+            Some(p) if *p >= 99.0 => "warn",
+            Some(_) => "bad",
+        };
+        let title = d.map_or_else(|| "no data".to_owned(), |p| format!("{p:.2}%"));
+        h.push_str(&format!("<i class=\"{cls}\" title=\"{title}\"></i>"));
+    }
+    h.push_str(&format!("<span>{:.2}%</span></div>", avg));
+    h
+}
+
 /// `2026-11-15 10:42` in local time.
 pub fn stamp(unix: f64, offset_min: i32) -> String {
     let t = unix as i64 + i64::from(offset_min) * 60;
@@ -167,6 +197,9 @@ ul{list-style:none;margin:0;padding:0;border:1px solid var(--line);background:va
 li{padding:7px 10px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}li:last-child{border-bottom:0}
 .k{font-size:11px;letter-spacing:.1em;color:var(--warn)}.k.crit{color:var(--bad)}
 .up{color:var(--mint)}.down{color:var(--bad)}
+.days{display:flex;gap:1px;align-items:center;margin-top:6px;height:14px}.days i{flex:1;min-width:1px;height:100%;background:var(--mint)}
+.days i.warn{background:var(--warn)}.days i.bad{background:var(--bad)}.days i.none{background:var(--line)}.days span{margin-left:6px;font-size:11px;color:var(--t1);white-space:nowrap}
+li .days{flex-basis:100%}
 footer{margin-top:22px;font-size:11px;color:var(--t2)}
 "#;
 
@@ -242,6 +275,7 @@ pub fn render_html(s: &StatusSnapshot, o: &RenderOpts) -> String {
                 h.push_str(&format!("<div class=\"addr\">{}</div>", esc(&extra.join(" · "))));
             }
         }
+        h.push_str(&days_strip(&x.days));
         h.push_str("</div>");
     }
     h.push_str("</div>");
@@ -273,10 +307,11 @@ pub fn render_html(s: &StatusSnapshot, o: &RenderOpts) -> String {
                 _ => "muted",
             };
             h.push_str(&format!(
-                "<li><span class=\"{cls}\">{}</span><strong>{}</strong>{}</li>",
+                "<li><span class=\"{cls}\">{}</span><strong>{}</strong>{}{}</li>",
                 esc(&v.state.to_uppercase()),
                 esc(&v.name),
-                v.latency_ms.map(|l| format!("<span class=\"muted\">{l} ms</span>")).unwrap_or_default()
+                v.latency_ms.map(|l| format!("<span class=\"muted\">{l} ms</span>")).unwrap_or_default(),
+                days_strip(&v.days)
             ));
         }
         h.push_str("</ul>");
@@ -376,6 +411,7 @@ mod tests {
                     disk: Some((97.0, "/srv".into())),
                     temp: Some(48.0),
                     uptime_secs: Some(90_000.0),
+                    days: vec![None, Some(100.0), Some(99.5), Some(80.0)],
                 },
                 HostStatus {
                     name: "pi".into(),
@@ -386,6 +422,7 @@ mod tests {
                     disk: None,
                     temp: None,
                     uptime_secs: None,
+                    days: vec![],
                 },
             ],
             alerts: vec![AlertLine {
@@ -395,7 +432,12 @@ mod tests {
                 detail: "unreachable".into(),
                 since: 1_799_999_000.0,
             }],
-            services: vec![ServiceLine { name: "Jellyfin".into(), state: "up".into(), latency_ms: Some(42) }],
+            services: vec![ServiceLine {
+                name: "Jellyfin".into(),
+                state: "up".into(),
+                latency_ms: Some(42),
+                days: vec![Some(100.0)],
+            }],
         }
     }
 
@@ -409,6 +451,9 @@ mod tests {
         assert!(h.contains("fill bad") && h.contains("fill warn"));
         assert!(h.contains("pi.lan"));
         assert!(h.contains("Jellyfin") && h.contains("42 ms"));
+        assert!(h.contains("<i class=\"none\"") && h.contains("<i class=\"bad\"") && h.contains("93.17%"));
+        assert!(h.contains("100.00%"));
+        assert_eq!(days_pct(&[None, None]), None);
         assert!(
             !h.contains("<script") && !h.contains("http://") && !h.contains("https://"),
             "no scripts or external loads"

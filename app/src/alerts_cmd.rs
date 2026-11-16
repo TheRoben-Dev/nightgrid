@@ -254,6 +254,9 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     let state = app.state::<AppState>();
     let hub = state.alerts.clone();
     let rules = &cfg.alerts;
+    // Uptime history (M10t) is recorded whether alerts are on or not.
+    let polls = if cfg.metrics_enabled { state.metrics.poll_states() } else { HashMap::new() };
+    crate::uptime_cmd::record(app, &polls, cfg.services_checks, u32::from(cfg.services_interval_secs), now);
     let (hosts, services) = {
         let store = state.store();
         let hosts: HashMap<HostId, String> =
@@ -277,7 +280,6 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     let name = |id: HostId| hosts.get(&id).cloned().unwrap_or_else(|| format!("host {id}"));
 
     // Host offline and disk usage, from the metrics pollers.
-    let polls = if cfg.metrics_enabled { state.metrics.poll_states() } else { HashMap::new() };
     let mut offline = Vec::new();
     let mut disks = Vec::new();
     let mut sampled = HashSet::new();

@@ -44,6 +44,7 @@ pub mod term;
 pub mod timeline;
 pub mod tunnels;
 pub mod ups;
+pub mod uptime;
 pub mod vnc;
 
 pub use error::{Error, Result};
