@@ -10,6 +10,7 @@
 //! The dashboard export writes the same page, without the refresh, to a file
 //! picked with a native save dialog.
 
+use nightgrid_core::depgraph::Node;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
 use std::path::PathBuf;
@@ -301,6 +302,7 @@ pub fn snapshot(app: &AppHandle, with_addresses: bool) -> StatusSnapshot {
         (store.list_hosts().unwrap_or_default(), store.list_services().unwrap_or_default())
     };
     let polls = state.metrics.poll_states();
+    let days = crate::uptime_cmd::daily(app, 90, utc_offset());
     let hosts = hosts
         .into_iter()
         .map(|h| {
@@ -324,6 +326,7 @@ pub fn snapshot(app: &AppHandle, with_addresses: bool) -> StatusSnapshot {
                 disk: None,
                 temp: None,
                 uptime_secs: None,
+                days: days.get(&Node::Host(h.id)).cloned().unwrap_or_default(),
             };
             if let (Some(s), "ok") = (sample, st) {
                 hs.cpu = s.cpu;
@@ -367,6 +370,7 @@ pub fn snapshot(app: &AppHandle, with_addresses: bool) -> StatusSnapshot {
                 }
                 .into(),
                 latency_ms: r.and_then(|r| r.result.latency_ms),
+                days: days.get(&Node::Service(s.id)).cloned().unwrap_or_default(),
             }
         })
         .collect();

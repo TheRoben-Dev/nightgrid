@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.29] - 2026-11-16
+
+### Added: long-term history, part 1: uptime (M10t)
+- **Fleet → UPTIME**: one bar per day for every host and checked service over 30 or 90 days, coloured by availability (green from 99.9%, yellow from 99%, red below, grey with no data), with the availability and total downtime for the range. Hover a bar for that day; click a row for its outages (when, how long, why) with the count, total and longest.
+- Uptime is recorded on every alerts round (15 s) while Nightgrid runs, also with the window closed and with alerts turned off: hosts from monitoring, services from their checks. Availability is up out of the time actually watched, and a host that is asleep, suspended or rebooting on purpose isn't counted as down. History is kept 400 days and stays on this computer (not in profile exports).
+- The **phone status page** and static export show the 90-day bars under every host and service.
+
 ## [0.10.28] - 2026-11-16
 
 ### Added: smarter alerts, part 3: UPS shutdown (M10s)

@@ -433,6 +433,13 @@ export const commands = {
 	 *  comes back and goes out again.
 	 */
 	upsCancel: (options?: InvokeOptions) => __TAURI_INVOKE<null>("ups_cancel", undefined, options),
+	/**
+	 *  Per-day totals for the last `days` days (at most 400), days starting at
+	 *  local midnight (`utc_offset_min` east of UTC, from the UI).
+	 */
+	uptimeDays: (days: number, utcOffsetMin: number, options?: InvokeOptions) => __TAURI_INVOKE<UptimeSeries[]>("uptime_days", { days, utcOffsetMin }, options),
+	/**  Outages in `[from, to]` (unix seconds), newest first; one host or service, or all. */
+	uptimeOutages: (node: Node | null, from: number, to: number, options?: InvokeOptions) => __TAURI_INVOKE<Outage[]>("uptime_outages", { node, from, to }, options),
 	alertsWebhookGet: (options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_get", undefined, options),
 	/**  Saves the webhook URL in the keychain (`None` or empty removes it). */
 	alertsWebhookSet: (url: string | null, options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_set", { url }, options),
@@ -3189,6 +3196,15 @@ export type OutStream = "out" | "err" |
 /**  Nightgrid's own notes ("uploaded 2.1 KB", "port open after 3 s"). */
 "info";
 
+export type Outage = {
+	id: number,
+	node: Node,
+	start: number,
+	/**  The last round it was seen down (still down if this is recent). */
+	end: number,
+	detail: string,
+};
+
 export type PackageChange = PackageChange_Serialize | PackageChange_Deserialize;
 
 export type PackageChange_Deserialize = {
@@ -4932,6 +4948,21 @@ export type UpsWatch_Serialize = {
 	/**  Countdown before the shutdown starts, in seconds. */
 	countdownSecs: number,
 	enabled: boolean,
+};
+
+/**  One day (local midnight to midnight) of one host or service. */
+export type UptimeDay = {
+	/**  Local midnight, unix seconds. */
+	day: number,
+	up: number,
+	down: number,
+	asleep: number,
+};
+
+export type UptimeSeries = {
+	node: Node,
+	/**  Days with anything recorded, oldest first (missing days: unknown). */
+	days: UptimeDay[],
 };
 
 export type UsagePoint = {

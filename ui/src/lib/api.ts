@@ -22,6 +22,9 @@ import {
   type Dependency as AlertDependency,
   type Node as DepNode,
   type UpsCountdown,
+  type Outage as UptimeOutage,
+  type UptimeDay,
+  type UptimeSeries,
   type UpsInput_Deserialize as UpsInput,
   type UpsReading_Serialize as UpsReading,
   type UpsStatus_Serialize as UpsStatus,
@@ -233,6 +236,7 @@ import {
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
+import { mockUptime } from "./mockUptime";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -290,6 +294,9 @@ export type {
   AlertDependency,
   DepNode,
   UpsCountdown,
+  UptimeOutage,
+  UptimeDay,
+  UptimeSeries,
   UpsInput,
   UpsReading,
   UpsStatus,
@@ -549,7 +556,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.28-web",
+      version: "0.10.29-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -980,6 +987,9 @@ export const api = {
   upsStatus: (): Promise<UpsStatus[]> => (T() ? commands.upsStatus() : mockUps.status()),
   upsReadNow: (hostId: number, target: string): Promise<UpsReading> => (T() ? commands.upsReadNow(hostId, target) : mockUps.readNow(hostId, target)),
   upsCancel: (): Promise<null> => (T() ? commands.upsCancel() : mockUps.cancel()),
+  uptimeDays: (days: number, utcOffsetMin: number): Promise<UptimeSeries[]> => (T() ? commands.uptimeDays(days, utcOffsetMin) : mockUptime.days(days, utcOffsetMin)),
+  uptimeOutages: (node: DepNode | null, from: number, to: number): Promise<UptimeOutage[]> =>
+    T() ? commands.uptimeOutages(node, from, to) : mockUptime.outages(node, from, to),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {

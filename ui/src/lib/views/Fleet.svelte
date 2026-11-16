@@ -6,6 +6,7 @@
   import { backups, jobState } from "../stores/backups.svelte";
   import UpdateCenter from "../components/fleet/UpdateCenter.svelte";
   import UpsPanel from "../components/fleet/UpsPanel.svelte";
+  import UptimePanel from "../components/fleet/UptimePanel.svelte";
   import { alerts } from "../stores/alerts.svelte";
   import { diskTone, type FleetTab } from "../fleet";
   import { settings } from "../stores/settings.svelte";
@@ -17,6 +18,7 @@
     { id: "disks", label: "DISKS" },
     { id: "backups", label: "BACKUPS" },
     { id: "ups", label: "UPS" },
+    { id: "uptime", label: "UPTIME" },
   ];
   const upsBad = $derived(alerts.active.filter((a) => a.kind === "upsOnBattery").length + (alerts.snap?.upsCountdown ? 1 : 0));
   const backupBad = $derived(backups.jobs.filter((j) => ["failed", "error", "stale"].includes(jobState(backups.status[j.id]))).length);
@@ -52,7 +54,7 @@
     {#if !hosts.hosts.length}
       <div class="empty">
         <p class="label">NO HOSTS</p>
-        <p class="muted">Add a host first; pending updates, disk health, backups and UPSes across all of them show up here.</p>
+        <p class="muted">Add a host first; pending updates, disk health, backups, UPSes and uptime across all of them show up here.</p>
         <button type="button" class="btn primary" onclick={() => (hosts.editing = 0)}>Add host</button>
       </div>
     {:else if fleet.tab === "updates"}
@@ -63,6 +65,8 @@
       <BackupsPanel />
     {:else if fleet.tab === "ups"}
       <UpsPanel />
+    {:else if fleet.tab === "uptime"}
+      <UptimePanel />
     {/if}
   </div>
 </div>

@@ -30,6 +30,7 @@ mod tray;
 mod tunnels_cmd;
 mod update_cmd;
 mod ups_cmd;
+mod uptime_cmd;
 
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
@@ -219,6 +220,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         ups_cmd::ups_status,
         ups_cmd::ups_read_now,
         ups_cmd::ups_cancel,
+        uptime_cmd::uptime_days,
+        uptime_cmd::uptime_outages,
         alerts_cmd::alerts_webhook_get,
         alerts_cmd::alerts_webhook_set,
         alerts_cmd::alerts_test,
