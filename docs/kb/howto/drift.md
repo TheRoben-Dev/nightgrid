@@ -10,7 +10,7 @@ DRIFT is Nightgrid's offline helper. It answers from this Library, your notes an
 
 ## Part 1 · Turn it on
 
-- [ ] **Settings → DRIFT**: turn it on and **Download** the model once (about 2.5 GB, resumable, checked by SHA-256).
+- [ ] **Settings → DRIFT**: turn it on, then pick a model under **Model**: **Light** (2.5 GB), **Balanced** (5 GB, sticks to the facts better) or **Best** (18.6 GB, for machines with lots of memory). Nightgrid marks each **FITS**, **TIGHT** or **WON'T FIT** for this computer. **Download and use** fetches it once (resumable, checked by SHA-256).
 - [ ] Open DRIFT with `Mod+J`, the **DRIFT** button, or **Ask DRIFT** in the palette.
 
 ## Part 2 · Ask well

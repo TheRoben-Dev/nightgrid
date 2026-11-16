@@ -21,7 +21,13 @@ Scan your LAN from one of your hosts, see every device with its maker and servic
 - [ ] Select a host to see how the internet reaches it and its listening ports. **Audit ports** (or on all hosts) marks exposed ones INTERNET.
 - [ ] A UPnP forward you didn't make? An app opened it. Turn UPnP off on the router if you don't need it.
 
-## Part 3 · Label devices
+## Part 3 · New and missing devices
+
+- [ ] Every device a scan sees goes into an **inventory**. First-time devices are marked **NEW**; with nothing selected, **New this scan** and **Missing** list what appeared and what didn't answer.
+- [ ] **Trust** devices you expect and **Forget** ones that are gone. An unknown NEW device on your LAN is worth identifying.
+- [ ] Networks behind a router, VPN or subnet route: type the range (for example `10.20.0.0/24`) and scan. Devices there show less detail, because MACs and local names don't cross a router.
+
+## Part 4 · Label devices
 
 - [ ] Select a device for its address, MAC, maker (looked up offline), names and services.
 - [ ] **Label** it: a name, a type, `#tags` and a note. Labels follow the MAC and travel in profile exports.
