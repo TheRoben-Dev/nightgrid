@@ -403,7 +403,7 @@ fn apt(lines: &[&str]) -> Vec<HostEvent> {
 }
 
 /// Days since 1970-01-01 for a civil date (Howard Hinnant's algorithm).
-fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
+pub(crate) fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
     let y = if m <= 2 { y - 1 } else { y };
     let era = y.div_euclid(400);
     let yoe = y - era * 400;

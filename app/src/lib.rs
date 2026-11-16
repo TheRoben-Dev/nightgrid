@@ -1,6 +1,7 @@
 //! Tauri shell for NIGHTGRID. Commands here are thin adapters over
 //! `nightgrid-core`; anything with real logic belongs in the core crate.
 
+mod access_cmd;
 mod alerts_cmd;
 mod automation_cmd;
 mod backup_cmd;
@@ -225,6 +226,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         uptime_cmd::uptime_outages,
         uptime_cmd::uptime_report,
         uptime_cmd::uptime_report_export,
+        access_cmd::access_audit,
         logsearch_cmd::log_search,
         logsearch_cmd::log_searches_list,
         logsearch_cmd::log_search_save,

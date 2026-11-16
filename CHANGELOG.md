@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.32] - 2026-11-16
+
+### Added: logs & access, part 2: login & access audit (M10u)
+- **Fleet → ACCESS**: one row per host with SSH logins and failed attempts over the last 7 days, addresses banned right now, users with a shell, authorized keys and the most serious finding. **Audit all** reads every host three at a time; click a host for the full report.
+- The report: **logins** (when, who, from where, and which key, named when it is one of your own keys from Settings → SSH keys), **failed attempts by address** with the user names tried, **fail2ban** jails and **CrowdSec** decisions, **users with a shell** (sudo and service accounts marked, keys per user), **sudo rules**, every user's **authorized keys**, the **sshd** settings that matter (effective values from `sshd -T` when possible) and recent sessions from `last`.
+- **Findings** pick out what needs a look: another uid 0 account, root password logins allowed, empty passwords, password logins on while attempts fail and nothing bans them, password logins that happened, many failures without fail2ban or CrowdSec, and passwordless sudo for everything.
+- Read as root when that needs no prompt (root login, passwordless sudo or a remembered sudo password); otherwise the report says what it couldn't see and **Read as root…** asks for the password. Logins come from the journal or `/var/log/auth.log` / `/var/log/secure`. Nothing is installed on hosts and nothing is stored: audit again to refresh. **Explain** sends the report to DRIFT.
+
 ## [0.10.31] - 2026-11-16
 
 ### Added: logs & access, part 1: cross-host log search (M10u)

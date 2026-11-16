@@ -288,7 +288,8 @@ mod tests {
         let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = l.local_addr().unwrap().port();
         drop(l);
-        assert_eq!(send(Request::get(format!("http://127.0.0.1:{port}/"))).await.unwrap_err(), "connection refused");
+        // A parallel test may grab the freed port first, so only an error is certain.
+        assert!(send(Request::get(format!("http://127.0.0.1:{port}/"))).await.is_err());
         assert!(send(Request::get("ftp://x/")).await.is_err());
     }
 

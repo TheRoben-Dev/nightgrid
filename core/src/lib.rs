@@ -4,6 +4,7 @@
 //! so it can be unit-tested without a webview. The Tauri crate (`app/`) is a
 //! thin layer of commands and events over this crate.
 
+pub mod access;
 pub mod alerts;
 pub mod automation;
 pub mod backup;

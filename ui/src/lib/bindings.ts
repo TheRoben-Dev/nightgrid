@@ -450,6 +450,12 @@ export const commands = {
 	 *  `None` when cancelled.
 	 */
 	uptimeReportExport: (year: number, month: number, target: number | null, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("uptime_report_export", { year, month, target }, options),
+	/**
+	 *  Reads `host_id`'s access report. With `elevate` false, root is used only
+	 *  when it needs no prompt (root login, NOPASSWD or a remembered password);
+	 *  with `elevate` true a missing password is asked for.
+	 */
+	accessAudit: (hostId: number, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<AccessReport_Serialize>("access_audit", { hostId, elevate, sudo }, options),
 	/**  Searches the chosen hosts (all when none are chosen), connecting where needed. */
 	logSearch: (query: LogSearchQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<LogSearchResult>("log_search", { query }, options),
 	logSearchesList: (options?: InvokeOptions) => __TAURI_INVOKE<SavedSearch_Serialize[]>("log_searches_list", undefined, options),
@@ -564,6 +570,66 @@ export const commands = {
 };
 
 /* Types */
+export type AccessReport = AccessReport_Serialize | AccessReport_Deserialize;
+
+export type AccessReport_Deserialize = {
+	hostId: number,
+	at: number,
+	/**  Read as root (otherwise only what the login user may see). */
+	asRoot: boolean,
+	loginUser: string,
+	days: number,
+	logSource: LogSource,
+	/**  Newest first. */
+	logins: LoginEvent_Deserialize[],
+	/**  Most attempts first. */
+	failures: FailSource[],
+	failedTotal: number,
+	/**  `last` output, newest first. */
+	sessions: string[],
+	fail2ban: ToolState,
+	jails: Jail[],
+	crowdsec: ToolState,
+	decisions: Decision[],
+	users: ShellUser[],
+	sudoersReadable: boolean,
+	sudoRules: SudoRule[],
+	keys: UserKey_Deserialize[],
+	/**  `sshd -T` when it could run, otherwise the config files. */
+	sshdEffective: boolean,
+	sshd: SshdSetting[],
+	findings: Finding[],
+};
+
+export type AccessReport_Serialize = {
+	hostId: number,
+	at: number,
+	/**  Read as root (otherwise only what the login user may see). */
+	asRoot: boolean,
+	loginUser: string,
+	days: number,
+	logSource: LogSource,
+	/**  Newest first. */
+	logins: LoginEvent_Serialize[],
+	/**  Most attempts first. */
+	failures: FailSource[],
+	failedTotal: number,
+	/**  `last` output, newest first. */
+	sessions: string[],
+	fail2ban: ToolState,
+	jails: Jail[],
+	crowdsec: ToolState,
+	decisions: Decision[],
+	users: ShellUser[],
+	sudoersReadable: boolean,
+	sudoRules: SudoRule[],
+	keys: UserKey_Serialize[],
+	/**  `sshd -T` when it could run, otherwise the config files. */
+	sshdEffective: boolean,
+	sshd: SshdSetting[],
+	findings: Finding[],
+};
+
 export type Action = { kind: "start" } | { kind: "stop" } | { kind: "restart" } | { kind: "kill" } | { kind: "pause" } | { kind: "unpause" } | { kind: "remove"; force: boolean };
 
 export type ActionResult = ActionResult_Serialize | ActionResult_Deserialize;
@@ -1604,6 +1670,13 @@ export type Dashboard = {
 	widgets: Widget[],
 };
 
+export type Decision = {
+	value: string,
+	scenario: string,
+	duration: string,
+	kind: string,
+};
+
 export type Dependency = {
 	id: number,
 	/**  The thing that breaks when `parent` is down. */
@@ -1955,6 +2028,15 @@ export type Exposure_Serialize = {
 	detail: string,
 };
 
+/**  Failed attempts from one address. */
+export type FailSource = {
+	from: string,
+	count: number,
+	/**  User names tried (the first few). */
+	users: string[],
+	last: number,
+};
+
 export type FileChange = {
 	path: string,
 	change: Change,
@@ -2015,6 +2097,13 @@ export type FilesError_Serialize = {
 	connect: ConnectError | null,
 	fs: FsError_Serialize | null,
 };
+
+export type Finding = {
+	level: FindingLevel,
+	text: string,
+};
+
+export type FindingLevel = "info" | "warn" | "bad";
 
 /**  File errors in a shape the UI can act on. Messages never contain secrets. */
 export type FsError = FsError_Serialize | FsError_Deserialize;
@@ -2685,6 +2774,15 @@ export type Integration_Serialize = {
 	allowUntrusted: boolean,
 };
 
+export type Jail = {
+	name: string,
+	currentlyFailed: number,
+	totalFailed: number,
+	currentlyBanned: number,
+	totalBanned: number,
+	banned: string[],
+};
+
 export type JobState = "queued" | "running" | "paused" | 
 /**  Waiting for the user to resolve a conflict. */
 "conflict" | "done" | "skipped" | "failed" | "cancelled";
@@ -3063,7 +3161,37 @@ export type LogSearchResult = {
 	hosts: number[],
 };
 
+/**  Where login events were read from. */
+export type LogSource = "journal" | "authLog" | 
+/**  Neither could be read (no root, or no sshd logs). */
+"none";
+
 export type LogStream = "out" | "err";
+
+/**  A successful SSH login. */
+export type LoginEvent = LoginEvent_Serialize | LoginEvent_Deserialize;
+
+/**  A successful SSH login. */
+export type LoginEvent_Deserialize = {
+	ts: number,
+	user: string,
+	from: string,
+	/**  `publickey`, `password`, `keyboard-interactive/pam`… */
+	method: string,
+	/**  The key's SHA256 fingerprint, for public-key logins. */
+	key?: string | null,
+};
+
+/**  A successful SSH login. */
+export type LoginEvent_Serialize = {
+	ts: number,
+	user: string,
+	from: string,
+	/**  `publickey`, `password`, `keyboard-interactive/pam`… */
+	method: string,
+	/**  The key's SHA256 fingerprint, for public-key logins. */
+	key: string | null,
+};
 
 export type Manager = "apt" | "dnf" | "pacman" | 
 /**
@@ -4133,6 +4261,19 @@ export type Service_Serialize = {
 
 export type Severity = "warn" | "critical";
 
+export type ShellUser = {
+	name: string,
+	uid: number,
+	shell: string,
+	home: string,
+	/**  In a sudo group or named in a sudo rule. */
+	sudo: boolean,
+	/**  A service account (uid under 1000, not root). */
+	system: boolean,
+	/**  Keys in the user's authorized_keys (that could be read). */
+	keys: number,
+};
+
 /**  Which filesystem a path is on. */
 export type Side = { kind: "local" } | { kind: "host"; id: number };
 
@@ -4404,6 +4545,11 @@ export type SshKey_Serialize = {
 	inAgent: boolean,
 };
 
+export type SshdSetting = {
+	key: string,
+	value: string,
+};
+
 export type Stack = {
 	/**  Compose project name. */
 	name: string,
@@ -4531,6 +4677,11 @@ export type SudoInput = {
 	password: string,
 	/**  Save it in the OS keychain for this host. */
 	remember: boolean,
+};
+
+export type SudoRule = {
+	file: string,
+	rule: string,
 };
 
 /**  What it takes to become root on a host. */
@@ -4796,6 +4947,11 @@ export type TlsInfo_Serialize = {
 	subject: string | null,
 	issuer: string | null,
 };
+
+/**  Whether a tool is there and could be read. */
+export type ToolState = "missing" | 
+/**  Installed, but reading it needs root. */
+"denied" | "read";
 
 export type Tunnel = {
 	id: number,
@@ -5162,6 +5318,18 @@ export type UptimeSeries = {
 export type UsagePoint = {
 	ts: number,
 	used: number,
+};
+
+export type UserKey = UserKey_Serialize | UserKey_Deserialize;
+
+export type UserKey_Deserialize = {
+	user: string,
+	key: AuthorizedKey_Deserialize,
+};
+
+export type UserKey_Serialize = {
+	user: string,
+	key: AuthorizedKey_Serialize,
 };
 
 export type Variable = Variable_Serialize | Variable_Deserialize;
