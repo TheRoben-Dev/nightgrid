@@ -166,7 +166,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.22"} />
+  <LeftRail version={info?.version ?? "0.10.23"} />
   <div class="main">
     <TopBar />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network" || section.id === "fleet" || section.id === "desktops"} aria-label={section.label}>
