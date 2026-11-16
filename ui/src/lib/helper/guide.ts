@@ -5,6 +5,7 @@
  * `guide.test.ts` checks that every id exists in the markup.
  */
 import { RAIL, SECTIONS, railFor, railPath, type SectionId } from "../sections";
+import { SETTINGS_TABS } from "../settingsTabs";
 
 export interface GuideTarget {
   id: string;
@@ -198,14 +199,14 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "keys-rotate", view: "settings", what: "rotate a key: pick the old and new key and the hosts; adds the new key, tests login, switches Nightgrid to it, then removes the old key" },
   { id: "tailnet-login", view: "settings", what: "LOG IN button for the built-in Tailscale (shown when it needs a login)" },
   { id: "settings-helper", view: "settings", what: "DRIFT helper settings and model download" },
-  { id: "settings-tours", view: "settings", what: "replay the guided tours (Settings → Helper)" },
+  { id: "settings-tours", view: "settings", what: "replay the guided tours (Settings → DRIFT)" },
   { id: "settings-keybindings", view: "settings", what: "list of keyboard shortcuts" },
   { id: "settings-diagnostics", view: "settings", what: "log folder and diagnostics" },
   { id: "settings-diagnostics-export", view: "settings", what: "Export diagnostics: saves version, settings, alerts and app logs to a text file with secrets removed" },
   { id: "settings-log-rules", view: "settings", what: "log alert rules: repeat threshold, window, grace after restarts, 404s as noise, muted patterns" },
   { id: "alert-mute", view: null, what: "Mute pattern on a log alert or note in the Alerts panel" },
   { id: "alert-log-quiet", view: null, what: "how many log lines were muted or left out as 404 noise (Alerts panel)" },
-  { id: "settings-tab-features", view: "settings", what: "Features tab: turn views and checks on or off" },
+  ...SETTINGS_TABS.map((t) => ({ id: `settings-tab-${t.id}`, view: "settings" as const, what: `Settings ${t.label} tab: ${t.what}` })),
   { id: "settings-feature-presets", view: "settings", what: "Simple, Standard and Everything presets" },
   { id: "settings-features", view: "settings", what: "list of features with on/off toggles" },
 ];

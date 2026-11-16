@@ -152,7 +152,7 @@
                       {/each}
                     </tbody>
                   </table>
-                  <p class="muted small">Add, remove or rotate your own keys in Settings → SSH keys.</p>
+                  <p class="muted small">Add, remove or rotate your own keys in Settings → Connections → SSH keys.</p>
                 {:else}<p class="muted small">No keys readable.</p>{/if}
               </section>
 

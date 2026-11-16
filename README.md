@@ -613,6 +613,13 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing Settings tabs (0.10.54)
+
+1. Open Settings (Cmd+,): tabs GENERAL, APPEARANCE, TERMINAL, MONITORING, ALERTS, CONNECTIONS, DRIFT, DATA, FEATURES. GENERAL holds only tray, updates and diagnostics.
+2. Ask DRIFT "where do I change the theme?" and click its spotlight: Settings opens on APPEARANCE with the theme picker lit.
+3. Run the "Back up your setup" tour from another tab: it opens Settings on DATA at the profile panel.
+4. Alerts panel → **Alert rules…** opens the ALERTS tab.
+
 ### macOS: testing log alert guardrails and diagnostics (0.10.53)
 
 1. Settings → Alerts → turn on **Log anomalies**. Under it: **Alert after**, **Within**, **Grace after restart**, **404s are noise**, **Muted patterns**.

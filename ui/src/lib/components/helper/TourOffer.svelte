@@ -2,7 +2,7 @@
   /**
    * The one-time first-run offer (M10q): a small card asking whether DRIFT
    * should show the user around. Either answer is remembered; the tours stay
-   * in Settings → Helper and in DRIFT's "What can I do here?".
+   * in Settings → DRIFT and in DRIFT's "What can I do here?".
    */
   import { settings } from "../../stores/settings.svelte";
   import { tour } from "../../stores/tour.svelte";
@@ -23,7 +23,7 @@
         <button type="button" class="btn ghost tiny" onclick={later}>No thanks</button>
         <button type="button" class="btn primary tiny" onclick={start}>Show me around</button>
       </div>
-      <p class="muted small">The tours stay in Settings → Helper.</p>
+      <p class="muted small">The tours stay in Settings → DRIFT.</p>
     </div>
   </div>
 {/if}

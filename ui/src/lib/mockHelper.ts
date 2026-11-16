@@ -62,7 +62,7 @@ export const mockHelper = {
   },
   unload: async () => {},
   async ask(messages: ChatTurn[], on: (e: HelperEvent) => void): Promise<HelperReply> {
-    if (!ready) throw new Error("Download the model first (Settings → Helper).");
+    if (!ready) throw new Error("Download the model first (Settings → DRIFT).");
     stop = false;
     const last = messages[messages.length - 1]?.content ?? "";
     const q = last.slice(last.lastIndexOf("Question:") + 9);

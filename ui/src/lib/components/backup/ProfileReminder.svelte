@@ -17,7 +17,7 @@
     <div class="acts">
       <button type="button" class="btn primary tiny" onclick={() => profileReminder.exportNow()}>Export profile…</button>
       <button type="button" class="btn ghost tiny" onclick={() => profileReminder.snooze()}>Tomorrow</button>
-      <button type="button" class="btn ghost tiny" title="Turn the reminder off (Settings → Backup)" onclick={() => void settings.update({ profileReminderDays: 0 })}>Don't remind me</button>
+      <button type="button" class="btn ghost tiny" title="Turn the reminder off (Settings → Data)" onclick={() => void settings.update({ profileReminderDays: 0 })}>Don't remind me</button>
     </div>
   </div>
 {/if}

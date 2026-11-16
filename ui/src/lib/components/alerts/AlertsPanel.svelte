@@ -240,6 +240,7 @@
       class="btn ghost"
       onclick={() => {
         alerts.open = false;
+        ui.settingsTab = "alerts";
         ui.go("settings");
       }}>Alert rules…</button
     >

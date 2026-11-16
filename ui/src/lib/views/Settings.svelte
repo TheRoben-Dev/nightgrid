@@ -13,6 +13,7 @@
   import SegmentSlider from "../components/SegmentSlider.svelte";
   import Toggle from "../components/Toggle.svelte";
   import FeaturesPanel from "../components/settings/FeaturesPanel.svelte";
+  import { SETTINGS_TABS } from "../settingsTabs";
   import { ui } from "../stores/ui.svelte";
   import { scramble } from "../scramble";
   import { updates } from "../stores/updates.svelte";
@@ -79,10 +80,76 @@
 </script>
 
 <div class="tabs" role="tablist" aria-label="Settings">
-  <button type="button" role="tab" data-guide="settings-tab-general" class:on={ui.settingsTab === "general"} aria-selected={ui.settingsTab === "general"} onclick={() => (ui.settingsTab = "general")}>GENERAL</button>
-  <button type="button" role="tab" data-guide="settings-tab-features" class:on={ui.settingsTab === "features"} aria-selected={ui.settingsTab === "features"} onclick={() => (ui.settingsTab = "features")}>FEATURES</button>
+  {#each SETTINGS_TABS as t (t.id)}
+    <button type="button" role="tab" data-guide="settings-tab-{t.id}" title={t.what} class:on={ui.settingsTab === t.id} aria-selected={ui.settingsTab === t.id} onclick={() => (ui.settingsTab = t.id)}>{t.label}</button>
+  {/each}
 </div>
 {#if ui.settingsTab === "general"}
+<div class="grid">
+  <Panel title="DESKTOP" guide="settings-desktop">
+    <div class="toggles">
+      <Toggle
+        label={info?.os === "macos" ? "Menu bar icon" : "Tray icon"}
+        hint="Host status with quick connect, saved tunnels (click to start or stop), the alert count, Show and Quit."
+        checked={settings.value.trayEnabled}
+        onchange={(v) => settings.update({ trayEnabled: v })}
+      />
+      <Toggle
+        label="Keep running when the window is closed"
+        hint="Closing hides the window; alerts, tunnels and checks keep running. Quit from the {info?.os === 'macos' ? 'menu bar' : 'tray'} icon."
+        checked={settings.value.closeToTray}
+        disabled={!settings.value.trayEnabled}
+        onchange={(v) => settings.update({ closeToTray: v })}
+      />
+    </div>
+  </Panel>
+
+  <Panel title="UPDATES" guide="settings-updates">
+    <div class="update-row">
+      <span class="muted">Installed</span>
+      <span class="data">v{info?.version ?? "…"}</span>
+      <button type="button" class="btn ghost" disabled={updates.checking} onclick={() => void updates.check(true)}>
+        {updates.checking ? "Checking…" : "Check now"}
+      </button>
+    </div>
+    <p class="muted note" role="status">
+      {#if updates.status?.kind === "upToDate"}You're on the latest version.
+      {:else if updates.status?.kind === "available"}v{updates.status.version} is available.
+        <button type="button" class="link" onclick={() => (updates.prompt = updates.status?.kind === "available" ? updates.status : null)}>Show</button>
+      {:else if updates.status?.kind === "notConfigured"}This build can't self-update yet (no release signing key). Download new versions from GitHub Releases.
+      {:else}Updates come from the project's GitHub Releases and are verified with a signature before installing.{/if}
+    </p>
+    {#if updates.error}<p class="error" role="alert" use:scramble={updates.error}></p>{/if}
+    <div class="toggles">
+      <Toggle
+        label="Check for updates on launch"
+        hint="One request to GitHub Releases after start-up. Nothing installs without your click."
+        checked={settings.value.updateCheck}
+        onchange={(v) => settings.update({ updateCheck: v })}
+      />
+    </div>
+  </Panel>
+
+  <div class="wide">
+    <Panel title="DIAGNOSTICS" guide="settings-diagnostics">
+      <dl>
+        <dt>DATA</dt>
+        <dd>{info?.dataDir ?? "…"}</dd>
+        <dt>LOGS</dt>
+        <dd>{info?.logDir ?? "…"}</dd>
+        {#if info?.os === "linux"}
+          <dt>WEBKIT</dt>
+          <dd>DMA-BUF renderer {info.dmabufDisabled ? "disabled (workaround active)" : "enabled"}</dd>
+        {/if}
+      </dl>
+      <div class="diag">
+        <button type="button" class="btn chamfer-sm" data-guide="settings-diagnostics-export" disabled={diagBusy} onclick={() => void exportDiagnostics()}>Export diagnostics…</button>
+        <span class="muted small">{diagNote ?? "One text file: version, settings, alerts and the newest app logs. Passwords, tokens and secret-looking lines are removed."}</span>
+      </div>
+    </Panel>
+  </div>
+</div>
+{:else if ui.settingsTab === "appearance"}
 <div class="grid">
   <div class="wide">
     <Panel title="THEME" guide="settings-theme" prefix=">" count={THEME_IDS.length} reveal>
@@ -158,7 +225,9 @@
     </div>
     {#if settings.error}<p class="error" role="alert"><span aria-hidden="true">▲</span> {settings.error}</p>{/if}
   </Panel>
-
+</div>
+{:else if ui.settingsTab === "terminal"}
+<div class="grid">
   <Panel title="TERMINAL" guide="settings-terminal">
     <SegmentSlider
       label="FONT SIZE"
@@ -218,6 +287,25 @@
     </div>
   </Panel>
 
+  <Panel title="KEYBINDINGS" guide="settings-keybindings" prefix=">" count={bindings.length}>
+    <table>
+      <tbody>
+        {#each bindings as [action, spec] (action)}
+          <tr>
+            <td>{ACTION_LABELS[action]}</td>
+            <td class="r"><kbd>{formatChord(spec)}</kbd></td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+    <p class="muted note">
+      While a terminal has focus on Windows/Linux, only shortcuts with Shift (and Ctrl+Tab) are taken, so the shell
+      keeps Ctrl+K, Ctrl+B and friends. On macOS, Cmd shortcuts always work. Rebinding UI arrives later.
+    </p>
+  </Panel>
+</div>
+{:else if ui.settingsTab === "monitoring"}
+<div class="grid">
   <Panel title="MONITORING" guide="settings-monitoring">
     <SegmentSlider
       label="SAMPLE EVERY"
@@ -268,96 +356,25 @@
       />
     </div>
   </Panel>
-
-  <TailnetPanel />
-  <KeysPanel />
-
+</div>
+{:else if ui.settingsTab === "alerts"}
+<div class="grid">
   <AlertSettings />
   <AlertDeps />
-
-  <Panel title="DESKTOP" guide="settings-desktop">
-    <div class="toggles">
-      <Toggle
-        label={info?.os === "macos" ? "Menu bar icon" : "Tray icon"}
-        hint="Host status with quick connect, saved tunnels (click to start or stop), the alert count, Show and Quit."
-        checked={settings.value.trayEnabled}
-        onchange={(v) => settings.update({ trayEnabled: v })}
-      />
-      <Toggle
-        label="Keep running when the window is closed"
-        hint="Closing hides the window; alerts, tunnels and checks keep running. Quit from the {info?.os === 'macos' ? 'menu bar' : 'tray'} icon."
-        checked={settings.value.closeToTray}
-        disabled={!settings.value.trayEnabled}
-        onchange={(v) => settings.update({ closeToTray: v })}
-      />
-    </div>
-  </Panel>
-
-  <Panel title="UPDATES" guide="settings-updates">
-    <div class="update-row">
-      <span class="muted">Installed</span>
-      <span class="data">v{info?.version ?? "…"}</span>
-      <button type="button" class="btn ghost" disabled={updates.checking} onclick={() => void updates.check(true)}>
-        {updates.checking ? "Checking…" : "Check now"}
-      </button>
-    </div>
-    <p class="muted note" role="status">
-      {#if updates.status?.kind === "upToDate"}You're on the latest version.
-      {:else if updates.status?.kind === "available"}v{updates.status.version} is available.
-        <button type="button" class="link" onclick={() => (updates.prompt = updates.status?.kind === "available" ? updates.status : null)}>Show</button>
-      {:else if updates.status?.kind === "notConfigured"}This build can't self-update yet (no release signing key). Download new versions from GitHub Releases.
-      {:else}Updates come from the project's GitHub Releases and are verified with a signature before installing.{/if}
-    </p>
-    {#if updates.error}<p class="error" role="alert" use:scramble={updates.error}></p>{/if}
-    <div class="toggles">
-      <Toggle
-        label="Check for updates on launch"
-        hint="One request to GitHub Releases after start-up. Nothing installs without your click."
-        checked={settings.value.updateCheck}
-        onchange={(v) => settings.update({ updateCheck: v })}
-      />
-    </div>
-  </Panel>
-
+</div>
+{:else if ui.settingsTab === "connections"}
+<div class="grid">
+  <TailnetPanel />
+  <KeysPanel />
+</div>
+{:else if ui.settingsTab === "drift"}
+<div class="grid">
   <HelperSettings />
+</div>
+{:else if ui.settingsTab === "data"}
+<div class="grid">
   <BackupPanel />
   <StatusPagePanel />
-
-  <Panel title="KEYBINDINGS" guide="settings-keybindings" prefix=">" count={bindings.length}>
-    <table>
-      <tbody>
-        {#each bindings as [action, spec] (action)}
-          <tr>
-            <td>{ACTION_LABELS[action]}</td>
-            <td class="r"><kbd>{formatChord(spec)}</kbd></td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-    <p class="muted note">
-      While a terminal has focus on Windows/Linux, only shortcuts with Shift (and Ctrl+Tab) are taken, so the shell
-      keeps Ctrl+K, Ctrl+B and friends. On macOS, Cmd shortcuts always work. Rebinding UI arrives later.
-    </p>
-  </Panel>
-
-  <div class="wide">
-    <Panel title="DIAGNOSTICS" guide="settings-diagnostics">
-      <dl>
-        <dt>DATA</dt>
-        <dd>{info?.dataDir ?? "…"}</dd>
-        <dt>LOGS</dt>
-        <dd>{info?.logDir ?? "…"}</dd>
-        {#if info?.os === "linux"}
-          <dt>WEBKIT</dt>
-          <dd>DMA-BUF renderer {info.dmabufDisabled ? "disabled (workaround active)" : "enabled"}</dd>
-        {/if}
-      </dl>
-      <div class="diag">
-        <button type="button" class="btn chamfer-sm" data-guide="settings-diagnostics-export" disabled={diagBusy} onclick={() => void exportDiagnostics()}>Export diagnostics…</button>
-        <span class="muted small">{diagNote ?? "One text file: version, settings, alerts and the newest app logs. Passwords, tokens and secret-looking lines are removed."}</span>
-      </div>
-    </Panel>
-  </div>
 </div>
 {:else}
   <FeaturesPanel />
