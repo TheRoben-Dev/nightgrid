@@ -66,6 +66,7 @@ const toHost = (id: number, i: HostInput): Host => ({
   macAddress: i.macAddress?.trim() || null,
   wakeRelayId: i.wakeRelayId,
   sleepWindow: i.sleepWindow?.trim() || null,
+  role: i.role === "client" ? "client" : "server",
   tags: [...new Set(i.tags.map((t) => t.trim()).filter(Boolean))],
 });
 
@@ -171,6 +172,7 @@ export const mockBackend = {
             macAddress: null,
             wakeRelayId: null,
             sleepWindow: null,
+            role: "server",
             tags: ["ssh-config"],
           }),
         });

@@ -154,6 +154,7 @@ export function hostFacts(i: HostFactsInput): string {
   const lines: string[] = [];
   lines.push(`### ${h.name} (saved host; address ${h.hostname}${h.port !== 22 ? `:${h.port}` : ""}${h.tailnetAddress ? `, tailnet fallback ${h.tailnetAddress}` : ""})`);
   if (h.tags.length) lines.push(`Tags: ${h.tags.join(", ")}`);
+  if (h.role === "client") lines.push("Role: client (a laptop, desktop or handheld, not a server)");
   if (h.sleepWindow) lines.push(`Expected sleep window: ${h.sleepWindow} (local time)`);
   if (h.macAddress) lines.push("Wake-on-LAN: set up (System → WAKE, or the ⏻ button on its tile)");
   if (ping) {

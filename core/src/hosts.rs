@@ -72,6 +72,8 @@ pub struct Host {
     pub wake_relay_id: Option<HostId>,
     /// Local hours the host is expected to be asleep (`23:00-07:00`).
     pub sleep_window: Option<String>,
+    /// `server` or `client` (a laptop, handheld or desktop: never picked by default).
+    pub role: String,
 }
 
 /// Fields the user edits. Missing optional fields mean "unset".
@@ -104,6 +106,8 @@ pub struct HostInput {
     pub wake_relay_id: Option<HostId>,
     /// Local hours the host is expected to be asleep (`23:00-07:00`).
     pub sleep_window: Option<String>,
+    /// `server` or `client` (a laptop, handheld or desktop: never picked by default).
+    pub role: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -215,6 +219,11 @@ impl HostInput {
             Some(m) => Some(crate::power::format_mac(&crate::power::parse_mac(&m)?)),
             None => None,
         };
+        h.role = match h.role.trim() {
+            "" | "server" => "server".into(),
+            "client" => "client".into(),
+            other => return Err(Error::Invalid { field: "role", reason: format!("{other:?}: use server or client") }),
+        };
         h.sleep_window = match blank_to_none(&h.sleep_window) {
             Some(w) => Some(crate::power::SleepWindow::parse(&w)?.to_string()),
             None => None,
@@ -232,7 +241,7 @@ impl HostInput {
 }
 
 const HOST_COLS: &str = "id, name, hostname, port, username, group_id, color, icon, favorite, notes, \
-     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window";
+     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role";
 
 fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
     Ok(Host {
@@ -257,6 +266,7 @@ fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
         mac_address: r.get(17)?,
         wake_relay_id: r.get(18)?,
         sleep_window: r.get(19)?,
+        role: r.get(20)?,
     })
 }
 
@@ -324,8 +334,8 @@ impl Store {
             tx.execute(
                 "INSERT INTO hosts (name, hostname, port, username, group_id, color, icon, favorite, notes,
                     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history,
-                    mac_address, wake_relay_id, sleep_window)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                    mac_address, wake_relay_id, sleep_window, role)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
                 params![
                     h.name,
                     h.hostname,
@@ -345,7 +355,8 @@ impl Store {
                     h.drift_history,
                     h.mac_address,
                     h.wake_relay_id,
-                    h.sleep_window
+                    h.sleep_window,
+                    h.role
                 ],
             )?;
             let id = tx.last_insert_rowid() as HostId;
@@ -363,7 +374,7 @@ impl Store {
                     icon = ?8, favorite = ?9, notes = ?10, auth_method = ?11, identity_file = ?12,
                     proxy_jump = ?13, remember_secret = ?14, ssh_alias = ?15,
                     tailnet_address = ?16, drift_history = ?17, mac_address = ?18,
-                    wake_relay_id = ?19, sleep_window = ?20, updated_at = unixepoch()
+                    wake_relay_id = ?19, sleep_window = ?20, role = ?21, updated_at = unixepoch()
                  WHERE id = ?1",
                 params![
                     id,
@@ -385,7 +396,8 @@ impl Store {
                     h.drift_history,
                     h.mac_address,
                     h.wake_relay_id,
-                    h.sleep_window
+                    h.sleep_window,
+                    h.role
                 ],
             )?;
             if n > 0 {
@@ -476,6 +488,21 @@ mod tests {
 
     fn input(name: &str) -> HostInput {
         HostInput { name: name.into(), hostname: format!("{name}.lan"), ..Default::default() }
+    }
+
+    #[test]
+    fn role_defaults_to_server_and_round_trips() {
+        let mut store = Store::open_in_memory().unwrap();
+        let h = store.create_host(&input("lumen")).unwrap();
+        assert_eq!(h.role, "server");
+        let mut i = input("ally");
+        i.role = "client".into();
+        let c = store.create_host(&i).unwrap();
+        assert_eq!(c.role, "client");
+        i.role = "server".into();
+        assert_eq!(store.update_host(c.id, &i).unwrap().role, "server");
+        i.role = "laptop".into();
+        assert!(store.create_host(&i).is_err());
     }
 
     #[test]

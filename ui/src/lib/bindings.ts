@@ -3186,6 +3186,8 @@ export type HostInput_Deserialize = {
 	wakeRelayId?: number | null,
 	/**  Local hours the host is expected to be asleep (`23:00-07:00`). */
 	sleepWindow?: string | null,
+	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
+	role?: string,
 };
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
@@ -3215,6 +3217,8 @@ export type HostInput_Serialize = {
 	wakeRelayId: number | null,
 	/**  Local hours the host is expected to be asleep (`23:00-07:00`). */
 	sleepWindow: string | null,
+	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
+	role: string,
 };
 
 /**  A host key as shown to the user. */
@@ -3309,6 +3313,8 @@ export type Host_Deserialize = {
 	wakeRelayId?: number | null,
 	/**  Local hours the host is expected to be asleep (`23:00-07:00`). */
 	sleepWindow?: string | null,
+	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
+	role: string,
 };
 
 export type Host_Serialize = {
@@ -3340,6 +3346,8 @@ export type Host_Serialize = {
 	wakeRelayId: number | null,
 	/**  Local hours the host is expected to be asleep (`23:00-07:00`). */
 	sleepWindow: string | null,
+	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
+	role: string,
 };
 
 export type Iface = {

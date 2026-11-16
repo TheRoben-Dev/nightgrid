@@ -85,7 +85,7 @@
 
   // ---- domain lookup ----
   let lookupVia = $state<Record<number, number>>({});
-  const viaFor = (r: ExpiryRow) => lookupVia[r.item!.id] ?? r.item?.hostId ?? hosts.hosts[0]?.id;
+  const viaFor = (r: ExpiryRow) => lookupVia[r.item!.id] ?? r.item?.hostId ?? hosts.preferred("expiry")?.id;
 
   function explainText(): string {
     return rows

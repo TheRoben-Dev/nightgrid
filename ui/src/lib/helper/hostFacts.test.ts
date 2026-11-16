@@ -24,6 +24,7 @@ const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   macAddress: null,
   wakeRelayId: null,
   sleepWindow: null,
+  role: "server",
   tags: [],
   ...extra,
 });

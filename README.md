@@ -164,6 +164,12 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.49 (picking hosts, map scans)
+
+1. Edit the Ally (or any laptop) → tick **Client, not a server** → Save. Quit and reopen Nightgrid: Docker and System open on a server, not the Ally.
+2. In Docker pick another server, switch to System and back: Docker keeps your pick. System follows it until you pick there.
+3. Network: the button reads **Select a scanner on the map**. Click a host marked ◉ → **Scan from <name>** → the scan runs there. Click **This computer** → it scans from the Mac.
+
 ### macOS: testing 0.10.48 (Settings → Features)
 
 1. Settings → **FEATURES** → **Simple**. The sidebar keeps Overview, Terminal, Files, Docker, Services, System and Settings; TUN and DRIFT leave the top bar.

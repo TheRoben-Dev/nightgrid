@@ -169,10 +169,21 @@ export function buildGraph(
     else if (kind === "internet") old.kind = kind; // an exposed path wins over the plain LAN link
   };
 
-  // Scanned from this computer: it gets a node of its own under the hosts.
-  if (scanFrom === "local" && disc) {
-    const addr = disc.ifaces.find((i) => i.kind === "private" && !i.addr.includes(":"))?.addr ?? disc.ifaces[0]?.addr ?? "";
-    const n: MapNode = { id: "local", kind: "host", label: "This computer", sub: addr, col: 2, row: hosts.length, ip: addr || undefined, exposures: [] };
+  // This computer always has a node under the hosts, so it can be picked
+  // to scan from; after a scan from here it shows its address.
+  {
+    const scanned = scanFrom === "local" && disc;
+    const addr = scanned ? (disc.ifaces.find((i) => i.kind === "private" && !i.addr.includes(":"))?.addr ?? disc.ifaces[0]?.addr ?? "") : "";
+    const n: MapNode = {
+      id: "local",
+      kind: "host",
+      label: "This computer",
+      sub: addr || "where Nightgrid runs",
+      col: 2,
+      row: hosts.length,
+      ip: addr || undefined,
+      exposures: [],
+    };
     nodes.push(n);
   }
 

@@ -41,6 +41,7 @@
     macAddress: null,
     wakeRelayId: null,
     sleepWindow: null,
+    role: "server",
     tags: [],
   });
 
@@ -332,6 +333,12 @@
 
       <div class="span6 toggles">
         <Toggle label="Favorite" checked={form.favorite} onchange={(v) => (form.favorite = v)} />
+        <Toggle
+          label="Client, not a server"
+          hint="For a laptop, desktop or handheld you also manage. Views never pick it by default; you can still choose it."
+          checked={form.role === "client"}
+          onchange={(v) => (form.role = v ? "client" : "server")}
+        />
         {#if form.authMethod !== "agent"}
           <Toggle
             label="Remember secret in OS keychain"

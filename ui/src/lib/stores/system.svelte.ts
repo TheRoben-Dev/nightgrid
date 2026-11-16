@@ -198,6 +198,7 @@ class SystemStore {
 
   select(id: number) {
     if (id === this.hostId) return;
+    hosts.remember("system", id);
     void this.stopJournal();
     this.seq++;
     this.hostId = id;

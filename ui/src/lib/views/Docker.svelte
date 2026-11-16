@@ -20,7 +20,8 @@
 
   // Pick a host once the host list has loaded.
   $effect(() => {
-    if (docker.hostId === null && hosts.hosts.length) docker.select(hosts.hosts[0].id);
+    const first = docker.hostId === null ? hosts.preferred("docker") : undefined;
+    if (first) docker.select(first.id);
   });
 
   let forceRemove = $state(false);

@@ -53,7 +53,7 @@
 
   function edit(w: UpsWatch | null) {
     editing = w;
-    form = w ? { ...w } : blankUps(hosts.hosts[0]?.id ?? 0);
+    form = w ? { ...w } : blankUps(hosts.preferred("ups")?.id ?? 0);
     typed = "";
     test = null;
     formError = null;

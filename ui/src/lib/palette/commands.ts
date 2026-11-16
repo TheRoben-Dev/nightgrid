@@ -254,7 +254,7 @@ export function buildCommands(): PaletteCommand[] {
             keywords: ["ssh -L", "-R", "-D", "socks", "forward", "port"],
             run: () => {
               ui.go("tunnels");
-              tunnels.openNew(hosts.hosts[0].id);
+              tunnels.openNew(hosts.preferred("tunnels")!.id);
             },
           },
         ]

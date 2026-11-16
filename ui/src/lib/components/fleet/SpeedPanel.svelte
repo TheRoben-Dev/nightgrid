@@ -20,7 +20,7 @@
     if (!netperf.loaded) void netperf.load();
   });
   $effect(() => {
-    if (from == null && hosts.hosts.length) from = hosts.hosts[0].id;
+    if (from == null && hosts.preferred("speed")) from = hosts.preferred("speed")!.id;
     if (to == null && hosts.hosts.length > 1) to = hosts.hosts[1].id;
   });
   const hostOf = (id: number) => hosts.hosts.find((h) => h.id === id);

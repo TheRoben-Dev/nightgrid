@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.49] - 2026-11-16
+
+### Changed: picking hosts
+- Hosts have a role. Tick **Client, not a server** in the host editor for a laptop, desktop or handheld you also manage (an ROG Ally, say). Views never pick a client by default. You can still choose one, and if every host is a client one is used.
+- Views remember the host you last picked in them, on this machine. A view you haven't picked a host in yet starts on the one you picked last anywhere, else the first server (favorites first). This covers Docker, System, Files and the host fields in new tunnels, snippets, UPS watches, backup jobs, command widgets, speed tests and imports.
+- DRIFT's host facts say when a host is a client.
+
+### Changed: network map scans from the map
+- The **Scan from** dropdown is gone. Select a node on the map and the scan runs from it; the button says **Scan from <name>**. Nothing is preselected.
+- Nodes that can run a scan are marked **◉**: this computer, and saved hosts that answer. Other devices, and hosts that are offline, can't scan. **This computer** is now always on the map, so you can scan from it without a dropdown.
+
 ## [0.10.48] - 2026-11-16
 
 ### Added: Settings → Features

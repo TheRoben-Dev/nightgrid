@@ -21,7 +21,8 @@
 
   // Pick a host once the host list has loaded.
   $effect(() => {
-    if (system.hostId === null && hosts.hosts.length) system.select(hosts.hosts[0].id);
+    const first = system.hostId === null ? hosts.preferred("system") : undefined;
+    if (first) system.select(first.id);
   });
 
   const TABS: { id: SystemTab; label: string }[] = [

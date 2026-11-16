@@ -3,6 +3,16 @@ import { api, errorText, type Group, type Host, type HostPing } from "../api";
 import { fuzzyMatch } from "../palette/fuzzy";
 
 const PING_EVERY_MS = 30_000;
+const PICKS_KEY = "nightgrid.hostPicks.v1";
+
+function readPicks(): Record<string, number> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PICKS_KEY) ?? "{}") as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(raw).filter((e): e is [string, number] => typeof e[1] === "number"));
+  } catch {
+    return {};
+  }
+}
 
 export interface HostGroupView {
   id: number | null;
@@ -58,6 +68,30 @@ class HostsStore {
   addFrom(p: { name: string; hostname: string }) {
     this.prefill = p;
     this.editing = 0;
+  }
+
+  /** Last host picked per view on this machine ("*" = picked anywhere). */
+  private picks: Record<string, number> = readPicks();
+
+  /**
+   * The host a view starts on: the one last picked there, else the one last
+   * picked anywhere, else the first server (favorites first). A client
+   * (laptop, handheld) is never picked by default unless every host is one.
+   */
+  preferred(view: string, ok: (h: Host) => boolean = () => true): Host | undefined {
+    const usable = this.hosts.filter(ok);
+    const by = (id: number | undefined) => (id === undefined ? undefined : usable.find((h) => h.id === id));
+    return by(this.picks[view]) ?? by(this.picks["*"]) ?? usable.find((h) => h.role !== "client") ?? (usable.every((h) => h.role === "client") ? usable[0] : undefined);
+  }
+
+  /** Remembers a host the user chose in a view. */
+  remember(view: string, id: number) {
+    this.picks = { ...this.picks, [view]: id, "*": id };
+    try {
+      localStorage.setItem(PICKS_KEY, JSON.stringify(this.picks));
+    } catch {
+      /* per-machine convenience only */
+    }
   }
 
   byId(id: number): Host | undefined {

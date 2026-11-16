@@ -23,7 +23,7 @@
   type ScopeKind = SnippetInput["scope"]["kind"];
   function setScope(kind: ScopeKind) {
     if (kind === "global") form.scope = { kind };
-    else if (kind === "host") form.scope = { kind, hostId: hosts.hosts[0]?.id ?? 0 };
+    else if (kind === "host") form.scope = { kind, hostId: hosts.preferred("snippet")?.id ?? 0 };
     else form.scope = { kind, groupId: hosts.groups[0]?.id ?? 0 };
   }
 

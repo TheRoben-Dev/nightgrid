@@ -103,9 +103,10 @@ class DockerStore {
     return this.containers.filter(isUp).length;
   }
 
-  /** Shows `hostId`, picking the first host when none is chosen yet. */
+  /** Shows `hostId` (remembered as this view's pick). */
   select(hostId: number | null) {
     if (hostId === this.hostId) return;
+    if (hostId !== null) hosts.remember("docker", hostId);
     this.hostId = hostId;
     this.info = null;
     this.containers = [];
@@ -119,7 +120,8 @@ class DockerStore {
 
   /** Polls while the Docker view is on screen. */
   start(): () => void {
-    if (this.hostId === null && hosts.hosts.length) this.select(hosts.hosts[0].id);
+    const first = this.hostId === null ? hosts.preferred("docker") : undefined;
+    if (first) this.select(first.id);
     else void this.refresh();
     this.timer = setInterval(() => void this.refresh(true), POLL_MS);
     return () => {
