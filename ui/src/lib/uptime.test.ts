@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { availability, barTitle, barTone, dayBars, DAY, durText, outageStats, pctText, totals } from "./uptime";
+import { availability, lastMonths, barTitle, barTone, dayBars, DAY, durText, outageStats, pctText, totals } from "./uptime";
 
 describe("uptime", () => {
   const now = 20 * DAY + 3600; // 01:00 UTC on day 20
@@ -41,5 +41,10 @@ describe("uptime", () => {
     expect(barTitle({ day: 0, pct: 99.5, up: 100, down: 600, asleep: 3600 })).toMatch(/99\.50%, 10 min down, 1 h asleep/);
     const o = (start: number, end: number) => ({ id: 1, node: { kind: "host" as const, id: 1 }, start, end, detail: "" });
     expect(outageStats([o(0, 60), o(100, 400)])).toEqual({ count: 2, total: 360, longest: 300 });
+  });
+
+  it("lists the last months, newest first, across a year boundary", () => {
+    const m = lastMonths(3, new Date(2027, 0, 15));
+    expect(m.map((x) => [x.year, x.month])).toEqual([[2027, 1], [2026, 12], [2026, 11]]);
   });
 });

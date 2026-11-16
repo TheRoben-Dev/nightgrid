@@ -104,7 +104,7 @@ export const mockMetrics = {
     return Promise.resolve(null);
   },
   history(hostId: number, from: number, to: number): Promise<Point[]> {
-    const step = to - from <= 2 * 86400 ? 60 : 900;
+    const step = to - from <= 2 * 86400 ? 60 : to - from <= 31 * 86400 ? 900 : 3600;
     const out: Point[] = [];
     for (let ts = Math.ceil(from / step) * step; ts <= to; ts += step) {
       const t = ts / 120;

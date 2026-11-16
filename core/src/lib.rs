@@ -34,6 +34,7 @@ pub mod redact;
 pub mod secrets;
 pub mod services;
 pub mod settings;
+pub mod sla;
 pub mod ssh;
 pub mod stack_dirs;
 pub mod status_page;

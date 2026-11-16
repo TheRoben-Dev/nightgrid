@@ -25,6 +25,7 @@ import {
   type Outage as UptimeOutage,
   type UptimeDay,
   type UptimeSeries,
+  type SlaReport_Serialize as UptimeReport,
   type UpsInput_Deserialize as UpsInput,
   type UpsReading_Serialize as UpsReading,
   type UpsStatus_Serialize as UpsStatus,
@@ -297,6 +298,7 @@ export type {
   UptimeOutage,
   UptimeDay,
   UptimeSeries,
+  UptimeReport,
   UpsInput,
   UpsReading,
   UpsStatus,
@@ -556,7 +558,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.29-web",
+      version: "0.10.30-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -990,6 +992,10 @@ export const api = {
   uptimeDays: (days: number, utcOffsetMin: number): Promise<UptimeSeries[]> => (T() ? commands.uptimeDays(days, utcOffsetMin) : mockUptime.days(days, utcOffsetMin)),
   uptimeOutages: (node: DepNode | null, from: number, to: number): Promise<UptimeOutage[]> =>
     T() ? commands.uptimeOutages(node, from, to) : mockUptime.outages(node, from, to),
+  uptimeReport: (year: number, month: number, target: number): Promise<UptimeReport> =>
+    T() ? commands.uptimeReport(year, month, target) : mockUptime.report(year, month, target),
+  uptimeReportExport: (year: number, month: number, target: number): Promise<string | null> =>
+    T() ? commands.uptimeReportExport(year, month, target) : Promise.resolve(`/Users/you/Downloads/nightgrid-uptime-${year}-${String(month).padStart(2, "0")}.html`),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {

@@ -1,5 +1,9 @@
 <script lang="ts">
-  /** Area chart for stored history: one or two series over time, with gaps for missing points. */
+  /**
+   * Area chart for stored history: one or two series over time, with gaps for
+   * missing points. With `onzoom`, dragging across the chart picks a time
+   * span to zoom into (M10t); double-click asks to zoom back out.
+   */
   interface Series {
     label: string;
     color: string;
@@ -13,8 +17,13 @@
     format: (v: number) => string;
     from: number;
     to: number;
+    /** Called with the dragged span (unix seconds); `null` on double-click. */
+    onzoom?: (span: { from: number; to: number } | null) => void;
   }
-  let { ts, series, max, format, from, to }: Props = $props();
+  let { ts, series, max, format, from, to, onzoom }: Props = $props();
+
+  /** Shortest span a drag can zoom into. */
+  const MIN_ZOOM = 10 * 60;
 
   const W = 600;
   const H = 160;
@@ -46,9 +55,28 @@
   const ticks = $derived([0, 0.25, 0.5, 0.75, 1].map((f) => from + (to - from) * f));
 
   let hover = $state<number | null>(null);
-  function onMove(e: PointerEvent) {
+  /** Drag start and current position, as times. */
+  let drag = $state<{ a: number; b: number } | null>(null);
+  const timeAt = (e: PointerEvent) => {
     const r = (e.currentTarget as SVGElement).getBoundingClientRect();
-    const t = from + ((e.clientX - r.left) / r.width) * (to - from);
+    return from + (Math.min(Math.max(e.clientX - r.left, 0), r.width) / r.width) * (to - from);
+  };
+  function onDown(e: PointerEvent) {
+    if (!onzoom || e.button !== 0) return;
+    (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
+    const t = timeAt(e);
+    drag = { a: t, b: t };
+  }
+  function onUp() {
+    if (!drag) return;
+    const lo = Math.min(drag.a, drag.b);
+    const hi = Math.max(drag.a, drag.b);
+    drag = null;
+    if (hi - lo >= MIN_ZOOM) onzoom?.({ from: Math.floor(lo), to: Math.ceil(hi) });
+  }
+  function onMove(e: PointerEvent) {
+    const t = timeAt(e);
+    if (drag) drag = { ...drag, b: t };
     let best = -1;
     let bestD = Infinity;
     ts.forEach((p, i) => {
@@ -68,7 +96,7 @@
       <span><i style:background={s.color}></i>{s.label}</span>
     {/each}
     <span class="spacer"></span>
-    {#if hover != null}
+    {#if hover != null && hover < ts.length}
       <span class="readout">
         {fmtTime(ts[hover])} ·
         {#each series as s, i (s.label)}{i ? " / " : ""}<span style:color={s.color}>{s.values[hover] != null ? format(s.values[hover]!) : "--"}</span>{/each}
@@ -86,7 +114,11 @@
       role="img"
       aria-label="History"
       onpointermove={onMove}
+      onpointerdown={onDown}
+      onpointerup={onUp}
+      onpointercancel={() => (drag = null)}
       onpointerleave={() => (hover = null)}
+      ondblclick={() => onzoom?.(null)}
     >
       {#each [0.25, 0.5, 0.75] as f (f)}
         <line x1="0" x2={W} y1={H * f} y2={H * f} class="grid" vector-effect="non-scaling-stroke" />
@@ -97,7 +129,10 @@
           <polyline points={seg.join(" ")} fill="none" stroke={s.color} stroke-width="1.3" vector-effect="non-scaling-stroke" />
         {/each}
       {/each}
-      {#if hover != null}
+      {#if drag}
+        <rect x={x(Math.min(drag.a, drag.b))} width={Math.abs(x(drag.b) - x(drag.a))} y="0" height={H} class="sel" />
+      {/if}
+      {#if hover != null && hover < ts.length}
         <line x1={x(ts[hover])} x2={x(ts[hover])} y1="0" y2={H} class="cursor" vector-effect="non-scaling-stroke" />
       {/if}
     </svg>
@@ -149,6 +184,11 @@
   }
   .cursor {
     stroke: var(--magenta);
+  }
+  .sel {
+    fill: color-mix(in srgb, var(--cyan) 18%, transparent);
+    stroke: var(--cyan);
+    stroke-width: 1;
   }
   .axis {
     display: flex;

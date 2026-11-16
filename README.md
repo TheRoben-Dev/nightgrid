@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.30 (a year of metrics, monthly reports)
+
+1. After updating, open a host's monitor: **90D** and **1Y** show the history you already had (folded into hourly averages); the note under the chart says "Hourly averages."
+2. On **7D**, drag across a busy stretch: the chart zooms in, the range buttons go unselected and **Reset zoom** appears. Zoom to under two days and the line gets finer (1-minute points). Double-click to go back.
+3. **Fleet → UPTIME → Monthly report…**: this month shows each host and service with availability, downtime, outages and met/missed for 99.9%. Switch the target to 99% and back.
+4. **Export HTML…**, save, open the file in a browser: summary, table and outage list; print preview looks clean in light colors.
+
 ### macOS: testing 0.10.29 (uptime history)
 
 1. Leave Nightgrid running (the tray is enough) with a couple of monitored hosts and checked services for a few minutes. **Fleet → UPTIME**: today's bar is green and the rows show 100% (earlier days are grey: no data yet).

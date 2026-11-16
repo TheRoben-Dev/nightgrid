@@ -1,7 +1,7 @@
 //! Metric history in SQLite: samples are averaged into 1-minute points,
-//! which also feed 15-minute rollups (running average, so no batch job).
-//! Pruning drops minute points after `retention_days` and rollups after
-//! [`ROLLUP_DAYS`].
+//! which also feed 15-minute and hourly rollups (running averages, so no
+//! batch job). Pruning drops minute points after `retention_days`, 15-minute
+//! rollups after [`ROLLUP_DAYS`] and hourly ones after [`HOURLY_DAYS`].
 
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
@@ -15,8 +15,23 @@ pub const MINUTE: i64 = 60;
 pub const ROLLUP: i64 = 900;
 /// How long 15-minute rollups are kept.
 pub const ROLLUP_DAYS: i64 = 90;
+/// Hourly rollups (M10t), for ranges longer than a month.
+pub const HOURLY: i64 = 3600;
+/// How long hourly rollups are kept.
+pub const HOURLY_DAYS: i64 = 400;
 /// Ranges up to this long are served from minute points.
 pub const MINUTE_RANGE_SECS: i64 = 2 * 86400;
+/// Ranges up to this long are served from 15-minute rollups; longer ones from hourly.
+pub const ROLLUP_RANGE_SECS: i64 = 31 * 86400;
+
+/// The resolution a range is served at.
+pub fn resolution(from: i64, to: i64) -> i64 {
+    match to - from {
+        d if d <= MINUTE_RANGE_SECS => MINUTE,
+        d if d <= ROLLUP_RANGE_SECS => ROLLUP,
+        _ => HOURLY,
+    }
+}
 
 /// One stored point (averages over its bucket).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -158,7 +173,7 @@ fn point(ts: i64, v: &[Option<f64>]) -> Point {
 const COLS: &str = "cpu, mem, swap, load1, disk, net_rx, net_tx, disk_read, disk_write, temp, gpu";
 
 impl Store {
-    /// Stores a minute point and folds it into its 15-minute rollup.
+    /// Stores a minute point and folds it into its 15-minute and hourly rollups.
     pub fn insert_metric_point(&mut self, host_id: HostId, p: &Point) -> Result<()> {
         let ts = (p.ts as i64).div_euclid(MINUTE) * MINUTE;
         let v = values(p);
@@ -184,22 +199,40 @@ impl Store {
                 )
             })
             .collect();
-        tx.execute(
-            &format!(
-                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
-                 ON CONFLICT (host_id, res, ts) DO UPDATE SET {}, n = n + 1",
-                upd.join(", ")
-            ),
-            params![host_id, ROLLUP, ts.div_euclid(ROLLUP) * ROLLUP, v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10]],
-        )?;
+        let sql = format!(
+            "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+             ON CONFLICT (host_id, res, ts) DO UPDATE SET {}, n = n + 1",
+            upd.join(", ")
+        );
+        for res in [ROLLUP, HOURLY] {
+            tx.execute(
+                &sql,
+                params![
+                    host_id,
+                    res,
+                    ts.div_euclid(res) * res,
+                    v[0],
+                    v[1],
+                    v[2],
+                    v[3],
+                    v[4],
+                    v[5],
+                    v[6],
+                    v[7],
+                    v[8],
+                    v[9],
+                    v[10]
+                ],
+            )?;
+        }
         tx.commit()?;
         Ok(())
     }
 
     /// Points in `[from, to]` (unix seconds): minute points for short
-    /// ranges, rollups for long ones.
+    /// ranges, 15-minute rollups up to a month, hourly ones beyond.
     pub fn metric_history(&self, host_id: HostId, from: i64, to: i64) -> Result<Vec<Point>> {
-        let res = if to - from <= MINUTE_RANGE_SECS { MINUTE } else { ROLLUP };
+        let res = resolution(from, to);
         let mut stmt = self.conn().prepare(&format!(
             "SELECT ts, {COLS} FROM metric_points WHERE host_id = ?1 AND res = ?2 AND ts >= ?3 AND ts <= ?4 ORDER BY ts"
         ))?;
@@ -210,8 +243,9 @@ impl Store {
         Ok(rows.collect::<rusqlite::Result<_>>()?)
     }
 
-    /// Drops minute points older than `retention_days` and rollups older
-    /// than [`ROLLUP_DAYS`] (or the retention, if longer). Returns rows removed.
+    /// Drops minute points older than `retention_days`, 15-minute rollups
+    /// older than [`ROLLUP_DAYS`] (or the retention, if longer) and hourly
+    /// ones older than [`HOURLY_DAYS`]. Returns rows removed.
     pub fn prune_metrics(&mut self, now: i64, retention_days: u32) -> Result<usize> {
         let days = i64::from(retention_days.clamp(1, 365));
         let a = self
@@ -221,7 +255,11 @@ impl Store {
             "DELETE FROM metric_points WHERE res = ?1 AND ts < ?2",
             params![ROLLUP, now - days.max(ROLLUP_DAYS) * 86400],
         )?;
-        Ok(a + b)
+        let c = self.conn().execute(
+            "DELETE FROM metric_points WHERE res = ?1 AND ts < ?2",
+            params![HOURLY, now - days.max(HOURLY_DAYS) * 86400],
+        )?;
+        Ok(a + b + c)
     }
 }
 
@@ -232,6 +270,32 @@ mod tests {
 
     fn p(ts: f64, cpu: f32) -> Point {
         Point { ts, cpu: Some(cpu), net_rx: Some(f64::from(cpu) * 10.0), ..Default::default() }
+    }
+
+    #[test]
+    fn migration_seeds_hourly_from_rollups() {
+        let mut s = Store::open_in_memory().unwrap();
+        let h = s
+            .create_host(&HostInput { name: "server01".into(), hostname: "server01.lan".into(), ..Default::default() })
+            .unwrap();
+        // Two 15-minute rollups in one hour: 10 samples at 10%, 30 at 30% (temp only in one).
+        s.conn()
+            .execute_batch(&format!(
+                "INSERT INTO metric_points (host_id, res, ts, n, cpu, temp) VALUES ({0}, 900, 7200, 10, 10.0, 50.0), ({0}, 900, 8100, 30, 30.0, NULL);",
+                h.id
+            ))
+            .unwrap();
+        s.conn().execute_batch(include_str!("../store/migrations/0026_metrics_hourly.sql")).unwrap();
+        let p = s.metric_history(h.id, 0, 100 * 86400).unwrap();
+        assert_eq!(p.len(), 1);
+        assert_eq!((p[0].ts, p[0].cpu, p[0].temp, p[0].mem), (7200.0, Some(25.0), Some(50.0), None));
+    }
+
+    #[test]
+    fn picks_a_resolution_by_range() {
+        assert_eq!(resolution(0, 3600), MINUTE);
+        assert_eq!(resolution(0, 7 * 86400), ROLLUP);
+        assert_eq!(resolution(0, 90 * 86400), HOURLY);
     }
 
     #[test]
@@ -271,6 +335,12 @@ mod tests {
         assert_eq!(s.metric_history(h.id, base - 7 * day, base + 3600).unwrap().len(), 2);
         s.prune_metrics(base + 91 * day, 7).unwrap();
         assert!(s.metric_history(h.id, base - 7 * day, base + 3600).unwrap().is_empty());
+        // Hourly rollups stay for 400 days and serve ranges over a month.
+        let year = s.metric_history(h.id, base - 300 * day, base + 3600).unwrap();
+        assert_eq!(year.len(), 1);
+        assert_eq!(year[0].cpu, Some(14.5));
+        s.prune_metrics(base + 401 * day, 7).unwrap();
+        assert!(s.metric_history(h.id, base - 300 * day, base + 3600).unwrap().is_empty());
         s.insert_metric_point(h.id, &p(base as f64, 1.0)).unwrap();
         s.delete_host(h.id).unwrap();
         assert!(s.metric_history(h.id, 0, i64::MAX).unwrap().is_empty());

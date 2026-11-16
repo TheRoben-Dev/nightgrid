@@ -106,3 +106,15 @@ export const outageLen = (o: UptimeOutage): number => Math.max(0, o.end - o.star
 export function outageStats(list: UptimeOutage[]): { count: number; total: number; longest: number } {
   return { count: list.length, total: list.reduce((a, o) => a + outageLen(o), 0), longest: list.reduce((a, o) => Math.max(a, outageLen(o)), 0) };
 }
+
+/** The last `n` calendar months, newest first, as {year, month (1-12), label}. */
+export function lastMonths(n: number, d = new Date()): { year: number; month: number; label: string }[] {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+    out.push({ year: m.getFullYear(), month: m.getMonth() + 1, label: m.toLocaleDateString(undefined, { month: "long", year: "numeric" }) });
+  }
+  return out;
+}
+
+export const TARGETS = [99, 99.5, 99.9, 99.95, 99.99] as const;

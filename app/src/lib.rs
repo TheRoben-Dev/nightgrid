@@ -222,6 +222,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         ups_cmd::ups_cancel,
         uptime_cmd::uptime_days,
         uptime_cmd::uptime_outages,
+        uptime_cmd::uptime_report,
+        uptime_cmd::uptime_report_export,
         alerts_cmd::alerts_webhook_get,
         alerts_cmd::alerts_webhook_set,
         alerts_cmd::alerts_test,

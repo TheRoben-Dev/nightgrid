@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.30] - 2026-11-16
+
+### Added: long-term history, parts 2 and 3: a year of metrics and monthly reports (M10t)
+- **A year of metrics**: hourly averages are now kept for 400 days next to the 1-minute points and 15-minute averages, and the host monitor offers **90D** and **1Y** ranges (hourly averages beyond a month). Existing 15-minute history is folded into hourly averages on update, so the long ranges start with what is already stored.
+- **Zoom**: drag across a history chart to zoom into that span (finer points are loaded when the span is short enough), **Reset zoom** or a double-click to go back. The chart says which averages it shows.
+- **Monthly uptime report** (Fleet → UPTIME → **Monthly report…**): pick a month (the last 13) and a target (99% to 99.99%) to see availability, downtime, outages and the longest one per host and service, and whether each met the target. **Export HTML…** saves a self-contained page with the summary, the table and every outage with its first error, styled for screen and print (save as PDF from the browser).
+
 ## [0.10.29] - 2026-11-16
 
 ### Added: long-term history, part 1: uptime (M10t)

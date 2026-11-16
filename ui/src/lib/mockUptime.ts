@@ -2,7 +2,7 @@
  * Browser-only stand-in for uptime history (M10t): a deterministic 400 days
  * for a few hosts and services, with a handful of outages.
  */
-import type { Node, Outage, UptimeDay, UptimeSeries } from "./bindings";
+import type { Node, Outage, SlaReport_Serialize as SlaReport, UptimeDay, UptimeSeries } from "./bindings";
 
 const DAY = 86_400;
 const now = () => Math.floor(Date.now() / 1000);
@@ -21,6 +21,9 @@ function rnd(a: number, b: number): number {
   return x - Math.floor(x);
 }
 const seed = (n: Node) => (n.kind === "host" ? n.id : 10 + n.id);
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const NAMES: Record<string, string> = { "host:1": "server01", "host:2": "server02", "host:3": "nas", "service:1": "Media server", "service:2": "Requests", "service:3": "Photos" };
 
 export const mockUptime = {
   async days(days: number, utcOffsetMin: number): Promise<UptimeSeries[]> {
@@ -53,5 +56,31 @@ export const mockUptime = {
       }
     }
     return list.filter((o) => !node || (o.node.kind === node.kind && o.node.id === node.id)).sort((a, b) => b.start - a.start);
+  },  async report(year: number, month: number, target: number): Promise<SlaReport> {
+    const from = Math.floor(new Date(year, month - 1, 1).getTime() / 1000);
+    const to = Math.min(Math.floor(new Date(year, month, 1).getTime() / 1000), now());
+    const all = await this.outages(null, from, to);
+    const rows = nodes.map((node) => {
+      const mine = all.filter((o) => o.node.kind === node.kind && o.node.id === node.id);
+      const down = mine.reduce((a, o) => a + o.end - o.start, 0);
+      const asleep = node.kind === "host" && node.id === 3 ? Math.floor((to - from) / 4) : 0;
+      const up = Math.max(0, Math.floor((to - from) * 0.93) - down - asleep);
+      const availability = up + down ? (up * 100) / (up + down) : null;
+      return {
+        node,
+        name: NAMES[`${node.kind}:${node.id}`],
+        up,
+        down,
+        asleep,
+        availability,
+        outages: mine.length,
+        longest: mine.reduce((a, o) => Math.max(a, o.end - o.start), 0),
+        met: availability == null ? null : availability >= target,
+      };
+    });
+    const incidents = all
+      .map((o) => ({ name: NAMES[`${o.node.kind}:${o.node.id}`], start: o.start, end: o.end, detail: o.detail }))
+      .sort((a, b) => a.start - b.start);
+    return { label: `${MONTHS[month - 1]} ${year}`, from, to, target, generatedAt: now(), rows, incidents, incidentsCut: false };
   },
 };

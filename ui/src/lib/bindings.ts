@@ -440,6 +440,16 @@ export const commands = {
 	uptimeDays: (days: number, utcOffsetMin: number, options?: InvokeOptions) => __TAURI_INVOKE<UptimeSeries[]>("uptime_days", { days, utcOffsetMin }, options),
 	/**  Outages in `[from, to]` (unix seconds), newest first; one host or service, or all. */
 	uptimeOutages: (node: Node | null, from: number, to: number, options?: InvokeOptions) => __TAURI_INVOKE<Outage[]>("uptime_outages", { node, from, to }, options),
+	/**
+	 *  The uptime report for a calendar month (local time), checked against
+	 *  `target` percent.
+	 */
+	uptimeReport: (year: number, month: number, target: number | null, options?: InvokeOptions) => __TAURI_INVOKE<SlaReport_Serialize>("uptime_report", { year, month, target }, options),
+	/**
+	 *  Saves the month's report as an HTML page picked with a save dialog.
+	 *  `None` when cancelled.
+	 */
+	uptimeReportExport: (year: number, month: number, target: number | null, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("uptime_report_export", { year, month, target }, options),
 	alertsWebhookGet: (options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_get", undefined, options),
 	/**  Saves the webhook URL in the keychain (`None` or empty removes it). */
 	alertsWebhookSet: (url: string | null, options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_set", { url }, options),
@@ -4021,6 +4031,79 @@ export type SideInfo = {
 	manager: string,
 	files: number,
 	packages: number,
+};
+
+export type SlaIncident = {
+	name: string,
+	start: number,
+	end: number,
+	detail: string,
+};
+
+export type SlaReport = SlaReport_Serialize | SlaReport_Deserialize;
+
+export type SlaReport_Deserialize = {
+	/**  "November 2026". */
+	label: string,
+	from: number,
+	to: number,
+	/**  Percent, e.g. 99.9. */
+	target: number | null,
+	generatedAt: number,
+	/**  Hosts first, then services, each by name. */
+	rows: SlaRow_Deserialize[],
+	/**  Outages inside the period, oldest first (clipped to it). */
+	incidents: SlaIncident[],
+	/**  True when more outages happened than are listed. */
+	incidentsCut: boolean,
+};
+
+export type SlaReport_Serialize = {
+	/**  "November 2026". */
+	label: string,
+	from: number,
+	to: number,
+	/**  Percent, e.g. 99.9. */
+	target: number | null,
+	generatedAt: number,
+	/**  Hosts first, then services, each by name. */
+	rows: SlaRow_Serialize[],
+	/**  Outages inside the period, oldest first (clipped to it). */
+	incidents: SlaIncident[],
+	/**  True when more outages happened than are listed. */
+	incidentsCut: boolean,
+};
+
+export type SlaRow = SlaRow_Serialize | SlaRow_Deserialize;
+
+export type SlaRow_Deserialize = {
+	node: Node,
+	name: string,
+	up: number,
+	down: number,
+	asleep: number,
+	/**  Percent up out of up + down; `None` when nothing was seen. */
+	availability?: number | null,
+	outages: number,
+	/**  Seconds, inside the period. */
+	longest: number,
+	/**  Whether `availability` meets the target; `None` without data. */
+	met?: boolean | null,
+};
+
+export type SlaRow_Serialize = {
+	node: Node,
+	name: string,
+	up: number,
+	down: number,
+	asleep: number,
+	/**  Percent up out of up + down; `None` when nothing was seen. */
+	availability: number | null,
+	outages: number,
+	/**  Seconds, inside the period. */
+	longest: number,
+	/**  Whether `availability` meets the target; `None` without data. */
+	met: boolean | null,
 };
 
 export type SmartAttr = SmartAttr_Serialize | SmartAttr_Deserialize;
