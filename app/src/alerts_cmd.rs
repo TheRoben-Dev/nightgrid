@@ -59,6 +59,8 @@ pub struct AlertsSnapshot {
     /// Quiet hours are on right now (no notifications or webhooks).
     pub quiet: bool,
     pub enabled: bool,
+    /// A UPS shutdown waiting to start (M10s), shown with a Cancel button.
+    pub ups_countdown: Option<crate::ups_cmd::UpsCountdown>,
 }
 
 #[derive(Default)]
@@ -80,6 +82,8 @@ pub struct AlertsHub {
     held: Mutex<HashMap<u32, (Alert, i64)>>,
     /// Alerts that were folded and never notified (no "resolved" either).
     silent: Mutex<HashSet<u32>>,
+    /// Copy of the UPS countdown for the snapshot.
+    ups_countdown: Mutex<Option<crate::ups_cmd::UpsCountdown>>,
 }
 
 impl AlertsHub {
@@ -108,7 +112,13 @@ impl AlertsHub {
         for a in &mut active {
             a.caused_by = folding.caused_by.get(&a.id).copied();
         }
-        AlertsSnapshot { active, history: t.history(), quiet: is_quiet(settings), enabled: settings.alerts.enabled }
+        AlertsSnapshot {
+            active,
+            history: t.history(),
+            quiet: is_quiet(settings),
+            enabled: settings.alerts.enabled,
+            ups_countdown: self.ups_countdown.lock().expect("poisoned").clone(),
+        }
     }
 
     fn push(&self, settings: &AppSettings) {
@@ -165,6 +175,14 @@ fn refold(app: &AppHandle, cfg: &AppSettings) -> bool {
     let changed = *cur != next;
     *cur = next;
     changed
+}
+
+/// Sends a fresh snapshot now (the UPS countdown started or stopped).
+pub fn push_now(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    *state.alerts.ups_countdown.lock().expect("poisoned") = state.ups.countdown();
+    state.alerts.push(&settings(app));
+    crate::tray::refresh(app);
 }
 
 fn settings(app: &AppHandle) -> AppSettings {
@@ -480,6 +498,16 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
         }
         changes.extend(hub.tracker.lock().expect("poisoned").report(
             &Scope { source: "backup", hosts: Some(&covered) },
+            conds,
+            now,
+        ));
+    }
+
+    // UPS watches (M10s): readings, alerts and the shutdown countdown.
+    {
+        let (conds, covered) = crate::ups_cmd::evaluate(app, &connected, now).await;
+        changes.extend(hub.tracker.lock().expect("poisoned").report(
+            &Scope { source: "ups", hosts: Some(&covered) },
             conds,
             now,
         ));

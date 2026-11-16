@@ -121,6 +121,12 @@ const TABLES: &[Table] = &[
             &["child_service_id", "child_host_id", "parent_host_id", "parent_service_id"],
         ],
     },
+    Table {
+        name: "ups_watches",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Skip), ("group_id", "host_groups", Missing::Null)],
+        keys: &[&["host_id", "target"]],
+    },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];
 

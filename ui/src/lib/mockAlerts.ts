@@ -3,6 +3,7 @@
  * and status strip can be developed and screenshotted without Tauri.
  */
 import type { Alert_Serialize as Alert, Dependency, Node, AlertsSnapshot_Serialize as AlertsSnapshot, TestResult_Serialize as TestResult, WebhookInfo_Serialize as WebhookInfo } from "./bindings";
+import { mockUps, mockUpsCountdown } from "./mockUps";
 
 const now = () => Math.floor(Date.now() / 1000);
 let listener: ((s: AlertsSnapshot) => void) | null = null;
@@ -32,11 +33,12 @@ let history: Alert[] = [
   { id: 1, key: "host:2", kind: "hostOffline", severity: "critical", title: "server02", detail: "unreachable: connection refused", hostId: 2, since: now() - 7200, resolved: now() - 6900, causedBy: null },
 ];
 
-const snapshot = (): AlertsSnapshot => ({ active: fold(active), history: [...history], quiet: false, enabled: true });
+const snapshot = (): AlertsSnapshot => ({ active: fold(active), history: [...history], quiet: false, enabled: true, upsCountdown: mockUpsCountdown() });
 
 export const mockAlerts = {
   async subscribe(on: (s: AlertsSnapshot) => void): Promise<null> {
     listener = on;
+    mockUps.watch(() => listener?.(snapshot()));
     on(snapshot());
     return null;
   },

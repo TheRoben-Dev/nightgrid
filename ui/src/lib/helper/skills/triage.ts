@@ -77,5 +77,9 @@ export const TRIAGE: Record<AlertKind, Triage> = {
     causes: ["A disk failed or dropped out of the pool", "A loose cable or controller reset"],
     checks: ["`zpool status -x` / `cat /proc/mdstat` / `btrfs device stats`", "Check backups, then replace the device (`zpool replace`)", "Avoid heavy writes and reboots until it's resilvered"],
     where: "Fleet → DISKS",
+  },  upsOnBattery: {
+    causes: ["A power cut or a tripped breaker", "The UPS input is unplugged or its fuse/outlet failed", "RB flag: the battery is worn out and won't hold a charge"],
+    checks: ["`upsc <ups>` on the host it's plugged into: status, battery.charge, battery.runtime", "Is the shutdown group right, and can each host shut down without a sudo password?", "For RB: run the UPS self-test and plan a battery swap"],
+    where: "Fleet → UPS",
   },
 };

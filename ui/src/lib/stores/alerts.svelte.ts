@@ -19,6 +19,7 @@ export const KIND_LABEL: Record<AlertKind, string> = {
   expirySoon: "EXPIRING",
   diskFilling: "FILLING UP",
   poolDegraded: "POOL DEGRADED",
+  upsOnBattery: "ON BATTERY",
 };
 
 /** Log alerts can be explained from their recent error lines. */
@@ -53,6 +54,8 @@ export function targetLabel(a: Alert): string {
     case "logBurst":
     case "logNewError":
       return logSource(a)?.startsWith("container/") ? "Docker logs" : "Journal";
+    case "upsOnBattery":
+      return "Fleet UPS";
   }
 }
 
@@ -152,6 +155,10 @@ class AlertsStore {
       case "backupFailed":
       case "backupStale":
         fleet.openBackups();
+        ui.go("fleet");
+        break;
+      case "upsOnBattery":
+        fleet.tab = "ups";
         ui.go("fleet");
         break;
       case "logBurst":

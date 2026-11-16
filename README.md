@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.28 (UPS shutdown)
+
+1. On a host with a UPS on USB, install NUT (`sudo apt install nut`, set the driver in `/etc/nut/ups.conf`, `MODE=standalone` in `nut.conf`) and check `upsc ups@localhost`. No UPS? Any NUT server you can reach works, including a NAS's.
+2. **Fleet → UPS → + UPS**: pick the host, enter `ups@localhost`, press **Test**: it shows ON MAINS with charge and runtime. Try `nope`: the error from `upsc` shows. Save.
+3. Make a host group with a throwaway VM or two (not your Mac). Edit the UPS, tick the shutdown toggle, pick the group, set **On battery for** to 1 min and **Countdown** to 30 s. **Save** stays disabled until you type the group name.
+4. Pull the UPS's mains plug. Within 30 s an ON BATTERY alert arrives. After a minute the red banner counts down from 0:30 with the hosts' names, and a notification says the same. Press **Cancel shutdown**: the banner goes away and doesn't come back while on battery.
+5. Plug in, unplug again: after a minute the countdown starts again; plug in before it ends and it cancels by itself ("Power is back"). Let it run out once with the VMs: they shut down, the UPS's host last, and a notification lists any that failed (sudo needs a password).
+
 ### macOS: testing 0.10.27 (runbooks on alerts)
 
 1. Open the alerts list (or wait for an alert) and press **+ Runbook** on one: Notes opens a new note tied to that kind of alert with a step list. Add a step with a command in a ``` block and a link like `[Check disks](view:fleet)`, then save.

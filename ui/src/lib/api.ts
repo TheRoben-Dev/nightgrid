@@ -21,6 +21,11 @@ import {
   type AlertKind,
   type Dependency as AlertDependency,
   type Node as DepNode,
+  type UpsCountdown,
+  type UpsInput_Deserialize as UpsInput,
+  type UpsReading_Serialize as UpsReading,
+  type UpsStatus_Serialize as UpsStatus,
+  type UpsWatch_Serialize as UpsWatch,
   type AlertSettings_Serialize as AlertSettings,
   type AlertsSnapshot_Serialize as AlertsSnapshot,
   type Severity,
@@ -227,6 +232,7 @@ import {
   type UpgradeOp,
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
+import { mockUps } from "./mockUps";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -283,6 +289,11 @@ export type {
   AlertKind,
   AlertDependency,
   DepNode,
+  UpsCountdown,
+  UpsInput,
+  UpsReading,
+  UpsStatus,
+  UpsWatch,
   AlertSettings,
   AlertsSnapshot,
   AlertTestResult,
@@ -538,7 +549,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.27-web",
+      version: "0.10.28-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -963,6 +974,12 @@ export const api = {
   alertsDepsAdd: (child: DepNode, parent: DepNode): Promise<AlertDependency> =>
     T() ? commands.alertsDepsAdd(child, parent) : mockAlerts.depsAdd(child, parent),
   alertsDepsDelete: (id: number): Promise<null> => (T() ? commands.alertsDepsDelete(id) : mockAlerts.depsDelete(id)),
+  upsList: (): Promise<UpsWatch[]> => (T() ? commands.upsList() : mockUps.list()),
+  upsSave: (input: UpsInput): Promise<UpsWatch> => (T() ? commands.upsSave(input) : mockUps.save(input)),
+  upsDelete: (id: number): Promise<null> => (T() ? commands.upsDelete(id) : mockUps.delete(id)),
+  upsStatus: (): Promise<UpsStatus[]> => (T() ? commands.upsStatus() : mockUps.status()),
+  upsReadNow: (hostId: number, target: string): Promise<UpsReading> => (T() ? commands.upsReadNow(hostId, target) : mockUps.readNow(hostId, target)),
+  upsCancel: (): Promise<null> => (T() ? commands.upsCancel() : mockUps.cancel()),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
