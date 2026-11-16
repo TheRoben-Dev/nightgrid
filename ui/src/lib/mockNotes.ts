@@ -23,7 +23,7 @@ function check(i: NoteInput): Note {
       throw new Error(`invalid value for ${field}: looks like it contains a password or token. Mask it (or keep it in a password manager) before saving`);
   }
   const tags = [...new Set((i.tags ?? []).map((t) => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean))];
-  return { id: 0, title, body, hostId: i.hostId ?? null, tags, pinned: !!i.pinned, hideFromDrift: !!i.hideFromDrift, updatedAt: now() };
+  return { id: 0, title, body, hostId: i.hostId ?? null, tags, pinned: !!i.pinned, hideFromDrift: !!i.hideFromDrift, runbook: !!i.runbook, alertKinds: i.alertKinds ?? [], serviceId: i.serviceId ?? null, updatedAt: now() };
 }
 
 const sorted = () => [...notes].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt - a.updatedAt || b.id - a.id);
@@ -46,12 +46,18 @@ export function resetMockNotes(seed = true) {
       "```sh",
       "docker compose -f /opt/stacks/media/compose.yaml restart",
       "```",
-      "3. If a container keeps restarting, read its logs in **Docker → Logs**.",
+      "3. If a container keeps restarting, read its logs in [Docker](view:docker).",
+      "",
+      "- [ ] Streams play again",
+      "- [ ] Alert cleared",
     ].join("\n"),
-    hostId: 1,
+    hostId: 2,
     tags: ["docker", "runbook"],
     pinned: true,
     hideFromDrift: false,
+    runbook: true,
+    alertKinds: ["containerDown", "serviceDown"],
+    serviceId: null,
     updatedAt: now() - 3600,
   });
   notes.push({
@@ -62,6 +68,9 @@ export function resetMockNotes(seed = true) {
     tags: ["storage"],
     pinned: false,
     hideFromDrift: false,
+    runbook: false,
+    alertKinds: [],
+    serviceId: null,
     updatedAt: now() - 86400 * 3,
   });
 }

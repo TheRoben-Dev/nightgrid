@@ -1,10 +1,36 @@
-import { api, errorText, type Note, type NoteInput } from "../api";
+import { api, errorText, type Alert, type Note, type NoteInput } from "../api";
+import { KIND_LABEL } from "./alerts.svelte";
 import { redact } from "../helper/prompt";
 
 /** Which notes the list shows by host. */
 export type HostFilter = "all" | "none" | number;
 
-export const emptyInput = (hostId: number | null = null): NoteInput => ({ title: "", body: "", hostId, tags: [], pinned: false, hideFromDrift: false });
+/**
+ * Whether a runbook note applies to an alert (same rule as
+ * `notes::runbook_matches` in Rust): marked as a runbook, scoped to
+ * something, and every part of the scope fits.
+ */
+export function runbookMatches(n: Pick<Note, "runbook" | "alertKinds" | "hostId" | "serviceId">, a: Alert): boolean {
+  if (!n.runbook || (!n.alertKinds.length && n.hostId === null && n.serviceId === null)) return false;
+  const kind = !n.alertKinds.length || n.alertKinds.includes(a.kind);
+  const host = n.hostId === null || n.hostId === a.hostId;
+  const svc = n.serviceId === null || new RegExp(`^svc:${n.serviceId}(:|$)`).test(a.key);
+  return kind && host && svc;
+}
+
+/** "Disk full or Filling up, on nas" for the editor and reader. */
+export function runbookScope(
+  n: Pick<Note, "alertKinds" | "hostId" | "serviceId">,
+  hostName: (id: number | null) => string | null,
+  serviceName: (id: number | null) => string | null,
+): string {
+  const parts = [n.alertKinds.length ? n.alertKinds.map((k) => KIND_LABEL[k].toLowerCase()).join(" or ") : "any alert"];
+  if (n.hostId !== null) parts.push(`on ${hostName(n.hostId)}`);
+  if (n.serviceId !== null) parts.push(`about ${serviceName(n.serviceId)}`);
+  return parts.join(", ");
+}
+
+export const emptyInput = (hostId: number | null = null): NoteInput => ({ title: "", body: "", hostId, tags: [], pinned: false, hideFromDrift: false, runbook: false, alertKinds: [], serviceId: null });
 
 /** Splits "a, #b c" into tags. */
 export const parseTags = (s: string): string[] =>
@@ -68,7 +94,7 @@ class NotesStore {
   }
 
   edit(n: Note) {
-    this.draft = { id: n.id, input: { title: n.title, body: n.body, hostId: n.hostId, tags: [...n.tags], pinned: n.pinned, hideFromDrift: n.hideFromDrift } };
+    this.draft = { id: n.id, input: { title: n.title, body: n.body, hostId: n.hostId, tags: [...n.tags], pinned: n.pinned, hideFromDrift: n.hideFromDrift, runbook: n.runbook, alertKinds: [...n.alertKinds], serviceId: n.serviceId } };
     this.saveError = null;
   }
 
@@ -104,7 +130,7 @@ class NotesStore {
 
   async togglePin(n: Note) {
     try {
-      await api.noteSave(n.id, { title: n.title, body: n.body, hostId: n.hostId, tags: n.tags, pinned: !n.pinned, hideFromDrift: n.hideFromDrift });
+      await api.noteSave(n.id, { title: n.title, body: n.body, hostId: n.hostId, tags: n.tags, pinned: !n.pinned, hideFromDrift: n.hideFromDrift, runbook: n.runbook, alertKinds: n.alertKinds, serviceId: n.serviceId });
       await this.load();
     } catch (e) {
       this.error = errorText(e);

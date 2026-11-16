@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.27] - 2026-11-16
+
+### Added: smarter alerts, part 2: runbooks (M10s)
+- A note can be a **runbook for alerts**: pick the alert kinds it's for and optionally a host and a service. Matching alerts show **▤ Runbook** in the alerts list (also on alerts folded under a cause); others offer **+ Runbook**, which starts a note for that kind of alert with a step list to fill in.
+- **Runbook steps** in notes: `- [ ] step` becomes a checklist to tick while you work, and `[label](view:fleet)` a link that opens a view. Code blocks keep **Send to terminal** (never pressed Enter).
+- **✦ Triage** on an alert tells DRIFT about your runbook for it, so the answer starts from your own steps.
+- Runbook settings travel with notes in profile exports.
+
 ## [0.10.26] - 2026-11-16
 
 ### Added: smarter alerts, part 1: dependencies (M10s)

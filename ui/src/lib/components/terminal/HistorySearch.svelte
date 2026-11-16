@@ -57,7 +57,7 @@
   }
 
   function toNote(cmd: string) {
-    notes.draft = { id: null, input: { title: cmd.length > 60 ? `${cmd.slice(0, 57)}…` : cmd, body: "```sh\n" + cmd + "\n```", hostId, tags: [], pinned: false, hideFromDrift: false } };
+    notes.draft = { id: null, input: { title: cmd.length > 60 ? `${cmd.slice(0, 57)}…` : cmd, body: "```sh\n" + cmd + "\n```", hostId, tags: [], pinned: false, hideFromDrift: false, runbook: false, alertKinds: [], serviceId: null } };
     notes.saveError = null;
     onclose();
     ui.go("notes");

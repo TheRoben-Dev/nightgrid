@@ -8,6 +8,45 @@
   import { helper } from "../../stores/helper.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { ui } from "../../stores/ui.svelte";
+  import { notes, runbookMatches } from "../../stores/notes.svelte";
+
+  const runbooks = (a: Alert) => notes.notes.filter((n) => runbookMatches(n, a));
+  $effect(() => {
+    if (alerts.open && !notes.loaded) void notes.load();
+  });
+  let pick = $state<number | null>(null);
+
+  function openNote(id: number) {
+    notes.draft = null;
+    notes.selected = id;
+    alerts.open = false;
+    pick = null;
+    ui.go("notes");
+  }
+
+  /** A new runbook for this kind of alert, on this host or service, with a step list to fill in. */
+  function newRunbook(a: Alert) {
+    const svc = /^svc:(\d+)/.exec(a.key);
+    const serviceId = svc ? Number(svc[1]) : null;
+    const hostId = serviceId === null ? a.hostId : null;
+    const where = hosts.hosts.find((h) => h.id === hostId)?.name;
+    notes.draft = {
+      id: null,
+      input: {
+        title: `${KIND_LABEL[a.kind][0]}${KIND_LABEL[a.kind].slice(1).toLowerCase()}${serviceId !== null ? `: ${a.title}` : where ? ` on ${where}` : ""}`,
+        body: ["When this alert fires:", "", "- [ ] Check …", "- [ ] Fix …", "- [ ] Confirm it cleared in [the alerts list](view:overview)", "", "```sh", "# a command to type into the terminal", "```"].join("\n"),
+        hostId,
+        tags: ["runbook"],
+        pinned: false,
+        hideFromDrift: false,
+        runbook: true,
+        alertKinds: [a.kind],
+        serviceId,
+      },
+    };
+    alerts.open = false;
+    ui.go("notes");
+  }
 
   /**
    * Triage: the alert, its usual causes and first checks, and (for log
@@ -20,12 +59,15 @@
     const src = logSource(a) ?? a.title;
     const text = [`${KIND_LABEL[a.kind]}: ${a.title}`, a.detail, `Since: ${new Date(a.since * 1000).toLocaleString()}`, ...(lines.length ? ["", ...lines] : [])].join("\n");
     alerts.open = false;
+    const mine = runbooks(a);
+    const check = triageCheck(a.kind, a.title);
+    if (mine.length) check.items.push({ text: `Your runbook${mine.length > 1 ? "s" : ""} for this: ${mine.map((n) => `"${n.title}"`).join(", ")} (in Notes; follow it first)` });
     void helper.explain({
       source: log ? `Error lines: ${src} · ${lines.length} lines` : `Alert: ${a.title}`,
       text,
       question: log ? "What broke here, what is the likely cause, and how do I check and fix it?" : "Triage this alert: what is the likely cause, what should I check first, and where?",
       host,
-      checks: [triageCheck(a.kind, a.title)],
+      checks: [check],
     });
   }
 
@@ -50,6 +92,7 @@
   {#if alerts.active.length}
     <ul class="list" aria-label="Active alerts">
       {#each groups as { alert: a, folded } (a.key)}
+        {@const rb = runbooks(a)}
         <li class="row {a.severity}">
           <span class="bar" aria-hidden="true"></span>
           <div class="txt">
@@ -62,7 +105,19 @@
               ><span aria-hidden="true">✦ </span>{isLogAlert(a) ? "What broke?" : "Triage"}</button
             >
           {/if}
+          {#if rb.length === 1}
+            <button type="button" class="btn tiny" data-guide="alert-runbook" title="Open the runbook “{rb[0].title}”" onclick={() => openNote(rb[0].id)}>▤ Runbook</button>
+          {:else if rb.length > 1}
+            <button type="button" class="btn tiny" data-guide="alert-runbook" aria-expanded={pick === a.id} onclick={() => (pick = pick === a.id ? null : a.id)}>▤ Runbooks ({rb.length})</button>
+          {:else}
+            <button type="button" class="btn ghost tiny" title="Write a runbook for this kind of alert" onclick={() => newRunbook(a)}>+ Runbook</button>
+          {/if}
           <button type="button" class="btn ghost tiny" onclick={() => alerts.go(a)}>{targetLabel(a)}</button>
+          {#if pick === a.id && rb.length > 1}
+            <div class="fold">
+              {#each rb as n (n.id)}<button type="button" class="link" onclick={() => openNote(n.id)}>▤ {n.title}</button>{/each}
+            </div>
+          {/if}
           {#if folded.length}
             <div class="fold">
               <button type="button" class="link" aria-expanded={openFold === a.id} onclick={() => (openFold = openFold === a.id ? null : a.id)}
@@ -74,7 +129,10 @@
                     <li>
                       <span class="kind">{KIND_LABEL[f.kind]} · {f.title}</span>
                       <span class="detail">{f.detail}</span>
-                      <button type="button" class="btn ghost tiny" onclick={() => alerts.go(f)}>{targetLabel(f)}</button>
+                      <span class="facts">
+                        {#each runbooks(f).slice(0, 1) as n (n.id)}<button type="button" class="btn tiny" data-guide="alert-runbook" title="Open the runbook “{n.title}”" onclick={() => openNote(n.id)}>▤ Runbook</button>{/each}
+                        <button type="button" class="btn ghost tiny" onclick={() => alerts.go(f)}>{targetLabel(f)}</button>
+                      </span>
                     </li>
                   {/each}
                 </ul>
@@ -184,9 +242,11 @@
     grid-column: 1;
     color: var(--text-1);
   }
-  .fold li .btn {
+  .fold li .facts {
     grid-row: 1 / span 2;
     grid-column: 2;
+    display: flex;
+    gap: 6px;
   }
   .link {
     background: none;
@@ -201,7 +261,7 @@
   .row {
     --tone: var(--text-1);
     display: grid;
-    grid-template-columns: 2px 1fr auto auto;
+    grid-template-columns: 2px 1fr repeat(4, auto);
     gap: 10px;
     align-items: center;
     padding: 6px 8px 6px 0;

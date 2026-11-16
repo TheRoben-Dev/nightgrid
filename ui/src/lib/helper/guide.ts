@@ -46,6 +46,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "automation-new-snippet", view: "automation", what: "create a snippet (saved command)" },
   { id: "automation-new-playbook", view: "automation", what: "create a playbook" },
   { id: "term-key-hints", view: "terminal", what: "key hint strip under the terminal: keys of the program in front (nano, vim, less, htop, tmux …); turn off in Settings → Terminal" },
+  { id: "alert-runbook", view: null, what: "open the runbook note for an alert (in the alerts list)" },
+  { id: "notes-runbook", view: "notes", what: "make a note a runbook for alert kinds, a host or a service (in the note editor)" },
   { id: "alert-triage", view: null, what: "Triage / What broke? on an alert (in the alerts list): DRIFT gets the usual causes and first checks" },
   { id: "drift-save-note", view: null, what: "save a DRIFT reply as a runbook note" },
   { id: "drift-skills", view: null, what: "DRIFT's exact checks: command safety, compose review, error lookup and cron (in the DRIFT panel)" },

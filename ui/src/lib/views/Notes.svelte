@@ -14,9 +14,23 @@
   import { hasSecret, notes, parseTags } from "../stores/notes.svelte";
   import { terms } from "../stores/terms.svelte";
   import { formatChord } from "../keys";
+  import { KIND_LABEL } from "../stores/alerts.svelte";
+  import { services } from "../stores/services.svelte";
+  import { ui } from "../stores/ui.svelte";
+  import { runbookScope } from "../stores/notes.svelte";
+  import type { AlertKind } from "../api";
+
+  const KINDS = Object.keys(KIND_LABEL) as AlertKind[];
+  function toggleKind(k: AlertKind) {
+    if (!notes.draft) return;
+    const ks = notes.draft.input.alertKinds;
+    notes.draft.input.alertKinds = ks.includes(k) ? ks.filter((x) => x !== k) : [...ks, k];
+  }
+  const serviceName = (id: number | null) => (id === null ? null : (services.services.find((s) => s.id === id)?.name ?? `service ${id}`));
 
   onMount(() => {
     void notes.load();
+    if (!services.loaded) void services.refresh();
   });
 
   const cur = $derived(notes.current);
@@ -145,6 +159,29 @@
           </select>
           <input class="input grow" placeholder="Tags, e.g. docker, backup" aria-label="Tags" bind:value={tagText} onkeydown={saveKey} />
         </div>
+        <fieldset class="runbook" data-guide="notes-runbook">
+          <label class="pinbox"
+            ><input type="checkbox" bind:checked={draft.input.runbook} /> Runbook for alerts
+            <span class="muted small">(offered on matching alerts)</span></label
+          >
+          {#if draft.input.runbook}
+            <div class="kinds" role="group" aria-label="Alert kinds">
+              {#each KINDS as k (k)}
+                <button type="button" class="chip kind" class:sel={draft.input.alertKinds.includes(k)} aria-pressed={draft.input.alertKinds.includes(k)} onclick={() => toggleKind(k)}>{KIND_LABEL[k]}</button>
+              {/each}
+            </div>
+            <div class="row">
+              <select class="input" aria-label="Only for this service" bind:value={draft.input.serviceId}>
+                <option value={null}>Any service</option>
+                {#each services.services as s (s.id)}<option value={s.id}>{s.name}</option>{/each}
+              </select>
+              <span class="muted small grow">
+                {#if !draft.input.alertKinds.length && draft.input.hostId === null && draft.input.serviceId === null}Pick alert kinds, a host or a service, or it won't show on any alert.{:else}Shows on: {runbookScope(draft.input, hostName, serviceName)}.{/if}
+                Steps: <code>- [ ] step</code> becomes a checklist, <code>[Open disks](view:fleet)</code> a link.
+              </span>
+            </div>
+          {/if}
+        </fieldset>
         <textarea
           class="input body"
           aria-label="Note text (markdown)"
@@ -172,6 +209,7 @@
         <header>
           <h1 aria-label={cur.title}><span use:scramble={cur.title}></span></h1>
           <div class="sub">
+            {#if cur.runbook}<span class="rb" title="Offered on: {runbookScope(cur, hostName, serviceName)}">RUNBOOK</span>{/if}
             {#if cur.hostId !== null}<span class="host">{hostName(cur.hostId)}</span>{/if}
             {#each cur.tags as t (t)}<span class="muted">#{t}</span>{/each}
             <span class="muted">edited {ago(cur.updatedAt)}</span>
@@ -195,7 +233,8 @@
         </header>
         <div class="text">
           {#if cur.body.trim()}
-            <Markdown src={cur.body}>
+            {#if cur.runbook}<p class="muted small scope">For alerts: {runbookScope(cur, hostName, serviceName)}.</p>{/if}
+            <Markdown src={cur.body} steps onview={(v) => ui.go(v as never)}>
               {#snippet code(b)}
                 <button type="button" class="btn ghost tiny" onclick={() => void copy(b.text)}>Copy</button>
                 <button
@@ -430,5 +469,31 @@
     .notes {
       grid-template-columns: 1fr;
     }
+  }
+  .runbook {
+    border: 1px solid var(--line);
+    padding: 6px 8px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .chip.kind.sel {
+    color: var(--magenta);
+    border-color: var(--magenta);
+    background: transparent;
+  }
+  .rb {
+    color: var(--magenta);
+    letter-spacing: 0.1em;
+    font-size: var(--fs-xs);
+  }
+  .scope {
+    margin: 0 0 8px;
   }
 </style>

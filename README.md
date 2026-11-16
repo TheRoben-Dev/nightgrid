@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.27 (runbooks on alerts)
+
+1. Open the alerts list (or wait for an alert) and press **+ Runbook** on one: Notes opens a new note tied to that kind of alert with a step list. Add a step with a command in a ``` block and a link like `[Check disks](view:fleet)`, then save.
+2. The note shows RUNBOOK and "For alerts: …". Tick the steps; **Check disks →** opens Fleet. Open the note again: the ticks are cleared.
+3. Back in the alerts list the alert now has **▤ Runbook**, which opens the note. Alerts folded under a cause show it in the expanded list too.
+4. Edit the note and untick all kinds: the editor warns it won't show on any alert.
+5. **✦ Triage** on that alert: the checks card mentions your runbook.
+
 ### macOS: testing 0.10.26 (alert dependencies)
 
 1. **Settings → Dependencies**: add "<a service> depends on <a host>" and "<host A> depends on <host B>". Try the reverse of an existing one: it says that would make a loop.
