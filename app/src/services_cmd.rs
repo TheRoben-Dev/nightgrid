@@ -82,7 +82,13 @@ impl ServicesHub {
 }
 
 async fn run_check(app: &AppHandle, svc: &Service) -> ServiceStatus {
-    let result = check::check(&svc.url, &svc.expect_status, svc.allow_untrusted, check::DEFAULT_TIMEOUT).await;
+    let mut result = check::check(&svc.url, &svc.expect_status, svc.allow_untrusted, check::DEFAULT_TIMEOUT).await;
+    // A connection that didn't get as far as an HTTP answer gets one more try
+    // a moment later, like a browser would: one lost connect isn't an outage.
+    if !result.up && result.status.is_none() {
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        result = check::check(&svc.url, &svc.expect_status, svc.allow_untrusted, check::DEFAULT_TIMEOUT).await;
+    }
     let ts = check::now_unix();
     let state = app.state::<AppState>();
     if let Err(e) = state.store().record_check(svc.id, ts, result.up, result.status, result.latency_ms) {

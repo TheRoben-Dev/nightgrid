@@ -8,7 +8,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use http_body_util::Empty;
+use http_body_util::{BodyExt, Empty};
 use hyper::body::Bytes;
 use hyper_util::rt::TokioIo;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
@@ -119,14 +119,15 @@ pub async fn check(url: &str, expect_status: &str, allow_untrusted: bool, timeou
     .await
     {
         Ok(Ok(s)) => s,
-        Ok(Err(e)) => return CheckResult::failed(connect_error(&e), None),
-        Err(_) => return CheckResult::failed("timed out connecting", None),
+        Ok(Err(e)) => return CheckResult::failed(format!("{}{}", connect_error(&e), tried(&target).await), None),
+        Err(_) => return CheckResult::failed(format!("timed out connecting{}", tried(&target).await), None),
     };
     let _ = tcp.set_nodelay(true);
+    let via = dialed(&tcp, &target);
     let remaining = timeout.saturating_sub(started.elapsed());
 
     if !target.https {
-        return finish(request(tcp, &target, remaining).await, started, expect_status, None);
+        return finish(request(tcp, &target, remaining).await, started, expect_status, None, &via);
     }
 
     let captured = Arc::new(Mutex::new(Captured::default()));
@@ -146,7 +147,7 @@ pub async fn check(url: &str, expect_status: &str, allow_untrusted: bool, timeou
         Err(_) => return CheckResult::failed("timed out during TLS handshake", tls),
     };
     let remaining = timeout.saturating_sub(started.elapsed());
-    let mut result = finish(request(stream, &target, remaining).await, started, expect_status, tls);
+    let mut result = finish(request(stream, &target, remaining).await, started, expect_status, tls, &via);
     if let Some(t) = &result.tls {
         if !t.trusted && !allow_untrusted && result.up {
             result.up = false;
@@ -166,15 +167,115 @@ pub(crate) fn connect_error(e: &std::io::Error) -> String {
     }
 }
 
-fn finish(res: Result<u16, String>, started: Instant, expect_status: &str, tls: Option<TlsInfo>) -> CheckResult {
+/// Where the connection went, for failure messages: the address dialled, or
+/// the built-in tailnet (its proxy is on loopback).
+fn dialed(tcp: &tokio::net::TcpStream, target: &Target) -> String {
+    let local_target =
+        target.host == "localhost" || target.host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback());
+    match tcp.peer_addr() {
+        Ok(a) if a.ip().is_loopback() && !local_target => "through the built-in tailnet".into(),
+        Ok(_) if target.host.parse::<std::net::IpAddr>().is_ok() => String::new(),
+        Ok(a) => format!("at {}", a.ip()),
+        Err(_) => String::new(),
+    }
+}
+
+/// " (tried 2001:db8::1, 192.0.2.1)": the addresses a name resolves to, for
+/// a connection that failed. Empty for an IP or a failed lookup.
+async fn tried(target: &Target) -> String {
+    if target.host.parse::<std::net::IpAddr>().is_ok() {
+        return String::new();
+    }
+    let route = match crate::tailnet::route(&target.host) {
+        crate::tailnet::Route::Direct => "",
+        _ => " via the built-in tailnet",
+    };
+    let lookup =
+        tokio::time::timeout(Duration::from_secs(2), tokio::net::lookup_host((target.host.as_str(), target.port)))
+            .await;
+    let mut ips: Vec<String> = match lookup {
+        Ok(Ok(it)) => it.map(|a| a.ip().to_string()).collect(),
+        _ => return route.to_owned(),
+    };
+    ips.dedup();
+    if ips.is_empty() {
+        return route.to_owned();
+    }
+    ips.truncate(4);
+    format!(" to {}{route}", ips.join(", "))
+}
+
+/// A response that matters for the board.
+pub(crate) struct Resp {
+    pub status: u16,
+    /// `Server` header (which proxy answered).
+    pub server: Option<String>,
+    /// The start of the body, as text, for error statuses.
+    pub snippet: Option<String>,
+}
+
+/// Visible text of an error page: tags dropped, whitespace collapsed, cut short.
+pub(crate) fn page_text(body: &[u8]) -> Option<String> {
+    let raw = String::from_utf8_lossy(body);
+    let lower = raw.to_ascii_lowercase();
+    let mut out = String::new();
+    let (mut in_tag, mut skip) = (false, false); // skip: inside <style> or <script>
+    for (i, c) in raw.char_indices() {
+        if c == '<' {
+            let rest = &lower[i..];
+            if rest.starts_with("<style") || rest.starts_with("<script") {
+                skip = true;
+            } else if rest.starts_with("</style") || rest.starts_with("</script") {
+                skip = false;
+            }
+            in_tag = true;
+        } else if c == '>' && in_tag {
+            in_tag = false;
+            out.push(' ');
+        } else if !in_tag && !skip {
+            out.push(c);
+        }
+    }
+    let text = out.split_whitespace().collect::<Vec<_>>().join(" ");
+    if text.is_empty() {
+        return None;
+    }
+    Some(if text.chars().count() > 140 { format!("{}…", text.chars().take(140).collect::<String>()) } else { text })
+}
+
+fn finish(
+    res: Result<Resp, String>,
+    started: Instant,
+    expect_status: &str,
+    tls: Option<TlsInfo>,
+    via: &str,
+) -> CheckResult {
     match res {
-        Ok(status) => {
+        Ok(r) => {
+            let status = r.status;
             let up = status_matches(expect_status, status);
+            let error = (!up).then(|| {
+                let mut m = format!("HTTP {status} isn't in {}", expect_label(expect_status));
+                let from = match (&r.server, via.is_empty()) {
+                    (Some(srv), false) => format!(" · from {srv} {via}"),
+                    (Some(srv), true) => format!(" · from {srv}"),
+                    (None, false) => format!(" · {via}"),
+                    (None, true) => String::new(),
+                };
+                m.push_str(&from);
+                if let Some(t) = &r.snippet {
+                    m.push_str(&format!(" · \"{t}\""));
+                }
+                if status == 502 || status == 504 {
+                    m.push_str(" · the proxy answered but couldn't reach the app behind it");
+                }
+                m
+            });
             CheckResult {
                 up,
                 status: Some(status),
                 latency_ms: Some(u32::try_from(started.elapsed().as_millis()).unwrap_or(u32::MAX)),
-                error: (!up).then(|| format!("HTTP {status} isn't in {}", expect_label(expect_status))),
+                error,
                 tls,
             }
         }
@@ -190,7 +291,7 @@ fn expect_label(spec: &str) -> &str {
     }
 }
 
-async fn request<S>(io: S, target: &Target, timeout: Duration) -> Result<u16, String>
+async fn request<S>(io: S, target: &Target, timeout: Duration) -> Result<Resp, String>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
@@ -209,8 +310,42 @@ where
             .body(Empty::new())
             .map_err(|e| format!("bad request: {e}"))?;
         let res = sender.send_request(req).await.map_err(|e| format!("HTTP error: {e}"));
+        let res = match res {
+            Ok(r) => r,
+            Err(e) => {
+                driver.abort();
+                return Err(e);
+            }
+        };
+        let status = res.status().as_u16();
+        let server = res
+            .headers()
+            .get(hyper::header::SERVER)
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.chars().take(40).collect::<String>())
+            .filter(|v| !v.is_empty());
+        // For an error status, read a little of the page: proxies say why.
+        let mut snippet = None;
+        if status >= 400 {
+            let mut body = res.into_body();
+            let mut buf = Vec::new();
+            let read = async {
+                while buf.len() < 4096 {
+                    match body.frame().await {
+                        Some(Ok(f)) => {
+                            if let Some(d) = f.data_ref() {
+                                buf.extend_from_slice(d);
+                            }
+                        }
+                        _ => break,
+                    }
+                }
+            };
+            let _ = tokio::time::timeout(Duration::from_millis(1500), read).await;
+            snippet = page_text(&buf);
+        }
         driver.abort();
-        Ok::<_, String>(res?.status().as_u16())
+        Ok::<_, String>(Resp { status, server, snippet })
     };
     tokio::time::timeout(timeout, work).await.map_err(|_| "timed out waiting for a response".to_owned())?
 }
@@ -372,6 +507,13 @@ mod tests {
         port
     }
 
+    #[test]
+    fn error_pages_as_text() {
+        assert_eq!(page_text(b"<html><script>x()</script><p>Bad   gateway</p></html>").as_deref(), Some("Bad gateway"));
+        assert_eq!(page_text(b"  "), None);
+        assert!(page_text("é".repeat(300).as_bytes()).unwrap().ends_with('…'));
+    }
+
     #[tokio::test]
     async fn http_up_and_down() {
         let port = serve_once("HTTP/1.1 204 No Content\r\ncontent-length: 0\r\n\r\n").await;
@@ -385,6 +527,15 @@ mod tests {
         assert!(!r.up);
         assert_eq!(r.status, Some(503));
         assert!(r.error.unwrap().contains("503"));
+
+        let page = "HTTP/1.1 502 Bad Gateway\r\nserver: nginx\r\ncontent-type: text/html\r\ncontent-length: 90\r\n\r\n<html><head><style>b{}</style></head><body><h1>502 Bad Gateway</h1><hr>nginx</body></html>";
+        let port = serve_once(page).await;
+        let r = check(&format!("http://127.0.0.1:{port}/"), "", false, DEFAULT_TIMEOUT).await;
+        let e = r.error.unwrap();
+        assert!(
+            e.contains("from nginx") && e.contains("\"502 Bad Gateway nginx\"") && e.contains("couldn't reach the app"),
+            "{e}"
+        );
 
         let port = serve_once("HTTP/1.1 401 Unauthorized\r\ncontent-length: 0\r\n\r\n").await;
         let r = check(&format!("http://127.0.0.1:{port}/"), "200-399,401", false, DEFAULT_TIMEOUT).await;

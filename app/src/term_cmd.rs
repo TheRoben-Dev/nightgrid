@@ -84,11 +84,39 @@ pub enum TermOpen {
 pub(crate) async fn connect_host(app: &AppHandle, host_id: HostId) -> Result<Arc<client::Connection>, ConnectError> {
     let state = app.state::<AppState>();
     let (hop, jumps) = resolve_host(&state, host_id)?;
-    let opts = state.connect_options();
+    let mut opts = state.connect_options();
+    // Banners (a Tailscale SSH approval link) go to the UI while this waits.
+    let notices = app.clone();
+    opts.on_notice = Some(client::NoticeSink(Arc::new(move |n| {
+        tracing::info!(host_id, target = %n.target, url = ?n.url, "login notice from the server");
+        let st = notices.state::<AppState>();
+        st.auth_notices.lock().expect("poisoned").insert(host_id, (n, std::time::Instant::now()));
+    })));
     let jump_targets: Vec<_> = jumps.into_iter().map(|h| h.target).collect();
-    let conn = state.pool.get(host_id, || client::connect(&hop.target, &jump_targets, &opts)).await?;
+    let res = state.pool.get(host_id, || client::connect(&hop.target, &jump_targets, &opts)).await;
+    // Done waiting either way: the prompt goes away.
+    state.auth_notices.lock().expect("poisoned").remove(&host_id);
+    let conn = res?;
     crate::tunnels_cmd::host_connected(app, host_id, &conn);
     Ok(conn)
+}
+
+/// A login notice for a host that is still connecting.
+#[derive(Debug, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HostAuthNotice {
+    pub host_id: HostId,
+    pub notice: client::AuthNotice,
+}
+
+/// What servers are saying to hosts that are logging in right now (a
+/// Tailscale SSH check's approval link). Polled by the UI; cheap.
+#[tauri::command]
+#[specta::specta]
+pub fn ssh_auth_notices(state: State<'_, AppState>) -> Vec<HostAuthNotice> {
+    let mut m = state.auth_notices.lock().expect("poisoned");
+    m.retain(|_, (_, at)| at.elapsed() < std::time::Duration::from_secs(600));
+    m.iter().map(|(id, (n, _))| HostAuthNotice { host_id: *id, notice: n.clone() }).collect()
 }
 
 /// The host's final hop and its ProxyJump chain, with remembered secrets.

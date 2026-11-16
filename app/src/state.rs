@@ -57,6 +57,8 @@ pub struct AppState {
     /// Phone status page server.
     pub status_server: Arc<crate::status_cmd::StatusServer>,
     /// Built-in Tailscale client (M10j).
+    /// What servers said while logging in (Tailscale SSH approval links), per host.
+    pub auth_notices: Mutex<HashMap<HostId, (nightgrid_core::ssh::client::AuthNotice, std::time::Instant)>>,
     pub tailnet: Arc<crate::tailnet_cmd::TailnetHub>,
     /// Backup file picked for import (opened and previewed, not yet imported).
     pub pending_backup: Mutex<Option<PathBuf>>,
@@ -95,6 +97,7 @@ impl AppState {
             logsearch: Arc::default(),
             firewall: Arc::default(),
             status_server: Arc::default(),
+            auth_notices: Mutex::default(),
             tailnet: Arc::default(),
             next_term: AtomicU32::new(1),
         })

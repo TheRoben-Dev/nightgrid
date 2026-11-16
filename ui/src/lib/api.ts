@@ -301,6 +301,8 @@ import {
   type UnitAction,
   type UpdatesReport_Serialize as UpdatesReport,
   type UpgradeOp,
+  type AuthNotice_Serialize as AuthNotice,
+  type HostAuthNotice_Serialize as HostAuthNotice,
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
@@ -331,6 +333,11 @@ import { mockMetrics } from "./mockMetrics";
 import { mockServices } from "./mockServices";
 import { mockTunnels } from "./mockTunnels";
 import { mockSystem } from "./mockSystem";
+
+/** Browser preview: what `sshAuthNotices` returns (tests fill it). */
+export const mockAuthNotices: HostAuthNotice[] = [];
+
+export type { AuthNotice, HostAuthNotice };
 
 export type {
   ChatTurn,
@@ -700,7 +707,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.50-web",
+      version: "0.10.51-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -780,6 +787,8 @@ export const api = {
     T() ? commands.termOpenLocal(cols, rows, channel(on)) : mockBackend.termOpenLocal(on),
   termOpenSsh: (hostId: number, cols: number, rows: number, token: string | null, edit: boolean, hints: boolean, on: TermListener): Promise<TermOpen> =>
     T() ? commands.termOpenSsh(hostId, cols, rows, token, edit, hints, channel(on)) : mockBackend.termOpenSsh(hostId, on),
+  /** Login notices (a Tailscale SSH approval link) for hosts still connecting. */
+  sshAuthNotices: (): Promise<HostAuthNotice[]> => (T() ? commands.sshAuthNotices() : Promise.resolve(mockAuthNotices.slice())),
   termForeground: (id: number): Promise<string | null> => (T() ? commands.termForeground(id) : mockBackend.termForeground(id)),
   termWrite: (id: number, data: string): Promise<null> =>
     T() ? commands.termWrite(id, data) : mockBackend.termWrite(id, data),

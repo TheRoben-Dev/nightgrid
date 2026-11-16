@@ -33,6 +33,11 @@ export const commands = {
 	hostsPing: (ids: number[], options?: InvokeOptions) => __TAURI_INVOKE<HostPing_Serialize[]>("hosts_ping", { ids }, options),
 	termOpenLocal: (cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("term_open_local", { cols, rows, onEvent }, options),
 	termOpenSsh: (hostId: number, cols: number, rows: number, editToken: string | null, edit: boolean, hints: boolean, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_ssh", { hostId, cols, rows, editToken, edit, hints, onEvent }, options),
+	/**
+	 *  What servers are saying to hosts that are logging in right now (a
+	 *  Tailscale SSH check's approval link). Polled by the UI; cheap.
+	 */
+	sshAuthNotices: (options?: InvokeOptions) => __TAURI_INVOKE<HostAuthNotice_Serialize[]>("ssh_auth_notices", undefined, options),
 	termWrite: (id: number, data: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_write", { id, data }, options),
 	termResize: (id: number, cols: number, rows: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("term_resize", { id, cols, rows }, options),
 	/**
@@ -1335,6 +1340,31 @@ export type AuthMethod =
 "key" | 
 /**  Password, from the keychain (opt-in) or a prompt. */
 "password";
+
+/**  Something the server said during authentication. */
+export type AuthNotice = AuthNotice_Serialize | AuthNotice_Deserialize;
+
+/**  Something the server said during authentication. */
+export type AuthNotice_Deserialize = {
+	/**  Hop label (`user@host[:port]`). */
+	target: string,
+	text: string,
+	/**  The first https link in the text (an approval page), if any. */
+	url?: string | null,
+	/**  The server identifies as Tailscale SSH. */
+	tailscale: boolean,
+};
+
+/**  Something the server said during authentication. */
+export type AuthNotice_Serialize = {
+	/**  Hop label (`user@host[:port]`). */
+	target: string,
+	text: string,
+	/**  The first https link in the text (an approval page), if any. */
+	url: string | null,
+	/**  The server identifies as Tailscale SSH. */
+	tailscale: boolean,
+};
 
 /**  One line of a host's `~/.ssh/authorized_keys`. */
 export type AuthorizedKey = AuthorizedKey_Serialize | AuthorizedKey_Deserialize;
@@ -3126,6 +3156,21 @@ export type HomepagePreview_Serialize = {
 };
 
 export type Host = Host_Serialize | Host_Deserialize;
+
+/**  A login notice for a host that is still connecting. */
+export type HostAuthNotice = HostAuthNotice_Serialize | HostAuthNotice_Deserialize;
+
+/**  A login notice for a host that is still connecting. */
+export type HostAuthNotice_Deserialize = {
+	hostId: number,
+	notice: AuthNotice_Deserialize,
+};
+
+/**  A login notice for a host that is still connecting. */
+export type HostAuthNotice_Serialize = {
+	hostId: number,
+	notice: AuthNotice_Serialize,
+};
 
 export type HostEvent = {
 	/**  Unix seconds. */

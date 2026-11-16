@@ -331,7 +331,71 @@ async fn within<T>(t: Duration, f: impl std::future::Future<Output = io::Result<
 }
 
 async fn direct(host: &str, port: u16) -> io::Result<TcpStream> {
-    TcpStream::connect((host.trim_matches(['[', ']']), port)).await
+    let bare = host.trim_matches(['[', ']']);
+    if let Ok(ip) = bare.parse::<IpAddr>() {
+        return TcpStream::connect((ip, port)).await;
+    }
+    let addrs: Vec<SocketAddr> = tokio::net::lookup_host((bare, port)).await?.collect();
+    happy_eyeballs(interleave(addrs)).await
+}
+
+/// How long one address gets before the next one is tried alongside it.
+const ATTEMPT_DELAY: Duration = Duration::from_millis(250);
+
+/// Addresses in the order to try them: the resolver's first family first,
+/// then alternating IPv6 and IPv4 (RFC 8305), duplicates dropped.
+pub(crate) fn interleave(addrs: Vec<SocketAddr>) -> Vec<SocketAddr> {
+    let mut seen = HashSet::new();
+    let addrs: Vec<SocketAddr> = addrs.into_iter().filter(|a| seen.insert(*a)).collect();
+    let first_v6 = addrs.first().is_some_and(SocketAddr::is_ipv6);
+    let (mut a, mut b): (std::collections::VecDeque<_>, std::collections::VecDeque<_>) =
+        addrs.into_iter().partition(|x| x.is_ipv6() == first_v6);
+    let mut out = Vec::with_capacity(a.len() + b.len());
+    while !a.is_empty() || !b.is_empty() {
+        out.extend(a.pop_front());
+        out.extend(b.pop_front());
+    }
+    out
+}
+
+/// Connects like a browser does (Happy Eyeballs, RFC 8305): each address
+/// gets a head start of [`ATTEMPT_DELAY`] before the next one is tried in
+/// parallel, and the first connection wins. A plain connect tries addresses
+/// one by one, so a name with an IPv6 address on a network where IPv6 is
+/// broken waits out the whole timeout on it and never reaches IPv4.
+pub(crate) async fn happy_eyeballs(addrs: Vec<SocketAddr>) -> io::Result<TcpStream> {
+    if addrs.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::NotFound, "the name has no addresses"));
+    }
+    let mut queue: std::collections::VecDeque<SocketAddr> = addrs.into();
+    let mut set = tokio::task::JoinSet::new();
+    let mut last: Option<io::Error> = None;
+    loop {
+        if let Some(a) = queue.pop_front() {
+            set.spawn(
+                async move { TcpStream::connect(a).await.map_err(|e| io::Error::new(e.kind(), format!("{a}: {e}"))) },
+            );
+        }
+        while !set.is_empty() {
+            tokio::select! {
+                r = set.join_next() => match r {
+                    // Dropping the set aborts the attempts still running.
+                    Some(Ok(Ok(s))) => return Ok(s),
+                    Some(Ok(Err(e))) => {
+                        last = Some(e);
+                        if !queue.is_empty() {
+                            break;
+                        }
+                    }
+                    _ => {}
+                },
+                _ = tokio::time::sleep(ATTEMPT_DELAY), if !queue.is_empty() => break,
+            }
+        }
+        if queue.is_empty() && set.is_empty() {
+            return Err(last.unwrap_or_else(|| io::Error::other("couldn't connect")));
+        }
+    }
 }
 
 /// SOCKS5 CONNECT with username/password auth (RFC 1928, RFC 1929).
@@ -592,6 +656,34 @@ fn set_state(s: &mut TailnetStatus, state: &str) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn interleaves_families_starting_with_the_first() {
+        let a = |s: &str| s.parse::<SocketAddr>().unwrap();
+        let got = interleave(vec![
+            a("[2001:db8::1]:443"),
+            a("[2001:db8::2]:443"),
+            a("192.0.2.1:443"),
+            a("[2001:db8::1]:443"),
+        ]);
+        assert_eq!(got, vec![a("[2001:db8::1]:443"), a("192.0.2.1:443"), a("[2001:db8::2]:443")]);
+        let got = interleave(vec![a("192.0.2.1:443"), a("[2001:db8::1]:443")]);
+        assert_eq!(got[0], a("192.0.2.1:443"));
+    }
+
+    #[tokio::test]
+    async fn a_dead_first_address_doesnt_block_the_next() {
+        let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let good = l.local_addr().unwrap();
+        // TEST-NET-1: never answers (or fails at once, depending on the network).
+        let dead: SocketAddr = format!("192.0.2.1:{}", good.port()).parse().unwrap();
+        let started = std::time::Instant::now();
+        let s = tokio::time::timeout(Duration::from_secs(3), happy_eyeballs(vec![dead, good])).await.unwrap().unwrap();
+        assert_eq!(s.peer_addr().unwrap(), good);
+        assert!(started.elapsed() < Duration::from_secs(2));
+        assert!(happy_eyeballs(Vec::new()).await.is_err());
+    }
+
     use super::*;
 
     #[test]
@@ -645,6 +737,9 @@ mod tests {
         assert_eq!(route_for(&sh, "192.168.1.20"), Route::DirectThenTailnet);
         assert_eq!(route_for(&sh, "192.168.2.20"), Route::Direct);
         assert_eq!(route_for(&sh, "nas.lan"), Route::Direct);
+        // Tailscale's own servers are public: never through the tailnet.
+        assert_eq!(route_for(&sh, "login.tailscale.com"), Route::Direct);
+        assert_eq!(route_for(&sh, "controlplane.tailscale.com"), Route::Direct);
         assert_eq!(route_for(&sh, "100.63.0.1"), Route::Direct);
         // Not running (or off): everything is direct, so a system Tailscale still works.
         assert_eq!(route_for(&shared(false), "100.101.7.12"), Route::Direct);
