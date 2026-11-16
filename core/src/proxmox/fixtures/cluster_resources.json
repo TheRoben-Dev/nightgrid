@@ -1,0 +1,13 @@
+[{"cgroup-mode":2,"cpu":0.0612,"disk":5368709120,"id":"node/pve1","level":"","maxcpu":16,"maxdisk":100861726720,"maxmem":67353968640,"mem":24159191040,"node":"pve1","status":"online","type":"node","uptime":1204811},
+{"cpu":0.0251,"disk":4294967296,"id":"node/pve2","level":"","maxcpu":8,"maxdisk":100861726720,"maxmem":33676984320,"mem":9663676416,"node":"pve2","status":"online","type":"node","uptime":604800},
+{"cpu":0.0412,"disk":0,"diskread":12884901888,"diskwrite":34359738368,"id":"qemu/100","maxcpu":4,"maxdisk":68719476736,"maxmem":8589934592,"mem":5368709120,"name":"media","netin":987654321,"netout":123456789,"node":"pve1","status":"running","tags":"media;prod","template":0,"type":"qemu","uptime":1203000,"vmid":100},
+{"cpu":0,"disk":0,"id":"qemu/101","maxcpu":2,"maxdisk":34359738368,"maxmem":4294967296,"mem":0,"name":"win11","node":"pve1","status":"stopped","template":0,"type":"qemu","uptime":0,"vmid":101},
+{"cpu":0,"disk":0,"id":"qemu/9000","maxcpu":2,"maxdisk":10737418240,"maxmem":2048000000,"mem":0,"name":"debian12-cloud","node":"pve1","status":"stopped","template":1,"type":"qemu","uptime":0,"vmid":9000},
+{"cpu":0.0034,"disk":1288490188,"id":"lxc/200","maxcpu":1,"maxdisk":8589934592,"maxmem":536870912,"mem":104857600,"name":"pihole","node":"pve2","status":"running","tags":"dns","template":0,"type":"lxc","uptime":604000,"vmid":200,"hastate":"started"},
+{"cpu":0,"disk":0,"id":"lxc/201","lock":"backup","maxcpu":2,"maxdisk":17179869184,"maxmem":2147483648,"mem":0,"name":"gitea","node":"pve2","status":"stopped","template":0,"type":"lxc","uptime":0,"vmid":201},
+{"content":"images,rootdir","disk":214748364800,"id":"storage/pve1/local-lvm","maxdisk":858993459200,"node":"pve1","plugintype":"lvmthin","shared":0,"status":"available","storage":"local-lvm","type":"storage"},
+{"content":"iso,vztmpl,backup","disk":21474836480,"id":"storage/pve1/local","maxdisk":100861726720,"node":"pve1","plugintype":"dir","shared":0,"status":"available","storage":"local","type":"storage"},
+{"content":"backup","disk":1099511627776,"id":"storage/pve1/nas-backup","maxdisk":3298534883328,"node":"pve1","plugintype":"nfs","shared":1,"status":"available","storage":"nas-backup","type":"storage"},
+{"content":"backup","disk":1099511627776,"id":"storage/pve2/nas-backup","maxdisk":3298534883328,"node":"pve2","plugintype":"nfs","shared":1,"status":"available","storage":"nas-backup","type":"storage"},
+{"content":"images,rootdir","disk":0,"id":"storage/pve2/local-lvm","maxdisk":0,"node":"pve2","plugintype":"lvmthin","shared":0,"status":"unknown","storage":"local-lvm","type":"storage"},
+{"id":"sdn/pve1/localnetwork","node":"pve1","sdn":"localnetwork","status":"ok","type":"sdn"}]

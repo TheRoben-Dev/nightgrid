@@ -58,6 +58,12 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - **+ New stack** builds a `compose.yaml` from an image (ports, volumes and variables pre-filled from what the image declares) or from pasted YAML. Variable values go into `.env` with mode 600, never into `compose.yaml`.
 - Environment values are masked until you click them.
 
+## Proxmox
+
+- **Proxmox** (`Mod+Shift+P`): pick the host that runs Proxmox VE. Nightgrid reads the whole cluster with `pvesh` over SSH as root, so it needs no API token and no access to port 8006. The sudo prompt asks for the password unless you log in as root, have NOPASSWD, or saved it.
+- **SUMMARY** shows each node's CPU, memory, root disk and uptime, and whether the cluster has quorum. **GUESTS** lists VMs and containers. Type in the filter to narrow by name, id, state or `#tag`, or pick a node. **Start**, **Shut down** and **Resume** run at once. **⋯** has Reboot, Pause (VMs) and Force stop, which ask first. **Screen** and **Console** work for guests on the node you're connected to; for guests on other nodes, add that node as a host.
+- **STORAGE** lists storages with what they hold and how full they are. **TASKS** lists recent Proxmox tasks; click one to read its log. Actions you start open their task and follow it to the end.
+
 ## Overview and monitoring
 
 - The Overview is a dashboard of widgets. Press **Edit** to change it: drag a title bar to move a widget, drag the bottom-right corner to resize it, **×** removes it and **+ Widget** adds one. Others make room by moving down. From the keyboard, Tab to a widget's **⠿** grip and use the arrows (Shift+arrows resize, Delete removes). **Undo** steps back and **Reset** restores the built-in layout. Press **Done** when finished; every change is saved as you go.

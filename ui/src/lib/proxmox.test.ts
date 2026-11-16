@@ -1,0 +1,61 @@
+import { describe, expect, it } from "vitest";
+import { counts, filterGuests, formatBytes, formatUptime, guestActions, guestTone, isDestructive, isLocal, pct, storageRows, taskLabel, taskTone, usageTone } from "./proxmox";
+import { mockProxmox } from "./mockProxmox";
+
+describe("proxmox helpers", async () => {
+  const o = await mockProxmox.overview(1);
+
+  it("offers actions that fit the state", () => {
+    const by = (id: number) => o.guests.find((g) => g.vmid === id)!;
+    expect(guestActions(by(100))).toEqual(["shutdown", "reboot", "suspend", "stop"]);
+    expect(guestActions(by(200))).toEqual(["shutdown", "reboot", "stop"]);
+    expect(guestActions(by(101))).toEqual(["start"]);
+    expect(guestActions(by(9000))).toEqual([]);
+    expect(guestActions({ ...by(100), status: "paused" })).toEqual(["resume", "stop"]);
+    expect(isDestructive("start") || isDestructive("resume")).toBe(false);
+    expect(isDestructive("stop") && isDestructive("suspend")).toBe(true);
+    expect(guestTone(by(201))).toBe("warn");
+    expect(guestTone(by(9000))).toBe("off");
+  });
+
+  it("counts and filters guests", () => {
+    expect(counts(o.guests)).toEqual({ running: 3, stopped: 2, templates: 1, vms: 3, cts: 2 });
+    expect(filterGuests(o.guests, "#dns", null).map((g) => g.vmid)).toEqual([200]);
+    expect(filterGuests(o.guests, "ct", null).map((g) => g.vmid)).toEqual([200, 201]);
+    expect(filterGuests(o.guests, "", "pve2").length).toBe(2);
+    expect(filterGuests(o.guests, "media prod", null).map((g) => g.vmid)).toEqual([100]);
+  });
+
+  it("formats sizes, times and usage", () => {
+    expect(formatBytes(1024 ** 3 * 1.5)).toBe("1.5 GiB");
+    expect(formatBytes(null)).toBe("0 B");
+    expect(formatUptime(90061)).toBe("1d 1h");
+    expect(formatUptime(3700)).toBe("1h 1m");
+    expect(formatUptime(0)).toBe("--");
+    expect(pct(50, 200)).toBe(25);
+    expect(pct(1, 0)).toBeNull();
+    expect([usageTone(95), usageTone(80), usageTone(10), usageTone(null)]).toEqual(["bad", "warn", "ok", "off"]);
+  });
+
+  it("merges shared storages and labels tasks", () => {
+    const rows = storageRows(o.storages);
+    const nas = rows.find((r) => r.s.storage === "nas-backup")!;
+    expect(nas.nodes).toEqual(["pve1", "pve2"]);
+    expect(rows.filter((r) => r.s.storage === "local-lvm").length).toBe(2);
+    const backup = o.tasks.find((t) => t.kind === "vzdump")!;
+    expect(taskLabel(backup)).toBe("Backup");
+    expect(taskTone(backup)).toBe("bad");
+    expect(taskLabel({ ...backup, kind: "qmstart", id: "100" })).toBe("VM start 100");
+    expect(taskTone({ ...backup, end: null })).toBe("warn");
+    expect(isLocal(o, "pve1")).toBe(true);
+    expect(isLocal(o, "pve2")).toBe(false);
+  });
+
+  it("mock actions run a task that finishes", async () => {
+    const upid = await mockProxmox.action(1, "pve1", "qemu", 101, "start");
+    expect(upid).toMatch(/^UPID:pve1:.*:qmstart:101:root@pam:$/);
+    const d = await mockProxmox.task(1, "pve1", upid);
+    expect(d.running).toBe(true);
+    await expect(mockProxmox.action(1, "pve1", "qemu", 100, "start")).rejects.toThrow(/already running/);
+  });
+});

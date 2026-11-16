@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.42] - 2026-11-16
+
+### Added: Proxmox VE, part 1: cluster, guests, storage and tasks (M10r)
+- New **Proxmox** view (`Mod+Shift+P`). Pick the host that runs Proxmox VE and Nightgrid reads its whole cluster through `pvesh` over SSH as root (the sudo prompt asks when needed). No API token, open port or web UI needed.
+- **SUMMARY**: every node with CPU, memory and root disk, uptime and running guests, plus cluster name and quorum. The node you're connected to also shows its CPU model, kernel, load and boot mode.
+- **GUESTS**: every VM and container with state, CPU, memory, uptime, tags, locks, HA state and templates. Filter by text, `#tag` or node. **Start**, **Shut down** and **Resume** are one click. Reboot, Pause and Force stop sit under **⋯** and ask first, naming the guest and node. **Screen** opens a VM's display in Desktops and **Console** opens `qm terminal` / `pct enter` in a terminal tab, for guests on the connected node.
+- **STORAGE**: each storage with type, content, nodes and usage. Shared storage is listed once.
+- **TASKS**: recent cluster tasks (backups, starts, clones…) with their result. Click one for its log. A task Nightgrid starts opens its log and follows it until it ends. Power actions go to the host's timeline.
+
 ## [0.10.41] - 2026-11-16
 
 ### Added: more signals, part 3: custom command widgets (M10x)

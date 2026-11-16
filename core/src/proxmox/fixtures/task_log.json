@@ -1,0 +1,1 @@
+[{"n":1,"t":"INFO: starting new backup job: vzdump 201 --storage nas-backup --mode snapshot"},{"n":2,"t":"INFO: Starting Backup of VM 201 (lxc)"},{"n":3,"t":"ERROR: Backup of VM 201 failed - CT is locked (backup)"},{"n":4,"t":"INFO: Failed at 2026-11-16 06:40:00"},{"n":5,"t":"TASK ERROR: job errors"}]

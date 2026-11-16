@@ -1,0 +1,3 @@
+[{"endtime":1794810000,"id":"100","node":"pve1","saved":"1","starttime":1794809990,"status":"OK","type":"qmstart","upid":"UPID:pve1:0000A1B2:01234567:6744C3F6:qmstart:100:root@pam:","user":"root@pam"},
+{"endtime":1794806400,"id":"","node":"pve2","saved":"1","starttime":1794805200,"status":"command 'vzdump 201 --storage nas-backup' failed: exit code 2","type":"vzdump","upid":"UPID:pve2:00001F00:00ABCDEF:6744B5D0:vzdump::root@pam:","user":"root@pam"},
+{"id":"200","node":"pve2","starttime":1794811000,"type":"vncproxy","upid":"UPID:pve2:00002222:00ABCD00:6744C778:vncproxy:200:root@pam:","user":"root@pam"}]

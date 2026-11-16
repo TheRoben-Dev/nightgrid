@@ -77,6 +77,9 @@ import {
   type NetTestResult_Serialize as NetTestResult,
   type CmdWidget_Serialize as CmdWidget,
   type CmdReading_Serialize as CmdReading,
+  type PveOverview_Serialize as PveOverview,
+  type PveTaskDetail_Serialize as PveTaskDetail,
+  type PveAction,
   type DnsStatus_Serialize as DnsStatus,
   type DnsList_Serialize as DnsList,
   type DnsRecord,
@@ -293,6 +296,7 @@ import { mockEnvVault } from "./mockEnvVault";
 import { mockGitStacks } from "./mockGitStacks";
 import { mockNetperf } from "./mockNetperf";
 import { mockCmdWidgets } from "./mockCmdWidgets";
+import { mockProxmox } from "./mockProxmox";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -353,6 +357,9 @@ export type {
   NetTestResult,
   CmdWidget,
   CmdReading,
+  PveOverview,
+  PveTaskDetail,
+  PveAction,
   DnsList,
   DnsRecord,
   AmpInstance,
@@ -659,7 +666,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.41-web",
+      version: "0.10.42-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1144,6 +1151,11 @@ export const api = {
   gitStackRemove: (id: number): Promise<null> => (T() ? commands.gitStackRemove(id) : mockGitStacks.remove(id)),
   netTestRun: (fromHost: number, toHost: number, target: string | null, secs: number): Promise<NetTestResult> =>
     T() ? commands.netTestRun(fromHost, toHost, target, secs) : mockNetperf.run(fromHost, toHost, target, secs),
+  pveOverview: (hostId: number, sudo: SudoInput | null): Promise<PveOverview> => (T() ? commands.pveOverview(hostId, sudo) : mockProxmox.overview(hostId)),
+  pveGuestAction: (hostId: number, node: string, kind: string, vmid: number, action: PveAction, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveGuestAction(hostId, node, kind, vmid, action, sudo) : mockProxmox.action(hostId, node, kind, vmid, action),
+  pveTask: (hostId: number, node: string, upid: string, sudo: SudoInput | null): Promise<PveTaskDetail> =>
+    T() ? commands.pveTask(hostId, node, upid, sudo) : mockProxmox.task(hostId, node, upid),
   cmdWidgetsList: (): Promise<CmdWidget[]> => (T() ? commands.cmdWidgetsList() : mockCmdWidgets.list()),
   cmdWidgetSave: (widget: CmdWidget): Promise<CmdWidget> => (T() ? commands.cmdWidgetSave(widget) : mockCmdWidgets.save(widget)),
   cmdWidgetDelete: (id: number): Promise<boolean> => (T() ? commands.cmdWidgetDelete(id) : mockCmdWidgets.remove(id)),

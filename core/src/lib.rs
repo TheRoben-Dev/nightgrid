@@ -35,6 +35,7 @@ pub mod netperf;
 pub mod notes;
 pub mod power;
 pub mod power_schedule;
+pub mod proxmox;
 pub mod redact;
 pub mod secrets;
 pub mod services;
