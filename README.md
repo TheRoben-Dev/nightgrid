@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.46 (Proxmox part 5)
+
+1. Proxmox → **NETWORK**: the list matches the web UI's node → System → Network.
+2. **+ Bridge** with no ports and a comment → **Stage**. The staged diff shows the new `vmbr` lines and the web UI shows the same pending change. **Revert** drops it.
+3. Stage it again → **Apply…** → confirm. The countdown appears; press **Keep**. `ip link show vmbrN` on the node shows it up.
+4. Safety net (optional, on a test node): stage a wrong address on the bridge you connect through, apply, and don't press Keep. The connection drops, and about 90 s later the node is reachable again with the old config.
+
 ### macOS: testing 0.10.45 (Proxmox part 4)
 
 1. Proxmox → GUESTS → click a running VM's name → **HARDWARE**. Set cores one higher and **Apply**: it shows "after restart" (or applies at once with CPU hotplug), the same as the web UI's Hardware panel in orange.

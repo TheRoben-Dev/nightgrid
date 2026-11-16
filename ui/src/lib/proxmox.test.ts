@@ -172,3 +172,21 @@ describe("part 4 helpers", () => {
     expect(m.startupText(null, null)).toBeNull();
   });
 });
+
+describe("part 5 helpers", () => {
+  it("names new interfaces and checks specs", async () => {
+    const m = await import("./proxmox");
+    const ifs = [{ iface: "vmbr0", kind: "bridge" }, { iface: "vmbr1", kind: "bridge" }, { iface: "bond0", kind: "bond" }] as never;
+    expect(m.newIface("bridge", ifs).iface).toBe("vmbr2");
+    expect(m.newIface("bond", ifs).iface).toBe("bond1");
+    expect(m.newIface("vlan", ifs).iface).toBe("vmbr0.10");
+    const ok = m.newIface("bridge", ifs);
+    expect(m.ifaceProblem(ok)).toBeNull();
+    expect(m.ifaceProblem({ ...ok, iface: "br0" })).toMatch(/vmbr/);
+    expect(m.ifaceProblem({ ...ok, gateway: "192.168.1.1" })).toMatch(/Gateway/);
+    expect(m.ifaceProblem({ ...ok, cidr: "192.168.1.5" })).toMatch(/IPv4/);
+    expect(m.ifaceProblem({ ...ok, ports: "enp3s0;reboot" })).toMatch(/Ports/);
+    expect(m.ifaceProblem({ ...m.newIface("bond", ifs) })).toMatch(/slave/);
+    expect(m.ifaceProblem({ ...m.newIface("vlan", ifs), iface: "vlan30" })).toMatch(/VLAN/);
+  });
+});

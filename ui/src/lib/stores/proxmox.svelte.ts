@@ -3,12 +3,12 @@
  * root (the sudo prompt asks when needed). Power actions start Proxmox tasks;
  * the task's log is followed until it ends, then the view reloads.
  */
-import { api, errorText, type PveAppliance, type PveCloneSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
+import { api, errorText, type PveIfaceSpec, type PveNetwork, type PveAppliance, type PveCloneSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
 import { ACTION_WORD, backupTargets, type PveConfig, type PveHostDevices, type PveSetting, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
-export type PveTab = "summary" | "guests" | "backups" | "storage" | "tasks";
+export type PveTab = "summary" | "guests" | "backups" | "storage" | "network" | "tasks";
 
 /** A destructive step waiting for a confirmation that names its target (rule 5). */
 export interface PveConfirm {
@@ -75,6 +75,10 @@ class ProxmoxStore {
   createInfo = $state<PveCreateInfo | null>(null);
   createInfoError = $state<string | null>(null);
   appliances = $state<PveAppliance[] | null>(null);
+  network = $state<PveNetwork | null>(null);
+  networkError = $state<string | null>(null);
+  /** An applied network change waiting for "keep" before the node rolls it back. */
+  netApply = $state<{ token: string; node: string; until: number; upid: string | null } | null>(null);
   private seq = 0;
   private follow: ReturnType<typeof setTimeout> | null = null;
 
@@ -93,6 +97,8 @@ class ProxmoxStore {
     this.detail = null;
     this.createInfo = null;
     this.appliances = null;
+    this.network = null;
+    this.networkError = null;
     this.stopFollowing();
     try {
       if (id) localStorage.setItem(HOST_KEY, String(id));
@@ -482,6 +488,96 @@ class ProxmoxStore {
       this.notice = { text: `${what}: ${errorText(e)}`, tone: "err" };
       throw e;
     }
+  }
+
+  // ---- part 5: node network ----
+
+  async loadNetwork() {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    try {
+      this.network = await this.sudo("read the node's network", (s) => api.pveNetwork(id, node, s));
+      this.networkError = null;
+    } catch (e) {
+      this.networkError = errorText(e);
+    }
+  }
+
+  /** Stages a change; nothing reaches the node's live network until apply. */
+  async saveIface(spec: PveIfaceSpec, create: boolean) {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    try {
+      await this.sudo(`stage ${spec.iface}`, (s) => api.pveIfaceSave(id, node, spec, create, s));
+      this.notice = { text: `${spec.iface}: staged. Apply to make it live.`, tone: "ok" };
+    } catch (e) {
+      this.notice = { text: `${spec.iface}: ${errorText(e)}`, tone: "err" };
+      throw e;
+    } finally {
+      await this.loadNetwork();
+    }
+  }
+
+  askDeleteIface(iface: string, carriesAddress: boolean) {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    this.confirm = {
+      title: "REMOVE INTERFACE",
+      body: `Stage removing ${iface} on ${node}? Nothing changes until you apply.${carriesAddress ? ` ${iface} carries an address of the node: applying this may cut the node off.` : ""} Guests attached to it lose their network when it's applied.`,
+      button: `Remove ${iface}`,
+      run: async () => {
+        await this.sudo(`stage removing ${iface}`, (s) => api.pveIfaceDelete(id, node, iface, s));
+        await this.loadNetwork();
+      },
+    };
+  }
+
+  async revertNetwork() {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    try {
+      await this.sudo("discard staged network changes", (s) => api.pveNetworkRevert(id, node, s));
+      this.notice = { text: "Staged network changes discarded.", tone: "ok" };
+    } catch (e) {
+      this.notice = { text: `Revert: ${errorText(e)}`, tone: "err" };
+    }
+    await this.loadNetwork();
+  }
+
+  askApplyNetwork() {
+    const id = this.hostId;
+    const node = this.localNode;
+    if (id === null || !node) return;
+    this.confirm = {
+      title: "APPLY NETWORK CHANGES",
+      body: `Apply the staged changes to ${node}'s live network (ifreload)? A rollback is armed on ${node} first: unless you press Keep within 90 seconds, it restores the current config by itself, so a change that cuts this computer off undoes itself.`,
+      button: `Apply on ${node}`,
+      run: async () => {
+        const r = await this.sudo("apply network changes", (s) => api.pveNetworkApply(id, node, s));
+        this.netApply = { token: r.token, node, until: Date.now() + r.secs * 1000, upid: r.upid };
+        this.notice = { text: `Network applied on ${node}. Keep it within ${r.secs} s or it rolls back.`, tone: "ok" };
+        if (r.upid) void this.openTask(node, r.upid, `Apply network on ${node}`, () => void this.loadNetwork());
+        else void this.loadNetwork();
+      },
+    };
+  }
+
+  async settleNetwork(keep: boolean) {
+    const a = this.netApply;
+    const id = this.hostId;
+    if (!a || id === null) return;
+    try {
+      await this.sudo(keep ? "keep the network change" : "roll the network back", (s) => api.pveNetworkSettle(id, a.token, keep, s));
+      this.netApply = null;
+      this.notice = { text: keep ? `Network change on ${a.node} kept.` : `Network on ${a.node} rolled back.`, tone: "ok" };
+    } catch (e) {
+      this.notice = { text: `${keep ? "Keep" : "Roll back"}: ${errorText(e)}. If the node can't be reached, it rolls back by itself.`, tone: "err" };
+    }
+    await this.loadNetwork();
   }
 
   async runConfirm() {
