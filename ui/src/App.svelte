@@ -170,7 +170,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.43"} />
+  <LeftRail version={info?.version ?? "0.10.44"} />
   <div class="main">
     <TopBar />
     <UpsCountdown />

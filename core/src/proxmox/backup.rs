@@ -5,7 +5,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::{b, explain, f, get, opt_s, s, sections, valid_kind, valid_node, valid_vmid};
+use super::{b, create, explain, f, get, opt_s, s, sections, valid_kind, valid_node, valid_vmid};
 use crate::files::path::shell_quote;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -116,15 +116,6 @@ pub fn valid_text(t: &str) -> bool {
 
 fn guest(node: &str, kind: &str, vmid: u32) -> Option<String> {
     (valid_node(node) && valid_kind(kind) && valid_vmid(vmid)).then(|| format!("/nodes/{node}/{kind}/{vmid}"))
-}
-
-fn create(path: &str, params: &[(&str, String)]) -> String {
-    let mut c = format!("pvesh create {}", shell_quote(path));
-    for (k, v) in params {
-        c.push_str(&format!(" --{k} {}", shell_quote(v)));
-    }
-    c.push_str(" --output-format json 2>&1");
-    c
 }
 
 // ------------------------------------------------------------ snapshots

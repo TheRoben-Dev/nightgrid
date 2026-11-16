@@ -11,6 +11,7 @@ use serde_json::Value;
 use crate::files::path::shell_quote;
 
 pub mod backup;
+pub mod create;
 
 /// Marks each `pvesh` answer in a batched script's output.
 pub(crate) const MARK: &str = "@@pve";
@@ -182,6 +183,16 @@ pub fn valid_upid(u: &str) -> bool {
 
 pub(crate) fn get(path: &str, extra: &str) -> String {
     format!("echo '{MARK} {path}'; pvesh get {} --output-format json{extra} 2>&1; echo", shell_quote(path))
+}
+
+/// `pvesh create PATH --k 'v' …` printing JSON (a task's UPID for most calls).
+pub(crate) fn create(path: &str, params: &[(&str, String)]) -> String {
+    let mut c = format!("pvesh create {}", shell_quote(path));
+    for (k, v) in params {
+        c.push_str(&format!(" --{k} {}", shell_quote(v)));
+    }
+    c.push_str(" --output-format json 2>&1");
+    c
 }
 
 /// Reads everything part 1 shows in one connection round trip.

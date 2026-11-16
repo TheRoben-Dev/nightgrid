@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.44] - 2026-11-16
+
+### Added: Proxmox VE, part 3: create, clone, templates and ISOs (M10r)
+- **Proxmox → GUESTS** gains **+ VM** and **+ Container**. A new VM takes an id (the next free one is filled in), name, cores, memory, disk size and storage, an install ISO, a bridge with optional VLAN, OS type and UEFI. It gets a VirtIO SCSI disk with discard and IO thread, VirtIO networking and the QEMU guest agent, and Windows 11 also gets UEFI and a TPM.
+- A new container takes a template, cores, memory, swap, disk, bridge and VLAN, DHCP or a static address with gateway, and **your SSH public keys**, which are required: Nightgrid never sets a root password. Unprivileged and nesting are on by default.
+- **⋯** on a guest adds **Clone…** (full, or linked from a template), **Convert to template…** and **Destroy…**. Destroy needs the guest's name typed and also removes its disks; backups stay.
+- **STORAGE** lists the node's ISO images and container templates. **Download ISO…** has the node fetch an installer from a URL itself, with the file name taken from the URL and an optional SHA-256 check. **Get CT template…** lists Proxmox's template catalogue with a filter and downloads one.
+
 ## [0.10.43] - 2026-11-16
 
 ### Added: Proxmox VE, part 2: snapshots and backups (M10r)

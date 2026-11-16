@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.44 (Proxmox part 3)
+
+1. Proxmox → STORAGE → **Download ISO…**, paste an installer's URL: the file name fills in, the task shows the node downloading, and the ISO is listed under ISO IMAGES & CT TEMPLATES.
+2. GUESTS → **+ VM** with that ISO and **Start after creating**: the VM appears and **Screen** shows the installer booting.
+3. STORAGE → **Get CT template…** → download a Debian template. GUESTS → **+ Container** with it, DHCP and your public key: once it runs, `ssh root@<its address>` logs in with your key.
+4. Stop the container, **⋯ → Convert to template…**, then **⋯ → Clone…** as a linked clone. Then **Destroy…** the clone: it asks for its name typed.
+
 ### macOS: testing 0.10.43 (Proxmox part 2)
 
 1. Proxmox → GUESTS → click a VM's name → **Take snapshot**. The task follows to OK and the snapshot appears under YOU ARE HERE, the same as in the web UI's Snapshots panel. **Roll back…** to an older one asks, naming the VM, node and snapshot.

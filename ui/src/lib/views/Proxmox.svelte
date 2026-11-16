@@ -8,6 +8,7 @@
   import SudoPrompt from "../components/system/SudoPrompt.svelte";
   import PveBackupsTab from "../components/proxmox/PveBackupsTab.svelte";
   import PveGuestPanel from "../components/proxmox/PveGuestPanel.svelte";
+  import PveMakeDialogs from "../components/proxmox/PveMakeDialogs.svelte";
   import {
     ACTION_CONSEQUENCE,
     ACTION_WORD,
@@ -54,6 +55,9 @@
   const failed = $derived((o?.tasks ?? []).filter((t) => taskTone(t) === "bad").length);
   const storages = $derived(storageRows(o?.storages ?? []));
   let menuFor = $state<number | null>(null);
+  $effect(() => {
+    if (proxmox.tab === "storage" && proxmox.overview && !proxmox.createInfo && !proxmox.createInfoError) void proxmox.loadCreateInfo();
+  });
   let typed = $state("");
   $effect(() => {
     if (proxmox.confirm) typed = "";
@@ -160,6 +164,9 @@
             {#each o.nodes as n (n.name)}<option value={n.name}>{n.name}</option>{/each}
           </select>
         {/if}
+        <span class="sp"></span>
+        <button type="button" class="btn tiny" data-guide="proxmox-new-vm" disabled={!proxmox.localNode} onclick={() => proxmox.open({ kind: "vm" })}>+ VM</button>
+        <button type="button" class="btn tiny" data-guide="proxmox-new-ct" disabled={!proxmox.localNode} onclick={() => proxmox.open({ kind: "ct" })}>+ Container</button>
       </div>
       <div class="scroll">
         <div class="grow headrow" aria-hidden="true"><span>ID</span><span>NAME</span><span>NODE</span><span>STATE</span><span class="n">CPU</span><span class="n">MEMORY</span><span class="n">UP</span><span></span></div>
@@ -194,7 +201,7 @@
                   <span class="muted small" title="Screens and consoles run on the guest's node: add {g.node} as a host to open them">on {g.node}</span>
                 {/if}
               {/if}
-              {#if more.length}
+              {#if more.length || g.status === "stopped" || g.template || g.kind === "qemu"}
                 <span class="pop">
                   <button type="button" class="btn tiny ghost" aria-label="More actions for {g.name}" aria-expanded={menuFor === g.vmid} disabled={proxmox.busy.includes(g.vmid)} onclick={() => (menuFor = menuFor === g.vmid ? null : g.vmid)}>⋯</button>
                   {#if menuFor === g.vmid}
@@ -202,6 +209,15 @@
                       {#each more as a (a)}
                         <li><button type="button" role="menuitem" class:danger={a === "stop"} onclick={() => { menuFor = null; proxmox.request(g, a); }}>{ACTION_WORD[a]}…</button></li>
                       {/each}
+                      {#if !g.lock && (g.kind === "qemu" || g.status === "stopped")}
+                        <li><button type="button" role="menuitem" onclick={() => { menuFor = null; proxmox.open({ kind: "clone", guest: g }); }}>Clone…</button></li>
+                      {/if}
+                      {#if g.status === "stopped" && !g.template && !g.lock}
+                        <li><button type="button" role="menuitem" onclick={() => { menuFor = null; proxmox.askTemplate(g); }}>Convert to template…</button></li>
+                      {/if}
+                      {#if g.status === "stopped" && !g.lock}
+                        <li><button type="button" role="menuitem" class="danger" onclick={() => { menuFor = null; proxmox.askDestroy(g); }}>Destroy…</button></li>
+                      {/if}
                     </ul>
                   {/if}
                 </span>
@@ -232,6 +248,25 @@
             {/if}
           </div>
         {/each}
+        <h3 class="hd" data-guide="proxmox-images">
+          ISO IMAGES & CT TEMPLATES
+          <button type="button" class="btn tiny ghost" disabled={!proxmox.localNode} onclick={() => proxmox.open({ kind: "iso" })}>Download ISO…</button>
+          <button type="button" class="btn tiny ghost" disabled={!proxmox.localNode} onclick={() => proxmox.open({ kind: "appliance" })}>Get CT template…</button>
+        </h3>
+        {#if !proxmox.createInfo}
+          <p class="muted small pad">{proxmox.createInfoError ?? "Reading…"}</p>
+        {:else}
+          {#each [...proxmox.createInfo.isos, ...proxmox.createInfo.templates] as v (v.volid)}
+            <div class="vrow">
+              <span class="kind">{v.content === "iso" ? "ISO" : "CT"}</span>
+              <span class="mono ell" title={v.volid}>{v.name}</span>
+              <span class="muted small">{v.volid.split(":")[0]}</span>
+              <span class="n data">{formatBytes(v.size)}</span>
+            </div>
+          {:else}
+            <p class="muted small pad">None on {proxmox.localNode}. Download an installer ISO for VMs, or a template for containers.</p>
+          {/each}
+        {/if}
       </div>
     {:else if proxmox.tab === "tasks"}
       <div class="scroll">
@@ -275,6 +310,7 @@
 </Modal>
 
 <PveGuestPanel />
+<PveMakeDialogs />
 
 <Modal open={proxmox.confirm !== null} tone="danger" title={proxmox.confirm?.title ?? ""} width={500} onclose={() => (proxmox.confirm = null)}>
   {#if proxmox.confirm}
@@ -514,6 +550,29 @@
   .tag.warn {
     color: var(--warn);
     border-color: var(--warn);
+  }
+  .sp {
+    margin-left: auto;
+  }
+  .hd {
+    margin: 0;
+    padding: 12px 8px 4px;
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    color: var(--text-1);
+    font-weight: normal;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .vrow {
+    display: grid;
+    grid-template-columns: 40px minmax(200px, 1fr) 140px 100px;
+    gap: 8px;
+    align-items: center;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--line);
+    font-size: var(--fs-sm);
   }
   .filter {
     display: flex;

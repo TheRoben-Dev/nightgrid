@@ -255,3 +255,58 @@ export function scheduleText(s: string): string {
   if (/^\d{1,2}:\d{2}$/.test(s)) return `daily ${s}`;
   return s;
 }
+
+// ---- part 3: create, clone, templates, ISOs ----
+
+/** A guest name Proxmox accepts (a DNS name). */
+export const validGuestName = (n: string): boolean => n.length > 0 && n.length <= 63 && /^[A-Za-z0-9.-]+$/.test(n) && !/^[-.]|[-.]$/.test(n);
+
+const ipv4 = (a: string): boolean => {
+  const p = a.split(".");
+  return p.length === 4 && p.every((x) => /^\d{1,3}$/.test(x) && Number(x) <= 255);
+};
+export const validIpv4 = ipv4;
+
+/** "dhcp" or an IPv4 address with a prefix. */
+export function validCtIp(ip: string): boolean {
+  if (ip === "dhcp") return true;
+  const [a, n, ...rest] = ip.split("/");
+  return !rest.length && ipv4(a) && /^\d{1,2}$/.test(n ?? "") && Number(n) >= 1 && Number(n) <= 32;
+}
+
+/** OpenSSH public keys, one per line, at least one. */
+export function validSshKeys(k: string): boolean {
+  const lines = k
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  return lines.length > 0 && k.length <= 16384 && lines.every((l) => /^(ssh-|ecdsa-|sk-)\S+\s+[A-Za-z0-9+/=]{16,}(\s|$)/.test(l));
+}
+
+export const validUrl = (u: string): boolean => /^https?:\/\/[^\s"'`]{3,}$/.test(u) && u.length <= 2048;
+
+/** The ISO file name a download URL suggests ("" when it doesn't end in .iso). */
+export function isoNameFromUrl(u: string): string {
+  const last = u.split(/[?#]/)[0].split("/").pop() ?? "";
+  let name = last;
+  try {
+    name = decodeURIComponent(last);
+  } catch {
+    /* keep it as is */
+  }
+  name = name.replace(/[^A-Za-z0-9._+-]/g, "_");
+  return /\.iso$/i.test(name) && !name.startsWith(".") ? name : "";
+}
+
+export const validIsoName = (n: string): boolean => /^[A-Za-z0-9_+-][A-Za-z0-9._+-]*\.iso$/i.test(n) && n.length <= 255;
+export const validSha256 = (s: string): boolean => /^[0-9a-fA-F]{64}$/.test(s);
+
+export const OSTYPES: { id: string; label: string }[] = [
+  { id: "l26", label: "Linux" },
+  { id: "win11", label: "Windows 11/2022/2025" },
+  { id: "win10", label: "Windows 10/2016/2019" },
+  { id: "other", label: "Other" },
+];
+
+/** Whether a vmid is free in the cluster. */
+export const vmidFree = (o: PveOverview | null, id: number): boolean => Number.isInteger(id) && id >= 100 && id <= 999999999 && !o?.guests.some((g) => g.vmid === id);
