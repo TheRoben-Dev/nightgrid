@@ -15,7 +15,7 @@ Use Nightgrid's built-in Tailscale client so your hosts work from a café or a p
 
 ## Part 1 · Join the tailnet
 
-- [ ] **Settings → Tailnet → Built-in Tailscale**: turn it on.
+- [ ] **Settings → Connections → Built-in Tailscale**: turn it on.
 - [ ] **LOG IN** opens the login page in your browser. When it finishes, the state shows **Connected** with Nightgrid's tailnet name and address.
 - [ ] If your tailnet requires device approval, approve Nightgrid in the admin console.
 - [ ] **DEVICES** lists the tailnet; click an address to copy it.

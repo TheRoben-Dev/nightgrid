@@ -10,7 +10,7 @@ Work out why a saved host shows **OFFLINE**, **needs a login** or an error, from
 
 - [ ] **needs a login**: the host wants a password, a passphrase or a new host key. Open a terminal on it once and answer. Background features never prompt.
 - [ ] **Host key changed**: the server's identity is different. A reinstall or a new IP reused by another machine causes it. Type the host name only once you know why.
-- [ ] **Permission denied (publickey)**: the key Nightgrid offers isn't in the server's `authorized_keys`. Check **Settings → SSH keys → CHECK HOSTS**.
+- [ ] **Permission denied (publickey)**: the key Nightgrid offers isn't in the server's `authorized_keys`. Check **Settings → Connections → SSH keys → CHECK HOSTS**.
 - [ ] **Connection refused**: the machine answers but nothing listens on the port. sshd is stopped, or it listens on another port.
 - [ ] **Timed out** or **No route**: the address is wrong, the machine is off, a firewall drops the packets, or you're away from home without a tailnet route.
 - [ ] **ASLEEP**, **SUSPENDED**, **SHUT DOWN**: Nightgrid knows it's off on purpose; no alert fires.
@@ -45,7 +45,7 @@ When you can get to the machine's screen (or Proxmox **Console**, or a BMC):
 
 - `~/.ssh` must be `700` and `authorized_keys` `600`, owned by the user, or sshd ignores the key.
 - A firewall change can lock you out. Use [Change a firewall safely](kb:howto/firewall) which rolls back on its own.
-- **Logs**: Settings → Diagnostics shows the log folder. `NIGHTGRID_LOG=debug` adds detail.
+- **Logs**: Settings → General → Diagnostics shows the log folder. `NIGHTGRID_LOG=debug` adds detail.
 
 ## Related
 

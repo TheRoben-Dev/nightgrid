@@ -48,7 +48,7 @@ docker exec headscale-headscale-1 headscale preauthkeys create --user <user-id> 
 
 ## Part 3 · Nightgrid
 
-- [ ] **Settings → Tailnet → Advanced**: set the control server to your Headscale URL. Saving restarts the client. Then **LOG IN** and approve the node with `headscale nodes register` as the login page tells you.
+- [ ] **Settings → Connections → Advanced**: set the control server to your Headscale URL. Saving restarts the client. Then **LOG IN** and approve the node with `headscale nodes register` as the login page tells you.
 - [ ] Subnet routes: approve with `headscale nodes approve-routes` (or `headscale routes enable` on older versions).
 
 #### Check

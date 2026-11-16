@@ -12,7 +12,7 @@ Get one server into Nightgrid with key login, a trusted host key and monitoring,
 ## Before you start
 
 - A Linux server you can already reach with `ssh user@address` from this computer.
-- An SSH key on this computer. No key yet? **Settings → SSH keys → NEW KEY…** makes an ed25519 key in `~/.ssh` (see [Set up and rotate SSH keys](kb:howto/ssh-keys)).
+- An SSH key on this computer. No key yet? **Settings → Connections → SSH keys → NEW KEY…** makes an ed25519 key in `~/.ssh` (see [Set up and rotate SSH keys](kb:howto/ssh-keys)).
 - If you already have hosts in `~/.ssh/config`, **IMP** in the sidebar imports them instead (see [Import hosts and use jump hosts](kb:howto/jump-hosts)).
 
 ## Part 1 · Save the host
@@ -27,7 +27,7 @@ Get one server into Nightgrid with key login, a trusted host key and monitoring,
 
 - [ ] Click the host. The first connection shows the server's fingerprint. Compare it with the server's own (run `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on its console) and accept.
 - [ ] A terminal opens. Background features (monitoring, checks) never prompt, so this first visit is where passwords and host keys get answered.
-- [ ] Still asked for a password? Your key isn't on the server yet. **Settings → SSH keys → CHECK HOSTS**, then **+** on the host's row adds it.
+- [ ] Still asked for a password? Your key isn't on the server yet. **Settings → Connections → SSH keys → CHECK HOSTS**, then **+** on the host's row adds it.
 
 #### Check
 

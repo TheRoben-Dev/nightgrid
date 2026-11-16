@@ -10,7 +10,7 @@ Check your hosts, alerts and services from your phone through a read-only page s
 
 ## Part 1 · Serve it
 
-- [ ] **Settings → Status page · Snapshot → Serve the phone status page** (off by default).
+- [ ] **Settings → Data → Serve the phone status page** (off by default).
 - [ ] Pick where it listens: **LAN address**, **Tailscale only** (best: works anywhere your phone is on the tailnet), or **every interface** (avoid on machines with a public address).
 - [ ] **Copy** the link and open it on your phone; add it to the home screen.
 - [ ] **New link** makes the old one stop working.

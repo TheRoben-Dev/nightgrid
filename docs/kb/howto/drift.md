@@ -10,7 +10,7 @@ DRIFT is Nightgrid's offline helper. It answers from this Library, your notes an
 
 ## Part 1 · Turn it on
 
-- [ ] **Settings → Helper**: turn it on and **Download** the model once (about 2.5 GB, resumable, checked by SHA-256).
+- [ ] **Settings → DRIFT**: turn it on and **Download** the model once (about 2.5 GB, resumable, checked by SHA-256).
 - [ ] Open DRIFT with `Mod+J`, the **DRIFT** button, or **Ask DRIFT** in the palette.
 
 ## Part 2 · Ask well

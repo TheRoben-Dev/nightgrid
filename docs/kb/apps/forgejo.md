@@ -41,7 +41,7 @@ networks:
 
 ## Part 2 · Use it with Nightgrid
 
-- [ ] Add your SSH key in Forgejo (Settings → SSH keys). **Copy public key** in Nightgrid's **Settings → SSH keys** gives you the line.
+- [ ] Add your SSH key in Forgejo (Settings → Connections → SSH keys). **Copy public key** in Nightgrid's **Settings → Connections → SSH keys** gives you the line.
 - [ ] Each Docker host that deploys stacks from git: add its public key as a read-only **deploy key** on the stacks repository.
 - [ ] Then [Deploy stacks from git](kb:howto/stacks-from-git).
 

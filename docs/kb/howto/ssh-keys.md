@@ -11,7 +11,7 @@ Make one good key, put it on every host, see at a glance which key works where, 
 ## Before you start
 
 - At least one host you can already log in to (password is fine for now).
-- Open **Settings → SSH keys**. It lists key files in `~/.ssh` and the keys your SSH agent holds.
+- Open **Settings → Connections → SSH keys**. It lists key files in `~/.ssh` and the keys your SSH agent holds.
 
 ## Part 1 · Make a key
 

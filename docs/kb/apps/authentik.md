@@ -50,7 +50,7 @@ admin.example.com {
 
 ## Part 4 · In Nightgrid
 
-- [ ] Add `auth.example.com` to [Services](view:services). If Authentik is down nobody logs in anywhere, so add it as a dependency of the apps behind it in **Settings → Dependencies**.
+- [ ] Add `auth.example.com` to [Services](view:services). If Authentik is down nobody logs in anywhere, so add it as a dependency of the apps behind it in **Settings → Alerts → Dependencies**.
 - [ ] Back up the database with a dump (see [PostgreSQL and MariaDB in Docker](kb:apps/databases)) plus the `media` and `certs` folders.
 
 #### Check

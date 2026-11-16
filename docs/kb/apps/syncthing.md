@@ -43,7 +43,7 @@ services:
 ## Part 3 · Nightgrid profile
 
 - [ ] Share a folder like `nightgrid` between your computers and the server.
-- [ ] In Nightgrid, **Settings → Backup → SYNC FOLDER**: pick that folder. **Export to sync folder** puts the encrypted profile there.
+- [ ] In Nightgrid, **Settings → Data → SYNC FOLDER**: pick that folder. **Export to sync folder** puts the encrypted profile there.
 
 #### Check
 

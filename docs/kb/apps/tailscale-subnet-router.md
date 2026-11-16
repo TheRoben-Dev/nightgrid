@@ -25,7 +25,7 @@ sudo tailscale up --advertise-routes=192.168.1.0/24
 ## Part 2 · Use it
 
 - [ ] Linux clients need `--accept-routes`; macOS, Windows, iOS and Android accept routes by default.
-- [ ] In Nightgrid: **Settings → Tailnet → Built-in Tailscale** with **Use subnet routes** on (see [Reach your servers away from home](kb:howto/remote-access)).
+- [ ] In Nightgrid: **Settings → Connections → Built-in Tailscale** with **Use subnet routes** on (see [Reach your servers away from home](kb:howto/remote-access)).
 
 #### Check
 

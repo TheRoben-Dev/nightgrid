@@ -38,7 +38,7 @@ nas.example.lan:/srv/media /mnt/media nfs4 _netdev,x-systemd.automount,x-systemd
 
 ## Part 4 · In Nightgrid
 
-- [ ] Add a dependency in **Settings → Dependencies**: the client host depends on the NAS, so a NAS outage folds the client's alerts.
+- [ ] Add a dependency in **Settings → Alerts → Dependencies**: the client host depends on the NAS, so a NAS outage folds the client's alerts.
 - [ ] The [Network](view:network) map shows the share and its mount point on the client.
 
 #### Check

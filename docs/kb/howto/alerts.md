@@ -15,7 +15,7 @@ Decide what alerts, fold follow-on alerts under their cause, mute noisy log patt
 
 ## Part 2 · Dependencies
 
-- [ ] **Settings → Dependencies**: add links such as "Media server depends on the NAS" or "everything depends on the router".
+- [ ] **Settings → Alerts → Dependencies**: add links such as "Media server depends on the NAS" or "everything depends on the router".
 - [ ] When the cause is down, dependent alerts fold under it ("explains 3 more alerts") and only the cause notifies.
 - [ ] Containers, disks, backups and services checked on a host already depend on that host.
 

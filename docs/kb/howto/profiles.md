@@ -10,7 +10,7 @@ Export everything Nightgrid knows (hosts, groups, snippets, services, dashboards
 
 ## Part 1 · Export
 
-- [ ] **Settings → Backup → Export** (or **Export profile…** in the palette). Choose a passphrase you'll still know in a year.
+- [ ] **Settings → Data → Export** (or **Export profile…** in the palette). Choose a passphrase you'll still know in a year.
 - [ ] Tick **Include saved passwords and tokens** to bring keychain entries along. The file stays encrypted either way.
 - [ ] Store the passphrase in your password manager. Without it the file can't be opened.
 

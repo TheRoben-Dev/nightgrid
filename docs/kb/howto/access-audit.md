@@ -11,14 +11,14 @@ See who logged in to each host over the last week, who tried and failed, which k
 ## Part 1 · Run the audit
 
 - [ ] [Fleet](view:fleet) → **Access** → **Audit all**.
-- [ ] Click a host for its report. Keys are named when they're yours from Settings → SSH keys.
+- [ ] Click a host for its report. Keys are named when they're yours from Settings → Connections → SSH keys.
 - [ ] Much of this needs root. It's read as root when sudo needs no password or Nightgrid remembers it; otherwise **Read as root…** asks.
 
 ## Part 2 · Read the findings
 
 - [ ] Password logins enabled with failed attempts and nothing banning them: fix with key-only SSH and fail2ban or CrowdSec.
 - [ ] A second uid-0 account: almost always a sign of compromise or an old hack. Investigate before deleting.
-- [ ] Unknown authorized keys: remove them from **Settings → SSH keys → OTHER**.
+- [ ] Unknown authorized keys: remove them from **Settings → Connections → SSH keys → OTHER**.
 - [ ] Service accounts with a login shell: give them `/usr/sbin/nologin`.
 
 #### Check

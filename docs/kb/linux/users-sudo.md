@@ -15,7 +15,7 @@ sudo adduser alice
 sudo usermod -aG sudo alice      # Debian/Ubuntu (wheel on Fedora/RHEL)
 ```
 
-- [ ] Put your key on it with **Settings → SSH keys → CHECK HOSTS** in Nightgrid, then log in as it and stop using root.
+- [ ] Put your key on it with **Settings → Connections → SSH keys → CHECK HOSTS** in Nightgrid, then log in as it and stop using root.
 
 ## Part 2 · Service users
 

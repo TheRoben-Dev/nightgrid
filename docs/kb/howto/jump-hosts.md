@@ -25,7 +25,7 @@ A typical layout: this computer reaches `gateway` (over the internet or a tailne
 
 - [ ] Add the jump host first as a normal host.
 - [ ] For each host behind it, save its LAN address and set the jump host in the host editor (it's the same as `ProxyJump gateway` in SSH config).
-- [ ] Put your key on the inner hosts: **Settings → SSH keys → CHECK HOSTS** works through the jump host too.
+- [ ] Put your key on the inner hosts: **Settings → Connections → SSH keys → CHECK HOSTS** works through the jump host too.
 
 The equivalent SSH config, if you prefer to keep it there and import:
 
@@ -47,12 +47,12 @@ Host nas
 
 ## Part 3 · Or skip the jump host
 
-- [ ] If the jump host runs Tailscale, advertise the LAN as a subnet route and turn on **Use subnet routes** in **Settings → Tailnet**. Hosts saved with LAN addresses then work at home and away (see [Reach your servers away from home](kb:howto/remote-access)).
+- [ ] If the jump host runs Tailscale, advertise the LAN as a subnet route and turn on **Use subnet routes** in **Settings → Connections**. Hosts saved with LAN addresses then work at home and away (see [Reach your servers away from home](kb:howto/remote-access)).
 
 ## Limits and gotchas
 
 - Agent forwarding is not needed and not used; keys never leave this computer.
-- If the jump host is down, everything behind it is too. Add a dependency in **Settings → Dependencies** so their alerts fold under the jump host's.
+- If the jump host is down, everything behind it is too. Add a dependency in **Settings → Alerts → Dependencies** so their alerts fold under the jump host's.
 - `Match` blocks and `ProxyCommand` are not imported; rewrite those as `ProxyJump` where you can.
 
 ## Related

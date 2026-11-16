@@ -55,7 +55,7 @@ services:
 
 - [ ] [Services](view:services) → **Add integration** → **Pi-hole** with an app password (Settings → Web interface / API → Configure app password).
 - [ ] **Manage…** pauses blocking, edits local records and lists (see [Control Pi-hole and AdGuard Home from Nightgrid](kb:howto/dns-dashboard)).
-- [ ] Add a dependency: "everything depends on DNS" isn't quite true, but services checked by name do. Add the ones that matter in **Settings → Dependencies**.
+- [ ] Add a dependency: "everything depends on DNS" isn't quite true, but services checked by name do. Add the ones that matter in **Settings → Alerts → Dependencies**.
 
 #### Check
 
