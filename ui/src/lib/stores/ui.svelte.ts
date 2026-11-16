@@ -1,4 +1,4 @@
-import type { SectionId } from "../sections";
+import { railFor, type SectionId } from "../sections";
 
 class UiStore {
   section = $state<SectionId>("overview");
@@ -15,6 +15,9 @@ class UiStore {
   /** Whether a section is on (set by the app from Settings → Features). */
   allow: (id: SectionId) => boolean = () => true;
 
+  /** The view last open in each sidebar entry, so the entry returns to it. */
+  lastInRail = $state<Record<string, SectionId>>({});
+
   go(id: SectionId) {
     if (!this.allow(id)) {
       this.featureAsked = id;
@@ -23,6 +26,8 @@ class UiStore {
     }
     this.section = id;
     this.crumbs = [];
+    const entry = railFor(id);
+    if (entry && entry.members.length > 1) this.lastInRail = { ...this.lastInRail, [entry.id]: id };
   }
 }
 

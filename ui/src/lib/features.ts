@@ -34,7 +34,7 @@ export const FEATURES: Feature[] = [
   { id: "proxmox", label: "Proxmox", hint: "Proxmox VE nodes, guests, storage, network and firewall." },
   { id: "network", label: "Network map", hint: "Hosts, containers and ports as a graph; LAN discovery." },
   { id: "automation", label: "Automation", hint: "Snippets and playbooks across hosts." },
-  { id: "notes", label: "Notes", hint: "Markdown notes and runbooks." },
+  { id: "notes", label: "Knowledge", hint: "Your notes and runbooks (and, later, the built-in guides)." },
   { id: "drift", label: "DRIFT helper", hint: "The local AI helper. Off: the model is never loaded." },
 ];
 

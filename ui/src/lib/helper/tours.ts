@@ -3,7 +3,7 @@
  * time and wait for the user to act. Tours never click, type or navigate
  * on their own; a step that needs another view asks the user to go there.
  */
-import { SECTIONS, type SectionId } from "../sections";
+import { SECTIONS, railFor, railPath, type SectionId } from "../sections";
 import { GUIDE_TARGETS, guideTarget } from "./guide";
 
 /** What moves a step on. */
@@ -38,7 +38,7 @@ export interface Tour {
 
 const go = (view: SectionId, text?: string): TourStep => ({
   target: `rail-${view}`,
-  text: text ?? `Open ${SECTIONS.find((s) => s.id === view)?.label ?? view} in the sidebar.`,
+  text: text ?? (railFor(view) && (railFor(view)?.members.length ?? 0) > 1 ? `Open ${railPath(view)}: click ${railFor(view)?.label} in the sidebar.` : view === "settings" ? "Open Settings at the bottom of the sidebar." : `Open ${SECTIONS.find((s) => s.id === view)?.label ?? view} in the sidebar.`),
   wait: { kind: "view", view },
 });
 
@@ -50,7 +50,8 @@ export const TOURS: Tour[] = [
     views: ["overview"],
     steps: [
       { text: "Hi, I'm DRIFT. This tour points at a few things and waits for you; I never click anything myself. Esc ends it any time.", wait: { kind: "next" } },
-      { target: "rail-overview", text: "The sidebar switches views. Each has a shortcut shown next to it.", wait: { kind: "next" } },
+      { target: "rail-overview", text: "The sidebar switches views; point at a row to see its shortcut. A row marked +1 holds related views, with tabs beside the title (System has One host and Fleet).", wait: { kind: "next" } },
+      { target: "rail-settings", text: "Settings is at the bottom. Its Features tab turns views on or off, so Nightgrid can be as simple or as complete as you like.", wait: { kind: "next" } },
       { target: "palette", text: "The command palette finds hosts, views and actions by name. Try it: click here or press Mod+K.", wait: { kind: "appear", selector: '[aria-label="Command palette"]' } },
       { text: "Type a few letters to filter; Enter runs the highlighted entry. Press Esc to close it and I'll go on.", wait: { kind: "gone", selector: '[aria-label="Command palette"]' } },
       { target: "hosts-add", text: "Add a host here (or import your ~/.ssh/config with the button next to it). Everything else builds on your hosts.", wait: { kind: "next" } },

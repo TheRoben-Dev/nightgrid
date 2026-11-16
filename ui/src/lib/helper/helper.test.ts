@@ -4,18 +4,24 @@ import { chunkMarkdown, guideIndex, Index, terms } from "./knowledge";
 import { inline, parseMd } from "./md";
 import { buildTurns, contextBlock, MAX_SELECTION, parseReply, redact, streamingText, systemPrompt } from "./prompt";
 
-const markup = Object.values(import.meta.glob("../**/*.svelte", { query: "?raw", import: "default", eager: true }) as Record<string, string>).join("\n");
+const markup = Object.values(import.meta.glob("../../**/*.svelte", { query: "?raw", import: "default", eager: true }) as Record<string, string>).join("\n");
 
 describe("guide targets", () => {
   it("every target exists in the markup", () => {
     for (const t of GUIDE_TARGETS) {
       const literal = markup.includes(`guide="${t.id}"`);
-      const rail = t.id.startsWith("rail-") && markup.includes('data-guide="rail-{s.id}"');
+      const rail = t.id.startsWith("rail-") && markup.includes('data-guide="rail-{r.members[0]}"');
       const sysTab = t.id.startsWith("system-tab-") && markup.includes('data-guide="system-tab-{t.id}"');
       const fleetTab = t.id.startsWith("fleet-tab-") && markup.includes('data-guide="fleet-tab-{t.id}"');
       const pveTab = t.id.startsWith("proxmox-tab-") && markup.includes('data-guide="proxmox-tab-{t.id}"');
-      expect(literal || rail || sysTab || fleetTab || pveTab, t.id).toBe(true);
+      const viewTab = t.id.startsWith("viewtab-") && markup.includes('data-guide="viewtab-{v.id}"');
+      expect(literal || rail || sysTab || fleetTab || pveTab || viewTab, t.id).toBe(true);
     }
+  });
+  it("views that share a sidebar row point at the row and say where they are", () => {
+    expect(GUIDE_TARGETS.find((t) => t.id === "rail-fleet")?.what).toContain("System → Fleet");
+    expect(GUIDE_TARGETS.find((t) => t.id === "viewtab-tunnels")?.view).toBe("network");
+    expect(GUIDE_TARGETS.find((t) => t.id === "rail-settings")?.what).toContain("bottom");
   });
   it("ids are unique", () => {
     expect(new Set(GUIDE_TARGETS.map((t) => t.id)).size).toBe(GUIDE_TARGETS.length);
@@ -64,6 +70,10 @@ describe("prompt", () => {
     const s = systemPrompt();
     expect(s).toContain("docker (Docker)");
     expect(s).toContain("hosts-add:");
+    expect(s).toContain("fleet (System → Fleet)");
+    expect(s).toContain("System (tabs: One host, Fleet)");
+    expect(s).toContain("Knowledge");
+    expect(s).toContain("Settings is at the bottom");
   });
   it("puts context and guide only on the newest question", () => {
     const docs = [{ title: "Hosts", text: "Use + to add." }];

@@ -4,6 +4,7 @@
  * nothing here clicks, types or switches views.
  */
 import { tourById, type Tour, type TourStep } from "../helper/tours";
+import { railTarget } from "../sections";
 import { settings } from "./settings.svelte";
 import { ui } from "./ui.svelte";
 
@@ -16,6 +17,12 @@ class TourStore {
 
   get step(): TourStep | null {
     return this.tour?.steps[this.index] ?? null;
+  }
+
+  /** The step's control as it is in the page: a view that shares a sidebar row points at that row. */
+  get targetId(): string | undefined {
+    const t = this.step?.target;
+    return t ? (railTarget(t)?.id ?? t) : undefined;
   }
 
   start(id: string): boolean {
@@ -59,20 +66,24 @@ class TourStore {
     if (!step) return;
     const wait = step.wait;
     const at = this.index;
+    const target = this.targetId;
+    // A click on a shared sidebar row opens the view this step asks for.
+    const rt = step.target ? railTarget(step.target) : null;
+    if (rt) ui.lastInRail = { ...ui.lastInRail, [rt.row]: rt.view };
     const done = () => {
       if (this.step === step && this.index === at) this.next();
     };
     let onClick: ((e: Event) => void) | null = null;
-    if (wait.kind === "click" && step.target) {
+    if (wait.kind === "click" && target) {
       onClick = (e: Event) => {
-        const el = document.querySelector(`[data-guide="${step.target}"]`);
+        const el = document.querySelector(`[data-guide="${target}"]`);
         // Let the click do its work first, then move on.
         if (el && e.target instanceof Node && el.contains(e.target)) setTimeout(done, 80);
       };
       addEventListener("click", onClick, true);
     }
     const timer = setInterval(() => {
-      if (step.target) this.missing = !document.querySelector(`[data-guide="${step.target}"]`);
+      if (target) this.missing = !document.querySelector(`[data-guide="${target}"]`);
       else this.missing = false;
       if (wait.kind === "view" && ui.section === wait.view) done();
       else if (wait.kind === "appear" && document.querySelector(wait.selector)) done();

@@ -154,7 +154,7 @@
       {/each}
     </ul>
   {:else}
-    <p class="muted small">{notes.loaded ? "Pin a note to keep it here." : "Loading…"} <button type="button" class="link" onclick={() => ui.go("notes")}>Notes</button></p>
+    <p class="muted small">{notes.loaded ? "Pin a note to keep it here." : "Loading…"} <button type="button" class="link" onclick={() => ui.go("notes")}>Knowledge</button></p>
   {/if}
 {:else if kind === "desktops"}
   {#if desktops.tabs.length || desktops.rdp.length}

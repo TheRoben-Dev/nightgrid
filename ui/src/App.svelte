@@ -19,7 +19,7 @@
   import { startGamepad } from "./lib/gamepad";
   import { buildCommands } from "./lib/palette/commands";
   import { scramble } from "./lib/scramble";
-  import { SECTIONS, sectionById } from "./lib/sections";
+  import { railFor, SECTIONS, sectionById } from "./lib/sections";
   import { settings } from "./lib/stores/settings.svelte";
   import { hosts } from "./lib/stores/hosts.svelte";
   import { metrics } from "./lib/stores/metrics.svelte";
@@ -124,6 +124,11 @@
 
   const commands = $derived(ui.paletteOpen ? buildCommands() : []);
   const section = $derived(sectionById(ui.section));
+  // Views that share a sidebar entry switch with tabs under the title.
+  const railEntry = $derived(railFor(ui.section));
+  const siblings = $derived((railEntry?.members ?? []).filter((m) => settings.on(m)).map((id) => ({ id, label: railEntry?.tabs?.[id] ?? sectionById(id).label })));
+  // A shared entry's views are titled by the entry (NETWORK · MAP | TUNNELS).
+  const title = $derived(siblings.length > 1 && railEntry ? railEntry.label : section.label);
 
   const handlers: Partial<Record<ActionId, () => void>> = {
     "palette.open": () => (ui.paletteOpen = !ui.paletteOpen),
@@ -174,7 +179,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.49"} />
+  <LeftRail version={info?.version ?? "0.10.50"} />
   <div class="main">
     <TopBar />
     <UpsCountdown />
@@ -182,8 +187,15 @@
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>
-          <span use:scramble={section.label.toUpperCase()}></span>
+          <span use:scramble={title.toUpperCase()}></span>
         </h1>
+        {#if siblings.length > 1}
+          <div class="viewtabs" role="tablist" aria-label="Related views">
+            {#each siblings as v (v.id)}
+              <button type="button" role="tab" data-guide="viewtab-{v.id}" class:on={v.id === section.id} aria-selected={v.id === section.id} onclick={() => ui.go(v.id)}>{v.label.toUpperCase()}</button>
+            {/each}
+          </div>
+        {/if}
         <span class="micro" aria-hidden="true">SEC.{section.code} · {section.milestone}</span>
       </div>
       <!-- Terminals stay mounted (hidden) so sessions survive section switches. -->
@@ -281,6 +293,33 @@
     margin-bottom: 14px;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--line);
+  }
+  .viewtabs {
+    display: flex;
+    margin-left: 16px;
+    margin-right: auto;
+    border: 1px solid var(--line);
+    align-self: center;
+  }
+  .viewtabs button {
+    border: 0;
+    background: transparent;
+    color: var(--text-1);
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    padding: 3px 12px;
+    cursor: pointer;
+  }
+  .viewtabs button + button {
+    border-left: 1px solid var(--line);
+  }
+  .viewtabs button:hover {
+    color: var(--text-0);
+  }
+  .viewtabs button.on {
+    color: var(--magenta);
+    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   h1 {
     margin: 0;
