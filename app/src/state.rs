@@ -49,6 +49,7 @@ pub struct AppState {
     pub ups: Arc<crate::ups_cmd::UpsHub>,
     pub uptime: Arc<crate::uptime_cmd::UptimeHub>,
     pub logsearch: Arc<crate::logsearch_cmd::LogSearchHub>,
+    pub firewall: Arc<crate::firewall_cmd::FirewallHub>,
     /// Journal follows and package runs: stop switch by id.
     pub system_runs: crate::system_cmd::SystemRuns,
     /// Running compose commands: cancel switch by run id.
@@ -92,6 +93,7 @@ impl AppState {
             ups: Arc::default(),
             uptime: Arc::default(),
             logsearch: Arc::default(),
+            firewall: Arc::default(),
             status_server: Arc::default(),
             tailnet: Arc::default(),
             next_term: AtomicU32::new(1),

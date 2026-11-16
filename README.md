@@ -164,6 +164,16 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.34 (firewall manager)
+
+Use a test VM or a host you can reach another way (a console) the first time.
+
+1. **System → (a ufw host) → FIREWALL**: it says `ufw`, whether it's active, the default policies and the rules. **nft list ruleset** shows the raw rules.
+2. Add `allow 8443 tcp` with comment `test`, **Add…** → **Apply with rollback** (sudo). An orange bar counts down and says a new SSH connection works. Don't press anything: after the time runs out, **Refresh** shows the rule gone (`sudo ufw status` on the host agrees).
+3. Add it again and press **Keep**: it stays. **Delete…** it, and **Undo now** brings it back.
+4. **Delete…** on the rule for your SSH port: the dialog warns you could be locked out and asks for the host name. Press **Cancel**.
+5. On a firewalld host (Fedora, Rocky): each zone shows its services, ports and sources; add the `http` service and keep it, then remove it.
+
 ### macOS: testing 0.10.33 (cron and timer editor)
 
 1. **System → (a host) → SCHEDULES → Crontab…**: your crontab's jobs are listed. Add `*/5 * * * *` with `date >> /tmp/ng-cron.txt`; the words say "every 5 minutes". Try `date +%F` as the command: it's refused with the `\%` hint.
