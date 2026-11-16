@@ -23,6 +23,8 @@ pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 pub enum Method {
     Get,
     Post,
+    Put,
+    Delete,
 }
 
 #[derive(Debug, Clone)]
@@ -49,6 +51,14 @@ impl Request {
 
     pub fn post(url: impl Into<String>, body: impl Into<Vec<u8>>) -> Self {
         Self { method: Method::Post, body: body.into(), ..Self::get(url) }
+    }
+
+    pub fn put(url: impl Into<String>, body: impl Into<Vec<u8>>) -> Self {
+        Self { method: Method::Put, body: body.into(), ..Self::get(url) }
+    }
+
+    pub fn delete(url: impl Into<String>) -> Self {
+        Self { method: Method::Delete, ..Self::get(url) }
     }
 
     pub fn header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
@@ -180,6 +190,8 @@ where
             .method(match req.method {
                 Method::Get => hyper::Method::GET,
                 Method::Post => hyper::Method::POST,
+                Method::Put => hyper::Method::PUT,
+                Method::Delete => hyper::Method::DELETE,
             })
             .uri(&target.path)
             .header(hyper::header::HOST, &target.authority)

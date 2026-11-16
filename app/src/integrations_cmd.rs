@@ -3,6 +3,7 @@
 //! list only says whether one is saved.
 
 use nightgrid_core::integrations::amp::{self, AmpAction};
+use nightgrid_core::integrations::dns::{self, DnsAction};
 use nightgrid_core::integrations::{self, Integration, IntegrationId, IntegrationInput, IntegrationStatus};
 use nightgrid_core::secrets::{Secret, SecretRef, SecretStore};
 use serde::Serialize;
@@ -162,4 +163,19 @@ pub async fn amp_instance_action(
         tracing::info!(integration = id, %instance, ?action, "AMP instance action");
     }
     amp::act(&i, &secret, &instance, action).await.map_err(CommandError::msg)
+}
+
+/// Changes a Pi-hole or AdGuard Home: blocking, lists, local records. The UI
+/// confirms turning blocking off and removals with the target named.
+#[tauri::command]
+#[specta::specta]
+pub async fn dns_filter_action(app: AppHandle, id: IntegrationId, action: DnsAction) -> CmdResult<()> {
+    let (i, secret) = {
+        let state = app.state::<AppState>();
+        let i = state.store().get_integration(id)?;
+        (i, read_secret(&state, id))
+    };
+    let secret = secret.ok_or_else(|| CommandError::msg("no password saved"))?;
+    tracing::info!(integration = id, change = %action.describe(), "DNS filter change");
+    dns::act(&i, &secret, &action).await.map_err(CommandError::msg)
 }

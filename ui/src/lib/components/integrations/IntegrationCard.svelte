@@ -8,11 +8,12 @@
   }
   let { view }: Props = $props();
 
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const i = $derived(view.integration);
   const e = $derived(integrations.entries[i.id]);
   const s = $derived(e?.status ?? null);
   const tone = $derived(toneOf(e));
-  const needsSecret = $derived((i.kind === "plex" || i.kind === "amp") && !view.hasSecret);
+  const needsSecret = $derived(i.kind !== "kuma" && i.kind !== "portainer" && !view.hasSecret);
 </script>
 
 <article class="card {tone}">
@@ -76,6 +77,25 @@
           </li>
         {/each}
       </ul>
+    {:else if s.kind === "pihole" || s.kind === "adguard"}
+      <div class="tiles">
+        <span><b>{s.queries.toLocaleString("en-US")}</b> queries</span>
+        <span><b>{s.blocked.toLocaleString("en-US")}</b> blocked</span>
+        {#if s.clients != null}<span><b>{s.clients}</b> clients</span>{/if}
+      </div>
+      {#if s.topBlocked.length}
+        <ul class="rows">
+          {#each s.topBlocked.slice(0, 3) as d (d.domain)}
+            <li class="top"><span class="main" title={d.domain}>{d.domain}</span><span class="meta">{d.count.toLocaleString("en-US")}</span></li>
+          {/each}
+        </ul>
+      {/if}
+      <div class="dnsacts">
+        <span class="muted small">{s.blocking ? "Blocking on" : "Blocking off"} · {plural(s.lists.filter((l) => l.enabled && !l.allow).length, "block list")} · {plural(s.records.length, "record")}</span>
+        <span class="spacer"></span>
+        {#if !s.blocking}<button type="button" class="btn ghost tiny" disabled={integrations.dnsBusy} onclick={() => void integrations.dns(i.id, { op: "setBlocking", enabled: true, seconds: null }, `Blocking is on again on ${i.name}.`)}>Turn on</button>{/if}
+        <button type="button" class="btn ghost tiny" data-guide="dns-manage" onclick={() => (integrations.dnsOpen = i.id)}>Manage…</button>
+      </div>
     {:else if s.kind === "portainer"}
       <p class="muted small">
         {i.hostId != null ? "Containers on the linked host get an Open in Portainer link in Docker." : "Link a host in its settings to get container links in Docker."}
@@ -85,6 +105,22 @@
 </article>
 
 <style>
+  .tiles {
+    display: flex;
+    gap: 14px;
+    font-size: var(--fs-xs);
+    color: var(--text-1);
+  }
+  .tiles b {
+    color: var(--text-0);
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+  .dnsacts {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
   .card {
     --tone: var(--line);
     display: flex;
@@ -175,6 +211,10 @@
     column-gap: 8px;
     align-items: center;
     font-size: var(--fs-sm);
+  }
+  .rows li.top {
+    grid-template-columns: minmax(0, 1fr) auto;
+    font-size: var(--fs-xs);
   }
   .rows li.amp {
     grid-template-columns: 8px minmax(0, 1fr) auto;

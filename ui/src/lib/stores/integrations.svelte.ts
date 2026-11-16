@@ -1,7 +1,9 @@
+import { dnsSummary } from "../dnsfilter";
 import {
   api,
   errorText,
   type AmpAction,
+  type DnsAction,
   type Integration,
   type IntegrationInput,
   type IntegrationKind,
@@ -17,6 +19,8 @@ export const KIND_LABEL: Record<IntegrationKind, string> = {
   amp: "AMP",
   kuma: "UPTIME KUMA",
   portainer: "PORTAINER",
+  pihole: "PI-HOLE",
+  adguard: "ADGUARD HOME",
 };
 
 export const KIND_HELP: Record<IntegrationKind, string> = {
@@ -24,6 +28,8 @@ export const KIND_HELP: Record<IntegrationKind, string> = {
   amp: "Game server instances with players; start, stop and restart. Needs an AMP login with permission to manage instances.",
   kuma: "Monitors from a public status page. No API key needed: create a status page in Kuma and enter its slug.",
   portainer: "Adds an \"Open in Portainer\" link to containers on the linked host.",
+  pihole: "Queries, blocked share and top blocked domains; pause blocking; block and allow lists; local DNS records. Pi-hole v6: use the web password or an app password (Settings → Web interface / API).",
+  adguard: "Queries, blocked share and top blocked domains; pause protection; block and allow lists; DNS rewrites. Uses the AdGuard Home login.",
 };
 
 export interface Entry {
@@ -81,6 +87,9 @@ export function summary(s: IntegrationStatus | null): string {
       return `${s.up}/${s.monitors.length} up${s.down ? ` · ${s.down} down` : ""}`;
     case "portainer":
       return s.version ? `v${s.version}` : "Reachable";
+    case "pihole":
+    case "adguard":
+      return dnsSummary(s);
   }
 }
 
@@ -90,6 +99,7 @@ export function toneOf(e: Entry | undefined): Tone {
   if (e.error) return "bad";
   const s = e.status!;
   if (s.kind === "kuma" && s.down) return "warn";
+  if ((s.kind === "pihole" || s.kind === "adguard") && !s.blocking) return "warn";
   return "ok";
 }
 
@@ -108,6 +118,9 @@ class IntegrationsStore {
   /** null = closed, 0 = new, id = edit. */
   editing = $state<number | null>(null);
   pendingAmp = $state<PendingAmp | null>(null);
+  /** The DNS filter whose dashboard is open. */
+  dnsOpen = $state<number | null>(null);
+  dnsBusy = $state(false);
   notice = $state<{ tone: "ok" | "err"; text: string } | null>(null);
   private timer: ReturnType<typeof setInterval> | null = null;
   private watchers = 0;
@@ -188,6 +201,22 @@ class IntegrationsStore {
   request(p: PendingAmp) {
     if (p.action === "start") void this.amp(p);
     else this.pendingAmp = p;
+  }
+
+  /** Runs a DNS filter change and reads the status again. */
+  async dns(id: number, action: DnsAction, done: string): Promise<boolean> {
+    this.dnsBusy = true;
+    try {
+      await api.dnsFilterAction(id, action);
+      this.notice = { tone: "ok", text: done };
+      await this.refresh(id);
+      return true;
+    } catch (e) {
+      this.notice = { tone: "err", text: errorText(e) };
+      return false;
+    } finally {
+      this.dnsBusy = false;
+    }
   }
 }
 

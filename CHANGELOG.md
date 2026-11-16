@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.36] - 2026-11-16
+
+### Added: host config editors, part 4: Pi-hole and AdGuard Home (M10v)
+- New integrations: **Pi-hole** (v6) and **AdGuard Home** (Services → Add integration). The card shows queries, blocked count, clients and the top blocked domains; **Turn on** appears while blocking is paused.
+- **Manage…** opens the dashboard. It shows queries, blocked share, active clients and the domains on lists. **Pause…** turns blocking off for 5 minutes, 30 minutes, 1 hour or until you turn it back on (after a confirmation naming the server). It also shows the top blocked domains.
+- **Local DNS records** (AdGuard: rewrites): add a name → IP, or remove one. AdGuard also takes wildcards like `*.apps.lan` and a name as the answer.
+- **Lists**: block and allow lists with entry counts and when they were last downloaded. Tick to turn a list on or off. **Remove…** a list, add one by URL, and **Update gravity** / **Update lists** to download them again.
+- The password stays in the keychain. Pi-hole sessions are closed after every read, so the dashboard never uses up Pi-hole's session slots.
+
 ## [0.10.35] - 2026-11-16
 
 ### Added: host config editors, part 3: reverse proxy route editor (M10v)

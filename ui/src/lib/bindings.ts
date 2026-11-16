@@ -344,6 +344,11 @@ export const commands = {
 	 *  restart with the instance named.
 	 */
 	ampInstanceAction: (id: number, instance: string, action: AmpAction, options?: InvokeOptions) => __TAURI_INVOKE<null>("amp_instance_action", { id, instance, action }, options),
+	/**
+	 *  Changes a Pi-hole or AdGuard Home: blocking, lists, local records. The UI
+	 *  confirms turning blocking off and removals with the target named.
+	 */
+	dnsFilterAction: (id: number, action: DnsAction_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<null>("dns_filter_action", { id, action }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -2047,6 +2052,96 @@ export type DisksReport_Serialize = {
 	health: Health,
 };
 
+/**
+ *  One change. Turning blocking off, removing a list and removing a record
+ *  are confirmed in the UI with the target named (rule 5).
+ */
+export type DnsAction = DnsAction_Serialize | DnsAction_Deserialize;
+
+/**
+ *  One change. Turning blocking off, removing a list and removing a record
+ *  are confirmed in the UI with the target named (rule 5).
+ */
+export type DnsAction_Deserialize = 
+/**  `seconds` pauses blocking for that long; `None` until turned back on. */
+{ op: "setBlocking"; enabled: boolean; seconds?: number | null } | { op: "addList"; url: string; name: string; allow: boolean } | { op: "removeList"; url: string; allow: boolean } | { op: "setListEnabled"; url: string; name: string; allow: boolean; enabled: boolean } | 
+/**  Download the lists again (Pi-hole: gravity). */
+{ op: "updateLists" } | { op: "addRecord"; domain: string; answer: string } | { op: "removeRecord"; domain: string; answer: string };
+
+/**
+ *  One change. Turning blocking off, removing a list and removing a record
+ *  are confirmed in the UI with the target named (rule 5).
+ */
+export type DnsAction_Serialize = 
+/**  `seconds` pauses blocking for that long; `None` until turned back on. */
+{ op: "setBlocking"; enabled: boolean; seconds: number | null } | { op: "addList"; url: string; name: string; allow: boolean } | { op: "removeList"; url: string; allow: boolean } | { op: "setListEnabled"; url: string; name: string; allow: boolean; enabled: boolean } | 
+/**  Download the lists again (Pi-hole: gravity). */
+{ op: "updateLists" } | { op: "addRecord"; domain: string; answer: string } | { op: "removeRecord"; domain: string; answer: string };
+
+export type DnsList = DnsList_Serialize | DnsList_Deserialize;
+
+export type DnsList_Deserialize = {
+	url: string,
+	name: string,
+	enabled: boolean,
+	/**  An allow list (Pi-hole "allow", AdGuard "whitelist"). */
+	allow: boolean,
+	entries?: number | null,
+	/**  Unix seconds of the last download. */
+	updated?: number | null,
+};
+
+export type DnsList_Serialize = {
+	url: string,
+	name: string,
+	enabled: boolean,
+	/**  An allow list (Pi-hole "allow", AdGuard "whitelist"). */
+	allow: boolean,
+	entries: number | null,
+	/**  Unix seconds of the last download. */
+	updated: number | null,
+};
+
+export type DnsRecord = {
+	domain: string,
+	/**  An IP address (or, on AdGuard, another name). */
+	answer: string,
+};
+
+export type DnsStatus = DnsStatus_Serialize | DnsStatus_Deserialize;
+
+export type DnsStatus_Deserialize = {
+	version?: string | null,
+	blocking: boolean,
+	/**  Seconds until blocking turns itself back on, when paused with a timer. */
+	resumesIn?: number | null,
+	queries: number,
+	blocked: number,
+	percentBlocked: number | null,
+	clients?: number | null,
+	/**  Domains (Pi-hole) or rules (AdGuard) on the enabled block lists. */
+	onLists?: number | null,
+	topBlocked: DomainCount[],
+	lists: DnsList_Deserialize[],
+	records: DnsRecord[],
+};
+
+export type DnsStatus_Serialize = {
+	version: string | null,
+	blocking: boolean,
+	/**  Seconds until blocking turns itself back on, when paused with a timer. */
+	resumesIn: number | null,
+	queries: number,
+	blocked: number,
+	percentBlocked: number | null,
+	clients: number | null,
+	/**  Domains (Pi-hole) or rules (AdGuard) on the enabled block lists. */
+	onLists: number | null,
+	topBlocked: DomainCount[],
+	lists: DnsList_Serialize[],
+	records: DnsRecord[],
+};
+
 export type DockerAction = "start" | "stop" | "restart" | 
 /**  `docker pull <image>`. */
 "pull";
@@ -2078,6 +2173,11 @@ export type DockerCmdError_Serialize = {
 };
 
 export type DockerError = { kind: "notInstalled" } | { kind: "permissionDenied"; socket: string; user: string } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
+
+export type DomainCount = {
+	domain: string,
+	count: number,
+};
 
 export type DownloadProgress = {
 	done: number | null,
@@ -2970,7 +3070,7 @@ export type IntegrationInput_Serialize = {
 	allowUntrusted: boolean,
 };
 
-export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer";
+export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard";
 
 /**  What an integration reports right now. */
 export type IntegrationStatus = IntegrationStatus_Serialize | IntegrationStatus_Deserialize;
@@ -2984,7 +3084,11 @@ export type IntegrationStatus_Deserialize = {
 	kind: "kuma",
 } & KumaStatus_Deserialize | {
 	kind: "portainer",
-} & PortainerStatus_Deserialize;
+} & PortainerStatus_Deserialize | {
+	kind: "pihole",
+} & DnsStatus_Deserialize | {
+	kind: "adguard",
+} & DnsStatus_Deserialize;
 
 /**  What an integration reports right now. */
 export type IntegrationStatus_Serialize = {
@@ -2995,7 +3099,11 @@ export type IntegrationStatus_Serialize = {
 	kind: "kuma",
 } & KumaStatus_Serialize | {
 	kind: "portainer",
-} & PortainerStatus_Serialize;
+} & PortainerStatus_Serialize | {
+	kind: "pihole",
+} & DnsStatus_Serialize | {
+	kind: "adguard",
+} & DnsStatus_Serialize;
 
 export type IntegrationView = IntegrationView_Serialize | IntegrationView_Deserialize;
 

@@ -130,7 +130,7 @@ _Last updated: M2 (SFTP + editor)._
 
 ## Integrations (M7)
 
-- **Core** (`core/src/integrations/`): `mod.rs` has the `Integration` model, input normalisation, the store CRUD (migration 0008) and `status()`, which dispatches to one client per kind: `plex.rs`, `amp.rs` (login, instances, start/stop/restart), `kuma.rs` (public status page + heartbeats) and `portainer.rs` (version check, container/stack URLs). Parsers are pure functions tested against fixtures in `fixtures/` (D-053).
+- **Core** (`core/src/integrations/`): `mod.rs` has the `Integration` model, input normalisation, the store CRUD (migration 0008) and `status()`, which dispatches to one client per kind: `plex.rs`, `amp.rs` (login, instances, start/stop/restart), `kuma.rs` (public status page + heartbeats) and `portainer.rs` (version check, container/stack URLs), `dns.rs` (Pi-hole v6 sessions and AdGuard Home basic auth: `parse_pihole`, `parse_adguard`, `pihole_requests`, `adguard_requests`, `validate`, `act`; D-120). `dns_filter_action` runs a change; the UI dashboard is `components/integrations/DnsDashboard.svelte` with helpers in `dnsfilter.ts`. Parsers are pure functions tested against fixtures in `fixtures/` (D-053).
 - **App** (`app/src/integrations_cmd.rs`): CRUD with the secret in the keychain (`integration-<id>`), reveal, status, test-before-save and AMP actions.
 - **UI**: `stores/integrations.svelte.ts` (list, per-integration status entries, polling only while watched, AMP confirmation), `components/integrations/IntegrationCard.svelte` and `IntegrationEditor.svelte`; the panel lives in `views/Services.svelte`, and `docker/ContainerPanel.svelte` asks `portainerUrl()` for its link. `mockIntegrations.ts` for browser dev.
 

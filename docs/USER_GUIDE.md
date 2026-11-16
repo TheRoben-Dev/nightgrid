@@ -75,6 +75,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **AMP**: game servers with start, stop and restart.
   - **Uptime Kuma**: monitors from a status page.
   - **Portainer**: "Open in Portainer" links.
+  - **Pi-hole** (version 6) and **AdGuard Home**: DNS stats and top blocked domains on the card. **Manage…** opens a dashboard where you can pause blocking (5 min, 30 min, 1 h or until you turn it on), add or remove local DNS records, turn block and allow lists on or off, add or remove lists and download them again. For Pi-hole, enter the web password or an app password (Pi-hole: Settings → Web interface / API → Configure app password); AdGuard Home needs its login name and password.
 - Tokens are kept in the keychain only.
 - **Expiry watch** (bottom of Services): everything that runs out on a date, soonest first. HTTPS services show their certificate automatically, and proxy route certificates appear once you've opened Docker → Routes. **Add…** watches more:
   - a **certificate file on a host** (a PEM path): Nightgrid reads its end date with `openssl` over SSH when you add it, on **Read cert files**, and twice a day while the host is connected;

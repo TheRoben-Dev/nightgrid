@@ -1,9 +1,11 @@
 /**
  * Browser-only stand-in for integrations, with canned Plex, AMP and Uptime
- * Kuma statuses for `pnpm dev`, tests and screenshots.
+ * Kuma statuses, plus a Pi-hole whose blocking, lists and records change in memory, for `pnpm dev`, tests and screenshots.
  */
 import type {
   AmpAction,
+  DnsAction_Deserialize as DnsAction,
+  DnsStatus_Serialize as DnsStatus,
   IntegrationInput_Deserialize as IntegrationInput,
   IntegrationStatus_Serialize as IntegrationStatus,
   IntegrationView_Serialize as IntegrationView,
@@ -37,6 +39,43 @@ const add = (input: IntegrationInput, secret?: string) => {
 add({ kind: "plex", name: "Plex", baseUrl: "http://server01:32400" }, "token");
 add({ kind: "amp", name: "Game servers", baseUrl: "http://server01:8080", username: "admin" }, "pw");
 add({ kind: "kuma", name: "Uptime Kuma", baseUrl: "http://server02:3001", slug: "home" });
+add({ kind: "pihole", name: "Pi-hole", baseUrl: "http://192.168.1.2" }, "pw");
+
+const now = () => Date.now() / 1000;
+const dns: DnsStatus & { pausedUntil: number | null } = {
+  version: "v6.1",
+  blocking: true,
+  resumesIn: null,
+  pausedUntil: null,
+  queries: 48213,
+  blocked: 6120,
+  percentBlocked: 12.69,
+  clients: 14,
+  onLists: 167820,
+  topBlocked: [
+    { domain: "ads.example.net", count: 812 },
+    { domain: "telemetry.example.org", count: 301 },
+    { domain: "metrics.example.com", count: 122 },
+  ],
+  lists: [
+    { url: "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts", name: "Steven Black", enabled: true, allow: false, entries: 160213, updated: now() - 3600 * 20 },
+    { url: "https://example.com/extra-block.txt", name: "Extra", enabled: false, allow: false, entries: 7607, updated: now() - 86400 * 3 },
+    { url: "https://example.com/allow.txt", name: "Allowed", enabled: true, allow: true, entries: 12, updated: now() - 86400 },
+  ],
+  records: [
+    { domain: "nas.lan", answer: "192.168.1.10" },
+    { domain: "server01.lan", answer: "192.168.1.11" },
+  ],
+};
+
+function dnsStatus(): DnsStatus {
+  if (dns.pausedUntil && dns.pausedUntil <= now()) {
+    dns.blocking = true;
+    dns.pausedUntil = null;
+  }
+  const { pausedUntil, ...rest } = dns;
+  return { ...rest, resumesIn: pausedUntil ? Math.ceil(pausedUntil - now()) : null, lists: dns.lists.map((l) => ({ ...l })), records: dns.records.map((r) => ({ ...r })) };
+}
 
 const amp = [
   { name: "Minecraft01", friendlyName: "Survival World", module: "Minecraft", running: true, state: "ready", users: 3, maxUsers: 20, cpuPercent: 12, memoryMb: 3072 },
@@ -71,6 +110,10 @@ function statusFor(kind: string): IntegrationStatus {
           { id: 6, name: "NAS", group: "Infra", state: "up", pingMs: 4, message: "", uptime24h: 100 },
         ],
       };
+    case "pihole":
+      return { kind: "pihole", ...dnsStatus() };
+    case "adguard":
+      return { kind: "adguard", ...dnsStatus(), version: "0.107.57" };
     default:
       return { kind: "portainer", version: "2.21.0" };
   }
@@ -115,6 +158,35 @@ export const mockIntegrations = {
     if (i) {
       i.running = action !== "stop";
       i.state = i.running ? "ready" : "stopped";
+    }
+    return null;
+  },  async dnsAction(_id: number, a: DnsAction): Promise<null> {
+    await new Promise((r) => setTimeout(r, 250));
+    switch (a.op) {
+      case "setBlocking":
+        dns.blocking = a.enabled;
+        dns.pausedUntil = !a.enabled && a.seconds ? now() + a.seconds : null;
+        break;
+      case "addList":
+        if (!/^https?:\/\//.test(a.url)) throw { message: `"${a.url}" isn't a list URL (http or https)` };
+        dns.lists = [...dns.lists, { url: a.url, name: a.name, enabled: true, allow: a.allow, entries: null, updated: null }];
+        break;
+      case "removeList":
+        dns.lists = dns.lists.filter((l) => !(l.url === a.url && l.allow === a.allow));
+        break;
+      case "setListEnabled":
+        dns.lists = dns.lists.map((l) => (l.url === a.url && l.allow === a.allow ? { ...l, enabled: a.enabled } : l));
+        break;
+      case "updateLists":
+        dns.lists = dns.lists.map((l) => ({ ...l, updated: now(), entries: l.entries ?? 1000 }));
+        break;
+      case "addRecord":
+        if (!/^[\d.:a-f]+$/i.test(a.answer)) throw { message: `"${a.answer}" isn't an IP address` };
+        dns.records = [...dns.records, { domain: a.domain, answer: a.answer }];
+        break;
+      case "removeRecord":
+        dns.records = dns.records.filter((r) => !(r.domain === a.domain && r.answer === a.answer));
+        break;
     }
     return null;
   },

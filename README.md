@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.36 (Pi-hole / AdGuard Home)
+
+1. **Services → Add integration → PI-HOLE**: URL `http://<pi-hole>`, the web password (or an app password), **Test** says "Connected: … queries". Save: the card shows queries, blocked and the top 3 blocked domains.
+2. **Manage…**: the numbers match Pi-hole's dashboard. **Pause…** with 5 minutes → confirm: the bar turns orange with the time left, and Pi-hole's own UI shows blocking disabled. **Turn on now** brings it back.
+3. Add a local record `nightgrid-test.lan` → `192.168.1.250`: `dig @<pi-hole> nightgrid-test.lan` answers it. **Remove…** it again.
+4. Untick a block list, then tick it again; **Update gravity** runs for a while and the lists' "last downloaded" changes.
+5. Same with **ADGUARD HOME** (login name and password): rewrites take `*.something.lan`.
+
 ### macOS: testing 0.10.35 (reverse proxy route editor)
 
 1. On a host with a Caddy container (or Caddy installed): **Docker → Routes → Edit routes…**. The Caddy tab lists the Caddyfile's sites. **Add site…** `test.example.com` → `whoami:80`: the diff shows the new block; **Save and reload Caddy**. It says Caddy loaded it, and the Routes list shows the new domain.
