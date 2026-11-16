@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.45] - 2026-11-16
+
+### Added: Proxmox VE, part 4: hardware and options (M10r)
+- A guest's window gains **HARDWARE**. Change cores, sockets, CPU type, memory and the balloon minimum (VMs) or swap (containers). Changes the running guest can't take are shown as waiting for the next restart, with a **Reboot…** button.
+- **Disks**: **Grow…** any disk by some GB, **Add** a SCSI, VirtIO or SATA disk (or a mount point with a path in a container), **Detach…** a disk (it stays on the storage as unused), **Attach** an unused one again, or **Delete…** it (type its key). Change the disc in a CD/DVD drive from the node's ISO list.
+- **Network**: add, edit and remove network devices: model, bridge, VLAN and firewall, plus address and gateway for containers. Editing keeps the MAC address.
+- **Passthrough** (VMs): list the node's PCI and USB devices, pass one through (all functions and PCIe by default on q35), and see which other devices share its IOMMU group. A warning shows when IOMMU looks off.
+- **Options**: start at boot, boot order and delay, protection, tags and notes.
+- Every change is sent with the configuration's digest, so if someone changed the guest in the meantime Proxmox refuses it and the tab rereads it. Each change lands on the host's timeline.
+
 ## [0.10.44] - 2026-11-16
 
 ### Added: Proxmox VE, part 3: create, clone, templates and ISOs (M10r)

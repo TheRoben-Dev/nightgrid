@@ -435,6 +435,14 @@ export const commands = {
 	/**  Container templates Proxmox offers for download. */
 	pveAppliances: (hostId: number, node: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveAppliance[]>("pve_appliances", { hostId, node, sudo }, options),
 	pveApplianceDownload: (hostId: number, node: string, storage: string, template: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_appliance_download", { hostId, node, storage, template, sudo }, options),
+	/**  A guest's configuration with its pending changes. */
+	pveConfig: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveConfig_Serialize>("pve_config", { hostId, node, kind, vmid, sudo }, options),
+	/**  Sets and removes configuration keys, refused if the config changed since `digest`. */
+	pveConfigSet: (hostId: number, node: string, kind: string, vmid: number, digest: string, set: PveSetting[], remove: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_config_set", { hostId, node, kind, vmid, digest, set, remove, sudo }, options),
+	/**  Grows a disk; returns the task when Proxmox runs it as one. */
+	pveDiskResize: (hostId: number, node: string, kind: string, vmid: number, disk: string, growGb: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("pve_disk_resize", { hostId, node, kind, vmid, disk, growGb, sudo }, options),
+	/**  PCI and USB devices on a node, for passthrough. */
+	pveHostDevices: (hostId: number, node: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveHostDevices>("pve_host_devices", { hostId, node, sudo }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -4781,6 +4789,63 @@ export type PveCloneSpec_Serialize = {
 	storage: string | null,
 };
 
+export type PveConfig = PveConfig_Serialize | PveConfig_Deserialize;
+
+/**  One configuration key: what runs now, and what waits for a restart. */
+export type PveConfigEntry = PveConfigEntry_Serialize | PveConfigEntry_Deserialize;
+
+/**  One configuration key: what runs now, and what waits for a restart. */
+export type PveConfigEntry_Deserialize = {
+	key: string,
+	/**  Current value (none for a key only added as pending). */
+	value?: string | null,
+	/**  New value that applies at the next restart. */
+	pending?: string | null,
+	/**  Removal that applies at the next restart. */
+	delete: boolean,
+};
+
+/**  One configuration key: what runs now, and what waits for a restart. */
+export type PveConfigEntry_Serialize = {
+	key: string,
+	/**  Current value (none for a key only added as pending). */
+	value: string | null,
+	/**  New value that applies at the next restart. */
+	pending: string | null,
+	/**  Removal that applies at the next restart. */
+	delete: boolean,
+};
+
+export type PveConfig_Deserialize = {
+	kind: string,
+	/**  Changes are sent with it, so a config someone else changed meanwhile is refused. */
+	digest: string,
+	entries: PveConfigEntry_Deserialize[],
+	disks: PveDisk[],
+	nics: PveNic_Deserialize[],
+	/**  hostpci* and usb* entries. */
+	devices: PveConfigEntry_Deserialize[],
+	/**  Detached disks (unused*): still on the storage. */
+	unused: PveConfigEntry_Deserialize[],
+	/**  Any change waits for a restart. */
+	pending: boolean,
+};
+
+export type PveConfig_Serialize = {
+	kind: string,
+	/**  Changes are sent with it, so a config someone else changed meanwhile is refused. */
+	digest: string,
+	entries: PveConfigEntry_Serialize[],
+	disks: PveDisk[],
+	nics: PveNic_Serialize[],
+	/**  hostpci* and usb* entries. */
+	devices: PveConfigEntry_Serialize[],
+	/**  Detached disks (unused*): still on the storage. */
+	unused: PveConfigEntry_Serialize[],
+	/**  Any change waits for a restart. */
+	pending: boolean,
+};
+
 /**  What the create forms need from one node. */
 export type PveCreateInfo = PveCreateInfo_Serialize | PveCreateInfo_Deserialize;
 
@@ -4852,6 +4917,20 @@ export type PveCtSpec_Serialize = {
 	start: boolean,
 };
 
+export type PveDisk = {
+	/**  scsi0, virtio1, ide2, rootfs, mp0, efidisk0, tpmstate0… */
+	key: string,
+	/**  storage:volume, or "none" for an empty CD drive. */
+	volid: string,
+	size: string,
+	cdrom: boolean,
+	/**  Container mount point path (mp*), or empty. */
+	mountpoint: string,
+	/**  The full value, options included. */
+	value: string,
+	pending: boolean,
+};
+
 export type PveGuest = PveGuest_Serialize | PveGuest_Deserialize;
 
 export type PveGuest_Deserialize = {
@@ -4898,6 +4977,46 @@ export type PveGuest_Serialize = {
 	lock: string | null,
 	/**  HA state when the guest is managed by HA. */
 	hastate: string | null,
+};
+
+export type PveHostDevices = {
+	pci: PvePci[],
+	usb: PveUsb[],
+	/**  IOMMU looks off (every PCI group is -1). */
+	iommuOff: boolean,
+	notes: string[],
+};
+
+export type PveNic = PveNic_Serialize | PveNic_Deserialize;
+
+export type PveNic_Deserialize = {
+	key: string,
+	/**  virtio, e1000… for VMs; veth for containers. */
+	model: string,
+	mac: string,
+	bridge: string,
+	vlan?: number | null,
+	firewall: boolean,
+	/**  Container only: ip=… (dhcp, CIDR or empty). */
+	ip: string,
+	value: string,
+	pending: boolean,
+	delete: boolean,
+};
+
+export type PveNic_Serialize = {
+	key: string,
+	/**  virtio, e1000… for VMs; veth for containers. */
+	model: string,
+	mac: string,
+	bridge: string,
+	vlan: number | null,
+	firewall: boolean,
+	/**  Container only: ip=… (dhcp, CIDR or empty). */
+	ip: string,
+	value: string,
+	pending: boolean,
+	delete: boolean,
 };
 
 export type PveNode = PveNode_Serialize | PveNode_Deserialize;
@@ -4987,6 +5106,21 @@ export type PveOverview_Serialize = {
 	local: PveNodeInfo | null,
 	/**  Errors from single reads; the rest still shows. */
 	notes: string[],
+};
+
+export type PvePci = {
+	/**  0000:01:00.0 */
+	id: string,
+	vendor: string,
+	device: string,
+	class: string,
+	/**  -1 when the IOMMU is off. */
+	iommuGroup: number,
+};
+
+export type PveSetting = {
+	key: string,
+	value: string,
 };
 
 export type PveSnapshot = PveSnapshot_Serialize | PveSnapshot_Deserialize;
@@ -5085,6 +5219,15 @@ export type PveUncovered = {
 	vmid: number,
 	name: string,
 	kind: string,
+};
+
+export type PveUsb = {
+	/**  vendor:product, as `usbN: host=` takes it. */
+	id: string,
+	/**  Bus-port path (1-2), for passing a port instead of a device. */
+	path: string,
+	manufacturer: string,
+	product: string,
 };
 
 export type PveVmSpec = PveVmSpec_Serialize | PveVmSpec_Deserialize;

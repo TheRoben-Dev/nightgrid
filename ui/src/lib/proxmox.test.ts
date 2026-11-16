@@ -128,3 +128,47 @@ describe("part 3 helpers", () => {
     expect(m.vmidFree(o, 99)).toBe(false);
   });
 });
+
+describe("part 4 helpers", () => {
+  const cfg = (entries: { key: string; value?: string | null; pending?: string | null; delete?: boolean }[]) =>
+    ({ kind: "qemu", digest: "d1", entries: entries.map((e) => ({ value: null, pending: null, delete: false, ...e })), disks: [], nics: [], devices: [], unused: [], pending: false }) as never;
+
+  it("edits options without losing the rest", async () => {
+    const m = await import("./proxmox");
+    expect(m.withOptions("virtio=AA:BB,bridge=vmbr0,firewall=1", { bridge: "vmbr1", firewall: null, tag: "20" })).toBe("virtio=AA:BB,bridge=vmbr1,tag=20");
+    const f = { model: "e1000", bridge: "vmbr0", vlan: null, firewall: true, ip: "dhcp", gateway: "" };
+    expect(m.nicValue("qemu", "net0", "virtio=AA:BB,bridge=vmbr1,tag=5,queues=4", f)).toBe("e1000=AA:BB,bridge=vmbr0,queues=4,firewall=1");
+    expect(m.nicValue("qemu", "net1", null, f)).toBe("e1000,bridge=vmbr0,firewall=1");
+    const ct = { ...f, ip: "192.168.1.9/24", gateway: "192.168.1.1" };
+    expect(m.nicValue("lxc", "net1", null, ct)).toBe("name=eth1,bridge=vmbr0,firewall=1,ip=192.168.1.9/24,gw=192.168.1.1");
+    expect(m.nicValue("lxc", "net0", "name=eth0,bridge=vmbr0,hwaddr=AA,ip=192.168.1.9/24,gw=192.168.1.1,type=veth", f)).toBe("name=eth0,bridge=vmbr0,hwaddr=AA,ip=dhcp,type=veth,firewall=1");
+  });
+
+  it("reads pending values, free keys and only sends changes", async () => {
+    const m = await import("./proxmox");
+    const c = cfg([{ key: "cores", value: "4", pending: "6" }, { key: "net0", value: "x" }, { key: "net1", value: "y", delete: true }, { key: "onboot", value: "1" }]);
+    expect(m.cfgValue(c, "cores")).toBe("6");
+    expect(m.cfgValue(c, "net1")).toBeNull();
+    expect(m.freeKey(c, "net", 31)).toBe("net2");
+    expect(m.changed(c, { cores: "6", onboot: null, memory: "2048" })).toEqual({ set: [{ key: "memory", value: "2048" }], remove: ["onboot"] });
+  });
+
+  it("builds disks, devices and startup", async () => {
+    const m = await import("./proxmox");
+    expect(m.diskValue("qemu", "scsi", "local-lvm", 32)).toBe("local-lvm:32,discard=on,iothread=1");
+    expect(m.diskValue("lxc", "", "local-lvm", 16, "/mnt/data")).toBe("local-lvm:16,mp=/mnt/data");
+    expect(m.validMountPath("/mnt/../etc")).toBe(false);
+    expect(m.validMountPath("/")).toBe(false);
+    expect(m.cdromValue(null)).toBe("none,media=cdrom");
+    expect(m.pciValue("0000:01:00.0", true, true)).toBe("0000:01:00,pcie=1");
+    expect(m.pciValue("0000:01:00.1", false, false)).toBe("0000:01:00.1");
+    const pci = [
+      { id: "0000:01:00.0", vendor: "", device: "GPU", class: "", iommuGroup: 14 },
+      { id: "0000:01:00.1", vendor: "", device: "Audio", class: "", iommuGroup: 14 },
+      { id: "0000:02:00.0", vendor: "", device: "NIC", class: "", iommuGroup: 14 },
+    ];
+    expect(m.groupMates(pci, "0000:01:00.0").map((p) => p.id)).toEqual(["0000:02:00.0"]);
+    expect(m.startupOf("order=2,up=30")).toEqual({ order: 2, up: 30 });
+    expect(m.startupText(null, null)).toBeNull();
+  });
+});

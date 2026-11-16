@@ -445,3 +445,97 @@ pub async fn pve_appliance_download(
     note(&app, host_id, Level::Info, format!("Proxmox: downloading {template}"), format!("to {storage}"));
     Ok(upid)
 }
+
+// ---- part 4: hardware and options ----
+
+use nightgrid_core::proxmox::hardware::{self as phw, PveConfig, PveHostDevices, PveSetting};
+
+/// A guest's configuration with its pending changes.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_config(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    kind: String,
+    vmid: u32,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveConfig> {
+    let script = phw::config_script(&node, &kind, vmid).ok_or_else(|| invalid("guest"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    Ok(phw::parse_config(&out, &kind).map_err(other)?)
+}
+
+/// Sets and removes configuration keys, refused if the config changed since `digest`.
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_config_set(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    kind: String,
+    vmid: u32,
+    digest: String,
+    set: Vec<PveSetting>,
+    remove: Vec<String>,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let script = phw::config_set_script(&node, &kind, vmid, &digest, &set, &remove).map_err(other)?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    if !out.lines().any(|l| l.trim() == "@@ok") {
+        return Err(other(proxmox::explain(&out)).into());
+    }
+    let mut what: Vec<String> = set.iter().map(|s| s.key.clone()).collect();
+    what.extend(remove.iter().map(|k| format!("-{k}")));
+    let level = if remove.iter().any(|k| phw::is_destructive_delete(k)) { Level::Warn } else { Level::Info };
+    note(
+        &app,
+        host_id,
+        level,
+        format!("Proxmox: {vmid} hardware changed"),
+        format!("{kind} on {node}: {}", what.join(", ")),
+    );
+    Ok(())
+}
+
+/// Grows a disk; returns the task when Proxmox runs it as one.
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_disk_resize(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    kind: String,
+    vmid: u32,
+    disk: String,
+    grow_gb: u32,
+    sudo: Option<SudoInput>,
+) -> SysResult<Option<String>> {
+    let script = phw::resize_script(&node, &kind, vmid, &disk, grow_gb).ok_or_else(|| invalid("disk"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    let upid = phw::parse_resize(&out).map_err(other)?;
+    note(
+        &app,
+        host_id,
+        Level::Info,
+        format!("Proxmox: {vmid} {disk} grown"),
+        format!("+{grow_gb} GB, {kind} on {node}"),
+    );
+    Ok(upid)
+}
+
+/// PCI and USB devices on a node, for passthrough.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_host_devices(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveHostDevices> {
+    let script = phw::host_devices_script(&node).ok_or_else(|| invalid("node"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    Ok(phw::parse_host_devices(&out))
+}

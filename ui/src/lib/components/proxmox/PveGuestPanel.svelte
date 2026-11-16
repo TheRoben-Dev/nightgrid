@@ -1,6 +1,7 @@
 <script lang="ts">
   /** One Proxmox guest (M10r part 2): its snapshots and backups. */
   import Modal from "../Modal.svelte";
+  import PveHardware from "./PveHardware.svelte";
   import { ago } from "../../gitstacks";
   import { backupStorages, formatBytes, nextVmid, restoreStorages, snapName, snapTree, validSnapname, type PveBackupFile } from "../../proxmox";
   import { proxmox } from "../../stores/proxmox.svelte";
@@ -63,11 +64,12 @@
   }
 </script>
 
-<Modal open={!!d} title="{g?.kind === 'qemu' ? 'VM' : 'CT'} {g?.vmid ?? ''} · {g?.name.toUpperCase() ?? ''}" width={760} onclose={() => (proxmox.detail = null)}>
+<Modal open={!!d} title="{g?.kind === 'qemu' ? 'VM' : 'CT'} {g?.vmid ?? ''} · {g?.name.toUpperCase() ?? ''}" width={d?.tab === "hardware" ? 860 : 760} onclose={() => (proxmox.detail = null)}>
   {#if d && g}
     <div class="tabs" role="tablist" aria-label="Guest">
-      <button type="button" role="tab" class:on={d.tab === "snapshots"} aria-selected={d.tab === "snapshots"} onclick={() => proxmox.detail && (proxmox.detail = { ...proxmox.detail, tab: "snapshots" })}>SNAPSHOTS</button>
-      <button type="button" role="tab" data-guide="proxmox-guest-backups" class:on={d.tab === "backups"} aria-selected={d.tab === "backups"} onclick={() => proxmox.detail && (proxmox.detail = { ...proxmox.detail, tab: "backups" })}>BACKUPS</button>
+      <button type="button" role="tab" class:on={d.tab === "snapshots"} aria-selected={d.tab === "snapshots"} onclick={() => proxmox.guestTab("snapshots")}>SNAPSHOTS</button>
+      <button type="button" role="tab" data-guide="proxmox-guest-backups" class:on={d.tab === "backups"} aria-selected={d.tab === "backups"} onclick={() => proxmox.guestTab("backups")}>BACKUPS</button>
+      <button type="button" role="tab" data-guide="proxmox-hardware" class:on={d.tab === "hardware"} aria-selected={d.tab === "hardware"} onclick={() => proxmox.guestTab("hardware")}>HARDWARE</button>
       <span class="muted small sp">{g.node} · {g.status}</span>
     </div>
 
@@ -100,6 +102,8 @@
           {/each}
         </ul>
       {/if}
+    {:else if d.tab === "hardware"}
+      <PveHardware />
     {:else}
       <div class="take">
         {#if stores.length}

@@ -4,7 +4,7 @@
  * the task's log is followed until it ends, then the view reloads.
  */
 import { api, errorText, type PveAppliance, type PveCloneSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
-import { ACTION_WORD, backupTargets, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
+import { ACTION_WORD, backupTargets, type PveConfig, type PveHostDevices, type PveSetting, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
@@ -25,9 +25,12 @@ export type PveMake = { kind: "vm" } | { kind: "ct" } | { kind: "clone"; guest: 
 
 export interface GuestDetail {
   guest: PveGuest;
-  tab: "snapshots" | "backups";
+  tab: "snapshots" | "backups" | "hardware";
   snaps: PveSnapshot[] | null;
   error: string | null;
+  config: PveConfig | null;
+  configError: string | null;
+  devices: PveHostDevices | null;
 }
 const HOST_KEY = "nightgrid.proxmox.host";
 
@@ -190,8 +193,9 @@ class ProxmoxStore {
   }
 
   openGuest(guest: PveGuest, tab: GuestDetail["tab"] = "snapshots") {
-    this.detail = { guest, tab, snaps: null, error: null };
+    this.detail = { guest, tab, snaps: null, error: null, config: null, configError: null, devices: null };
     void this.loadSnaps();
+    if (tab === "hardware") void this.loadConfig();
     if (!this.backups) void this.loadBackups();
   }
 
@@ -404,6 +408,80 @@ class ProxmoxStore {
   storagesFor(content: string): string[] {
     const node = this.localNode;
     return node ? this.storagesWith(content, node) : [];
+  }
+
+  // ---- part 4: hardware and options ----
+
+  /** Switches the guest window's tab, reading what the tab needs. */
+  guestTab(tab: GuestDetail["tab"]) {
+    if (!this.detail) return;
+    this.detail = { ...this.detail, tab };
+    if (tab === "hardware" && !this.detail.config) void this.loadConfig();
+  }
+
+  async loadConfig() {
+    const d = this.detail;
+    const id = this.hostId;
+    if (!d || id === null) return;
+    const g = d.guest;
+    try {
+      const config = await this.sudo("read the guest's hardware", (s) => api.pveConfig(id, g.node, g.kind, g.vmid, s));
+      if (this.detail?.guest.vmid === g.vmid) this.detail = { ...this.detail, config, configError: null };
+    } catch (e) {
+      if (this.detail?.guest.vmid === g.vmid) this.detail = { ...this.detail, configError: errorText(e) };
+    }
+  }
+
+  async loadDevices() {
+    const d = this.detail;
+    const id = this.hostId;
+    if (!d || id === null) return;
+    try {
+      const devices = await this.sudo("list PCI and USB devices", (s) => api.pveHostDevices(id, d.guest.node, s));
+      if (this.detail?.guest.vmid === d.guest.vmid) this.detail = { ...this.detail, devices };
+    } catch (e) {
+      this.notice = { text: `Devices: ${errorText(e)}`, tone: "err" };
+    }
+  }
+
+  /** Sends only the given changes, with the digest the config was read at, then rereads it. */
+  async applyConfig(what: string, set: PveSetting[], remove: string[] = []) {
+    const d = this.detail;
+    const id = this.hostId;
+    if (!d?.config || id === null || (!set.length && !remove.length)) return;
+    const g = d.guest;
+    try {
+      await this.sudo(what.toLowerCase(), (s) => api.pveConfigSet(id, g.node, g.kind, g.vmid, d.config!.digest, set, remove, s));
+      this.notice = { text: `${what}: done.`, tone: "ok" };
+    } catch (e) {
+      this.notice = { text: `${what}: ${errorText(e)}`, tone: "err" };
+      throw e;
+    } finally {
+      await this.loadConfig();
+      void this.load();
+    }
+  }
+
+  /** A change that removes or detaches something: named and confirmed first (rule 5). */
+  askConfig(c: { title: string; body: string; button: string; typed?: string; set?: PveSetting[]; remove: string[] }) {
+    this.confirm = { title: c.title, body: c.body, button: c.button, typed: c.typed, run: () => this.applyConfig(c.button, c.set ?? [], c.remove) };
+  }
+
+  async growDisk(disk: string, gb: number) {
+    const d = this.detail;
+    const id = this.hostId;
+    if (!d || id === null) return;
+    const g = d.guest;
+    const what = `Grow ${disk} of ${g.name || g.vmid} by ${gb} GB`;
+    try {
+      const upid = await this.sudo(what.toLowerCase(), (s) => api.pveDiskResize(id, g.node, g.kind, g.vmid, disk, gb, s));
+      this.notice = { text: `${what}: ${upid ? "started" : "done"}.`, tone: "ok" };
+      if (upid) void this.openTask(g.node, upid, what, () => void this.loadConfig());
+      else await this.loadConfig();
+    } catch (e) {
+      this.notice = { text: `${what}: ${errorText(e)}`, tone: "err" };
+      throw e;
+    }
   }
 
   async runConfirm() {
