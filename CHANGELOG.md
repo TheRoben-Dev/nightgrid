@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.48] - 2026-11-16
+
+### Added: Settings → Features
+- Settings has two tabs now: **GENERAL** (everything that was there) and **FEATURES**.
+- **FEATURES** turns each view on or off: Terminal, Files, Docker, Services, Tunnels, System, Fleet, Desktops, Proxmox, Network map, Automation, Notes and the DRIFT helper. It also covers the parts inside them: Expiry watch under Services, and each Fleet tab (Updates, Disks, Backups, UPS, Uptime, Log search, Access audit, Speed tests).
+- Presets: **Simple** (terminal, files, Docker, services and System), **Standard** (everything but Proxmox, VM screens, UPS, log search, access audit and speed tests) and **Everything**. Any other mix shows as custom.
+- A feature that's off is gone from the sidebar, the command palette, its shortcut, the controller's view switching and DRIFT's answers. A shortcut or link to it opens Features with **Turn on and open**.
+- Off also means no work in the background: no container-down polling (Docker), no SMART or pool scans (Disks), no backup checks, no UPS reads, no saved-search or log anomaly scans, no uptime recording, no service checks, no expiry re-reads, no auto-start tunnels, and the DRIFT model is never loaded.
+- Nothing is deleted, and turning a feature back on takes effect at once, without a restart. The choice travels in profile exports.
+
+### Changed
+- Views load on first use. The app's startup JavaScript went from 1.8 MB to 1.2 MB (548 KB → 378 KB gzipped), and views that are off are never loaded. With Simple, opening every view it has loads 1.5 MB, against 1.8 MB with Everything.
+
 ## [0.10.47] - 2026-11-16
 
 ### Added: Proxmox VE, part 6: firewall (M10r)

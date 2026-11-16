@@ -8,7 +8,19 @@ class UiStore {
   /** Whether the OS keychain works (from app_info); gates "remember" options. */
   keychain = $state(false);
 
+  /** Settings tab shown. */
+  settingsTab = $state<"general" | "features">("general");
+  /** A turned-off view someone tried to open; Settings → Features points at it. */
+  featureAsked = $state<string | null>(null);
+  /** Whether a section is on (set by the app from Settings → Features). */
+  allow: (id: SectionId) => boolean = () => true;
+
   go(id: SectionId) {
+    if (!this.allow(id)) {
+      this.featureAsked = id;
+      this.settingsTab = "features";
+      id = "settings";
+    }
     this.section = id;
     this.crumbs = [];
   }

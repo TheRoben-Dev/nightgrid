@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.48 (Settings → Features)
+
+1. Settings → **FEATURES** → **Simple**. The sidebar keeps Overview, Terminal, Files, Docker, Services, System and Settings; TUN and DRIFT leave the top bar.
+2. Press `Cmd+Shift+P` (Proxmox): Features opens with "Proxmox is turned off" → **Turn on and open** opens Proxmox right away.
+3. **Everything**, then Fleet: all eight tabs are back. Turn off **Fleet → Log search**: the LOGS tab goes away and the rest stay.
+4. Activity Monitor → Nightgrid's WebContent process: memory right after launch is lower than in 0.10.47 (views load on first use).
+
 ### macOS: testing 0.10.47 (Proxmox part 6)
 
 1. Proxmox → **FIREWALL**, scope Datacenter: rules, groups and aliases match the web UI's Datacenter → Firewall.

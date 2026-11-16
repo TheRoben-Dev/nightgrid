@@ -204,8 +204,9 @@ pub async fn helper_ask(
     messages: Vec<ChatTurn>,
     on_event: Channel<HelperEvent>,
 ) -> Result<HelperReply, String> {
-    let settings =
-        nightgrid_core::settings::AppSettings::load(&app.state::<AppState>().store()).map_err(|e| e.to_string())?;
+    let settings = nightgrid_core::settings::AppSettings::load(&app.state::<AppState>().store())
+        .map_err(|e| e.to_string())?
+        .effective();
     if !settings.helper_enabled {
         return Err("The helper is off (Settings → Helper).".into());
     }

@@ -1203,6 +1203,13 @@ export type AppSettings_Deserialize = {
 	dashboardPresets?: Dashboard[],
 	/**  DRIFT has offered its first-run tour (M10q). */
 	tourOffered?: boolean,
+	/**
+	 *  Features turned off in Settings → Features (`docker`, `fleet.logs` …).
+	 *  Turning a parent off turns its children off too. Off hides the
+	 *  feature and stops its background work; its data is kept. Unknown ids
+	 *  (from a newer version's profile) are kept as they are.
+	 */
+	disabledFeatures?: string[],
 };
 
 /**
@@ -1312,6 +1319,13 @@ export type AppSettings_Serialize = {
 	dashboardPresets: Dashboard[],
 	/**  DRIFT has offered its first-run tour (M10q). */
 	tourOffered: boolean,
+	/**
+	 *  Features turned off in Settings → Features (`docker`, `fleet.logs` …).
+	 *  Turning a parent off turns its children off too. Off hides the
+	 *  feature and stops its background work; its data is kept. Unknown ids
+	 *  (from a newer version's profile) are kept as they are.
+	 */
+	disabledFeatures: string[],
 };
 
 export type AuthMethod = 

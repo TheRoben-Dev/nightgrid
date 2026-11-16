@@ -5,6 +5,7 @@
   import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
   import { helper } from "../stores/helper.svelte";
+  import { settings } from "../stores/settings.svelte";
   import Drift from "./helper/Drift.svelte";
 
   const node = $derived.by(() => {
@@ -33,8 +34,10 @@
 
   <div class="indicators" aria-label="Connections">
     <span class="ind" title="Active SSH sessions"><span class="glyph" aria-hidden="true">◇</span> SSH <b>{terms.stats.ssh}</b></span>
-    <button type="button" class="ind tun" class:on={tunnels.activeCount > 0} title="Active tunnels" onclick={() => ui.go("tunnels")}><span class="glyph" aria-hidden="true">⇄</span> TUN <b>{tunnels.activeCount}</b></button>
-    <button
+    {#if settings.on("tunnels")}
+      <button type="button" class="ind tun" class:on={tunnels.activeCount > 0} title="Active tunnels" onclick={() => ui.go("tunnels")}><span class="glyph" aria-hidden="true">⇄</span> TUN <b>{tunnels.activeCount}</b></button>
+    {/if}
+    {#if settings.on("drift")}<button
       type="button"
       class="ind drift"
       class:on={helper.open}
@@ -42,7 +45,7 @@
       title="DRIFT helper ({formatChord(DEFAULT_KEYMAP['helper.toggle'])})"
       aria-pressed={helper.open}
       onclick={() => helper.toggle()}><Drift mood={helper.drift} icon scale={1} /> DRIFT</button
-    >
+      >{/if}
   </div>
 </header>
 

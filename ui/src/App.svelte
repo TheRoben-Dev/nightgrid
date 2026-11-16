@@ -28,25 +28,16 @@
   import { ui } from "./lib/stores/ui.svelte";
   import Overview from "./lib/views/Overview.svelte";
   import Placeholder from "./lib/views/Placeholder.svelte";
+  import LazyView from "./lib/components/LazyView.svelte";
+  import { VIEWS } from "./lib/views";
   import Settings from "./lib/views/Settings.svelte";
   import Terminal from "./lib/views/Terminal.svelte";
-  import Files from "./lib/views/Files.svelte";
-  import Docker from "./lib/views/Docker.svelte";
-  import Services from "./lib/views/Services.svelte";
   import ServiceEditor from "./lib/components/services/ServiceEditor.svelte";
   import HomepageImport from "./lib/components/services/HomepageImport.svelte";
   import { services } from "./lib/stores/services.svelte";
-  import Tunnels from "./lib/views/Tunnels.svelte";
-  import Fleet from "./lib/views/Fleet.svelte";
-  import Desktops from "./lib/views/Desktops.svelte";
-  import Proxmox from "./lib/views/Proxmox.svelte";
-  import Automation from "./lib/views/Automation.svelte";
-  import Notes from "./lib/views/Notes.svelte";
-  import Network from "./lib/views/Network.svelte";
   import SnippetEditor from "./lib/components/automation/SnippetEditor.svelte";
   import PlaybookEditor from "./lib/components/automation/PlaybookEditor.svelte";
   import { automation } from "./lib/stores/automation.svelte";
-  import System from "./lib/views/System.svelte";
   import TunnelEditor from "./lib/components/tunnels/TunnelEditor.svelte";
   import { tunnels } from "./lib/stores/tunnels.svelte";
   import HelperPanel from "./lib/components/helper/HelperPanel.svelte";
@@ -70,8 +61,9 @@
     const stopPad = startGamepad({
       enabled: () => settings.value.controllerNav,
       view: (step) => {
-        const i = SECTIONS.findIndex((s) => s.id === ui.section);
-        ui.go(SECTIONS[(i + step + SECTIONS.length) % SECTIONS.length].id);
+        const on = SECTIONS.filter((s) => settings.on(s.id));
+        const i = on.findIndex((s) => s.id === ui.section);
+        ui.go(on[(i + step + on.length) % on.length].id);
       },
       palette: () => (ui.paletteOpen = !ui.paletteOpen),
       rail: () => settings.update({ railCollapsed: !settings.value.railCollapsed }),
@@ -79,10 +71,7 @@
     settings.load().then(() => {
       booted = true;
       metrics.start();
-      services.start();
-      tunnels.start();
       alerts.start();
-      void automation.load();
       updates.startLaunchCheck();
     });
     // Tray menu: quick connect and "open alerts".
@@ -104,6 +93,21 @@
       stopPad();
       for (const u of unlisten) void u.then((f) => f());
     };
+  });
+
+  // Views turned off in Settings → Features redirect there instead.
+  ui.allow = (id) => settings.on(id);
+  // Background stores start only for features that are on, and start when
+  // one is turned on later (no restart).
+  $effect(() => {
+    if (!booted) return;
+    if (settings.on("services")) services.start();
+    if (settings.on("tunnels")) tunnels.start();
+    if (settings.on("automation") && !automation.loaded) void automation.load();
+  });
+  // A view turned off while open goes back to the overview.
+  $effect(() => {
+    if (booted && !settings.on(ui.section)) ui.go("overview");
   });
 
   // Terminal settings and theme changes apply to open panes live.
@@ -145,7 +149,7 @@
     "term.prevTab": () => ui.section === "terminal" && terms.cycle(-1),
     "rail.toggle": () => settings.update({ railCollapsed: !settings.value.railCollapsed }),
     "effects.toggle": () => settings.update({ reduceEffects: !settings.value.reduceEffects }),
-    "helper.toggle": () => helper.toggle(),
+    "helper.toggle": () => (settings.on("drift") ? helper.toggle() : ui.go("settings")),
   };
   for (const s of SECTIONS) handlers[s.action] = () => ui.go(s.id);
 
@@ -170,7 +174,7 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.47"} />
+  <LeftRail version={info?.version ?? "0.10.48"} />
   <div class="main">
     <TopBar />
     <UpsCountdown />
@@ -183,36 +187,22 @@
         <span class="micro" aria-hidden="true">SEC.{section.code} · {section.milestone}</span>
       </div>
       <!-- Terminals stay mounted (hidden) so sessions survive section switches. -->
-      <div class="view-fill" class:hidden={section.id !== "terminal"}>
-        <Terminal />
-      </div>
-      {#if filesMounted}
+      {#if settings.on("terminal")}
+        <div class="view-fill" class:hidden={section.id !== "terminal"}>
+          <Terminal />
+        </div>
+      {/if}
+      {#if filesMounted && settings.on("files")}
         <div class="view-fill" class:hidden={section.id !== "files"}>
-          <Files />
+          <LazyView load={VIEWS.files} />
         </div>
       {/if}
       {#if section.id === "terminal" || section.id === "files"}
         <!-- rendered above -->
-      {:else if section.id === "docker"}
-        <div class="view-fill"><Docker /></div>
-      {:else if section.id === "system"}
-        <div class="view-fill"><System /></div>
-      {:else if section.id === "services"}
-        <Services />
-      {:else if section.id === "tunnels"}
-        <Tunnels />
-      {:else if section.id === "automation"}
-        <Automation />
-      {:else if section.id === "fleet"}
-        <div class="view-fill"><Fleet /></div>
-      {:else if section.id === "desktops"}
-        <div class="view-fill"><Desktops /></div>
-      {:else if section.id === "proxmox"}
-        <div class="view-fill"><Proxmox /></div>
-      {:else if section.id === "network"}
-        <div class="view-fill"><Network /></div>
-      {:else if section.id === "notes"}
-        <div class="view-fill"><Notes /></div>
+      {:else if section.id === "services" || section.id === "tunnels" || section.id === "automation"}
+        <LazyView load={VIEWS[section.id]} />
+      {:else if section.id in VIEWS}
+        <div class="view-fill"><LazyView load={VIEWS[section.id as keyof typeof VIEWS]} /></div>
       {:else if section.id === "overview"}
         <Overview {info} />
       {:else if section.id === "settings"}
@@ -223,11 +213,11 @@
     </main>
     <StatusStrip {info} />
   </div>
-  {#if helper.open}<HelperPanel />{/if}
+  {#if helper.open && settings.on("drift")}<HelperPanel />{/if}
 </div>
 <Spotlight />
 <TourOverlay />
-<TourOffer />
+{#if settings.on("drift")}<TourOffer />{/if}
 <ProfileReminder />
 
 <CommandPalette open={ui.paletteOpen} {commands} onclose={() => (ui.paletteOpen = false)} />
@@ -235,13 +225,17 @@
 <SshImportDialog />
 <HostMonitor />
 <UpdateDialog />
-<ServiceEditor />
-<HomepageImport />
-<TunnelEditor />
+{#if settings.on("services")}
+  <ServiceEditor />
+  <HomepageImport />
+{/if}
+{#if settings.on("tunnels")}<TunnelEditor />{/if}
 <AlertsPanel />
 <IntegrationEditor />
-<SnippetEditor />
-<PlaybookEditor />
+{#if settings.on("automation")}
+  <SnippetEditor />
+  <PlaybookEditor />
+{/if}
 
 <style>
   .shell {

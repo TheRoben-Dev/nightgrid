@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use nightgrid_core::hosts::HostId;
+use nightgrid_core::settings::AppSettings;
 use nightgrid_core::ssh::client::{ConnectError, Connection};
 use nightgrid_core::tunnels::forward::{self, Stats, StatsView};
 use nightgrid_core::tunnels::{Tunnel, TunnelId, TunnelInput, TunnelKind};
@@ -264,7 +265,14 @@ pub(crate) fn host_connected(app: &AppHandle, host_id: HostId, conn: &Arc<Connec
     if hub.seen.lock().expect("poisoned").insert(host_id, ptr) == Some(ptr) {
         return;
     }
-    let tunnels = app.state::<AppState>().store().list_tunnels().unwrap_or_default();
+    let tunnels = {
+        let state = app.state::<AppState>();
+        let store = state.store();
+        if !AppSettings::load(&store).unwrap_or_default().feature("tunnels") {
+            return;
+        }
+        store.list_tunnels().unwrap_or_default()
+    };
     for t in tunnels.into_iter().filter(|t| t.host_id == host_id && t.auto_start) {
         if !hub.is_running(t.id) {
             start(app, t);
