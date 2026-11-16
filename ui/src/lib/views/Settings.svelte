@@ -43,7 +43,7 @@
     "nav.tunnels": "Tunnels",
     "nav.system": "System",
     "nav.automation": "Automation",
-    "nav.notes": "Notes",
+    "nav.notes": "Knowledge",
     "nav.network": "Network map",
     "nav.fleet": "Fleet (updates across hosts)",
     "nav.desktops": "Desktops (VM screens)",

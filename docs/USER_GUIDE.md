@@ -6,8 +6,8 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 ## Getting around
 
-- **Sidebar**: your hosts (with favorites and groups) at the top, the views below. `Mod+B` collapses it to icons.
-- **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Notes `Mod+9`, Network `Mod+0`, Fleet `Mod+Shift+U`, Settings `Mod+,`.
+- **Sidebar**: your hosts (with favorites and groups) at the top, the views below, Settings at the bottom. Related views share a row and switch with tabs beside the title: **System** (One host, Fleet), **Network** (Map, Tunnels) and **VMs** (Proxmox, Desktops). A row marked **+1** holds another view and opens the one you used last. Point at a row to see its shortcut. `Mod+B` collapses the sidebar to icons.
+- **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Knowledge `Mod+9`, Network `Mod+0`, Fleet `Mod+Shift+U`, Settings `Mod+,`.
 - **Command palette** `Mod+K` (also `Ctrl+Shift+K` inside a terminal): jump to any host, view, snippet, playbook or action by typing.
 - **DRIFT helper** `Mod+J`: ask a question in the side panel (see below).
 - **Settings → Keybindings** lists every shortcut.
@@ -156,9 +156,9 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 - **Playbooks** run steps in order: commands, file uploads, wait for a port, and Docker start, stop, restart or pull.
 - Anything destructive (`rm`, `prune`, `kill`, `compose down`, `reboot`, `upgrade`, `> file`, ...) is confirmed with the targets named. On several hosts you also type the group name or the number of hosts.
 
-## Notes
+## Knowledge (notes and runbooks)
 
-- `Mod+9` opens **Notes**: markdown notes and runbooks, optionally tied to a host, with tags and pins. Search and the host and tag filters narrow the list.
+- `Mod+9` opens **Knowledge** (it was called Notes before 0.10.50): markdown notes and runbooks, optionally tied to a host, with tags and pins. Search and the host and tag filters narrow the list.
 - Put commands in ``` code blocks. In the note each block gets **Send to terminal** (typed at the prompt of a shell on the note's host, opening one if needed; you press Enter) and **Copy**.
 - **Runbooks for alerts**: tick **Runbook for alerts** in the editor and pick the alert kinds it's for, and optionally a host (the note's host) and a service. Matching alerts get **▤ Runbook** in the alerts list, which opens it; alerts without one offer **+ Runbook**, which starts a note for that kind of alert with a step list. A runbook with no kinds, host or service shows on nothing. **✦ Triage** tells DRIFT about your runbook too.
 - **Steps**: `- [ ] step` lines become checkboxes you tick while you work (they reset when you open the note again), and `[label](view:fleet)` becomes a link to that view (any view's id: overview, terminal, files, docker, services, tunnels, system, fleet, desktops, network, automation, notes, settings).

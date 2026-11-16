@@ -3,7 +3,7 @@
  * context the user attached) and parses its replies for "show me" actions.
  * Everything here is pure so it can be tested and shown to the user verbatim.
  */
-import { SECTIONS, type SectionId } from "../sections";
+import { RAIL, SECTIONS, railPath, type SectionId } from "../sections";
 import { FEATURES } from "../features";
 import { GUIDE_TARGETS, guideTarget, VIEW_IDS } from "./guide";
 import type { Chunk } from "./knowledge";
@@ -65,9 +65,19 @@ export function setFeatureCheck(f: (id: string) => boolean) {
 
 export function systemPrompt(): string {
   // Views turned off in Settings → Features aren't offered.
-  const views = SECTIONS.filter((s) => on(s.id)).map((s) => `${s.id} (${s.label})`).join(", ");
-  const targetOn = (t: { id: string; view: SectionId | null }) =>
-    (t.view === null || on(t.view)) && (!t.id.startsWith("rail-") || on(t.id.slice(5)));
+  const views = SECTIONS.filter((s) => on(s.id))
+    .map((s) => `${s.id} (${railPath(s.id)})`)
+    .join(", ");
+  const own = (id: string) => /^(rail|viewtab)-/.exec(id) && id.slice(id.indexOf("-") + 1);
+  const targetOn = (t: { id: string; view: SectionId | null }) => {
+    const v = own(t.id);
+    return (t.view === null || on(t.view)) && (!v || on(v));
+  };
+  // The sidebar as the user sees it: rows, and the views a row holds as tabs.
+  const rows = RAIL.map((r) => ({ r, m: r.members.filter((m) => on(m)) }))
+    .filter((x) => x.m.length)
+    .map(({ r, m }) => (m.length > 1 ? `${r.label} (tabs: ${m.map((v) => r.tabs?.[v] ?? SECTIONS.find((s) => s.id === v)?.label).join(", ")})` : SECTIONS.find((s) => s.id === m[0])?.label))
+    .join(", ");
   const targets = GUIDE_TARGETS.filter(targetOn).map((t) => `${t.id}: ${t.what}`).join("\n");
   const off = FEATURES.filter((f) => !on(f.id)).map((f) => f.label);
   const tours = TOURS.map((t) => `${t.id} (${t.what})`).join("; ");
@@ -81,6 +91,8 @@ How to answer:
 - For server problems (logs, errors, Docker, compose files, systemd), explain the likely cause and suggest a fix. Mark commands that change or delete things as risky. You can't run commands; the user runs them, and Nightgrid asks before anything destructive.
 - Never ask for passwords, keys or tokens. Values shown as •••• were hidden on purpose.
 - Speak in the first person, never about "DRIFT" in the third person.
+
+The sidebar lists the user's hosts, then these rows: ${rows}. Related views share a row and switch with tabs beside the view title; a row opens the view used last in it. Settings is at the bottom of the sidebar; its Features tab turns views and checks on or off. Point at a row to see its shortcut. When you say where something is, use these names (for example "System → Fleet").
 
 Showing the user where things are: when it helps, end your reply with action lines, each on its own line, exactly like:
 [[show VIEW]]

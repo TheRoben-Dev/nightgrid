@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.50 (sidebar)
+
+1. The sidebar lists ten rows; Settings sits at the bottom next to the collapse button. Shortcuts appear only when you point at a row.
+2. Click **System**: tabs **One host · Fleet** appear beside the title. Pick **Fleet**, go to Docker, then click **System** again: it opens Fleet.
+3. `Cmd+6` opens Tunnels under the **Network** row; `Cmd+Shift+P` opens Proxmox under **VMs**.
+4. Settings → Features → turn off **Desktops**: the VMs row becomes **Proxmox** with no tabs.
+5. The Notes row is now **Knowledge** (`Cmd+9`), with your notes as before.
+6. DRIFT (`Cmd+J`) → "where are the disk checks?": it says System → Fleet, and **Show me** brackets the System row; clicking it opens Fleet. Settings → Helper → replay **Check fleet health**: the first step points at System and opens Fleet.
+
 ### macOS: testing 0.10.49 (picking hosts, map scans)
 
 1. Edit the Ally (or any laptop) → tick **Client, not a server** → Save. Quit and reopen Nightgrid: Docker and System open on a server, not the Ally.

@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.50] - 2026-11-16
+
+### Changed: a shorter sidebar
+- Related views share one sidebar row and switch with tabs next to the view title: **System** holds One host and Fleet, **Network** holds the map and Tunnels, and **VMs** holds Proxmox and Desktops. A row with more than one view shows **+1**, and opens the view you used last in it.
+- Rows are more compact, and the shortcut shows only when you point at a row, focus it, or it's the active one.
+- Settings moved to the foot of the sidebar, next to the collapse button.
+- **Notes is now Knowledge.** Same notes and runbooks, same `Mod+9`; the built-in guides (M11) will live here too.
+- DRIFT knows the new layout: it names places the way the sidebar shows them ("System → Fleet"), its **Show me** and tours point at the right row and open the right tab, it can point at the tabs beside a title, and the Getting around tour shows Settings at the bottom and the Features tab.
+- Every shortcut still works (`Mod+6` Tunnels, `Mod+Shift+U` Fleet, `Mod+Shift+P` Proxmox, `Mod+Shift+M` Desktops). Turning a view off in Settings → Features drops its tab, and a row with one view left shows that view's own name.
+
 ## [0.10.49] - 2026-11-16
 
 ### Changed: picking hosts

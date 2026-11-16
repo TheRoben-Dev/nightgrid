@@ -38,7 +38,7 @@
 
   // Follow the target as the page moves.
   $effect(() => {
-    const id = tour.step?.target;
+    const id = tour.targetId;
     if (!id) {
       box = null;
       return;

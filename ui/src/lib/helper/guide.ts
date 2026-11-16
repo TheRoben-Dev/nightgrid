@@ -4,7 +4,7 @@
  * to a view and spotlight one of these; it never clicks anything.
  * `guide.test.ts` checks that every id exists in the markup.
  */
-import { SECTIONS, type SectionId } from "../sections";
+import { RAIL, SECTIONS, railFor, railPath, type SectionId } from "../sections";
 
 export interface GuideTarget {
   id: string;
@@ -12,10 +12,27 @@ export interface GuideTarget {
   what: string;
 }
 
-const rail: GuideTarget[] = SECTIONS.map((s) => ({ id: `rail-${s.id}`, view: null, what: `sidebar button for the ${s.label} view` }));
+// One per view: a view that shares a sidebar row points at that row, and a
+// click on it then opens the view (helper.point and the tour store do that).
+const rail: GuideTarget[] = SECTIONS.map((s) => {
+  const r = railFor(s.id);
+  const what =
+    s.id === "settings"
+      ? "Settings, at the bottom of the sidebar"
+      : r && r.members.length > 1
+        ? `sidebar row ${r.label}, which holds the ${s.label} view (${railPath(s.id)})`
+        : `sidebar row for the ${s.label} view`;
+  return { id: `rail-${s.id}`, view: null, what };
+});
+
+// The tabs beside the title of a view that shares its sidebar row.
+const viewTabs: GuideTarget[] = RAIL.filter((r) => r.members.length > 1).flatMap((r) =>
+  r.members.map((m) => ({ id: `viewtab-${m}`, view: r.members.find((o) => o !== m) ?? m, what: `${railPath(m)} tab beside the view title` })),
+);
 
 export const GUIDE_TARGETS: GuideTarget[] = [
   ...rail,
+  ...viewTabs,
   { id: "rail-collapse", view: null, what: "collapse or expand the sidebar" },
   { id: "palette", view: null, what: "command palette / search (Mod+K)" },
   { id: "hosts-add", view: null, what: "add a host (+ in the sidebar)" },

@@ -61,7 +61,7 @@
     alerts.open = false;
     const mine = runbooks(a);
     const check = triageCheck(a.kind, a.title);
-    if (mine.length) check.items.push({ text: `Your runbook${mine.length > 1 ? "s" : ""} for this: ${mine.map((n) => `"${n.title}"`).join(", ")} (in Notes; follow it first)` });
+    if (mine.length) check.items.push({ text: `Your runbook${mine.length > 1 ? "s" : ""} for this: ${mine.map((n) => `"${n.title}"`).join(", ")} (in Knowledge; follow it first)` });
     void helper.explain({
       source: log ? `Error lines: ${src} · ${lines.length} lines` : `Alert: ${a.title}`,
       text,

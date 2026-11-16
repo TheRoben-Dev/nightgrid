@@ -1,6 +1,6 @@
 <script lang="ts">
   import { DEFAULT_KEYMAP, formatChord } from "../keys";
-  import { SECTIONS } from "../sections";
+  import { RAIL, sectionById, type RailEntry, type SectionId } from "../sections";
   import { layout } from "../stores/layout.svelte";
   import { settings } from "../stores/settings.svelte";
   import { ui } from "../stores/ui.svelte";
@@ -13,6 +13,20 @@
   }
   let { version }: Props = $props();
   const collapsed = $derived(settings.value.railCollapsed);
+  // Entries with at least one view turned on; an entry with one view left
+  // takes that view's name.
+  const entries = $derived(
+    RAIL.map((r) => ({ ...r, on: r.members.filter((m) => settings.on(m)) }))
+      .filter((r) => r.on.length)
+      .map((r) => (r.on.length === 1 && r.members.length > 1 ? { ...r, label: sectionById(r.on[0]).label, code: sectionById(r.on[0]).code } : r)),
+  );
+  /** Where an entry goes: the view last open in it, else its first view that's on. */
+  function target(r: RailEntry & { on: SectionId[] }): SectionId {
+    const last = ui.lastInRail[r.id];
+    return last && r.on.includes(last) ? last : r.on[0];
+  }
+  const keyFor = (r: RailEntry & { on: SectionId[] }) => formatChord(DEFAULT_KEYMAP[sectionById(target(r)).action]);
+  const settingsOn = $derived(ui.section === "settings");
 </script>
 
 <nav
@@ -46,21 +60,23 @@
   <div class="group sections">
     {#if !collapsed}<div class="label group-label"><span class="cyan">//</span> MODULES</div>{/if}
     <ul>
-      {#each SECTIONS.filter((x) => settings.on(x.id)) as s (s.id)}
+      {#each entries as r (r.id)}
+        {@const active = r.members.includes(ui.section)}
         <li>
           <button
             type="button"
             class="item"
-            data-guide="rail-{s.id}"
-            class:active={ui.section === s.id}
-            aria-current={ui.section === s.id ? "page" : undefined}
-            title={collapsed ? `${s.label} (${formatChord(DEFAULT_KEYMAP[s.action])})` : undefined}
-            onclick={() => ui.go(s.id)}
+            data-guide="rail-{r.members[0]}"
+            class:active
+            aria-current={active ? "page" : undefined}
+            title={collapsed ? `${r.label} (${keyFor(r)})` : r.on.length > 1 ? r.on.map((m) => sectionById(m).label).join(" · ") : undefined}
+            onclick={() => ui.go(target(r))}
           >
-            <span class="code">{s.code}</span>
+            <span class="code">{r.code}</span>
             {#if !collapsed}
-              <span class="name">{s.label}</span>
-              <kbd>{formatChord(DEFAULT_KEYMAP[s.action])}</kbd>
+              <span class="name">{r.label}</span>
+              {#if r.on.length > 1}<span class="more" aria-hidden="true">+{r.on.length - 1}</span>{/if}
+              <kbd>{keyFor(r)}</kbd>
             {/if}
           </button>
         </li>
@@ -69,7 +85,18 @@
   </div>
 
   <div class="foot">
-    {#if !collapsed}<Barcode seed="rail" bars={36} />{/if}
+    <button
+      type="button"
+      class="cfg"
+      class:active={settingsOn}
+      data-guide="rail-settings"
+      aria-current={settingsOn ? "page" : undefined}
+      title="Settings ({formatChord(DEFAULT_KEYMAP['nav.settings'])})"
+      onclick={() => ui.go("settings")}
+    >
+      <span class="code">CFG</span>{#if !collapsed}<span class="name">Settings</span>{/if}
+    </button>
+    {#if !collapsed}<span class="bar"><Barcode seed="rail" bars={16} /></span>{/if}
     <button
       type="button"
       class="collapse"
@@ -137,10 +164,10 @@
   }
 
   .group {
-    padding: 12px 8px 4px;
+    padding: 8px 8px 4px;
   }
   .group-label {
-    padding: 0 6px 8px;
+    padding: 0 6px 6px;
   }
   .cyan {
     color: var(--cyan);
@@ -159,11 +186,11 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
   }
   .item {
     width: 100%;
-    min-height: max(32px, var(--hit));
+    min-height: var(--hit);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -210,9 +237,31 @@
     flex: 1;
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: var(--fs-md);
+    font-size: var(--fs-sm);
     letter-spacing: 0.12em;
     text-transform: uppercase;
+  }
+  .more {
+    font-size: 10px;
+    color: var(--text-1);
+    opacity: 0.7;
+  }
+  /* Shortcuts show on hover and on the open entry, so the list stays calm. */
+  .item kbd {
+    position: absolute;
+    right: 8px;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease);
+  }
+  .item:hover .more,
+  .item:focus-visible .more,
+  .item.active .more {
+    opacity: 0;
+  }
+  .item:hover kbd,
+  .item:focus-visible kbd,
+  .item.active kbd {
+    opacity: 1;
   }
   .collapsed .item {
     justify-content: center;
@@ -233,6 +282,50 @@
   .collapsed .foot {
     justify-content: center;
     padding: 8px 0;
+  }
+  .cfg {
+    flex: 1;
+    min-height: var(--hit);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-1);
+    cursor: pointer;
+    text-align: left;
+  }
+  .cfg:hover {
+    background: var(--bg-2);
+    color: var(--text-0);
+  }
+  .cfg.active {
+    color: var(--text-0);
+    border-color: var(--magenta);
+    background: color-mix(in srgb, var(--magenta) 14%, transparent);
+  }
+  .cfg.active .code {
+    color: var(--magenta);
+  }
+  .cfg .name {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .bar {
+    flex: none;
+    display: flex;
+  }
+  .collapsed .cfg {
+    flex: none;
+    justify-content: center;
+    padding: 0 4px;
+  }
+  .collapsed .foot {
+    flex-direction: column;
   }
   .collapse {
     min-width: var(--hit);
