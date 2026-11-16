@@ -49,6 +49,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "alert-triage", view: null, what: "Triage / What broke? on an alert (in the alerts list): DRIFT gets the usual causes and first checks" },
   { id: "drift-save-note", view: null, what: "save a DRIFT reply as a runbook note" },
   { id: "drift-skills", view: null, what: "DRIFT's exact checks: command safety, compose review, error lookup and cron (in the DRIFT panel)" },
+  { id: "drift-here", view: null, what: "What can I do here? in the DRIFT panel: the controls of the current view, and guided tours" },
+  { id: "drift-tours", view: null, what: "guided tours in the DRIFT panel (step-by-step walkthroughs that wait for you)" },
   { id: "dashboard-edit", view: "overview", what: "edit the Overview dashboard: move, resize, add and remove widgets" },
   { id: "dashboard-add", view: "overview", what: "add a widget to the dashboard (in edit mode)" },
   { id: "dashboard-presets", view: "overview", what: "apply a built-in or saved layout preset, or save this layout as a preset (in edit mode)" },
@@ -110,6 +112,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "keys-rotate", view: "settings", what: "rotate a key: pick the old and new key and the hosts; adds the new key, tests login, switches Nightgrid to it, then removes the old key" },
   { id: "tailnet-login", view: "settings", what: "LOG IN button for the built-in Tailscale (shown when it needs a login)" },
   { id: "settings-helper", view: "settings", what: "DRIFT helper settings and model download" },
+  { id: "settings-tours", view: "settings", what: "replay the guided tours (Settings → Helper)" },
   { id: "settings-keybindings", view: "settings", what: "list of keyboard shortcuts" },
   { id: "settings-diagnostics", view: "settings", what: "log folder and diagnostics" },
 ];

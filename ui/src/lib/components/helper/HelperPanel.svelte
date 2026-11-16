@@ -16,6 +16,8 @@
   import { terms } from "../../stores/terms.svelte";
   import { notes } from "../../stores/notes.svelte";
   import { ui } from "../../stores/ui.svelte";
+  import { tour } from "../../stores/tour.svelte";
+  import { thingsHere, tourById, toursFor } from "../../helper/tours";
 
   function openNote(id: number) {
     notes.draft = null;
@@ -60,6 +62,30 @@
     sentTo = code;
     setTimeout(() => sentTo === code && (sentTo = null), 2500);
   }
+  /** "What can I do here?": the current view's controls on screen, and the tours. Needs no model. */
+  let here = $state<{ view: string; things: { id: string; what: string }[]; tours: ReturnType<typeof toursFor> } | null>(null);
+  function showHere() {
+    if (here) {
+      here = null;
+      return;
+    }
+    const view = ui.section;
+    here = {
+      view: sectionById(view).label,
+      things: thingsHere(view, (id) => !!document.querySelector(`[data-guide="${id}"]`)),
+      tours: toursFor(view),
+    };
+  }
+  // Moving to another view makes the list stale.
+  $effect(() => {
+    void ui.section;
+    here = null;
+  });
+  function startTour(id: string) {
+    here = null;
+    tour.start(id);
+  }
+
   const LEVEL = { danger: "DANGER", caution: "CAUTION", info: "NOTE" } as const;
 
   async function fill(text: string, caret = text.length) {
@@ -125,10 +151,26 @@
       </span>
     </div>
     <div class="tools">
+      <button type="button" class="tool" class:on={!!here} title="What can I do here?" data-guide="drift-here" onclick={showHere}>HERE?</button>
       {#if helper.messages.length}<button type="button" class="tool" title="New conversation" disabled={helper.busy} onclick={() => helper.clear()}>NEW</button>{/if}
       <button type="button" class="tool" title="Close ({toggleKey})" aria-label="Close helper" onclick={() => helper.toggle(false)}>✕</button>
     </div>
   </header>
+
+  {#if here}
+    <div class="here" aria-label="What can I do here">
+      <p class="micro hl">IN {here.view.toUpperCase()}</p>
+      {#if here.things.length}
+        <ul>
+          {#each here.things as t (t.id)}<li><button type="button" class="link" onclick={() => void helper.point(t.id, t.what)}>{t.what}</button></li>{/each}
+        </ul>
+      {:else}<p class="muted small">Nothing I know of is on screen here; try a tour below.</p>{/if}
+      <p class="micro hl">GUIDED TOURS</p>
+      <div class="chips" data-guide="drift-tours">
+        {#each here.tours as t (t.id)}<button type="button" class="chip skill" title={t.what} onclick={() => startTour(t.id)}>▶ {t.title}</button>{/each}
+      </div>
+    </div>
+  {/if}
 
   {#if !helper.enabled}
     <div class="intro">
@@ -147,6 +189,7 @@
         <div class="empty">
           <p class="muted">Ask me anything about Nightgrid, or select log lines or an error and ask what it means.</p>
           <div class="chips">
+            <button type="button" class="chip" onclick={showHere}>What can I do here?</button>
             {#each SUGGESTIONS as s (s)}<button type="button" class="chip" onclick={() => send(s)}>{s}</button>{/each}
           </div>
           <p class="muted small">Exact checks I run before answering (shown above my answer):</p>
@@ -207,6 +250,7 @@
                 <button type="button" class="btn primary" onclick={() => void helper.run(m.actions)}>Show me</button>
                 {#each m.actions as a, ai (ai)}
                   {#if a.kind === "point"}<button type="button" class="chip" onclick={() => void helper.point(a.id, a.note)}>{a.note || a.id}</button>
+                  {:else if a.kind === "tour"}<button type="button" class="chip skill" onclick={() => tour.start(a.id)}>▶ Tour: {tourById(a.id)?.title ?? a.id}</button>
                   {:else}<span class="muted small">→ {sectionById(a.view).label}</span>{/if}
                 {/each}
               </div>
@@ -367,6 +411,42 @@
   }
   .lv-info .lvl {
     color: var(--text-1);
+  }
+  .here {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .here ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .here li::before {
+    content: "› ";
+    color: var(--text-1);
+  }
+  .here .hl {
+    margin: 0;
+    color: var(--magenta);
+    letter-spacing: 0.1em;
+  }
+  .link {
+    background: none;
+    border: 0;
+    padding: 1px 0;
+    color: var(--cyan);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
+  .tool.on {
+    color: var(--magenta);
   }
   .chip.skill {
     color: var(--cyan);

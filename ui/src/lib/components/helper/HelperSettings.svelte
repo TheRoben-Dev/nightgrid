@@ -5,6 +5,8 @@
   import Panel from "../Panel.svelte";
   import Toggle from "../Toggle.svelte";
   import ModelCard from "./ModelCard.svelte";
+  import { TOURS } from "../../helper/tours";
+  import { tour } from "../../stores/tour.svelte";
 
   onMount(() => void helper.refresh());
 </script>
@@ -24,4 +26,38 @@
       </button>
     {/if}
   {/if}
+  <div class="tours" data-guide="settings-tours">
+    <p class="micro">GUIDED TOURS</p>
+    <p class="muted small">DRIFT points at one control at a time and waits for you. They work without the model. Esc ends a tour.</p>
+    <ul>
+      {#each TOURS as t (t.id)}
+        <li>
+          <button type="button" class="btn ghost tiny" onclick={() => tour.start(t.id)}>▶ {t.title}</button>
+          <span class="muted small">{t.what}</span>
+        </li>
+      {/each}
+    </ul>
+  </div>
 </Panel>
+
+<style>
+  .tours p {
+    margin: 0 0 4px;
+  }
+  .tours ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .tours li {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+  }
+  .small {
+    font-size: var(--fs-xs);
+  }
+</style>

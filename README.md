@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.25 (DRIFT guided tours)
+
+1. After updating, a card at the bottom right offers a tour. **Show me around**: a callout with DRIFT appears in the middle; **Next** moves brackets to the sidebar.
+2. At the command palette step, click the search box (or press `Cmd+K`): the tour moves on by itself. Press Esc: the palette closes and the tour goes on to the + button (it doesn't end).
+3. **End tour**, then **Settings → Helper → Guided tours → Add your first host**: click +, the host editor opens and the callout stays above it; Cancel, and it asks you to open Terminal.
+4. Open DRIFT (`Cmd+J`) on the Fleet view → **HERE?**: Fleet's controls are listed (click one to see it pointed out) and **Check fleet health** is the first tour.
+5. With the model loaded, ask "how do I keep an eye on my services?": the reply ends with a **Tour: Watch your services** chip.
+6. Quit and reopen: the first-run card doesn't come back.
+
 ### macOS: testing 0.10.24 (DRIFT skills, part 2)
 
 1. Ask DRIFT "write a command that shows the 10 biggest folders in /var": the reply's code block has **TERMINAL**. Press it: the Terminal view shows the command at the prompt, not run. Ask for something dangerous (`rm -rf` on a folder): the block shows DANGER and the button asks **SEND ANYWAY?** first.
