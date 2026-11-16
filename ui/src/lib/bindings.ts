@@ -491,6 +491,24 @@ export const commands = {
 	firewallKeep: (hostId: number, token: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("firewall_keep", { hostId, token }, options),
 	/**  Puts the old rules back now. */
 	firewallUndo: (hostId: number, token: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("firewall_undo", { hostId, token }, options),
+	/**  Every Caddyfile and Traefik instance on the host that routes can be edited in. */
+	proxyEditTargets: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<EditTargets_Serialize>("proxy_edit_targets", { hostId }, options),
+	/**
+	 *  A Caddyfile with `edit` applied and the diff, shown before saving.
+	 *  Nothing is written.
+	 */
+	caddyEditPreview: (text: string, edit: CaddyEdit, options?: InvokeOptions) => __TAURI_INVOKE<CaddyPreview_Serialize>("caddy_edit_preview", { text, edit }, options),
+	/**
+	 *  Writes a new Caddyfile: refused if it changed since `base_hash` was read;
+	 *  checked with `caddy validate`, loaded with `caddy reload`, and put back if
+	 *  Caddy can't load it. The host's own Caddy needs sudo.
+	 */
+	caddySave: (hostId: number, proxyName: string, text: string, baseHash: string, summary: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<SaveOutcome>("caddy_save", { hostId, proxyName, text, baseHash, summary, sudo }, options),
+	/**
+	 *  Replaces Nightgrid's Traefik routes on `proxy_name` (removes the file
+	 *  when there are none). Refused if the file changed since `base_hash`.
+	 */
+	traefikSave: (hostId: number, proxyName: string, routes: TraefikRoute_Deserialize[], baseHash: string, options?: InvokeOptions) => __TAURI_INVOKE<TraefikTarget_Serialize>("traefik_save", { hostId, proxyName, routes, baseHash }, options),
 	/**  Searches the chosen hosts (all when none are chosen), connecting where needed. */
 	logSearch: (query: LogSearchQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<LogSearchResult>("log_search", { query }, options),
 	logSearchesList: (options?: InvokeOptions) => __TAURI_INVOKE<SavedSearch_Serialize[]>("log_searches_list", undefined, options),
@@ -1418,6 +1436,52 @@ export type Bookmark_Serialize = {
 	label: string,
 };
 
+/**  One change to a Caddyfile. */
+export type CaddyEdit = 
+/**  `domains { reverse_proxy upstream }` at the end. */
+{ op: "addSite"; domains: string[]; upstream: string } | 
+/**  Changes the upstream of a simple site, found by its first address. */
+{ op: "setUpstream"; site: string; upstream: string } | 
+/**  Deletes a site block, found by its first address. */
+{ op: "removeSite"; site: string } | 
+/**  The whole file, as typed. */
+{ op: "replace"; text: string };
+
+export type CaddyPreview = CaddyPreview_Serialize | CaddyPreview_Deserialize;
+
+export type CaddyPreview_Deserialize = {
+	text: string,
+	diff: FileDiff_Deserialize,
+};
+
+export type CaddyPreview_Serialize = {
+	text: string,
+	diff: FileDiff_Serialize,
+};
+
+/**  A top-level site block of a Caddyfile. */
+export type CaddySite = {
+	addresses: string[],
+	/**  0-based first and last line of the block. */
+	firstLine: number,
+	lastLine: number,
+	upstreams: string[],
+	/**
+	 *  The site has exactly one one-line `reverse_proxy` without matchers,
+	 *  so its upstream can be changed in place.
+	 */
+	simple: boolean,
+};
+
+export type CaddyTarget = {
+	/**  The proxy's container name, or "host". */
+	proxyName: string,
+	path: string,
+	text: string,
+	hash: string,
+	sites: CaddySite[],
+};
+
 /**  What systemd makes of a calendar expression. */
 export type CalendarPreview = {
 	ok: boolean,
@@ -2042,6 +2106,18 @@ export type DriftReport_Serialize = {
 	hidden: number,
 	/**  Package lists come from different package managers. */
 	mixedManagers: boolean,
+};
+
+export type EditTargets = EditTargets_Serialize | EditTargets_Deserialize;
+
+export type EditTargets_Deserialize = {
+	caddy: CaddyTarget[],
+	traefik: TraefikTarget_Deserialize[],
+};
+
+export type EditTargets_Serialize = {
+	caddy: CaddyTarget[],
+	traefik: TraefikTarget_Serialize[],
 };
 
 /**  Engine summary shown in the Docker view header. */
@@ -4197,6 +4273,13 @@ export type Sample_Serialize = {
 	gpus: Gpu_Serialize[],
 };
 
+/**  The outcome of a Caddyfile write. */
+export type SaveOutcome = {
+	ok: boolean,
+	/**  Caddy's or the shell's words when it failed. */
+	message: string,
+};
+
 export type SaveResult = SaveResult_Serialize | SaveResult_Deserialize;
 
 export type SaveResult_Deserialize = {
@@ -5183,6 +5266,78 @@ export type TlsInfo_Serialize = {
 export type ToolState = "missing" | 
 /**  Installed, but reading it needs root. */
 "denied" | "read";
+
+/**  A route Nightgrid keeps in Traefik's file provider. */
+export type TraefikRoute = TraefikRoute_Serialize | TraefikRoute_Deserialize;
+
+/**  A route Nightgrid keeps in Traefik's file provider. */
+export type TraefikRoute_Deserialize = {
+	name: string,
+	domains: string[],
+	/**  `http://app:8080`; a bare `app:8080` gets `http://`. */
+	upstream: string,
+	/**  Empty = every entry point. */
+	entrypoints: string[],
+	tls: boolean,
+	certResolver?: string | null,
+};
+
+/**  A route Nightgrid keeps in Traefik's file provider. */
+export type TraefikRoute_Serialize = {
+	name: string,
+	domains: string[],
+	/**  `http://app:8080`; a bare `app:8080` gets `http://`. */
+	upstream: string,
+	/**  Empty = every entry point. */
+	entrypoints: string[],
+	tls: boolean,
+	certResolver: string | null,
+};
+
+/**  What Traefik's static configuration says, as far as the editor cares. */
+export type TraefikStatic = TraefikStatic_Serialize | TraefikStatic_Deserialize;
+
+/**  What Traefik's static configuration says, as far as the editor cares. */
+export type TraefikStatic_Deserialize = {
+	/**  `providers.file.directory`. */
+	directory?: string | null,
+	/**  `providers.file.filename` (a single file: not edited). */
+	filename?: string | null,
+	entrypoints: string[],
+	resolvers: string[],
+};
+
+/**  What Traefik's static configuration says, as far as the editor cares. */
+export type TraefikStatic_Serialize = {
+	/**  `providers.file.directory`. */
+	directory: string | null,
+	/**  `providers.file.filename` (a single file: not edited). */
+	filename: string | null,
+	entrypoints: string[],
+	resolvers: string[],
+};
+
+export type TraefikTarget = TraefikTarget_Serialize | TraefikTarget_Deserialize;
+
+export type TraefikTarget_Deserialize = {
+	proxyName: string,
+	config: TraefikStatic_Deserialize,
+	/**  Routes in Nightgrid's file (empty when there is none yet). */
+	routes: TraefikRoute_Deserialize[],
+	hash: string,
+	/**  Why routes can't be added here, if they can't. */
+	blocked?: string | null,
+};
+
+export type TraefikTarget_Serialize = {
+	proxyName: string,
+	config: TraefikStatic_Serialize,
+	/**  Routes in Nightgrid's file (empty when there is none yet). */
+	routes: TraefikRoute_Serialize[],
+	hash: string,
+	/**  Why routes can't be added here, if they can't. */
+	blocked: string | null,
+};
 
 export type Tunnel = {
 	id: number,

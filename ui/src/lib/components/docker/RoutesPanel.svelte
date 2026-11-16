@@ -2,7 +2,7 @@
   /**
    * Reverse proxy routes (M10g): each domain Caddy, Traefik or Nginx Proxy
    * Manager serves on this host, the container behind it and certificate
-   * expiry. Read-only.
+   * expiry. Edit routes… changes Caddy sites and Nightgrid's Traefik routes (M10v).
    */
   import { onMount } from "svelte";
   import type { ProxyRoute } from "../../api";
@@ -11,6 +11,9 @@
   import { certDays, certTone, PROXY_LABEL, proxy } from "../../stores/proxy.svelte";
   import { settings } from "../../stores/settings.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
+  import ProxyEditor from "./ProxyEditor.svelte";
+
+  let editing = $state(false);
 
   onMount(() => void proxy.load());
   $effect(() => {
@@ -56,8 +59,10 @@
     {/if}
     <span class="spacer"></span>
     {#if r?.routes.length}<ExplainButton source="proxy routes" text={explainText} question="Look over these reverse proxy routes. Is anything misrouted, unprotected or about to expire?" />{/if}
+    <button type="button" class="btn ghost tiny" data-guide="proxy-edit" onclick={() => (editing = true)}>Edit routes…</button>
     <button type="button" class="btn ghost tiny" disabled={proxy.loading} onclick={() => proxy.load(true)}>{proxy.loading ? "Reading…" : "Refresh"}</button>
   </div>
+  <ProxyEditor open={editing} onclose={() => (editing = false)} />
 
   <div class="scroll" data-guide="docker-routes">
     {#if proxy.error}
@@ -102,7 +107,7 @@
         {/each}
       </div>
       <p class="muted small note">
-        Certificates are read by <code>openssl</code> on the host from its own port 443, as the proxy serves them. Traefik's file provider and Caddy's JSON config aren't read. Yellow = expires within
+        Certificates are read by <code>openssl</code> on the host from its own port 443, as the proxy serves them. Traefik's file provider is read only for the routes Nightgrid keeps there, and Caddy's JSON config isn't read. Yellow = expires within
         {warnDays} days.
       </p>
     {/if}

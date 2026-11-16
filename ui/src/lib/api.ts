@@ -32,6 +32,15 @@ import {
   type UfwRule_Serialize as UfwRule,
   type Zone as FirewallZone,
   type CalendarPreview,
+  type EditTargets_Serialize as ProxyEditTargets,
+  type CaddyTarget,
+  type CaddySite,
+  type CaddyEdit,
+  type CaddyPreview_Serialize as CaddyPreview,
+  type SaveOutcome,
+  type TraefikTarget_Serialize as TraefikTarget,
+  type TraefikRoute_Serialize as TraefikRoute,
+  type TraefikStatic_Serialize as TraefikStatic,
   type AlertKind,
   type Dependency as AlertDependency,
   type Node as DepNode,
@@ -261,6 +270,7 @@ import { mockLogs } from "./mockLogs";
 import { mockAccess } from "./mockAccess";
 import { mockJobs } from "./mockJobs";
 import { mockFirewall } from "./mockFirewall";
+import { mockProxyEdit } from "./mockProxyEdit";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
@@ -339,6 +349,15 @@ export type {
   PendingChange,
   UfwRule,
   FirewallZone,
+  ProxyEditTargets,
+  CaddyTarget,
+  CaddySite,
+  CaddyEdit,
+  CaddyPreview,
+  SaveOutcome,
+  TraefikTarget,
+  TraefikRoute,
+  TraefikStatic,
   SavedLogSearch,
   SavedLogSearchInput,
   UpsInput,
@@ -600,7 +619,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.34-web",
+      version: "0.10.35-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1059,6 +1078,12 @@ export const api = {
   firewallTest: (hostId: number): Promise<number> => (T() ? commands.firewallTest(hostId) : mockFirewall.test(hostId)),
   firewallKeep: (hostId: number, token: string): Promise<null> => (T() ? commands.firewallKeep(hostId, token) : mockFirewall.finish(hostId, token, true)),
   firewallUndo: (hostId: number, token: string): Promise<null> => (T() ? commands.firewallUndo(hostId, token) : mockFirewall.finish(hostId, token, false)),
+  proxyEditTargets: (hostId: number): Promise<ProxyEditTargets> => (T() ? commands.proxyEditTargets(hostId) : mockProxyEdit.targets(hostId)),
+  caddyEditPreview: (text: string, edit: CaddyEdit): Promise<CaddyPreview> => (T() ? commands.caddyEditPreview(text, edit) : mockProxyEdit.preview(text, edit)),
+  caddySave: (hostId: number, proxyName: string, text: string, baseHash: string, summary: string, sudo: SudoInput | null): Promise<SaveOutcome> =>
+    T() ? commands.caddySave(hostId, proxyName, text, baseHash, summary, sudo) : mockProxyEdit.saveCaddy(hostId, proxyName, text, baseHash),
+  traefikSave: (hostId: number, proxyName: string, routes: TraefikRoute[], baseHash: string): Promise<TraefikTarget> =>
+    T() ? commands.traefikSave(hostId, proxyName, routes, baseHash) : mockProxyEdit.saveTraefik(hostId, proxyName, routes, baseHash),
   timerCalendarPreview: (hostId: number, calendar: string): Promise<CalendarPreview> => (T() ? commands.timerCalendarPreview(hostId, calendar) : mockJobs.preview(calendar)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),

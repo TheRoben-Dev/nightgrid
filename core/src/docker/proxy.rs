@@ -173,7 +173,7 @@ fn push_caddy_site(out: &mut Vec<RawRoute>, addresses: Vec<String>, ups: Vec<Str
     }
 }
 
-fn strip_comment(line: &str) -> &str {
+pub(crate) fn strip_comment(line: &str) -> &str {
     if line.trim_start().starts_with('#') {
         return "";
     }
@@ -183,7 +183,7 @@ fn strip_comment(line: &str) -> &str {
     }
 }
 
-fn is_matcher(w: &str) -> bool {
+pub(crate) fn is_matcher(w: &str) -> bool {
     w.starts_with('/') || w.starts_with('@') || w == "*"
 }
 
@@ -584,6 +584,25 @@ impl DockerHost {
             } else if image_has(c, "traefik") && !proxies.iter().any(|p| p.kind == ProxyKind::Traefik && p.name == name)
             {
                 add(&mut proxies, ProxyKind::Traefik, &name, vec![], None);
+            }
+        }
+        // Routes Nightgrid keeps in Traefik's file provider (M10v).
+        for c in raw.iter().filter(|c| image_has(c, "traefik")) {
+            let name = name_of(c);
+            if let Ok(t) = self.traefik_target(&name).await {
+                if !t.routes.is_empty() {
+                    let raws = t
+                        .routes
+                        .into_iter()
+                        .map(|r| RawRoute {
+                            domains: r.domains,
+                            upstream: r.upstream,
+                            tls: r.tls,
+                            origin: format!("{} {}", super::proxy_edit::TRAEFIK_FILE, r.name),
+                        })
+                        .collect();
+                    add(&mut proxies, ProxyKind::Traefik, &name, raws, None);
+                }
             }
         }
         // Caddy installed on the host itself.

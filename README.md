@@ -164,6 +164,12 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.35 (reverse proxy route editor)
+
+1. On a host with a Caddy container (or Caddy installed): **Docker → Routes → Edit routes…**. The Caddy tab lists the Caddyfile's sites. **Add site…** `test.example.com` → `whoami:80`: the diff shows the new block; **Save and reload Caddy**. It says Caddy loaded it, and the Routes list shows the new domain.
+2. **Edit as text**, change `reverse_proxy` to `revers_proxy` in one site, **Review changes** → **Save**: Caddy refuses it and nothing changes (`cat /etc/caddy/Caddyfile` on the host agrees). **Remove…** the test site.
+3. On a host with Traefik and `--providers.file.directory=/etc/traefik/dynamic`: the Traefik tab lists entry points and resolvers. Add a route `whoami` for `whoami.example.com` → `whoami:80`; `cat /etc/traefik/dynamic/nightgrid.yml` in the container shows it and Traefik's dashboard lists `ng-whoami@file`. Remove it again. Without a file provider, the tab says which flag to add.
+
 ### macOS: testing 0.10.34 (firewall manager)
 
 Use a test VM or a host you can reach another way (a console) the first time.
