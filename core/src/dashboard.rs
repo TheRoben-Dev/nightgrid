@@ -46,6 +46,14 @@ pub struct Dashboard {
     pub widgets: Vec<Widget>,
 }
 
+/// A built-in kind, or `cmd:<id>` for a custom command widget (M10x).
+pub fn known_kind(kind: &str) -> bool {
+    WIDGET_KINDS.contains(&kind)
+        || kind
+            .strip_prefix("cmd:")
+            .is_some_and(|n| !n.is_empty() && n.len() <= 18 && n.bytes().all(|b| b.is_ascii_digit()))
+}
+
 fn bad(field: &'static str, reason: impl Into<String>) -> Error {
     Error::Invalid { field, reason: reason.into() }
 }
@@ -69,7 +77,7 @@ pub fn validate(d: &Dashboard, field: &'static str) -> Result<()> {
         if w.id.is_empty() || w.id.len() > 24 || !w.id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
             return Err(bad(field, "widget ids are 1 to 24 letters, digits or dashes"));
         }
-        if !WIDGET_KINDS.contains(&w.kind.as_str()) {
+        if !known_kind(&w.kind) {
             return Err(bad(field, format!("unknown widget {:?}", w.kind)));
         }
         if w.w == 0 || w.h == 0 || w.x + w.w > COLUMNS || w.h > MAX_ROWS || w.y + w.h > MAX_Y {
@@ -129,6 +137,9 @@ mod tests {
         assert!(ok(vec![w("a", "nodes", 0, 0, 0, 2)]).is_err(), "zero width");
         assert!(ok(vec![w("a", "nodes", 0, 0, 2, 17)]).is_err(), "too tall");
         assert!(ok(vec![w("a", "clock", 0, 0, 2, 2)]).is_err(), "unknown kind");
+        assert!(ok(vec![w("a", "cmd:12", 0, 0, 2, 2)]).is_ok(), "command widget");
+        assert!(ok(vec![w("a", "cmd:", 0, 0, 2, 2)]).is_err(), "command widget without id");
+        assert!(ok(vec![w("a", "cmd:1x", 0, 0, 2, 2)]).is_err(), "command widget with bad id");
         assert!(ok(vec![w("a", "nodes", 0, 0, 4, 2), w("a", "alerts", 4, 0, 4, 2)]).is_err(), "duplicate id");
         assert!(ok(vec![w("a", "nodes", 0, 0, 4, 2), w("b", "alerts", 3, 1, 4, 2)]).is_err(), "overlap");
         assert!(ok(vec![w("a b", "nodes", 0, 0, 4, 2)]).is_err(), "bad id");

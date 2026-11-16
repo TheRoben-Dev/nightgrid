@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.41 (command widgets)
+
+1. **Overview → Edit → + Widget → COMMAND…**, START FROM **Root disk used**, pick a host, **Try it**: the value is the root filesystem's use in % (same as `df -h /`) and the output shows the `df` line. **Add widget**, then **Done**: the tile shows the value, green/orange/red by the 80/90 thresholds.
+2. Type `sudo ls` or `docker system prune -f` as the command: the editor warns and saving is refused.
+3. Make an **Exit code** widget with `ss -ltn | grep -q ':22 '`: it shows OK. Change the port to one nothing listens on: FAIL (1) in red.
+4. Remove the tile (×), open **+ Widget** again: it's under YOUR COMMANDS. **Edit… → Delete…** removes it.
+
 ### macOS: testing 0.10.40 (network tests)
 
 1. Install `iperf3` on two hosts on the same LAN. **Fleet → SPEED**: From the first, To the second, address = the second's LAN IP, **Run test**. Within ~15 s the row shows up and down near your link speed (≈940 Mbit/s on gigabit) and a sub-millisecond latency.

@@ -15,7 +15,7 @@ export const MAX_PRESETS = 24;
 export type WidgetKind = "nodes" | "alerts" | "services" | "updates" | "disks" | "backups" | "tunnels" | "notes" | "desktops" | "status" | "gpus";
 
 export interface WidgetInfo {
-  kind: WidgetKind;
+  kind: string;
   title: string;
   what: string;
   w: number;
@@ -38,7 +38,15 @@ export const WIDGETS: WidgetInfo[] = [
   { kind: "status", title: "SYS.STATUS", what: "Version, platform, database and keychain", w: 4, h: 3, minW: 3, minH: 2 },
 ];
 
-export const widgetInfo = (kind: string): WidgetInfo | undefined => WIDGETS.find((w) => w.kind === kind);
+/** Custom command widgets (M10x) are `cmd:<id>`; the command lives in the database. */
+export const CMD_INFO: WidgetInfo = { kind: "cmd", title: "COMMAND", what: "Any read-only command's output as a tile", w: 3, h: 2, minW: 2, minH: 2 };
+export const cmdKind = (id: number): string => `cmd:${id}`;
+export function cmdId(kind: string): number | null {
+  const m = /^cmd:(\d{1,18})$/.exec(kind);
+  return m ? Number(m[1]) : null;
+}
+
+export const widgetInfo = (kind: string): WidgetInfo | undefined => (cmdId(kind) != null ? CMD_INFO : WIDGETS.find((w) => w.kind === kind));
 
 let seq = 0;
 /** A widget id unique within `taken`. */
@@ -96,7 +104,7 @@ export function place(widgets: Widget[], moved: Widget): Widget[] {
 }
 
 /** The first free spot (top-left first) for a new widget of `kind`. */
-export function add(widgets: Widget[], kind: WidgetKind): Widget[] {
+export function add(widgets: Widget[], kind: string): Widget[] {
   const info = widgetInfo(kind);
   const w = info?.w ?? 4;
   const h = info?.h ?? 3;
