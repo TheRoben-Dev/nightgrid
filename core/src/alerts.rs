@@ -41,6 +41,8 @@ pub enum AlertKind {
     DiskFilling,
     /// A ZFS pool, RAID array or btrfs filesystem lost a device or has errors (M10m).
     PoolDegraded,
+    /// A UPS runs on battery, is low, or needs a new battery (M10s).
+    UpsOnBattery,
 }
 
 impl AlertKind {
@@ -81,6 +83,7 @@ impl AlertKind {
             AlertKind::ExpirySoon => "EXPIRING",
             AlertKind::DiskFilling => "FILLING UP",
             AlertKind::PoolDegraded => "POOL DEGRADED",
+            AlertKind::UpsOnBattery => "ON BATTERY",
         }
     }
 }

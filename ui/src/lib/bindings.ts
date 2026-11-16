@@ -421,6 +421,18 @@ export const commands = {
 	/**  Adds "`child` depends on `parent`" (refuses loops). */
 	alertsDepsAdd: (child: Node, parent: Node, options?: InvokeOptions) => __TAURI_INVOKE<Dependency>("alerts_deps_add", { child, parent }, options),
 	alertsDepsDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_deps_delete", { id }, options),
+	upsList: (options?: InvokeOptions) => __TAURI_INVOKE<UpsWatch_Serialize[]>("ups_list", undefined, options),
+	upsSave: (input: UpsInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<UpsWatch_Serialize>("ups_save", { input }, options),
+	upsDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("ups_delete", { id }, options),
+	/**  Every watch with its latest reading. */
+	upsStatus: (options?: InvokeOptions) => __TAURI_INVOKE<UpsStatus_Serialize[]>("ups_status", undefined, options),
+	/**  Reads a UPS now (connects to its host if needed), to test a new watch. */
+	upsReadNow: (hostId: number, target: string, options?: InvokeOptions) => __TAURI_INVOKE<UpsReading_Serialize>("ups_read_now", { hostId, target }, options),
+	/**
+	 *  Stops a running shutdown countdown. It won't start again until power
+	 *  comes back and goes out again.
+	 */
+	upsCancel: (options?: InvokeOptions) => __TAURI_INVOKE<null>("ups_cancel", undefined, options),
 	alertsWebhookGet: (options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_get", undefined, options),
 	/**  Saves the webhook URL in the keychain (`None` or empty removes it). */
 	alertsWebhookSet: (url: string | null, options?: InvokeOptions) => __TAURI_INVOKE<WebhookInfo_Serialize>("alerts_webhook_set", { url }, options),
@@ -561,7 +573,9 @@ export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceD
 /**  A mount forecast to be full soon at its current growth (M10m). */
 "diskFilling" | 
 /**  A ZFS pool, RAID array or btrfs filesystem lost a device or has errors (M10m). */
-"poolDegraded";
+"poolDegraded" | 
+/**  A UPS runs on battery, is low, or needs a new battery (M10s). */
+"upsOnBattery";
 
 /**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
 export type AlertSettings = AlertSettings_Serialize | AlertSettings_Deserialize;
@@ -720,6 +734,8 @@ export type AlertsSnapshot_Deserialize = {
 	/**  Quiet hours are on right now (no notifications or webhooks). */
 	quiet: boolean,
 	enabled: boolean,
+	/**  A UPS shutdown waiting to start (M10s), shown with a Cancel button. */
+	upsCountdown?: UpsCountdown | null,
 };
 
 export type AlertsSnapshot_Serialize = {
@@ -728,6 +744,8 @@ export type AlertsSnapshot_Serialize = {
 	/**  Quiet hours are on right now (no notifications or webhooks). */
 	quiet: boolean,
 	enabled: boolean,
+	/**  A UPS shutdown waiting to start (M10s), shown with a Cancel button. */
+	upsCountdown: UpsCountdown | null,
 };
 
 export type AmpAction = "start" | "stop" | "restart";
@@ -4764,6 +4782,157 @@ export type UpgradeOp =
 "refresh" | 
 /**  Install all available upgrades. */
 "upgrade";
+
+/**  A shutdown that will start at `deadline` unless cancelled. */
+export type UpsCountdown = {
+	watchId: number,
+	label: string,
+	reason: string,
+	/**  Unix seconds. */
+	deadline: number | null,
+	/**  Host names in the order they will be shut down. */
+	targets: string[],
+};
+
+export type UpsInput = UpsInput_Serialize | UpsInput_Deserialize;
+
+export type UpsInput_Deserialize = {
+	id?: number | null,
+	label?: string,
+	target?: string,
+	hostId?: number,
+	groupId?: number | null,
+	shutdown?: boolean,
+	onBatterySecs?: number,
+	lowRuntimeSecs?: number,
+	countdownSecs?: number,
+	enabled?: boolean,
+};
+
+export type UpsInput_Serialize = {
+	id: number | null,
+	label: string,
+	target: string,
+	hostId: number,
+	groupId: number | null,
+	shutdown: boolean,
+	onBatterySecs: number,
+	lowRuntimeSecs: number,
+	countdownSecs: number,
+	enabled: boolean,
+};
+
+export type UpsReading = UpsReading_Serialize | UpsReading_Deserialize;
+
+export type UpsReading_Deserialize = {
+	/**
+	 *  `ups.status` flags: OL (on line), OB (on battery), LB (low battery),
+	 *  CHRG, RB (replace battery) …
+	 */
+	status: string[],
+	onBattery: boolean,
+	lowBattery: boolean,
+	replaceBattery: boolean,
+	/**  Percent. */
+	charge?: number | null,
+	/**  Seconds of runtime left. */
+	runtime?: number | null,
+	/**  Percent. */
+	load?: number | null,
+	inputVoltage?: number | null,
+	model?: string | null,
+	/**  Why there is no reading (no upsc, driver not connected, unknown UPS). */
+	error?: string | null,
+};
+
+export type UpsReading_Serialize = {
+	/**
+	 *  `ups.status` flags: OL (on line), OB (on battery), LB (low battery),
+	 *  CHRG, RB (replace battery) …
+	 */
+	status: string[],
+	onBattery: boolean,
+	lowBattery: boolean,
+	replaceBattery: boolean,
+	/**  Percent. */
+	charge: number | null,
+	/**  Seconds of runtime left. */
+	runtime: number | null,
+	/**  Percent. */
+	load: number | null,
+	inputVoltage: number | null,
+	model: string | null,
+	/**  Why there is no reading (no upsc, driver not connected, unknown UPS). */
+	error: string | null,
+};
+
+export type UpsStatus = UpsStatus_Serialize | UpsStatus_Deserialize;
+
+export type UpsStatus_Deserialize = {
+	watch: UpsWatch_Deserialize,
+	reading?: UpsReading_Deserialize | null,
+	/**  Unix seconds of the last reading. */
+	readAt?: number | null,
+	onBatterySince?: number | null,
+};
+
+export type UpsStatus_Serialize = {
+	watch: UpsWatch_Serialize,
+	reading: UpsReading_Serialize | null,
+	/**  Unix seconds of the last reading. */
+	readAt: number | null,
+	onBatterySince: number | null,
+};
+
+export type UpsWatch = UpsWatch_Serialize | UpsWatch_Deserialize;
+
+export type UpsWatch_Deserialize = {
+	id: number,
+	/**  A label for the UI, e.g. "Rack UPS". */
+	label: string,
+	/**  The `upsc` target: `ups`, `ups@localhost` or `ups@nas.lan:3493`. */
+	target: string,
+	/**  Where `upsc` runs (usually the host the UPS is plugged into). */
+	hostId: number,
+	/**  Hosts to shut down. `None`: alerts only. */
+	groupId?: number | null,
+	/**  Shut the group down when the trigger below is met. */
+	shutdown: boolean,
+	/**  Trigger after this long on battery (seconds); 0 = only on low battery. */
+	onBatterySecs: number,
+	/**
+	 *  Trigger when the UPS reports less runtime than this (seconds), or
+	 *  flags low battery itself.
+	 */
+	lowRuntimeSecs: number,
+	/**  Countdown before the shutdown starts, in seconds. */
+	countdownSecs: number,
+	enabled: boolean,
+};
+
+export type UpsWatch_Serialize = {
+	id: number,
+	/**  A label for the UI, e.g. "Rack UPS". */
+	label: string,
+	/**  The `upsc` target: `ups`, `ups@localhost` or `ups@nas.lan:3493`. */
+	target: string,
+	/**  Where `upsc` runs (usually the host the UPS is plugged into). */
+	hostId: number,
+	/**  Hosts to shut down. `None`: alerts only. */
+	groupId: number | null,
+	/**  Shut the group down when the trigger below is met. */
+	shutdown: boolean,
+	/**  Trigger after this long on battery (seconds); 0 = only on low battery. */
+	onBatterySecs: number,
+	/**
+	 *  Trigger when the UPS reports less runtime than this (seconds), or
+	 *  flags low battery itself.
+	 */
+	lowRuntimeSecs: number,
+	/**  Countdown before the shutdown starts, in seconds. */
+	countdownSecs: number,
+	enabled: boolean,
+};
 
 export type UsagePoint = {
 	ts: number,

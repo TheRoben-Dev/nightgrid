@@ -29,6 +29,7 @@ mod timeline_cmd;
 mod tray;
 mod tunnels_cmd;
 mod update_cmd;
+mod ups_cmd;
 
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
@@ -212,6 +213,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_deps_list,
         alerts_cmd::alerts_deps_add,
         alerts_cmd::alerts_deps_delete,
+        ups_cmd::ups_list,
+        ups_cmd::ups_save,
+        ups_cmd::ups_delete,
+        ups_cmd::ups_status,
+        ups_cmd::ups_read_now,
+        ups_cmd::ups_cancel,
         alerts_cmd::alerts_webhook_get,
         alerts_cmd::alerts_webhook_set,
         alerts_cmd::alerts_test,

@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.28] - 2026-11-16
+
+### Added: smarter alerts, part 3: UPS shutdown (M10s)
+- **Fleet → UPS**: watch a UPS through NUT. Pick the host it's plugged into (or any host that can reach a NUT server) and its NUT name, such as `ups@localhost`; **Test** reads it once. Each UPS shows its state, charge, runtime, load and input voltage, read with `upsc` every 30 s while the host is connected. Nothing is installed: the host needs NUT already (or a NAS's built-in NUT server).
+- **ON BATTERY** alerts: running on battery (warning), battery low or runtime under the limit (critical), and the UPS's own "replace battery" flag.
+- **Group shutdown** (optional): after a set time on battery, when the runtime drops under a limit, or when the UPS reports low battery, Nightgrid starts a countdown (2 minutes by default) and then shuts down every host in a chosen group, the UPS's own host last. Turning it on means typing the group's name. The countdown shows as a banner above every view with **Cancel shutdown**, sends a notification even in quiet hours, runs with the window closed, and stops by itself if the power comes back. After a cancel it won't start again until the power returns and fails again.
+- UPS watches travel in profile exports.
+
 ## [0.10.27] - 2026-11-16
 
 ### Added: smarter alerts, part 2: runbooks (M10s)

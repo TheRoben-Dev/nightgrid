@@ -5,6 +5,8 @@
   import SudoPrompt from "../components/system/SudoPrompt.svelte";
   import { backups, jobState } from "../stores/backups.svelte";
   import UpdateCenter from "../components/fleet/UpdateCenter.svelte";
+  import UpsPanel from "../components/fleet/UpsPanel.svelte";
+  import { alerts } from "../stores/alerts.svelte";
   import { diskTone, type FleetTab } from "../fleet";
   import { settings } from "../stores/settings.svelte";
   import { fleet } from "../stores/fleet.svelte";
@@ -14,7 +16,9 @@
     { id: "updates", label: "UPDATES" },
     { id: "disks", label: "DISKS" },
     { id: "backups", label: "BACKUPS" },
+    { id: "ups", label: "UPS" },
   ];
+  const upsBad = $derived(alerts.active.filter((a) => a.kind === "upsOnBattery").length + (alerts.snap?.upsCountdown ? 1 : 0));
   const backupBad = $derived(backups.jobs.filter((j) => ["failed", "error", "stale"].includes(jobState(backups.status[j.id]))).length);
   function open(t: FleetTab) {
     if (t === "backups") fleet.openBackups();
@@ -38,7 +42,7 @@
     <div class="tabs" role="tablist" aria-label="Fleet view">
       {#each TABS as t (t.id)}
         <button type="button" role="tab" data-guide="fleet-tab-{t.id}" class:on={fleet.tab === t.id} aria-selected={fleet.tab === t.id} onclick={() => open(t.id)}>
-          {t.label}{#if t.id === "updates" && pending}<span class="badge">{pending}</span>{/if}{#if t.id === "disks" && diskBad !== "ok"}<span class="badge {diskBad}">!</span>{/if}{#if t.id === "backups" && backupBad}<span class="badge bad">{backupBad}</span>{/if}
+          {t.label}{#if t.id === "updates" && pending}<span class="badge">{pending}</span>{/if}{#if t.id === "disks" && diskBad !== "ok"}<span class="badge {diskBad}">!</span>{/if}{#if t.id === "backups" && backupBad}<span class="badge bad">{backupBad}</span>{/if}{#if t.id === "ups" && upsBad}<span class="badge bad">!</span>{/if}
         </button>
       {/each}
     </div>
@@ -48,7 +52,7 @@
     {#if !hosts.hosts.length}
       <div class="empty">
         <p class="label">NO HOSTS</p>
-        <p class="muted">Add a host first; pending updates, disk health and backups across all of them show up here.</p>
+        <p class="muted">Add a host first; pending updates, disk health, backups and UPSes across all of them show up here.</p>
         <button type="button" class="btn primary" onclick={() => (hosts.editing = 0)}>Add host</button>
       </div>
     {:else if fleet.tab === "updates"}
@@ -57,6 +61,8 @@
       <DiskHealth />
     {:else if fleet.tab === "backups"}
       <BackupsPanel />
+    {:else if fleet.tab === "ups"}
+      <UpsPanel />
     {/if}
   </div>
 </div>
