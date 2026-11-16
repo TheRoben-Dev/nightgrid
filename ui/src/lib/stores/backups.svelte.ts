@@ -169,7 +169,7 @@ class BackupsStore {
       const { id, ...input } = job;
       this.editing = { id, input };
     } else {
-      this.editing = { id: null, input: emptyInput(hostId ?? hosts.hosts[0]?.id ?? 0) };
+      this.editing = { id: null, input: emptyInput(hostId ?? hosts.preferred("backups")?.id ?? 0) };
     }
   }
 

@@ -41,7 +41,7 @@
       const p = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}");
       if (typeof p.dir === "string") dir = p.dir;
       if (typeof p.source === "string" && (p.source === "" || hosts.byId(Number(p.source)))) source = p.source;
-      else if (!source && hosts.hosts.length) source = String(hosts.hosts[0].id);
+      else if (!source && hosts.preferred("homepage")) source = String(hosts.preferred("homepage")!.id);
     } catch {
       /* ignore */
     }

@@ -16,7 +16,7 @@
   let quickBusy = $state(false);
   let quickMsg = $state<{ text: string; tone: "ok" | "err" } | null>(null);
   $effect(() => {
-    if (quickHost === null && hosts.hosts.length) quickHost = hosts.hosts[0].id;
+    if (quickHost === null && hosts.preferred("tunnels")) quickHost = hosts.preferred("tunnels")!.id;
   });
 
   const groups = $derived.by(() => {
@@ -80,7 +80,7 @@
     </button>
     {#if quickMsg}<span class="qmsg {quickMsg.tone}" role="status">{quickMsg.text}</span>{/if}
     <span class="spacer"></span>
-    <button type="button" class="btn primary" disabled={!hosts.hosts.length} onclick={() => tunnels.openNew(quickHost ?? hosts.hosts[0].id)} data-guide="tunnels-add">
+    <button type="button" class="btn primary" disabled={!hosts.hosts.length} onclick={() => tunnels.openNew(quickHost ?? hosts.preferred("tunnels")!.id)} data-guide="tunnels-add">
       Add tunnel
     </button>
   </form>
@@ -99,8 +99,8 @@
         </p>
         {#if hosts.hosts.length}
           <div class="actions">
-            <button type="button" class="btn primary chamfer-sm" onclick={() => tunnels.openNew(hosts.hosts[0].id)}>Add tunnel</button>
-            <button type="button" class="btn chamfer-sm" onclick={() => tunnels.openNew(hosts.hosts[0].id, "dynamic")}>SOCKS proxy</button>
+            <button type="button" class="btn primary chamfer-sm" onclick={() => tunnels.openNew(hosts.preferred("tunnels")!.id)}>Add tunnel</button>
+            <button type="button" class="btn chamfer-sm" onclick={() => tunnels.openNew(hosts.preferred("tunnels")!.id, "dynamic")}>SOCKS proxy</button>
           </div>
         {:else}
           <p class="muted">Add a host first.</p>

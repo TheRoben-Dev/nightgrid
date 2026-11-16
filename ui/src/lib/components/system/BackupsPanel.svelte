@@ -77,7 +77,7 @@
 
   const e = $derived(backups.editing);
   let detectPick = $state<number | null>(null);
-  const detectId = $derived(detectPick ?? system.hostId ?? hosts.hosts[0]?.id ?? null);
+  const detectId = $derived(detectPick ?? system.hostId ?? hosts.preferred("system")?.id ?? null);
   const tr = $derived(backups.testResult);
   const trJob = $derived(tr ? backups.jobs.find((j) => j.id === tr.jobId) : undefined);
   const detectFor = $derived(backups.detectHost === null ? "" : hostName(backups.detectHost));

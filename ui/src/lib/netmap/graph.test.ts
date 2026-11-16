@@ -36,9 +36,9 @@ describe("network map graph", () => {
     expect(summarizePorts(audit([[22, "all"], [22, "all"], [5432, "local"], [8080, "vpn"], [80, "address"]]).listeners)).toEqual({ lan: 2, tailnet: 1, local: 1 });
   });
 
-  it("without a scan shows only the hosts, unlinked", () => {
+  it("without a scan shows the hosts and this computer, unlinked", () => {
     const g = buildGraph(hosts, { 1: audit([[22, "all"]]), 3: "Needs a login first" }, null, null);
-    expect(g.nodes.map((n) => n.id)).toEqual(["h1", "h2", "h3"]);
+    expect(g.nodes.map((n) => n.id)).toEqual(["h1", "h2", "h3", "local"]);
     expect(g.links).toEqual([]);
     expect(g.nodes[0].ports?.lan).toBe(1);
     expect(g.nodes[2].portsError).toMatch(/login/);

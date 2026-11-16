@@ -19,6 +19,7 @@
   const width = COL * 3 + W + 24;
   const height = $derived(TOP + rows * ROW + 12);
   const byId = $derived(new Map(g.nodes.map((n) => [n.id, n])));
+  const scannerName = $derived(netmap.from === "local" ? "this computer" : netmap.from === null ? "" : (hosts.byId(netmap.from)?.name ?? "?"));
 
   const x = (n: MapNode) => 12 + n.col * COL;
   const y = (n: MapNode) => TOP + n.row * ROW;
@@ -142,13 +143,6 @@
 
 <div class="net">
   <header class="bar">
-    <label class="from">
-      <span class="lbl">SCAN FROM</span>
-      <select class="input" value={String(netmap.from)} onchange={(e) => (netmap.scanHost = e.currentTarget.value === "local" ? "local" : Number(e.currentTarget.value))} aria-label="Scan from">
-        {#each hosts.hosts as h (h.id)}<option value={String(h.id)}>{h.name}</option>{/each}
-        <option value="local">This computer</option>
-      </select>
-    </label>
     <div class="sweep">
       <Toggle
         label="Ping sweep"
@@ -157,14 +151,21 @@
         onchange={(v) => (netmap.sweep = v)}
       />
     </div>
-    <button type="button" class="btn primary" data-guide="netmap-scan" onclick={() => netmap.scan()} disabled={netmap.loading}>
-      {netmap.loading ? "SCANNING…" : "SCAN"}
+    <button
+      type="button"
+      class="btn primary"
+      data-guide="netmap-scan"
+      onclick={() => netmap.scan()}
+      disabled={netmap.loading || netmap.from === null}
+      title={netmap.from === null ? "Select a node marked ◉ on the map: the scan runs from there" : undefined}
+    >
+      {netmap.loading ? "SCANNING…" : netmap.from === null ? "SELECT A SCANNER ON THE MAP" : `SCAN FROM ${scannerName.toUpperCase()}`}
     </button>
     <button type="button" class="btn ghost" data-guide="netmap-ports" onclick={() => system.scanAllPorts()} disabled={system.portMapLoading || !hosts.hosts.length} title="Runs the System → Security port check on every host">
       {system.portMapLoading ? "AUDITING…" : "AUDIT PORTS ON ALL HOSTS"}
     </button>
     <span class="legend" aria-label="Legend">
-      <i class="sw internet"></i>internet-facing <i class="sw lan"></i>LAN <i class="sw tailnet"></i>tailnet
+      <i class="sw internet"></i>internet-facing <i class="sw lan"></i>LAN <i class="sw tailnet"></i>tailnet <b class="scanmark">◉</b>can scan
     </span>
   </header>
 
@@ -176,7 +177,7 @@
       {#each netmap.result.notes as n (n)}<span class="note"> · {n}</span>{/each}
     </p>
   {:else}
-    <p class="meta muted">Nothing is scanned until you click <strong>Scan</strong>. Discovery reads the chosen host's neighbour table, mDNS, Tailscale peers and router port forwards; it doesn't probe anything outside your network.</p>
+    <p class="meta muted">Nothing is scanned until you click <strong>Scan</strong>. Select a node marked ◉ (a host that answers, or this computer) and the scan runs from there: it reads that machine's neighbour table, mDNS, Tailscale peers and router port forwards; it doesn't probe anything outside your network.</p>
   {/if}
 
   <div class="body">
@@ -218,6 +219,9 @@
               </text>
               {#if exposed}
                 <text class="badge" x={W - 10} y="21" text-anchor="end">▲ {n.exposures.length}</text>
+              {/if}
+              {#if netmap.canScan(n.id) && !exposed}
+                <text class="badge scan" x={W - 10} y="21" text-anchor="end"><title>Can run a scan</title>◉</text>
               {/if}
               {#if n.kind === "device" && n.device?.online === false}
                 <text class="badge off" x={W - 10} y="21" text-anchor="end">offline</text>
@@ -322,7 +326,11 @@
           {/if}
           <div class="actions">
             <button type="button" class="btn" onclick={() => netmap.audit(hid)} disabled={netmap.auditing.includes(hid)}>{netmap.auditing.includes(hid) ? "AUDITING…" : "AUDIT PORTS"}</button>
-            <button type="button" class="btn ghost" onclick={() => { netmap.scanHost = hid; void netmap.scan(); }} disabled={netmap.loading}>SCAN FROM HERE</button>
+            {#if netmap.canScan(n.id)}
+              <button type="button" class="btn ghost" onclick={() => netmap.scan()} disabled={netmap.loading}>SCAN FROM HERE</button>
+            {:else}
+              <span class="muted small">Offline: can't scan from here now.</span>
+            {/if}
           </div>
         {:else if n.kind === "device" && n.device}
           {@const d = n.device}
@@ -557,6 +565,15 @@
     fill: var(--danger);
     font-size: 11px;
     font-weight: 700;
+  }
+  .badge.scan {
+    fill: var(--cyan);
+    font-weight: 400;
+  }
+  .scanmark {
+    color: var(--cyan);
+    font-weight: 400;
+    margin-left: 6px;
   }
   .badge.off {
     fill: var(--text-1);

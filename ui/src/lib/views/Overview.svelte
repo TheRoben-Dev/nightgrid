@@ -153,7 +153,7 @@
   // ---- Widgets, presets and dashboards ----
   function newCommand() {
     menu = null;
-    cmdWidgets.editing = blank(hosts.hosts[0]?.id ?? 0);
+    cmdWidgets.editing = blank(hosts.preferred("widget")?.id ?? 0);
   }
 
   function cmdSaved(w: CmdWidget, isNew: boolean) {

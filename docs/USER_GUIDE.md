@@ -168,9 +168,9 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 ## Network map
 
 - `Mod+0` opens **Network**: a map with the internet on the left, then your router and tailnet, your hosts, and other devices on the network.
-- Pick a host under **Scan from**, or **This computer** (macOS and Linux), and click **Scan**. It reads that machine's neighbour table, mDNS announcements (`avahi-browse`), Tailscale peers, router port forwards (`upnpc`), Tailscale Funnel and cloudflared tunnels; tools that aren't installed are listed as notes. **Ping sweep** also pings each address in its subnet (private /24 or smaller) to find quiet devices. Nothing is scanned until you click.
+- Select the machine to scan from on the map: a host marked **◉** (it answers), or **This computer** (macOS and Linux). Then click **Scan from …**. It reads that machine's neighbour table, mDNS announcements (`avahi-browse`), Tailscale peers, router port forwards (`upnpc`), Tailscale Funnel and cloudflared tunnels; tools that aren't installed are listed as notes. **Ping sweep** also pings each address in its subnet (private /24 or smaller) to find quiet devices. Nothing is scanned until you click.
 - **Red** lines and the ▲ count mark ways in from the internet: a public address on the host, a port forward on the router, a Funnel or a tunnel. Nightgrid finds these from your own machines and never asks an outside service. Cyan lines are the LAN, dashed lines the tailnet; a host with a dashed outline wasn't seen in the last scan.
-- Select a host to see how the internet reaches it and its listening ports. **Audit ports** (or **Audit ports on all hosts**) runs the same check as System → Security; exposed ports are marked INTERNET. **Scan from here** rescans from that host.
+- Select a host to see how the internet reaches it and its listening ports. **Audit ports** (or **Audit ports on all hosts**) runs the same check as System → Security; exposed ports are marked INTERNET. **Scan from here** rescans from that host (offline hosts can't scan).
 - Select another device to see its address, MAC, names, services and how it was found. **Add as host** opens the host editor with the address filled in.
 - **Label** devices that aren't hosts (a TV, a phone, a printer): a name, a type, `#tags` and a note. The label follows the device by its MAC address (or its address when the scan saw no MAC), shows on the map and in **Labelled devices** (with nothing selected), is included in profile exports, and DRIFT can read it ("what is 192.168.1.44?"). The router can be labelled too. **Clear** removes a label.
 
@@ -277,6 +277,10 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 | Select / View | Collapse or expand the sidebar |
 
 In text fields and terminals, left and right are left to the field; up and down move focus out of it. Typing still needs a keyboard (on the Ally, the on-screen one).
+
+## Which host a view opens on
+
+Each view remembers the host you last picked in it. A view you haven't used yet starts on the host you picked last anywhere, or else the first server. In the host editor, tick **Client, not a server** for laptops, desktops and handhelds you also manage: views never open on them by themselves.
 
 ## Features: simple or everything
 

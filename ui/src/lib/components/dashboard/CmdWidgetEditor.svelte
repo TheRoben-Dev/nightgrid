@@ -29,7 +29,7 @@
     const e = cmdWidgets.editing;
     if (e && e !== openedFor) {
       openedFor = e;
-      form = { ...e, hostId: e.hostId || (hosts.hosts[0]?.id ?? 0) };
+      form = { ...e, hostId: e.hostId || (hosts.preferred("widget")?.id ?? 0) };
       warnText = e.warn == null ? "" : String(e.warn);
       critText = e.crit == null ? "" : String(e.crit);
       tried = null;

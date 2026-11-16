@@ -60,6 +60,7 @@ export class Pane {
 
   /** Switches the pane to a side and opens `path` (home by default). */
   async open(side: Side, path = "~") {
+    if (side.kind === "host") hosts.remember("files", side.id);
     this.side = side;
     this.entries = [];
     this.history = [];
@@ -266,7 +267,7 @@ class FilesStore {
       this.jobs = jobs;
     });
     void this.panes[0].open({ kind: "local" });
-    const fav = hosts.hosts.find((h) => h.favorite) ?? hosts.hosts[0];
+    const fav = hosts.preferred("files");
     void this.panes[1].open(fav ? { kind: "host", id: fav.id } : { kind: "local" });
   }
 

@@ -1,6 +1,7 @@
 /**
  * Network map (M10i). Nothing is scanned until the user clicks: discovery runs
- * from one chosen host, port audits reuse System → Security.
+ * from the node selected on the map (a host or this computer), port audits
+ * reuse System → Security.
  */
 import { api, errorText, systemError, type DeviceLabel, type Discovery } from "../api";
 import { buildGraph, type NetGraph } from "../netmap/graph";
@@ -8,8 +9,6 @@ import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
 class NetmapStore {
-  /** A host id, "local" (this computer), or null for the default. */
-  scanHost = $state<number | "local" | null>(null);
   sweep = $state(false);
   result = $state<Discovery | null>(null);
   /** Where the current result was scanned from. */
@@ -28,16 +27,28 @@ class NetmapStore {
   readonly graph: NetGraph = $derived(buildGraph(hosts.hosts, system.portMap, this.result, this.resultHost, this.labelMap));
   readonly current = $derived(this.graph.nodes.find((n) => n.id === this.selected) ?? null);
 
-  /** Where to scan from: the user's pick, else the first host, else this computer. */
-  get from(): number | "local" {
-    if (this.scanHost === "local") return "local";
-    if (this.scanHost !== null && hosts.byId(this.scanHost)) return this.scanHost;
-    return hosts.hosts[0]?.id ?? "local";
+  /**
+   * Whether a map node can run a discovery: this computer, or a saved host
+   * that answers (pinged or connected over SSH). Other devices can't.
+   */
+  canScan(id: string | null): boolean {
+    if (id === "local") return true;
+    const hid = id?.startsWith("h") ? Number(id.slice(1)) : NaN;
+    if (!hosts.byId(hid)) return false;
+    const p = hosts.pings[hid];
+    return !p || p.connected || p.state !== "offline";
+  }
+
+  /** The scanner: the selected node when it can scan, else nothing (no default). */
+  get from(): number | "local" | null {
+    const id = this.selected;
+    if (!this.canScan(id)) return null;
+    return id === "local" ? "local" : Number(id!.slice(1));
   }
 
   async scan() {
     const id = this.from;
-    if (this.loading) return;
+    if (this.loading || id === null) return;
     this.loading = true;
     this.error = null;
     try {

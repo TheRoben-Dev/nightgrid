@@ -17,7 +17,7 @@
   $effect(() => {
     if (tunnels.editing === null) return;
     const t = tunnels.editing ? tunnels.byId(tunnels.editing) : undefined;
-    form = t ? toTunnelInput(t) : (tunnels.draft ?? emptyTunnel(hosts.hosts[0]?.id ?? 0));
+    form = t ? toTunnelInput(t) : (tunnels.draft ?? emptyTunnel(hosts.preferred("tunnels")?.id ?? 0));
     startNow = true;
     error = null;
     confirmDelete = false;

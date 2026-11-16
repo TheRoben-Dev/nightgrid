@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Group, Host } from "../api";
-import { groupHosts, hostMatches } from "./hosts.svelte";
+import { groupHosts, hostMatches, hosts } from "./hosts.svelte";
 
 const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   id,
@@ -23,6 +23,7 @@ const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   macAddress: null,
   wakeRelayId: null,
   sleepWindow: null,
+  role: "server",
   tags: [],
   ...extra,
 });
@@ -65,5 +66,23 @@ describe("groupHosts", () => {
 
   it("labels a flat list as all hosts", () => {
     expect(groupHosts([host(1, "a")], [], "")[0].name).toBe("All hosts");
+  });
+});
+
+describe("default host per view", () => {
+  it("never starts on a client, and remembers picks per view", () => {
+    localStorage.clear();
+    hosts.hosts = [host(1, "ally", { role: "client", favorite: true }), host(2, "lumen"), host(3, "nas")];
+    expect(hosts.preferred("docker")?.name).toBe("lumen");
+    hosts.remember("docker", 3);
+    expect(hosts.preferred("docker")?.name).toBe("nas");
+    // Another view follows the last pick anywhere until it has its own.
+    expect(hosts.preferred("system")?.name).toBe("nas");
+    hosts.remember("system", 1); // chosen by hand: a client is fine then
+    expect(hosts.preferred("system")?.name).toBe("ally");
+    expect(hosts.preferred("docker")?.name).toBe("nas");
+    hosts.hosts = [host(1, "ally", { role: "client" })];
+    localStorage.clear();
+    expect(hosts.preferred("files")?.name).toBe("ally"); // only clients: still something
   });
 });
