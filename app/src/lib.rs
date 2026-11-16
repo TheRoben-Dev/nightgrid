@@ -27,6 +27,7 @@ mod metrics_cmd;
 mod netperf_cmd;
 mod notes_cmd;
 mod platform;
+mod proxmox_cmd;
 mod proxy_cmd;
 mod services_cmd;
 mod state;
@@ -214,6 +215,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         cmdwidget_cmd::cmd_widget_delete,
         cmdwidget_cmd::cmd_widget_run,
         cmdwidget_cmd::cmd_widget_try,
+        proxmox_cmd::pve_overview,
+        proxmox_cmd::pve_guest_action,
+        proxmox_cmd::pve_task,
         notes_cmd::notes_list,
         notes_cmd::note_save,
         notes_cmd::note_delete,

@@ -39,6 +39,7 @@
   import Tunnels from "./lib/views/Tunnels.svelte";
   import Fleet from "./lib/views/Fleet.svelte";
   import Desktops from "./lib/views/Desktops.svelte";
+  import Proxmox from "./lib/views/Proxmox.svelte";
   import Automation from "./lib/views/Automation.svelte";
   import Notes from "./lib/views/Notes.svelte";
   import Network from "./lib/views/Network.svelte";
@@ -169,11 +170,11 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.41"} />
+  <LeftRail version={info?.version ?? "0.10.42"} />
   <div class="main">
     <TopBar />
     <UpsCountdown />
-    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network" || section.id === "fleet" || section.id === "desktops"} aria-label={section.label}>
+    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network" || section.id === "fleet" || section.id === "desktops" || section.id === "proxmox"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>
@@ -206,6 +207,8 @@
         <div class="view-fill"><Fleet /></div>
       {:else if section.id === "desktops"}
         <div class="view-fill"><Desktops /></div>
+      {:else if section.id === "proxmox"}
+        <div class="view-fill"><Proxmox /></div>
       {:else if section.id === "network"}
         <div class="view-fill"><Network /></div>
       {:else if section.id === "notes"}

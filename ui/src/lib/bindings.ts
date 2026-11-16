@@ -407,6 +407,12 @@ export const commands = {
 	cmdWidgetRun: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<CmdReading_Serialize>("cmd_widget_run", { id }, options),
 	/**  Runs an unsaved widget once, to check the command and the parse rule. */
 	cmdWidgetTry: (widget: CmdWidget_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<CmdReading_Serialize>("cmd_widget_try", { widget }, options),
+	/**  Nodes, guests, storage and recent tasks of the cluster this host is in. */
+	pveOverview: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveOverview_Serialize>("pve_overview", { hostId, sudo }, options),
+	/**  Starts a power action on a guest; returns the task's UPID. */
+	pveGuestAction: (hostId: number, node: string, kind: string, vmid: number, action: PveAction, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_guest_action", { hostId, node, kind, vmid, action, sudo }, options),
+	/**  A task's state and its log. */
+	pveTask: (hostId: number, node: string, upid: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveTaskDetail_Serialize>("pve_task", { hostId, node, upid, sudo }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -4610,6 +4616,208 @@ export type ProxyRoute_Serialize = {
 
 /**  What pushing a key to a host did. */
 export type PushOutcome = "added" | "alreadyThere";
+
+/**  Power actions on a guest. */
+export type PveAction = "start" | "shutdown" | "reboot" | "stop" | "suspend" | "resume";
+
+export type PveGuest = PveGuest_Serialize | PveGuest_Deserialize;
+
+export type PveGuest_Deserialize = {
+	vmid: number,
+	/**  `qemu` (VM) or `lxc` (container). */
+	kind: string,
+	node: string,
+	name: string,
+	/**  running, stopped, paused, suspended, unknown. */
+	status: string,
+	template: boolean,
+	cpu: number | null,
+	maxcpu: number,
+	mem: number | null,
+	maxmem: number | null,
+	disk: number | null,
+	maxdisk: number | null,
+	uptime: number | null,
+	tags: string[],
+	/**  backup, snapshot, migrate, … while an operation holds the guest. */
+	lock?: string | null,
+	/**  HA state when the guest is managed by HA. */
+	hastate?: string | null,
+};
+
+export type PveGuest_Serialize = {
+	vmid: number,
+	/**  `qemu` (VM) or `lxc` (container). */
+	kind: string,
+	node: string,
+	name: string,
+	/**  running, stopped, paused, suspended, unknown. */
+	status: string,
+	template: boolean,
+	cpu: number | null,
+	maxcpu: number,
+	mem: number | null,
+	maxmem: number | null,
+	disk: number | null,
+	maxdisk: number | null,
+	uptime: number | null,
+	tags: string[],
+	/**  backup, snapshot, migrate, … while an operation holds the guest. */
+	lock: string | null,
+	/**  HA state when the guest is managed by HA. */
+	hastate: string | null,
+};
+
+export type PveNode = PveNode_Serialize | PveNode_Deserialize;
+
+export type PveNodeInfo = {
+	pveVersion: string,
+	kernel: string,
+	cpuModel: string,
+	sockets: number,
+	cores: number,
+	threads: number,
+	loadavg: (number | null)[],
+	swapUsed: number | null,
+	swapTotal: number | null,
+	bootMode: string,
+};
+
+export type PveNode_Deserialize = {
+	name: string,
+	online: boolean,
+	/**  The node this host is. */
+	local: boolean,
+	ip?: string | null,
+	/**  0..1 of all cores. */
+	cpu: number | null,
+	maxcpu: number,
+	/**  Bytes. */
+	mem: number | null,
+	maxmem: number | null,
+	disk: number | null,
+	maxdisk: number | null,
+	/**  Seconds. */
+	uptime: number | null,
+};
+
+export type PveNode_Serialize = {
+	name: string,
+	online: boolean,
+	/**  The node this host is. */
+	local: boolean,
+	ip: string | null,
+	/**  0..1 of all cores. */
+	cpu: number | null,
+	maxcpu: number,
+	/**  Bytes. */
+	mem: number | null,
+	maxmem: number | null,
+	disk: number | null,
+	maxdisk: number | null,
+	/**  Seconds. */
+	uptime: number | null,
+};
+
+export type PveOverview = PveOverview_Serialize | PveOverview_Deserialize;
+
+export type PveOverview_Deserialize = {
+	/**  `pvesh` was found on the host. */
+	present: boolean,
+	/**  e.g. 8.2.4. */
+	version: string,
+	/**  Cluster name, unset on a single node. */
+	cluster?: string | null,
+	quorate?: boolean | null,
+	nodes: PveNode_Deserialize[],
+	guests: PveGuest_Deserialize[],
+	storages: PveStorage[],
+	tasks: PveTask_Deserialize[],
+	/**  Details of the node Nightgrid is connected to. */
+	local?: PveNodeInfo | null,
+	/**  Errors from single reads; the rest still shows. */
+	notes: string[],
+};
+
+export type PveOverview_Serialize = {
+	/**  `pvesh` was found on the host. */
+	present: boolean,
+	/**  e.g. 8.2.4. */
+	version: string,
+	/**  Cluster name, unset on a single node. */
+	cluster: string | null,
+	quorate: boolean | null,
+	nodes: PveNode_Serialize[],
+	guests: PveGuest_Serialize[],
+	storages: PveStorage[],
+	tasks: PveTask_Serialize[],
+	/**  Details of the node Nightgrid is connected to. */
+	local: PveNodeInfo | null,
+	/**  Errors from single reads; the rest still shows. */
+	notes: string[],
+};
+
+export type PveStorage = {
+	storage: string,
+	node: string,
+	/**  dir, lvmthin, zfspool, nfs, cifs, pbs, … */
+	plugin: string,
+	/**  images, rootdir, iso, vztmpl, backup, snippets. */
+	content: string[],
+	used: number | null,
+	total: number | null,
+	shared: boolean,
+	/**  available, unknown (offline or not mounted). */
+	status: string,
+};
+
+export type PveTask = PveTask_Serialize | PveTask_Deserialize;
+
+export type PveTaskDetail = PveTaskDetail_Serialize | PveTaskDetail_Deserialize;
+
+export type PveTaskDetail_Deserialize = {
+	running: boolean,
+	/**  "OK" or the error once finished. */
+	exitstatus?: string | null,
+	log: string[],
+};
+
+export type PveTaskDetail_Serialize = {
+	running: boolean,
+	/**  "OK" or the error once finished. */
+	exitstatus: string | null,
+	log: string[],
+};
+
+export type PveTask_Deserialize = {
+	upid: string,
+	node: string,
+	/**  qmstart, vzdump, vncproxy, … */
+	kind: string,
+	/**  The guest or object it acted on ("" for node-wide tasks). */
+	id: string,
+	user: string,
+	start: number | null,
+	/**  Unset while it runs. */
+	end?: number | null,
+	/**  "OK", a warning count, or the error; unset while it runs. */
+	status?: string | null,
+};
+
+export type PveTask_Serialize = {
+	upid: string,
+	node: string,
+	/**  qmstart, vzdump, vncproxy, … */
+	kind: string,
+	/**  The guest or object it acted on ("" for node-wide tasks). */
+	id: string,
+	user: string,
+	start: number | null,
+	/**  Unset while it runs. */
+	end: number | null,
+	/**  "OK", a warning count, or the error; unset while it runs. */
+	status: string | null,
+};
 
 /**  Throughput of one network interface or block device, in bytes/s. */
 export type Rate = {

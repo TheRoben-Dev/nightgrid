@@ -92,6 +92,7 @@ export const DEFAULT_KEYMAP = {
   "nav.network": "Mod+0",
   "nav.fleet": "Mod+Shift+U",
   "nav.desktops": "Mod+Shift+M",
+  "nav.proxmox": "Mod+Shift+P",
   "effects.toggle": "Mod+Shift+E",
   "palette.openAlt": "Mod+Shift+K",
   "term.newLocal": "Mod+Shift+T",

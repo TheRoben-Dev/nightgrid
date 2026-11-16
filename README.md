@@ -164,6 +164,13 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.42 (Proxmox part 1)
+
+1. Add a Proxmox VE node as a host. `Cmd+Shift+P`, pick it: after the sudo prompt (if any), SUMMARY shows every node with the same CPU and memory numbers as the web UI's Datacenter → Summary.
+2. GUESTS: Start a stopped VM. The task window opens and follows `qmstart` to "Finished: OK", and the row turns RUNNING. **⋯ → Force stop…** asks, naming the VM and node.
+3. **Screen** on a running VM opens its display in Desktops. **Console** on a container opens a shell in it.
+4. TASKS: click a backup task. Its log matches the web UI's task viewer.
+
 ### macOS: testing 0.10.41 (command widgets)
 
 1. **Overview → Edit → + Widget → COMMAND…**, START FROM **Root disk used**, pick a host, **Try it**: the value is the root filesystem's use in % (same as `df -h /`) and the output shows the `df` line. **Add widget**, then **Done**: the tile shows the value, green/orange/red by the 80/90 thresholds.

@@ -1,0 +1,1 @@
+[{"id":"cluster","name":"lab","nodes":2,"quorate":1,"type":"cluster","version":4},{"id":"node/pve1","ip":"192.168.1.20","level":"","local":1,"name":"pve1","nodeid":1,"online":1,"type":"node"},{"id":"node/pve2","ip":"192.168.1.21","level":"","local":0,"name":"pve2","nodeid":2,"online":1,"type":"node"}]

@@ -74,8 +74,8 @@ class Desktops {
   }
 
   /** Opens (or focuses) a guest's screen from the VMS panel. */
-  async open(vm: Vm) {
-    const hostId = system.hostId;
+  async open(vm: Vm, on?: { hostId: number; hostName: string; elevate: boolean }) {
+    const hostId = on?.hostId ?? system.hostId;
     if (hostId === null) return;
     const existing = this.tabs.find((t) => t.hostId === hostId && t.vm.kind === vm.kind && t.vm.id === vm.id);
     ui.go("desktops");
@@ -89,9 +89,9 @@ class Desktops {
       key,
       session: null,
       hostId,
-      hostName: system.host?.name ?? `host ${hostId}`,
+      hostName: on?.hostName ?? system.host?.name ?? `host ${hostId}`,
       vm: { kind: vm.kind, id: vm.id, name: vm.name },
-      elevate: vms.elevated,
+      elevate: on?.elevate ?? vms.elevated,
       status: "connecting",
       error: null,
       title: vm.name,

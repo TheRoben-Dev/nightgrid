@@ -1,6 +1,6 @@
 import type { ActionId } from "./keys";
 
-export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "fleet" | "desktops" | "network" | "automation" | "notes" | "settings";
+export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "fleet" | "desktops" | "proxmox" | "network" | "automation" | "notes" | "settings";
 
 export interface Section {
   id: SectionId;
@@ -20,6 +20,7 @@ export const SECTIONS: Section[] = [
   { id: "system", label: "System", code: "SYS", action: "nav.system", milestone: "M6" },
   { id: "fleet", label: "Fleet", code: "FLT", action: "nav.fleet", milestone: "M10m" },
   { id: "desktops", label: "Desktops", code: "DSK", action: "nav.desktops", milestone: "M10n" },
+  { id: "proxmox", label: "Proxmox", code: "PVE", action: "nav.proxmox", milestone: "M10r" },
   { id: "network", label: "Network", code: "NET", action: "nav.network", milestone: "M10i" },
   { id: "automation", label: "Automation", code: "AUT", action: "nav.automation", milestone: "M8" },
   { id: "notes", label: "Notes", code: "NTS", action: "nav.notes", milestone: "M10e" },

@@ -13,7 +13,8 @@ describe("guide targets", () => {
       const rail = t.id.startsWith("rail-") && markup.includes('data-guide="rail-{s.id}"');
       const sysTab = t.id.startsWith("system-tab-") && markup.includes('data-guide="system-tab-{t.id}"');
       const fleetTab = t.id.startsWith("fleet-tab-") && markup.includes('data-guide="fleet-tab-{t.id}"');
-      expect(literal || rail || sysTab || fleetTab, t.id).toBe(true);
+      const pveTab = t.id.startsWith("proxmox-tab-") && markup.includes('data-guide="proxmox-tab-{t.id}"');
+      expect(literal || rail || sysTab || fleetTab || pveTab, t.id).toBe(true);
     }
   });
   it("ids are unique", () => {
