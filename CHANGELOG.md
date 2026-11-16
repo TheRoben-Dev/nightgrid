@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.58] - 2026-11-16
+
+### Added: network tools (network map, part 3)
+- **Network → Tools** (`Mod+Shift+N`): **Ping**, **Path** (tracepath or traceroute), **DNS** lookups (any common record type, optionally against a chosen server), **Ports** (which TCP ports accept a connection, up to 64 at once), **HTTP / TLS** (status, server, redirect, and the certificate's issuer, expiry, whether it's self-signed and whether that machine trusts it), **Wake** (Wake-on-LAN to any MAC), the **Neighbours** table with makers, and open **Connections**.
+- **Run from anywhere you have**: every tool runs on the machine picked under **Run from**, a host over SSH or this computer, with that machine's own commands, so you test from where the problem is. Results read as facts with colours (answers, loss, open ports, certificate days left), a table where it fits, and the raw output.
+- **Subnet** calculator and **MAC lookup** work offline.
+- On the map, a selected device, router or host has **Tools** buttons (Ping, Ports, Web, Path, DNS, Wake) that open the tool with its address filled in, run from the machine that scanned it.
+- DRIFT knows each tool and can point at it.
+
 ## [0.10.57] - 2026-11-16
 
 ### Added: the network map as a real topology (network map, part 2)

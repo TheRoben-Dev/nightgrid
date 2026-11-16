@@ -186,6 +186,14 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 - **New and missing**: every device a scan sees goes into an **inventory** with when it was first and last seen. Devices seen for the first time are marked **NEW**; with nothing selected, **New this scan** lists them and **Missing** lists known devices in the swept range that didn't answer. **Trust** marks a device you expect; **Forget** removes it from the inventory. **Inventory** (with nothing selected) lists every device ever seen.
 - **Routed ranges**: to scan a network behind a router, VPN or Tailscale subnet route, type its range (for example `10.20.0.0/24`; up to 4, from /24 to /30, private addresses only) and scan. The scanner pings and probes those addresses and looks up their names; MAC addresses, makers and local names don't cross a router, so those devices show less detail. For the full picture, scan from a host on that network.
 - Docker containers aren't listed as devices; they're in the Docker view.
+
+### Network tools
+
+- **Network → Tools** (`Mod+Shift+N`) holds everyday network checks. Pick the machine to run from under **Run from** (a host, or this computer on macOS and Linux): the tool runs there with its own commands, so "can the NAS reach the printer?" is answered from the NAS.
+- **Ping** (1, 4 or 10 packets: answers, loss, round trip), **Path** (each router on the way; tracepath, traceroute or mtr, whichever is installed), **DNS** (A, AAAA, CNAME, MX, TXT, NS, SOA, SRV, PTR, CAA; an address with PTR does a reverse lookup; **Server** asks a particular DNS server), **Ports** (a list or ranges like `22,80,8000-8010`, up to 64; uses nc or python3), **HTTP / TLS** (one request, no redirects followed: status, server, where it redirects, and with https the certificate's issuer, expiry, self-signed or not, and whether that machine trusts it), **Wake** (a Wake-on-LAN packet from the chosen machine's network), **Neighbours** (its ARP table, with makers) and **Connections** (open TCP and UDP connections, and which addresses get the most).
+- **Subnet** works out network, mask, host range and broadcast from `192.168.1.77/22` or `10.0.0.0 255.255.0.0`; **MAC lookup** names a card's maker. Both run offline.
+- A missing command on the machine is shown as a note, not an error. Results stay in the list for this session; **output** shows what the tool printed.
+- On the **Map**, select a device, the router or a host and use its **Tools** buttons to open a tool with the address filled in, run from the machine that scanned it.
 - Network shares the host mounts and machines it has open connections to are found even when they don't answer ping; shares show their mount point. **Ping sweep** also tries a few TCP ports on each address.
 
 ## DRIFT helper

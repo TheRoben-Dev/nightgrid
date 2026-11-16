@@ -13,5 +13,6 @@ export const VIEWS = {
   desktops: () => import("./views/Desktops.svelte"),
   proxmox: () => import("./views/Proxmox.svelte"),
   network: () => import("./views/Network.svelte"),
+  nettools: () => import("./views/NetTools.svelte"),
   notes: () => import("./views/Notes.svelte"),
 } as const;
