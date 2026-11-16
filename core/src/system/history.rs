@@ -157,6 +157,28 @@ pub fn filter(all: &[HistoryEntry], query: &str) -> HistoryResult {
     HistoryResult { entries, shells, hidden, truncated }
 }
 
+/// Commands that mention any of `terms` (case-insensitive), most matching
+/// terms first and newest first among equals, without secrets or duplicates.
+/// DRIFT uses this to look deeper than the recent lines for what a question
+/// is about (M10p).
+pub fn relevant(all: &[HistoryEntry], terms: &[String], max: usize) -> Vec<HistoryEntry> {
+    let terms: Vec<String> = terms.iter().map(|t| t.trim().to_lowercase()).filter(|t| t.len() >= 3).collect();
+    if terms.is_empty() || max == 0 {
+        return Vec::new();
+    }
+    let mut hits: Vec<(usize, usize, &HistoryEntry)> = Vec::new();
+    for (i, e) in all.iter().enumerate().rev() {
+        let lower = e.command.to_lowercase();
+        let n = terms.iter().filter(|t| lower.contains(t.as_str())).count();
+        if n == 0 || line_has_secret(&e.command) || hits.iter().any(|(_, _, x)| x.command == e.command) {
+            continue;
+        }
+        hits.push((n, i, e));
+    }
+    hits.sort_by(|a, b| b.0.cmp(&a.0).then(b.1.cmp(&a.1)));
+    hits.into_iter().take(max).map(|(_, _, e)| e.clone()).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -176,6 +198,15 @@ plain zsh line
 - cmd: echo a\\nb
 @@NGHIST@@ end
 ";
+
+    #[test]
+    fn finds_relevant_lines() {
+        let all = parse(OUT);
+        let got: Vec<_> = relevant(&all, &["docker".into(), "logs".into()], 5).into_iter().map(|e| e.command).collect();
+        assert_eq!(got, vec!["docker logs -f web", "docker ps", "docker compose up -d"]);
+        assert!(relevant(&all, &["github".into()], 5).is_empty(), "secret lines stay out");
+        assert!(relevant(&all, &["ls".into()], 5).is_empty(), "too-short terms are ignored");
+    }
 
     #[test]
     fn parses_all_shells() {

@@ -261,6 +261,18 @@ pub fn helper_stop(helper: State<'_, Helper>) {
 
 /// Commands DRIFT gets from a host's history, newest last.
 const HISTORY_KEEP: usize = 60;
+/// Older lines matching the question that DRIFT also gets (M10p).
+const HISTORY_MATCHES: usize = 25;
+
+/// Shell history for DRIFT: the newest lines plus older ones that match the question.
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HostHistory {
+    /// Newest lines, oldest first.
+    pub recent: Vec<nightgrid_core::system::history::HistoryEntry>,
+    /// Older lines that mention the question's words, best first.
+    pub matches: Vec<nightgrid_core::system::history::HistoryEntry>,
+}
 
 /// Recent shell history from a host for DRIFT, when the host allows it
 /// ("DRIFT may read shell history" in the host editor). Lines that look like
@@ -271,7 +283,8 @@ const HISTORY_KEEP: usize = 60;
 pub async fn helper_host_history(
     app: AppHandle,
     host_id: nightgrid_core::hosts::HostId,
-) -> crate::commands::CmdResult<Vec<nightgrid_core::system::history::HistoryEntry>> {
+    terms: Vec<String>,
+) -> crate::commands::CmdResult<HostHistory> {
     use crate::commands::CommandError;
     use nightgrid_core::system::history;
     let allowed = {
@@ -287,8 +300,14 @@ pub async fn helper_host_history(
         .await
         .map_err(|_| CommandError::msg("the host took too long to answer"))?
         .map_err(|e| CommandError::msg(e.to_string()))?;
-    let found = history::filter(&history::parse(&String::from_utf8_lossy(&out)), "");
+    let all = history::parse(&String::from_utf8_lossy(&out));
+    let found = history::filter(&all, "");
     let mut recent: Vec<_> = found.entries.into_iter().take(HISTORY_KEEP).collect();
     recent.reverse();
-    Ok(recent)
+    let terms: Vec<String> = terms.into_iter().take(8).collect();
+    let matches = history::relevant(&all, &terms, HISTORY_MATCHES)
+        .into_iter()
+        .filter(|e| !recent.iter().any(|r| r.command == e.command))
+        .collect();
+    Ok(HostHistory { recent, matches })
 }

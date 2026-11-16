@@ -9,8 +9,13 @@ import { buildTurns, parseReply, streamingText, type HelperAction, type HelperCo
 import { sectionById } from "../sections";
 import { labelLines } from "../netmap/graph";
 import { keymap } from "../term/keyhints";
-import { hostFacts, mentionedHosts } from "../helper/hostFacts";
-import { checksText, runSkills, type Check } from "../helper/skills";
+import { historyTerms, hostFacts, mentionedHosts } from "../helper/hostFacts";
+import { checksText, runSkills, summaryCheck, type Check } from "../helper/skills";
+import { wantsSummary, type SummaryInput } from "../helper/skills/summary";
+import { diskRows, totals, updateRows } from "../fleet";
+import { backups, jobState } from "./backups.svelte";
+import { fleet } from "./fleet.svelte";
+import { healthOf, services } from "./services.svelte";
 import { alerts } from "./alerts.svelte";
 import { docker } from "./docker.svelte";
 import { hosts } from "./hosts.svelte";
@@ -106,6 +111,8 @@ class HelperStore {
   typing = $state(false);
   /** Text put in the question box for the user to send or edit. */
   draft = $state("");
+  /** Checks a view attached to the next question (alert triage). */
+  private pendingChecks: Check[] = [];
   private seq = 0;
   private spotTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -147,9 +154,10 @@ class HelperStore {
    * a file) and asks `question` about it once the model is ready. If it
    * isn't, the question waits in the box.
    */
-  async explain(o: { source: string; text: string; question: string; host?: string | null }) {
+  async explain(o: { source: string; text: string; question: string; host?: string | null; checks?: Check[] }) {
     const text = o.text.trim();
     if (!text) return;
+    this.pendingChecks = o.checks ?? [];
     this.context = { view: ui.section, host: o.host ?? currentHost(), selection: text, source: o.source, program: currentProgram() };
     this.open = true;
     await this.refresh();
@@ -238,16 +246,19 @@ class HelperStore {
     return Promise.all(
       found.map(async (h) => {
         let history = null;
+        let historyMatches = null;
         let historyError = null;
         if (h.driftHistory) {
           try {
-            history = await api.helperHostHistory(h.id);
+            const got = await api.helperHostHistory(h.id, historyTerms(q, found.map((x) => x.name)));
+            history = got.recent;
+            historyMatches = got.matches;
           } catch (e) {
             historyError = errMsg(e);
           }
         }
         const mine = all.filter((a, i) => a.hostId === h.id && all.findIndex((b) => b.id === a.id) === i);
-        return hostFacts({ host: h, ping: hosts.pings[h.id], metrics: metrics.byHost[h.id], alerts: mine, history, historyError, now });
+        return hostFacts({ host: h, ping: hosts.pings[h.id], metrics: metrics.byHost[h.id], alerts: mine, history, historyMatches, historyError, now });
       }),
     );
   }
@@ -260,7 +271,9 @@ class HelperStore {
     if (!netmap.labelsLoaded) await netmap.loadLabels();
     ctx.devices = labelLines(netmap.labels, netmap.result?.devices ?? [], q, ctx.view === "network");
     ctx.hosts = await this.hostContext(q);
-    const checks = runSkills(q, ctx.selection);
+    const checks = [...this.pendingChecks, ...runSkills(q, ctx.selection)];
+    this.pendingChecks = [];
+    if (wantsSummary(q)) checks.unshift(summaryCheck(this.summaryInput()));
     ctx.checks = checks.length ? checksText(checks) : null;
     // Questions about the user's own hosts (or with exact checks) lean on those, not the guide.
     const guideN = ctx.hosts.length || checks.length ? 2 : 4;
@@ -313,6 +326,51 @@ class HelperStore {
 
   stop() {
     void api.helperStop();
+  }
+
+  /**
+   * Opens a new note with a reply as a runbook draft: the question, what
+   * was attached, the checks and the answer. The user edits and saves it.
+   */
+  saveAsNote(m: ChatMessage) {
+    const i = this.messages.indexOf(m);
+    const q = i > 0 ? this.messages[i - 1] : null;
+    const host = this.context.host ? (hosts.hosts.find((h) => h.name === this.context.host) ?? null) : null;
+    const parts: string[] = [];
+    if (q) parts.push(`## Question\n\n${q.text}${q.attached ? `\n\n_Attached: ${q.attached}_` : ""}`);
+    if (m.checks?.length) parts.push(`## Checks\n\n${checksText(m.checks).replace(/^## /gm, "### ")}`);
+    parts.push(`## Answer\n\n${m.text}`);
+    const title = (q?.text ?? "DRIFT answer").replace(/\s+/g, " ").trim();
+    notes.draft = { id: null, input: { title: title.length > 70 ? `${title.slice(0, 67)}…` : title, body: parts.join("\n\n"), hostId: host?.id ?? null, tags: ["runbook"], pinned: false, hideFromDrift: false } };
+    ui.go("notes");
+  }
+
+  /** What the app knows about the last day, for the daily summary skill. */
+  private summaryInput(): SummaryInput {
+    const now = Math.floor(Date.now() / 1000);
+    const name = (id: number | null) => (id == null ? null : (hosts.hosts.find((h) => h.id === id)?.name ?? null));
+    const snap = alerts.snap;
+    const offline = hosts.hosts.filter((h) => metrics.byHost[h.id]?.state === "offline").map((h) => h.name);
+    const restarted = hosts.hosts.flatMap((h) => {
+      const up = metrics.byHost[h.id]?.sample?.uptimeSecs;
+      return up != null && up < 86400 ? [{ host: h.name, agoSecs: up }] : [];
+    });
+    const svc = services.services.map((v) => ({ name: v.name, h: healthOf(v, services.status[v.id]) }));
+    const upd = updateRows(hosts.hosts, fleet.updates);
+    const t = totals(upd);
+    const disks = diskRows(hosts.hosts, fleet.disks, settings.value.alerts.forecastDays).filter((r) => r.tone === "bad" || r.tone === "warn");
+    return {
+      now,
+      active: (snap?.active ?? []).map((a) => ({ title: a.title, detail: a.detail, since: a.since, host: name(a.hostId), severity: a.severity })),
+      resolved: (snap?.history ?? []).filter((a) => a.resolved != null).map((a) => ({ title: a.title, since: a.since, resolved: a.resolved ?? a.since, host: name(a.hostId) })),
+      hostsTotal: hosts.hosts.length,
+      offline,
+      restarted,
+      services: { total: svc.length, down: svc.filter((x) => x.h === "down").map((x) => x.name), warn: svc.filter((x) => x.h === "warn").map((x) => x.name) },
+      updates: Object.keys(fleet.updates).length ? { packages: t.packages, hosts: t.hosts, security: t.security, reboot: upd.filter((r) => r.reboot).map((r) => r.host.name) } : null,
+      disks: fleet.disksAt ? disks.map((r) => `${r.host.name}: ${r.tone === "bad" ? "needs attention" : "watch"}`) : null,
+      backups: backups.loaded ? backups.jobs.filter((j) => ["failed", "error", "stale"].includes(jobState(backups.status[j.id]))).map((j) => j.name) : null,
+    };
   }
 
   private flash(m: DriftState, ms = 1500) {

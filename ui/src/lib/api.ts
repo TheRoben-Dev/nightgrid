@@ -151,6 +151,7 @@ import {
   type Unit_Serialize as Unit,
   type Schedules_Serialize as Schedules,
   type HistoryEntry_Serialize as HistoryEntry,
+  type HostHistory_Serialize as HostHistory,
   type PowerAction,
   type WakeSent_Serialize as WakeSent,
   type HostSchedule_Serialize as HostSchedule,
@@ -380,6 +381,7 @@ export type {
   Schedules,
   SecurityReport,
   HistoryEntry,
+  HostHistory,
   HistoryResult,
   PowerAction,
   WakeSent,
@@ -530,7 +532,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.23-web",
+      version: "0.10.24-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -927,14 +929,17 @@ export const api = {
     return commands.helperAsk(messages, ch as unknown as Parameters<typeof commands.helperAsk>[1]);
   },
   helperStop: (): Promise<void> => (T() ? commands.helperStop() : mockHelper.stop()),
-  helperHostHistory: (hostId: number): Promise<HistoryEntry[]> =>
+  helperHostHistory: (hostId: number, terms: string[] = []): Promise<HostHistory> =>
     T()
-      ? commands.helperHostHistory(hostId)
-      : Promise.resolve([
-          { command: "sudo systemctl status sshd", shell: "bash", when: null },
-          { command: "journalctl -b -1 -e", shell: "bash", when: null },
-          { command: "sudo systemctl suspend", shell: "bash", when: null },
-        ]),
+      ? commands.helperHostHistory(hostId, terms)
+      : Promise.resolve({
+          recent: [
+            { command: "sudo systemctl status sshd", shell: "bash", when: null },
+            { command: "journalctl -b -1 -e", shell: "bash", when: null },
+            { command: "sudo systemctl suspend", shell: "bash", when: null },
+          ],
+          matches: terms.some((t) => "nginx".includes(t.toLowerCase())) ? [{ command: "sudo nginx -t && sudo systemctl reload nginx", shell: "bash", when: null }] : [],
+        }),
   appRestart: (): Promise<void> => (T() ? commands.appRestart() : Promise.resolve(location.reload())),
   alertsSubscribe: (on: (s: AlertsSnapshot) => void): Promise<null> => {
     if (!T()) return mockAlerts.subscribe(on);

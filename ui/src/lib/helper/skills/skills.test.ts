@@ -188,3 +188,54 @@ describe("skills", () => {
     expect(runSkills("How do I add a host?", null, now)).toEqual([]);
   });
 });
+
+describe("regex, triage and summary", () => {
+  it("explains and tests a regex", async () => {
+    const { explainRegex, findRegex, testRegex, toolNotes } = await import("./regex");
+    expect(findRegex("what does /^(\\d+)\\s+err/i match?")).toEqual({ pattern: "^(\\d+)\\s+err", flags: "i" });
+    expect(findRegex("explain the regex `[a-z]+@example\\.com`")?.pattern).toBe("[a-z]+@example\\.com");
+    expect(findRegex("see /etc/hosts")).toBeNull();
+    expect(explainRegex("^(\\d+)\\s+err$")).toEqual(["start of the line", "a captured group: \\d+", "whitespace (space, tab, newline), 1 or more times", '"err" literally', "end of the line"]);
+    expect(explainRegex("ab+c")).toEqual(['"a" literally', '"b" 1 or more times', '"c" literally']);
+    const t = testRegex("^(\\d+) err", "", "12 err x\nok\n7 err");
+    expect([t.matched, t.lines]).toEqual([2, 3]);
+    expect(t.samples[0]).toContain('groups: "12"');
+    expect(testRegex("(", "", "x").error).toBeTruthy();
+    expect(toolNotes("\\d+", "grep -E for it")).toHaveLength(1);
+  });
+
+  it("feeds triage and the daily summary as checks", async () => {
+    const { triageCheck, summaryCheck } = await import("./index");
+    const { wantsSummary } = await import("./summary");
+    const t = triageCheck("containerDown", "web stopped");
+    expect(t.title).toBe("Triage: web stopped");
+    expect(t.items.some((i) => i.text.includes("docker logs"))).toBe(true);
+    const s = summaryCheck({
+      now: 100_000,
+      active: [{ title: "Disk full", detail: "/ at 97%", since: 100_000 - 7200, host: "nas", severity: "critical" }],
+      resolved: [{ title: "web down", since: 90_000, resolved: 91_800, host: "lumen" }],
+      hostsTotal: 3,
+      offline: ["pi"],
+      restarted: [{ host: "lumen", agoSecs: 1800 }],
+      services: { total: 4, down: ["git"], warn: [] },
+      updates: null,
+      disks: [],
+      backups: null,
+    });
+    const text = s.items.map((i) => i.text).join("\n");
+    expect(text).toContain("unreachable now: pi");
+    expect(text).toContain("CRITICAL Disk full on nas since 2 h ago");
+    expect(text).toContain("web down on lumen (lasted 30 min)");
+    expect(text).toContain("3/4 up; down: git");
+    expect(text).toContain("Updates: not checked");
+    expect(wantsSummary("Give me a daily summary of my lab")).toBe(true);
+    expect(wantsSummary("what happened overnight?")).toBe(true);
+    expect(wantsSummary("how do I add a host")).toBe(false);
+  });
+
+  it("picks history search terms from a question", async () => {
+    const { historyTerms } = await import("../hostFacts");
+    expect(historyTerms("when did I last restart nginx on lumen?", ["lumen"])).toEqual(["restart", "nginx"]);
+    expect(historyTerms("what happened to the garage pi", ["garage pi"])).toEqual([]);
+  });
+});

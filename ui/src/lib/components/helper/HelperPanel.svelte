@@ -10,7 +10,10 @@
   import { formatChord, DEFAULT_KEYMAP } from "../../keys";
   import { scramble } from "../../scramble";
   import { sectionById } from "../../sections";
+  import { checkCommand, looksLikeCommand, worst } from "../../helper/skills/command";
   import { helper, type ChatMessage } from "../../stores/helper.svelte";
+  import { hosts } from "../../stores/hosts.svelte";
+  import { terms } from "../../stores/terms.svelte";
   import { notes } from "../../stores/notes.svelte";
   import { ui } from "../../stores/ui.svelte";
 
@@ -34,7 +37,29 @@
     { label: "Review a compose file", text: "Review this compose file: " },
     { label: "What does this error mean?", text: "What does this error mean? " },
     { label: "Cron schedule", text: "Make a cron schedule for weekdays at 6pm" },
+    { label: "Regex", text: "Explain the regex `` and test it on the selected lines", caret: 19 },
+    { label: "Draft a command", text: "Write a command that " },
+    { label: "Daily summary", text: "Give me a daily summary of my lab" },
   ];
+
+  /** A one-line shell command in a reply can go to a terminal prompt (never run). */
+  const sendable = (code: string) => !code.trim().includes("\n") && looksLikeCommand(code);
+  let armed = $state<string | null>(null);
+  let sentTo = $state<string | null>(null);
+
+  function toTerminal(code: string) {
+    if (worst(checkCommand(code)) === "danger" && armed !== code) {
+      armed = code;
+      return;
+    }
+    armed = null;
+    const name = helper.context.host;
+    const hostId = name ? (hosts.hosts.find((h) => h.name === name)?.id ?? null) : null;
+    terms.send(code.trim().replace(/^[$#]\s+/, ""), hostId);
+    ui.go("terminal");
+    sentTo = code;
+    setTimeout(() => sentTo === code && (sentTo = null), 2500);
+  }
   const LEVEL = { danger: "DANGER", caution: "CAUTION", info: "NOTE" } as const;
 
   async function fill(text: string, caret = text.length) {
@@ -153,7 +178,18 @@
               {#if b.kind === "code"}
                 <div class="code">
                   <pre><code>{b.text}</code></pre>
-                  {#if !b.open}<button type="button" class="copy" onclick={() => void copy(b.text)}>{copied === b.text ? "COPIED" : "COPY"}</button>{/if}
+                  {#if !b.open}
+                    <div class="codebar">
+                      {#if sendable(b.text)}
+                        {@const lv = worst(checkCommand(b.text))}
+                        {#if lv && lv !== "info"}<span class="risk lv-{lv}" title={checkCommand(b.text).map((f) => `${f.what}: ${f.why}`).join("\n")}>{LEVEL[lv]}</span>{/if}
+                        <button type="button" class="copy" class:arm={armed === b.text} title="Type it at a terminal prompt; nothing runs until you press Enter" onclick={() => toTerminal(b.text)}
+                          >{armed === b.text ? "SEND ANYWAY?" : sentTo === b.text ? "SENT" : "TERMINAL"}</button
+                        >
+                      {/if}
+                      <button type="button" class="copy" onclick={() => void copy(b.text)}>{copied === b.text ? "COPIED" : "COPY"}</button>
+                    </div>
+                  {/if}
                 </div>
               {:else if b.kind === "p"}
                 <p>
@@ -173,6 +209,11 @@
                   {#if a.kind === "point"}<button type="button" class="chip" onclick={() => void helper.point(a.id, a.note)}>{a.note || a.id}</button>
                   {:else}<span class="muted small">→ {sectionById(a.view).label}</span>{/if}
                 {/each}
+              </div>
+            {/if}
+            {#if !m.streaming && m.text && !m.error}
+              <div class="acts">
+                <button type="button" class="chip" data-guide="drift-save-note" title="Open a new note with the question, the checks and this answer" onclick={() => helper.saveAsNote(m)}>▤ Save as runbook note</button>
               </div>
             {/if}
             {#if !m.streaming && m.noteRefs?.length}
@@ -399,10 +440,31 @@
     overflow: auto;
     font-size: var(--fs-sm);
   }
-  .copy {
+  .codebar {
     position: absolute;
     top: 4px;
     right: 4px;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .risk {
+    font-size: var(--fs-xs);
+    letter-spacing: 0.1em;
+    padding: 0 4px;
+    border: 1px solid currentColor;
+  }
+  .risk.lv-danger {
+    color: var(--danger);
+  }
+  .risk.lv-caution {
+    color: var(--warn);
+  }
+  .copy.arm {
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+  .copy {
     padding: 1px 6px;
     font-size: var(--fs-xs);
     letter-spacing: 0.12em;
