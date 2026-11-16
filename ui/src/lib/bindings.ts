@@ -486,6 +486,24 @@ export const commands = {
 	 */
 	systemVmAction: (hostId: number, kind: VmKind, id: string, action: VmAction, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_vm_action", { hostId, kind, id, action, elevate, sudo }, options),
 	/**
+	 *  Opens a guest's screen. `elevate` asks virsh as root (needed when this
+	 *  login isn't in the libvirt group); Proxmox always needs root.
+	 */
+	desktopOpen: (hostId: number, kind: VmKind, id: string, elevate: boolean, sudo: SudoInput | null, onEvent: Channel<VncEvent>, options?: InvokeOptions) => __TAURI_INVOKE<number>("desktop_open", { hostId, kind, id, elevate, sudo, onEvent }, options),
+	/**  Keyboard, pointer and clipboard events for the guest. */
+	desktopInput: (session: number, events: VncInput[], options?: InvokeOptions) => __TAURI_INVOKE<null>("desktop_input", { session, events }, options),
+	desktopClose: (session: number, options?: InvokeOptions) => __TAURI_INVOKE<void>("desktop_close", { session }, options),
+	/**  The guest's IP addresses (DHCP leases, guest agent), for RDP. */
+	desktopGuestAddrs: (hostId: number, kind: VmKind, id: string, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<GuestAddrs_Serialize>("desktop_guest_addrs", { hostId, kind, id, elevate, sudo }, options),
+	/**
+	 *  Starts a tunnel from 127.0.0.1 (a free port) to `addr`:`port` through the
+	 *  host, writes a `.rdp` file for it (no credentials in it) and opens that
+	 *  with the system's RDP client.
+	 */
+	desktopRdpOpen: (hostId: number, guest: string, addr: string, port: number | null, options?: InvokeOptions) => __TAURI_INVOKE<RdpTunnel>("desktop_rdp_open", { hostId, guest, addr, port }, options),
+	desktopRdpList: (options?: InvokeOptions) => __TAURI_INVOKE<RdpTunnel[]>("desktop_rdp_list", undefined, options),
+	desktopRdpClose: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<void>("desktop_rdp_close", { id }, options),
+	/**
 	 *  Opens a terminal tab on a guest's console (`virsh console`, `qm
 	 *  terminal`, `pct enter`). With `as_root` it runs under sudo and sudo's own
 	 *  prompt asks in the terminal (nothing goes on the command line).
@@ -1986,6 +2004,23 @@ export type Group_Serialize = {
 	sortOrder: number,
 };
 
+/**  The guest's addresses, for RDP. */
+export type GuestAddrs = GuestAddrs_Serialize | GuestAddrs_Deserialize;
+
+/**  The guest's addresses, for RDP. */
+export type GuestAddrs_Deserialize = {
+	addrs: string[],
+	/**  Why none were found. */
+	note?: string | null,
+};
+
+/**  The guest's addresses, for RDP. */
+export type GuestAddrs_Serialize = {
+	addrs: string[],
+	/**  Why none were found. */
+	note: string | null,
+};
+
 export type Health = "ok" | 
 /**  Couldn't read SMART (unsupported, USB bridge, ...). */
 "unknown" | 
@@ -3430,6 +3465,15 @@ export type Rate = {
 	tx: number,
 };
 
+/**  An RDP tunnel: 127.0.0.1:`local_port` → the guest's RDP port via the host. */
+export type RdpTunnel = {
+	id: number,
+	hostId: number,
+	guest: string,
+	addr: string,
+	localPort: number,
+};
+
 /**  What an image declares, for the deploy wizard's suggestions. */
 export type RemoteImage = RemoteImage_Serialize | RemoteImage_Deserialize;
 
@@ -4726,6 +4770,27 @@ export type Vm_Serialize = {
 	memoryMb: number | null,
 	autostart: boolean | null,
 };
+
+/**  What the session reports besides pixels. */
+export type VncEvent = { type: "connected"; name: string; width: number; height: number } | { type: "bell" } | 
+/**  Text the guest put on its clipboard. */
+{ type: "clipboard"; text: string } | 
+/**  The session ended (`reason` is empty when the user closed it). */
+{ type: "closed"; reason: string };
+
+/**  What the UI sends to the guest. */
+export type VncInput = 
+/**  An X11 keysym going down or up. */
+{ type: "key"; keysym: number; down: boolean } | 
+/**
+ *  Pointer position in framebuffer pixels; `buttons` is the RFB mask
+ *  (1 left, 2 middle, 4 right, 8/16 wheel up/down).
+ */
+{ type: "pointer"; x: number; y: number; buttons: number } | 
+/**  Puts text on the guest's clipboard (needs a clipboard agent in the guest). */
+{ type: "clipboard"; text: string } | 
+/**  Asks for the whole screen again. */
+{ type: "refresh" };
 
 /**  How a wake-up was sent. */
 export type WakeSent = WakeSent_Serialize | WakeSent_Deserialize;

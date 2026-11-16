@@ -14,6 +14,8 @@ age = { version = "0.11", default-features = false }
 base64 = "0.23.1"
 bollard = { version = "0.21", default-features = false }
 bytes = "1"
+des = "0.9"
+flate2 = "1"
 futures-util = "0.3"
 getrandom = { version = "0.4", features = ["sys_rng"] }
 hmac = "0.13"

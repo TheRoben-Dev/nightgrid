@@ -164,6 +164,15 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.21 (VM desktops)
+
+1. On a libvirt host with a running VM that has a VNC display (virt-manager's default): **System → VMS → Screen**. The Desktops view (`Cmd+Shift+M`) opens a tab and the guest's screen appears within a second or two. On the host, `ss -tlnp` shows nothing new listening.
+2. Click the screen and type: keys reach the guest, including Shift, arrows and function keys. `Cmd+1` goes to the guest (as Super+1) rather than switching views; click outside the screen and it switches views again. **Ctrl+Alt+Del** reaches a Windows login screen. **Type text…** types into a text field.
+3. Resize the guest's resolution: the canvas follows. **1:1**, **Fit** and **Full** work. Switch to another view and back: the picture is there at once.
+4. Stop the VM from inside the guest: the tab says DISCONNECTED with the reason; start it again and **Reconnect**.
+5. A Windows VM with Remote Desktop enabled: **RDP** shows its address (or type it) → **Open RDP**. Windows App opens a connection to `127.0.0.1:<port>`; sign in. The tunnel shows in Desktops; **Stop** ends it.
+6. On a Proxmox host: **Screen** on a VM asks for sudo if needed and shows the console.
+
 ### macOS: testing 0.10.20 (backup monitor with test restores)
 
 1. **Fleet → BACKUPS** shows the board that used to be under System. Pick a host, **Find jobs**, and add a restic or borg systemd timer.

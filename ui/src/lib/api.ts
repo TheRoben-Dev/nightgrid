@@ -3,7 +3,7 @@
  * plain browser (`pnpm dev` without Tauri, tests, screenshots) it falls back
  * to an in-memory/localStorage mock so the UI can be developed standalone.
  */
-import { Channel, isTauri } from "@tauri-apps/api/core";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import {
   type ChatTurn,
   type DownloadProgress,
@@ -193,6 +193,10 @@ import {
   type VmKind,
   type VmAction,
   type VmReport_Serialize as VmReport,
+  type GuestAddrs_Serialize as GuestAddrs,
+  type RdpTunnel,
+  type VncEvent,
+  type VncInput,
   type Discovery_Serialize as Discovery,
   type Device_Serialize as Device,
   type Exposure_Serialize as Exposure,
@@ -223,6 +227,7 @@ import { mockAlerts } from "./mockAlerts";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
+import { mockDesktop } from "./mockDesktop";
 import { mockTailnet } from "./mockTailnet";
 import { mockKeys } from "./mockKeys";
 import { mockHelper } from "./mockHelper";
@@ -417,6 +422,10 @@ export type {
   VmKind,
   VmAction,
   VmReport,
+  GuestAddrs,
+  RdpTunnel,
+  VncEvent,
+  VncInput,
   Discovery,
   Device,
   Exposure,
@@ -518,7 +527,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.20-web",
+      version: "0.10.21-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -817,6 +826,22 @@ export const api = {
     T() ? commands.systemVms(hostId, elevate, sudo) : mockOps.vms(hostId, elevate),
   systemVmAction: (hostId: number, kind: VmKind, id: string, action: VmAction, elevate: boolean, sudo: SudoInput | null): Promise<null> =>
     T() ? commands.systemVmAction(hostId, kind, id, action, elevate, sudo) : mockOps.vmAction(kind, id, action),
+  desktopOpen: (hostId: number, kind: VmKind, id: string, elevate: boolean, sudo: SudoInput | null, on: (e: VncEvent) => void): Promise<number> => {
+    if (!T()) return mockDesktop.open(kind, id, on);
+    const ch = new Channel<VncEvent>();
+    ch.onmessage = on;
+    return commands.desktopOpen(hostId, kind, id, elevate, sudo, ch as unknown as Parameters<typeof commands.desktopOpen>[5]);
+  },
+  /** The next patch of changed pixels (raw bytes; empty when nothing changed within a second). */
+  desktopFrame: (session: number): Promise<ArrayBuffer> => (T() ? invoke<ArrayBuffer>("desktop_frame", { session }) : mockDesktop.frame(session)),
+  desktopInput: (session: number, events: VncInput[]): Promise<null> => (T() ? commands.desktopInput(session, events) : mockDesktop.input(session, events)),
+  desktopClose: (session: number): Promise<void> => (T() ? commands.desktopClose(session) : Promise.resolve(mockDesktop.close(session))),
+  desktopGuestAddrs: (hostId: number, kind: VmKind, id: string, elevate: boolean, sudo: SudoInput | null): Promise<GuestAddrs> =>
+    T() ? commands.desktopGuestAddrs(hostId, kind, id, elevate, sudo) : mockDesktop.guestAddrs(kind, id),
+  desktopRdpOpen: (hostId: number, guest: string, addr: string, port: number | null): Promise<RdpTunnel> =>
+    T() ? commands.desktopRdpOpen(hostId, guest, addr, port) : mockDesktop.rdpOpen(hostId, guest, addr),
+  desktopRdpList: (): Promise<RdpTunnel[]> => (T() ? commands.desktopRdpList() : mockDesktop.rdpList()),
+  desktopRdpClose: (id: number): Promise<void> => (T() ? commands.desktopRdpClose(id) : Promise.resolve(mockDesktop.rdpClose(id))),
   netmapDiscover: (hostId: number, sweep: boolean): Promise<Discovery> =>
     T() ? commands.netmapDiscover(hostId, sweep) : mockOps.discover(hostId, sweep),
   netmapDiscoverLocal: (sweep: boolean): Promise<Discovery> =>

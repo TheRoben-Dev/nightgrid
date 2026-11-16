@@ -94,7 +94,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **security**: a hygiene score (A–F) from checks that need no root: SSH root and password logins, an active firewall, databases or the Docker API listening on every interface, Docker ports that bypass ufw, fail2ban/CrowdSec, automatic security updates, a pending reboot and extra uid-0 accounts. Each finding says how to fix it, with copy buttons for the commands; Nightgrid never changes anything itself. Below the checks, every listening port shows who can reach it (local, VPN, one address, all interfaces) and which process or container owns it. **Port map · all hosts** scans every host and lays their reachable ports side by side;
   - **updates**: apt, dnf, pacman or rpm-ostree, with a reboot-needed flag (on rpm-ostree, **Upgrade** stages the new image for the next reboot);
   - **disks**: SMART health;
-  - **VMs**: libvirt/KVM and Proxmox VE guests (VMs and LXC containers) with state, vCPUs and memory. **Start**, **Shut down**, **Reboot** and **Force stop** (asks first and names the guest; force stop needs its name typed). **Console** opens a guest's serial console and **Shell** enters a Proxmox container, in a terminal tab. **Read as root** appears when this login can't use `virsh`, `qm` or `pct`;
+  - **VMs**: libvirt/KVM and Proxmox VE guests (VMs and LXC containers) with state, vCPUs and memory. **Start**, **Shut down**, **Reboot** and **Force stop** (asks first and names the guest; force stop needs its name typed). **Console** opens a guest's serial console and **Shell** enters a Proxmox container, in a terminal tab. **Read as root** appears when this login can't use `virsh`, `qm` or `pct`. **Screen** opens a running VM's graphical console in the Desktops view, and **RDP** connects your RDP client to it (see Desktops);
 - **sudo**: asked each time by default. Tick "remember for this host" to keep it in the keychain. The password is sent on sudo's input, never on a command line.
 
 ## Fleet
@@ -106,6 +106,16 @@ Health across every host at once.
 - **Backups**: a board for every host's restic, borg, rsync and rclone jobs with last run, size, result and a stale flag. A job reads a systemd timer (last run, exit status and the totals the tool printed) or a path such as a repository or rsync target (newest file and size). Pick a host and **Find jobs** to get suggestions from its timers and cron tables. Nightgrid never runs a backup.
 - **Test restore** (restic, borg, or a path job for a folder copy) proves a backup can be read back. It restores one random file under 20 MB from the latest snapshot into a new folder under `/tmp` on the host, checks its size (or checksum for a folder copy), shows the SHA-256 and deletes the folder. It runs as root with the backup unit's own environment and user, so the repository password never leaves the host. A job that points at a folder path can't find a restic or borg password on its own, so test the unit job instead. Each job shows when its restore was last tested.
 - **Check images** asks the registries whether any stack's image has a newer version, only when you click it. **Open stack** takes you to Docker → STACKS, where updating takes a snapshot first.
+
+## Desktops
+
+Graphical consoles of virtual machines, opened with **Screen** on a running VM in System → VMS. Each guest gets a tab.
+
+- **How it connects**: Nightgrid asks the host where the VM's display is and streams it over the host's SSH connection. libvirt/KVM guests need a VNC display (`<graphics type='vnc' listen='127.0.0.1'/>`, which is virt-manager's default for new VMs; SPICE-only guests say so). Proxmox VMs go through `qm vncproxy`, which needs root, so sudo asks when it has to. No port is opened on the host or on this computer, and there is no token to set up.
+- **Keyboard and mouse**: click the screen to send keys to the guest (it gets a magenta outline). App shortcuts are off while it has focus; click anywhere else to get them back. **Ctrl+Alt+Del** and **Type text…** cover keys and text the host keyboard can't send, for example in an installer or at a login prompt. Typing assumes the guest uses the same keyboard layout.
+- **Clipboard**: **Send clipboard** puts this computer's clipboard text on the guest's, and **Copy guest clipboard** appears when the guest copies something. Both need a clipboard agent in the guest (spice-vdagent or the VNC equivalent); without one, use **Type text…**.
+- **View**: **Fit** scales the screen down to the window, **1:1** shows real pixels with scroll bars, **Full** fills the screen, and **Redraw** asks for the whole picture again.
+- **RDP** (Windows guests, or anything running an RDP server): **RDP** on the VM looks up its address from libvirt's DHCP leases or the QEMU guest agent; pick one or type it. Nightgrid starts a tunnel from a free port on 127.0.0.1 through the host to the guest and opens it in your RDP client. Sign in there with the guest's account. Running tunnels are listed at the top of Desktops with **Stop**; they also end when Nightgrid quits.
 
 ## Automation
 
