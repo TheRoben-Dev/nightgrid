@@ -174,6 +174,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "netmap-autolayout", view: "network", what: "forget hand-placed positions and lay the map out again (connections set by hand stay)" },
   { id: "netmap-parent", view: "network", what: "what a device connects through (router, access point, switch or host); also set by dragging a device onto it" },
   { id: "netmap-tools", view: "network", what: "open a network tool (ping, ports, web/TLS, path, DNS, wake) for the selected device, run from the machine that scanned" },
+  { id: "netmap-services", view: "network", what: "service scan of the selected device: open common ports, what answers on each (banners, web servers), risky services flagged, and Add as service for web ports" },
+  { id: "nettools-services", view: "nettools", what: "service scan: open ports on a host with what answers on them, and which are risky (telnet, plain Docker API, unauthenticated databases, VNC, RDP)" },
   { id: "nettools-from", view: "nettools", what: "the machine a network tool runs on: a host over SSH or this computer" },
   { id: "nettools-run", view: "nettools", what: "run the selected network tool" },
   { id: "nettools-ping", view: "nettools", what: "ping: does an address answer, packet loss and round-trip time" },

@@ -8,6 +8,7 @@
   import { hosts } from "../stores/hosts.svelte";
   import { netmap } from "../stores/netmap.svelte";
   import { nettools } from "../stores/nettools.svelte";
+  import { services } from "../stores/services.svelte";
   import { system } from "../stores/system.svelte";
 
   const W = 196;
@@ -152,6 +153,42 @@
     <button type="button" class="btn ghost tiny" onclick={() => nettools.open("dns", ip, netmap.resultHost)}>DNS</button>
     {#if mac}<button type="button" class="btn ghost tiny" title="Wake-on-LAN from the machine that scanned" onclick={() => nettools.open("wol", mac, netmap.resultHost)}>WAKE</button>{/if}
   </div>
+{/snippet}
+
+{#snippet svcScan(key: string, ip: string, name: string, hostId: number | null)}
+  {@const s = netmap.svc[key]}
+  <h4 data-guide="netmap-services">SERVICES</h4>
+  {#if !s}
+    <p class="muted small">Connects to 46 common ports from {netmap.resultHost === null ? "this computer" : "the machine that scanned"} and reads what answers. Nothing is logged in to.</p>
+    <button type="button" class="btn ghost" onclick={() => netmap.scanServices(key, ip)}>SCAN SERVICES</button>
+  {:else if s.running}
+    <p class="muted">Scanning from {s.from}…</p>
+  {:else if s.error}
+    <p class="err">{s.error}</p>
+    <button type="button" class="btn ghost tiny" onclick={() => netmap.scanServices(key, ip)}>TRY AGAIN</button>
+  {:else if s.result}
+    {#if s.result.note}<p class="warnline small">{s.result.note}</p>{/if}
+    <ul class="exp risks">
+      {#each s.result.facts.filter((f) => f.label.startsWith("Port ")) as f (f.label)}<li class={f.tone}><strong>{f.label}</strong><span>{f.value}</span></li>{/each}
+    </ul>
+    {#if s.result.table?.rows.length}
+      <table>
+        <tbody>
+          {#each s.result.table.rows as r (r[0])}
+            {@const web = r[1].startsWith("Web")}
+            <tr>
+              <td class="mono">{r[0]}</td>
+              <td title={r[2]}>{r[1]}</td>
+              <td class="r">
+                {#if web}<button type="button" class="btn ghost tiny" title="Watch it under Services" onclick={() => services.addFrom({ name: `${name} :${r[0]}`, url: `${r[3] === "TLS" ? "https" : "http"}://${ip}${(r[3] === "TLS" && r[0] === "443") || (r[3] !== "TLS" && r[0] === "80") ? "" : `:${r[0]}`}/`, hostId, allowUntrusted: r[3] === "TLS" })}>ADD AS SERVICE</button>{/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {:else}<p class="muted">No open ports among the common ones.</p>{/if}
+    <p class="muted small">From {s.from}. <button type="button" class="linkish" onclick={() => netmap.scanServices(key, ip)}>Scan again</button> · <button type="button" class="linkish" onclick={() => nettools.open("services", ip, netmap.resultHost)}>other ports…</button></p>
+  {/if}
 {/snippet}
 
 {#snippet labelForm()}
@@ -443,6 +480,7 @@
             </ul>
           {/if}
           {#if n.ip}{@render toolRow(n.ip, null)}{/if}
+          {#if n.ip}{@render svcScan(`host:${n.label}`, n.ip, n.label, hid)}{/if}
           <h4>LISTENING PORTS</h4>
           {#if ls}
             <table>
@@ -484,6 +522,7 @@
             <dt>SEEN BY</dt><dd>{seenText(d)}</dd>
           </dl>
           {@render toolRow(d.ip, d.mac)}
+          {@render svcScan(devKey(d), d.ip, n.label, null)}
           {#if n.named?.note}<p class="note">{n.named.note}</p>{/if}
           {#if n.named?.tags.length}<p class="tags">{#each n.named.tags as t (t)}<span class="chip">#{t}</span>{/each}</p>{/if}
           {@render labelForm()}
@@ -536,6 +575,18 @@
   .seg button.on {
     background: color-mix(in srgb, var(--cyan) 18%, transparent);
     color: var(--text-0);
+  }
+  .risks li.bad {
+    border-left-color: var(--danger);
+  }
+  .risks li.warn {
+    border-left-color: var(--warn);
+  }
+  .risks li.info {
+    border-left-color: var(--line);
+  }
+  .warnline {
+    color: var(--warn);
   }
   .toolrow {
     display: flex;
@@ -873,7 +924,7 @@
     font-size: var(--fs-xs);
   }
   td {
-    padding: 4px 0;
+    padding: 4px 10px 4px 0;
     border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
   }
   tr.internet td {

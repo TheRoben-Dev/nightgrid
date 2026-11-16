@@ -613,6 +613,13 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing the service scan (0.10.59)
+
+1. Network → Map: scan from a server, select a device you know (the NAS, a printer, a Pi) and press **Scan services**. Open ports list what answers (SSH version, "Web (HTTPS): nginx", …) within about 10 seconds.
+2. A device with Telnet or another risky service shows the reason in red or amber and a ⚠ on the map.
+3. **Add as service** on a web port opens the service editor with `https://<ip>:<port>/` filled in; save it and it appears under Services.
+4. Network → Tools → **Services** with a port list (`8000-8100`) scans just those.
+
 ### macOS: testing network tools (0.10.58)
 
 1. Network → **Tools** (`Cmd+Shift+N`). **Run from**: This computer. **Ping** your router: Answers yes, loss 0%, round trip. **Path** to `example.com` lists the hops.

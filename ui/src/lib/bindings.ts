@@ -7197,7 +7197,9 @@ export type TlsInfo_Serialize = {
 
 export type Tone = "info" | "ok" | "warn" | "bad";
 
-export type Tool = "ping" | "path" | "dns" | "ports" | "http" | "neighbours" | "connections";
+export type Tool = "ping" | "path" | "dns" | "ports" | "http" | "neighbours" | "connections" | 
+/**  Open ports with what answers on them, and which are risky (D-143). */
+"services";
 
 export type ToolRequest = {
 	tool: Tool,

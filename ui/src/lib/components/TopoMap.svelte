@@ -176,6 +176,8 @@
   function badge(t: TopoNode): { text: string; cls: string; title: string } | null {
     const n = t.node;
     if (t.ghost) return { text: "MISSING", cls: "miss", title: "In the expected map, not seen in this scan" };
+    const risk = netmap.svcRisk(t.key);
+    if (risk) return { text: "⚠", cls: risk === "bad" ? "" : "miss", title: risk === "bad" ? "A risky service is open (see Services)" : "A service worth checking is open" };
     if (n.exposures.length && n.kind !== "internet") return { text: `▲ ${n.exposures.length}`, cls: "", title: "Reachable from the internet" };
     if (netmap.canScan(n.id)) return { text: "◉", cls: "scan", title: "Can run a scan" };
     if (n.device?.online === false) return { text: "offline", cls: "off", title: "Offline" };
