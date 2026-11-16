@@ -26,7 +26,7 @@ describe("network map graph", () => {
   });
 
   it("matches devices to hosts by address or name stem", () => {
-    const d = { ip: "192.168.1.20", mac: null, names: ["nas.local"], services: [], seen: ["mdns" as const], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false };
+    const d = { ip: "192.168.1.20", mac: null, names: ["nas.local"], services: [], seen: ["mdns" as const], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false, link: null };
     expect(matchHost(d, hosts)?.id).toBe(2);
     expect(matchHost({ ...d, names: [] }, hosts)).toBeUndefined();
     expect(matchHost({ ...d, ip: "192.168.1.40", names: [] }, hosts)?.id).toBe(1);
@@ -109,7 +109,7 @@ describe("labelLines (DRIFT)", () => {
     { key: "3c:22:fb:00:00:52", name: "Kid's Switch", kind: "console", tags: ["kids"], note: "Parental controls\non the router." },
     { key: "ip:192.168.1.77", name: "Doorbell", kind: "other", tags: [], note: "" },
   ];
-  const devices = [{ ip: "192.168.1.52", mac: "3c:22:fb:00:00:52", names: [], services: [], seen: ["neighbour" as const], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false }];
+  const devices = [{ ip: "192.168.1.52", mac: "3c:22:fb:00:00:52", names: [], services: [], seen: ["neighbour" as const], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false, link: null }];
   it("lists every label on the Network view", () => {
     const l = labelLines(labels, devices, "what is on my network?", true);
     expect(l).toEqual([

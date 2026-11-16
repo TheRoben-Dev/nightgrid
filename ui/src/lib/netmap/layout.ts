@@ -118,7 +118,7 @@ export function iconOf(n: MapNode): string {
     case "host":
       return n.id === "local" ? "desktop" : "server";
     default: {
-      const k = n.named && n.named.kind !== "other" ? n.named.kind : (n.device?.kind ?? "other");
+      const k = n.named && n.named.kind !== "other" ? n.named.kind : n.device?.kind && n.device.kind !== "other" ? n.device.kind : (n.hint ?? "other");
       return k in KIND_LABEL ? k : "other";
     }
   }
@@ -194,14 +194,18 @@ export function buildTopology({ graph, disc, layout, inventory = [], labels = ne
 
   // Parents: the user's choice, else what the scan implies.
   const graphLink = new Map<string, LinkKind>();
-  for (const l of graph.links) graphLink.set(`${l.from}>${l.to}`, l.kind);
+  const incoming = new Map<string, string[]>();
+  for (const l of graph.links) {
+    graphLink.set(`${l.from}>${l.to}`, l.kind);
+    if (l.from !== "net") incoming.set(l.to, [...(incoming.get(l.to) ?? []), l.from]);
+  }
+  // The most specific thing the scan saw it behind: a switch or router, then the main router, then the tailnet.
   const inferred = (t: TopoNode): string | null => {
     if (t.ghost) return byId.has("gw") ? "gw" : null;
     if (t.id === "gw") return byId.has("net") ? "net" : null;
     if (t.id === "net" || t.id === "ts") return null;
-    if (graphLink.has(`gw>${t.id}`)) return "gw";
-    if (graphLink.has(`ts>${t.id}`)) return "ts";
-    return null;
+    const f = incoming.get(t.id) ?? [];
+    return f.find((x) => x !== "gw" && x !== "ts") ?? (f.includes("gw") ? "gw" : f.includes("ts") ? "ts" : null);
   };
   for (const t of nodes) {
     const p = saved.get(t.key)?.parent;
@@ -287,7 +291,9 @@ function buildZones(nodes: TopoNode[], disc: Discovery | null): Zone[] {
     const [net, p] = r.split("/");
     if (!net || !p || nets.has(r)) continue;
     nets.add(r);
-    zones.push({ id: `z:${r}`, label: `ROUTED ${r}`, kind: "routed", members: [] });
+    const hops = disc.paths?.find((x) => x.range === r)?.hops.filter((h) => !inSubnet(h, net, Number(p))) ?? [];
+    const via = hops.length > 1 ? ` via ${hops.at(-1)} (${hops.length} hops)` : "";
+    zones.push({ id: `z:${r}`, label: `ROUTED ${r}${via}`, kind: "routed", members: [] });
   }
   for (const z of zones) {
     const [net, p] = z.id.slice(2).split("/");

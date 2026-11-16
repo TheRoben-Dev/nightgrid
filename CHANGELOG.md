@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.60] - 2026-11-16
+
+### Added: more of the real topology (network map, part 4)
+- **Switches from LLDP.** When the scanning host runs `lldpd` (or systemd-networkd with LLDP on), the map shows the switch it's plugged into, with the port, between the router and the host. Drop other devices onto the switch to connect them through it.
+- **Routers on the way to routed ranges.** A scan with routed ranges also traces the path to each range; the last router before the range appears on the map with the range's devices under it, and the range's region says which router it's reached through.
+- **Tailscale direct or relayed.** Tailnet peers say whether the connection is direct (peer to peer) or goes through a Tailscale relay, in their details and in the tailnet list.
+
 ## [0.10.59] - 2026-11-16
 
 ### Added: service scan (network map, part 4)

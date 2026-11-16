@@ -613,6 +613,12 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing switches, paths and tailnet links (0.10.60)
+
+1. On a Linux server, `sudo apt install lldpd` (if your switch speaks LLDP). Scan from that server: a switch node with its port sits between the router and the server.
+2. Add a routed range you reach through another router (a VLAN, a VPN site) and scan: a "Router <address>" node appears with that range's devices under it; the range's region says "via <address> (n hops)".
+3. Select the Tailnet node: peers list `direct` or `relay <region>`; a peer's details explain which.
+
 ### macOS: testing the service scan (0.10.59)
 
 1. Network → Map: scan from a server, select a device you know (the NAS, a printer, a Pi) and press **Scan services**. Open ports list what answers (SSH version, "Web (HTTPS): nginx", …) within about 10 seconds.

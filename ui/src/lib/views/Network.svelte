@@ -442,7 +442,7 @@
         {:else if n.kind === "tailnet"}
           <ul class="plain">
             {#each tsPeers as d (d.ip)}
-              <li><span class:ok={d.online} class:off={d.online === false}>●</span> {d.names[0] ?? d.ip} <span class="muted mono">{d.ip}{d.os ? ` · ${d.os}` : ""}</span></li>
+              <li><span class:ok={d.online} class:off={d.online === false}>●</span> {d.names[0] ?? d.ip} <span class="muted mono">{d.ip}{d.os ? ` · ${d.os}` : ""}{d.link ? ` · ${d.link}` : ""}</span></li>
             {:else}
               <li class="muted">No peers in the last scan.</li>
             {/each}
@@ -507,6 +507,19 @@
               <span class="muted small">Offline: can't scan from here now.</span>
             {/if}
           </div>
+        {:else if n.kind === "device" && !n.device && (n.note || n.lldp)}
+          {#if n.note}<p>{n.note}</p>{/if}
+          {#if n.lldp}
+            <dl>
+              {#if n.lldp.name}<dt>NAME</dt><dd>{n.lldp.name}</dd>{/if}
+              {#if n.lldp.port}<dt>PORT</dt><dd class="mono">{n.lldp.port}</dd>{/if}
+              {#if n.lldp.mac}<dt>MAC</dt><dd class="mono">{n.lldp.mac}</dd>{/if}
+              {#if n.lldp.mgmtIp}<dt>MANAGEMENT</dt><dd class="mono">{n.lldp.mgmtIp}</dd>{/if}
+              {#if n.lldp.descr}<dt>SAYS</dt><dd>{n.lldp.descr}</dd>{/if}
+            </dl>
+          {/if}
+          {#if n.ip}{@render toolRow(n.ip, n.lldp?.mac)}{/if}
+          <p class="muted small">Drop devices onto it to say they connect through it.</p>
         {:else if n.kind === "device" && n.device}
           {@const d = n.device}
           <dl>
@@ -519,6 +532,7 @@
             {#if d.names.length}<dt>NAMES</dt><dd>{d.names.join(", ")}</dd>{/if}
             {#if d.services.length}<dt>SERVICES</dt><dd>{[...new Set(d.services.map(serviceLabel))].join(", ")}</dd>{/if}
             {#if d.os}<dt>OS</dt><dd>{d.os}{d.online === false ? " (offline)" : ""}</dd>{/if}
+            {#if d.link}<dt>TAILNET</dt><dd>{d.link === "direct" ? "direct (peer to peer)" : `${d.link.replace("relay ", "through the Tailscale relay in ")}`}<span class="muted">{d.link === "direct" ? "" : " (or idle: a direct path is set up when there's traffic)"}</span></dd>{/if}
             <dt>SEEN BY</dt><dd>{seenText(d)}</dd>
           </dl>
           {@render toolRow(d.ip, d.mac)}
