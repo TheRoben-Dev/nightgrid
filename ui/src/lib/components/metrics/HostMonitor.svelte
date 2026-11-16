@@ -28,7 +28,7 @@
     { id: "90d", label: "90D", secs: 90 * 86400 },
     { id: "1y", label: "1Y", secs: 365 * 86400 },
   ] as const;
-  const KINDS = ["cpu", "mem", "net", "io", "temp", "gpu"] as const;
+  const KINDS = ["cpu", "mem", "net", "io", "temp", "gpu", "power"] as const;
   type Kind = (typeof KINDS)[number];
   let range = $state<(typeof RANGES)[number]["id"]>("1h");
   let kind = $state<Kind>("cpu");
@@ -73,6 +73,8 @@
   const diskTrend = $derived(describeTrend(trend(longPoints.map((p) => ({ ts: p.ts, value: p.disk })), 100), "Fullest disk", 100));
   const memTrend = $derived(describeTrend(trend(longPoints.map((p) => ({ ts: p.ts, value: p.mem })), 95), "Memory", 95));
   const hasGpu = $derived(!!s?.gpus.length || points.some((p) => p.gpu != null));
+  const hasGpuTemp = $derived(points.some((p) => p.gpuTemp != null));
+  const hasPower = $derived(!!s?.gpus.some((g) => g.power != null) || points.some((p) => p.gpuPower != null));
 
   $effect(() => {
     void id;
@@ -128,14 +130,32 @@
           ],
         };
       case "temp":
-        return { ts, max: undefined, format: (v: number) => `${v.toFixed(1)}°C`, series: [{ label: "CPU temp", color: "var(--accent)", values: points.map((p) => p.temp) }] };
+        return {
+          ts,
+          max: undefined,
+          format: (v: number) => `${v.toFixed(1)}°C`,
+          series: [
+            { label: "CPU temp", color: "var(--accent)", values: points.map((p) => p.temp) },
+            ...(hasGpuTemp ? [{ label: "GPU temp (hottest)", color: "var(--magenta)", values: points.map((p) => p.gpuTemp) }] : []),
+          ],
+        };
       case "gpu":
-        return { ts, max: 100, format: pct, series: [{ label: "GPU (busiest)", color: "var(--mint)", values: points.map((p) => p.gpu) }] };
+        return {
+          ts,
+          max: 100,
+          format: pct,
+          series: [
+            { label: "GPU (busiest)", color: "var(--mint)", values: points.map((p) => p.gpu) },
+            { label: "VRAM (fullest)", color: "var(--magenta)", values: points.map((p) => p.gpuMem) },
+          ],
+        };
+      case "power":
+        return { ts, max: undefined, format: (v: number) => `${v.toFixed(0)} W`, series: [{ label: "GPU power (all)", color: "var(--accent)", values: points.map((p) => p.gpuPower) }] };
     }
   });
-  const kindLabel: Record<Kind, string> = { cpu: "CPU", mem: "MEMORY", net: "NETWORK", io: "DISK I/O", temp: "TEMP", gpu: "GPU" };
+  const kindLabel: Record<Kind, string> = { cpu: "CPU", mem: "MEMORY", net: "NETWORK", io: "DISK I/O", temp: "TEMP", gpu: "GPU", power: "GPU W" };
   $effect(() => {
-    if (kind === "gpu" && !hasGpu) kind = "cpu";
+    if ((kind === "gpu" && !hasGpu) || (kind === "power" && !hasPower)) kind = "cpu";
   });
 
   const memPct = $derived(s && s.memTotal ? (s.memUsed / s.memTotal) * 100 : null);
@@ -265,7 +285,7 @@
       <div class="hbar">
         <h3 class="label">HISTORY</h3>
         <div class="seg" role="tablist" aria-label="Metric">
-          {#each KINDS.filter((k) => k !== "gpu" || hasGpu) as k (k)}
+          {#each KINDS.filter((k) => (k !== "gpu" || hasGpu) && (k !== "power" || hasPower)) as k (k)}
             <button type="button" role="tab" aria-selected={kind === k} class:on={kind === k} onclick={() => (kind = k)}>{kindLabel[k]}</button>
           {/each}
         </div>

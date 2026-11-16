@@ -19,6 +19,8 @@
   import { tunnels } from "../../stores/tunnels.svelte";
   import { ui } from "../../stores/ui.svelte";
   import HostTile from "../metrics/HostTile.svelte";
+  import { metrics } from "../../stores/metrics.svelte";
+  import { formatSize } from "../../files/util";
 
   let { kind, info }: { kind: string; info: AppInfo | null } = $props();
 
@@ -36,6 +38,9 @@
   const diskBad = $derived(disk.filter((r) => r.tone === "bad" || r.tone === "warn"));
   const bkBad = $derived(backups.jobs.filter((j) => ["failed", "error", "stale"].includes(jobState(backups.status[j.id]))));
   const pinned = $derived(notes.notes.filter((n) => n.pinned));
+  const gpuRows = $derived(
+    hosts.hosts.flatMap((h) => (metrics.byHost[h.id]?.sample?.gpus ?? []).map((g, i) => ({ key: `${h.id}-${i}`, hostId: h.id, host: h.name, g }))),
+  );
   const goFleet = (tab: "updates" | "disks" | "backups") => {
     if (tab === "backups") fleet.openBackups();
     else fleet.tab = tab;
@@ -162,6 +167,26 @@
     </ul>
   {:else}
     <p class="muted small">No VM screens open. Open one from System → VMS.</p>
+  {/if}
+{:else if kind === "gpus"}
+  {#if gpuRows.length}
+    <ul class="list">
+      {#each gpuRows as r (r.key)}
+        <li>
+          <button type="button" class="row" title={r.g.name} onclick={() => (metrics.detailId = r.hostId)}>
+            <span class="txt">{r.host} <span class="muted small">{r.g.name}</span></span>
+            <span class="small data">
+              <span class:warn={(r.g.util ?? 0) >= 90}>{r.g.util == null ? "--" : `${Math.round(r.g.util)}%`}</span>
+              {#if r.g.memTotal}<span class="muted"> · {formatSize(r.g.memUsed ?? 0)}/{formatSize(r.g.memTotal)}</span>{/if}
+              {#if r.g.temp != null}<span class:warn={r.g.temp >= 80}> · {Math.round(r.g.temp)}°C</span>{/if}
+              {#if r.g.power != null}<span class="muted"> · {Math.round(r.g.power)} W</span>{/if}
+            </span>
+          </button>
+        </li>
+      {/each}
+    </ul>
+  {:else}
+    <p class="muted small">No GPUs seen. NVIDIA cards show up when <code>nvidia-smi</code> works on the host; AMD cards through the amdgpu driver.</p>
   {/if}
 {:else if kind === "status"}
   <dl class="kv">

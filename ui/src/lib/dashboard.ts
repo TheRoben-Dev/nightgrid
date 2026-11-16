@@ -12,7 +12,7 @@ export const MAX_WIDGETS = 48;
 export const MAX_DASHBOARDS = 12;
 export const MAX_PRESETS = 24;
 
-export type WidgetKind = "nodes" | "alerts" | "services" | "updates" | "disks" | "backups" | "tunnels" | "notes" | "desktops" | "status";
+export type WidgetKind = "nodes" | "alerts" | "services" | "updates" | "disks" | "backups" | "tunnels" | "notes" | "desktops" | "status" | "gpus";
 
 export interface WidgetInfo {
   kind: WidgetKind;
@@ -34,6 +34,7 @@ export const WIDGETS: WidgetInfo[] = [
   { kind: "tunnels", title: "TUNNELS", what: "SSH tunnels and their state", w: 4, h: 3, minW: 3, minH: 2 },
   { kind: "notes", title: "NOTES", what: "Pinned notes", w: 4, h: 3, minW: 3, minH: 2 },
   { kind: "desktops", title: "DESKTOPS", what: "Open VM screens and RDP tunnels", w: 4, h: 2, minW: 3, minH: 2 },
+  { kind: "gpus", title: "GPUS", what: "Every GPU: busy, VRAM, temperature and power", w: 4, h: 3, minW: 3, minH: 2 },
   { kind: "status", title: "SYS.STATUS", what: "Version, platform, database and keychain", w: 4, h: 3, minW: 3, minH: 2 },
 ];
 
