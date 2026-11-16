@@ -93,7 +93,12 @@ const TABLES: &[Table] = &[
         keys: &[&["name"]],
     },
     Table { name: "playbooks", id: true, fks: &[], keys: &[&["name"]] },
-    Table { name: "notes", id: true, fks: &[("host_id", "hosts", Missing::Null)], keys: &[&["title"]] },
+    Table {
+        name: "notes",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Null), ("service_id", "services", Missing::Null)],
+        keys: &[&["title"]],
+    },
     Table { name: "backup_jobs", id: true, fks: &[("host_id", "hosts", Missing::Skip)], keys: &[&["host_id", "name"]] },
     Table { name: "device_labels", id: true, fks: &[], keys: &[&["key"]] },
     Table {

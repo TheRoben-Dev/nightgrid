@@ -342,7 +342,7 @@ class HelperStore {
     if (m.checks?.length) parts.push(`## Checks\n\n${checksText(m.checks).replace(/^## /gm, "### ")}`);
     parts.push(`## Answer\n\n${m.text}`);
     const title = (q?.text ?? "DRIFT answer").replace(/\s+/g, " ").trim();
-    notes.draft = { id: null, input: { title: title.length > 70 ? `${title.slice(0, 67)}…` : title, body: parts.join("\n\n"), hostId: host?.id ?? null, tags: ["runbook"], pinned: false, hideFromDrift: false } };
+    notes.draft = { id: null, input: { title: title.length > 70 ? `${title.slice(0, 67)}…` : title, body: parts.join("\n\n"), hostId: host?.id ?? null, tags: ["runbook"], pinned: false, hideFromDrift: false, runbook: false, alertKinds: [], serviceId: null } };
     ui.go("notes");
   }
 

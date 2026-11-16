@@ -135,6 +135,8 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 
 - `Mod+9` opens **Notes**: markdown notes and runbooks, optionally tied to a host, with tags and pins. Search and the host and tag filters narrow the list.
 - Put commands in ``` code blocks. In the note each block gets **Send to terminal** (typed at the prompt of a shell on the note's host, opening one if needed; you press Enter) and **Copy**.
+- **Runbooks for alerts**: tick **Runbook for alerts** in the editor and pick the alert kinds it's for, and optionally a host (the note's host) and a service. Matching alerts get **▤ Runbook** in the alerts list, which opens it; alerts without one offer **+ Runbook**, which starts a note for that kind of alert with a step list. A runbook with no kinds, host or service shows on nothing. **✦ Triage** tells DRIFT about your runbook too.
+- **Steps**: `- [ ] step` lines become checkboxes you tick while you work (they reset when you open the note again), and `[label](view:fleet)` becomes a link to that view (any view's id: overview, terminal, files, docker, services, tunnels, system, fleet, desktops, network, automation, notes, settings).
 - Notes never store passwords or tokens: saving refuses them, and **Mask them** swaps the values for `••••`. Notes travel in encrypted backups.
 - DRIFT searches your notes along with its guide and says which notes it used. Tick **Hide from DRIFT** on a note to keep it out.
 

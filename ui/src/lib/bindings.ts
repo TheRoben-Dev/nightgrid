@@ -3083,6 +3083,9 @@ export type NoteInput_Deserialize = {
 	pinned?: boolean,
 	/**  Keep this note out of DRIFT's search. */
 	hideFromDrift?: boolean,
+	runbook?: boolean,
+	alertKinds?: AlertKind[],
+	serviceId?: number | null,
 };
 
 export type NoteInput_Serialize = {
@@ -3093,6 +3096,9 @@ export type NoteInput_Serialize = {
 	pinned: boolean,
 	/**  Keep this note out of DRIFT's search. */
 	hideFromDrift: boolean,
+	runbook: boolean,
+	alertKinds: AlertKind[],
+	serviceId: number | null,
 };
 
 export type Note_Deserialize = {
@@ -3106,6 +3112,12 @@ export type Note_Deserialize = {
 	pinned: boolean,
 	/**  Left out of DRIFT's search. */
 	hideFromDrift: boolean,
+	/**  Offered on matching alerts (M10s, see [`runbook_matches`]). */
+	runbook: boolean,
+	/**  Alert kinds it is for; empty = any kind (narrowed by host/service). */
+	alertKinds: AlertKind[],
+	/**  Only for alerts about this service. */
+	serviceId?: number | null,
 	/**  Unix seconds. */
 	updatedAt: number,
 };
@@ -3121,6 +3133,12 @@ export type Note_Serialize = {
 	pinned: boolean,
 	/**  Left out of DRIFT's search. */
 	hideFromDrift: boolean,
+	/**  Offered on matching alerts (M10s, see [`runbook_matches`]). */
+	runbook: boolean,
+	/**  Alert kinds it is for; empty = any kind (narrowed by host/service). */
+	alertKinds: AlertKind[],
+	/**  Only for alerts about this service. */
+	serviceId: number | null,
 	/**  Unix seconds. */
 	updatedAt: number,
 };

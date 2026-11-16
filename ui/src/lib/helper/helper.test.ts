@@ -152,3 +152,16 @@ describe("notes in DRIFT", () => {
     expect(noteRefs([...hits, { title: "Hosts" }])).toEqual([{ id: 1, title: "Replace a disk" }]);
   });
 });
+
+describe("runbook steps in notes", () => {
+  it("turns task items into checks and view links into links, only when asked", () => {
+    const src = "- [ ] Check `df -h`\n- [x] Prune images\n- plain\n\nOpen [disks](view:fleet) now";
+    const b = parseMd(src, { headings: true, steps: true });
+    expect(b[0]).toMatchObject({ kind: "ul", checks: [false, true, null] });
+    expect(b[0].kind === "ul" && b[0].items[0]).toEqual([{ kind: "text", text: "Check " }, { kind: "code", text: "df -h" }]);
+    expect(b[1].kind === "p" && b[1].lines[0]).toEqual([{ kind: "text", text: "Open " }, { kind: "view", text: "disks", view: "fleet" }, { kind: "text", text: " now" }]);
+    const plain = parseMd(src);
+    expect(plain[0]).not.toHaveProperty("checks");
+    expect(plain[1].kind === "p" && plain[1].lines[0]).toEqual([{ kind: "text", text: "Open [disks](view:fleet) now" }]);
+  });
+});
