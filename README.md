@@ -1,8 +1,72 @@
+<div align="center">
+
 # NIGHTGRID
 
-Agentless homelab command center: SSH terminals, SFTP, Docker, monitoring, services and tunnels in one native-feeling desktop app. Built with Tauri 2, Rust and Svelte 5.
+**Your whole homelab in one window. No agents, no cloud, just SSH.**
 
-> Status: **M10 — DRIFT helper and backlog** (0.10.3: security score and port map). Hosts + terminals, SFTP + editor, Docker, monitoring, services, tunnels, system tasks, alerts, integrations, automation, encrypted backups, a handheld/controller layout and the local DRIFT helper are in. Next: more of the M10 backlog and the offline knowledge base (M11). How to use it: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md).
+Terminals, files, Docker, monitoring, services, VMs, alerts and a local AI helper in a single fast desktop app for macOS, Windows and Linux.
+
+![Nightgrid overview](docs/screenshots/overview.png)
+
+</div>
+
+## Why Nightgrid
+
+Most homelabs end up as a pile of browser tabs: Portainer for containers, Uptime Kuma for checks, Proxmox for VMs, a dashboard for links, and a terminal app on the side. Nightgrid pulls all of that into one native app that talks to your machines the way you already do, over SSH.
+
+- **Agentless.** Nothing to install on your servers. If you can `ssh` in, Nightgrid can manage it. Host scripts are plain POSIX shell, run over your own connection and gone when they finish.
+- **Local-first.** Your hosts, history and settings live in a local SQLite database. Passwords and tokens go to the OS keychain. There is no account, no telemetry and no cloud service in the loop.
+- **Fast and light.** Tauri 2 + Rust core with a Svelte 5 UI: a small native binary, not an Electron bundle. Views you turn off are never loaded, and their background jobs never start.
+- **Built for keyboards.** Every view has a shortcut, and `Mod+K` (Cmd on macOS, Ctrl elsewhere) jumps to any host, container, snippet or action by typing.
+- **Careful by default.** Destructive actions name exactly what they touch, risky commands are flagged before they run, and firewall or network changes arm an automatic rollback on the host before they apply.
+
+## What's inside
+
+| | |
+|---|---|
+| **Terminal & files** | Tabbed, split SSH terminals with auto-reconnect, jump hosts and `~/.ssh/config` import. Dual-pane SFTP with drag-and-drop transfers, and a built-in editor that opens when you run `nano` or `$EDITOR` on a server. |
+| **Docker** | Containers grouped by compose project, live logs, shells, bulk actions. Edit `compose.yaml` and `.env` in place, update stacks with snapshots and rollback, deploy stacks from git, keep secrets in an encrypted `.env` vault. |
+| **Monitoring** | Live CPU, memory, disk, network, temperature and GPU per host, with a year of downsampled history, drag-to-zoom charts and monthly uptime reports. |
+| **Services** | Health checks with latency, TLS and certificate expiry, a status page, Homepage import, and integrations for Plex, Pi-hole, AdGuard Home, AMP and Uptime Kuma. |
+| **Fleet health** | Pending updates across every host with batch apply, SMART and ZFS/mdraid health with fill-up forecasts, backup monitoring (restic, borg, rsync) with test restores, UPS/NUT with group shutdown, cross-host log search and a login audit. |
+| **System** | systemd units and journal, cron and timer editor, firewall manager, reverse-proxy route editor (Caddy, Traefik), config drift against a baseline, and a per-host incident timeline. |
+| **Network** | A live map of hosts, containers and ports, opt-in LAN discovery from any host, internet-facing ports highlighted, SSH tunnels and SOCKS proxies, iperf3 speed tests and a built-in Tailscale client for reaching home when you're away. |
+| **VMs** | Proxmox VE management over SSH (no API token): guests, snapshots, backups, create and clone, hardware, network and firewall. Graphical VM consoles through a built-in VNC client, plus RDP via tunnel. |
+| **Automation** | Run commands across many hosts at once, snippets with variables, multi-step playbooks, scheduled jobs, Wake-on-LAN and scheduled power. |
+| **Alerts** | Thresholds, service and log alerts with a dependency graph so one outage raises one alert, runbooks attached to alerts, desktop notifications, webhooks and a menu-bar icon. |
+| **Knowledge** | Notes and runbooks with commands you can send straight to a terminal, all searchable and readable by DRIFT. |
+
+### DRIFT, the local helper
+
+DRIFT is a small language model (Qwen3 4B) that runs **entirely on your machine** through llama.cpp. It answers questions about Nightgrid and your servers, explains logs and errors, drafts commands (it never runs them), reviews compose files, triages alerts and writes a daily summary. It can walk you through a task by pointing at the right buttons, and it never clicks anything for you. The model is downloaded once; nothing you ask leaves your computer.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![DRIFT helper pointing at the add-host button](docs/screenshots/drift.png) | ![Docker containers grouped by compose project](docs/screenshots/docker.png) |
+| **DRIFT** answers in the side panel and points at the control you need. | **Docker** containers grouped by compose project, with live stats. |
+| ![Services board with integrations and health checks](docs/screenshots/services.png) | ![Fleet disk health with ZFS, RAID and fill-up forecasts](docs/screenshots/fleet-disks.png) |
+| **Services** health checks next to Plex, Pi-hole, AMP and Uptime Kuma cards. | **Fleet → Disks**: pool health, SMART and when each mount will fill up. |
+| ![Proxmox guests list](docs/screenshots/proxmox.png) | ![systemd units on one host](docs/screenshots/system.png) |
+| **Proxmox** guests across the cluster, managed over SSH. | **System**: units, journal, cron, firewall and more for one host. |
+| ![Knowledge view with a runbook](docs/screenshots/knowledge.png) | |
+| **Knowledge**: runbooks whose commands go straight to a terminal. | |
+
+Screenshots use the built-in demo backend (`pnpm dev`) with made-up hosts.
+
+## Getting started
+
+Grab the latest build for your platform from [Releases](https://github.com/TheRoben-Dev/nightgrid/releases): `.dmg` for macOS (Apple Silicon), an installer or portable zip for Windows, and `.deb`, `.rpm` or AppImage for Linux. Once installed, Nightgrid updates itself in-app.
+
+Add a host with **+** in the sidebar or import your `~/.ssh/config` with **IMP**, then press `Mod+1` for the Overview. The full tour is in [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md), and DRIFT can show you around on first launch.
+
+> Status: active development, **0.10.x**. Next up: the bundled offline knowledge base (M11). See [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
+# Development
+
 
 ## Repository layout
 
