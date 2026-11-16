@@ -1,6 +1,8 @@
 <script lang="ts">
   import type { Exposure, ExposureKind, Listener, ListenScope } from "../api";
   import Toggle from "../components/Toggle.svelte";
+  import TopoMap from "../components/TopoMap.svelte";
+  import { canAttach, canParent } from "../netmap/layout";
   import { onMount } from "svelte";
   import { exposureIp, KIND_LABEL, labelKey, seenText, serviceLabel, type MapLink, type MapNode } from "../netmap/graph";
   import { hosts } from "../stores/hosts.svelte";
@@ -45,9 +47,17 @@
   };
   const SCOPE: Record<ListenScope, string> = { all: "every interface", address: "one address", vpn: "tailnet", local: "this host only" };
 
-  function pick(n: MapNode) {
-    netmap.selected = netmap.selected === n.id ? null : n.id;
+  function pick(n: MapNode | string) {
+    const id = typeof n === "string" ? n : n.id;
+    netmap.selected = netmap.selected === id ? null : id;
   }
+  const topoSel = $derived(netmap.topo.nodes.find((t) => t.id === netmap.selected) ?? null);
+  const parents = $derived(
+    topoSel && topoSel.node.kind !== "internet"
+      ? netmap.topo.nodes.filter((t) => !t.ghost && canParent(t) && canAttach(netmap.topo, topoSel.id, t.id))
+      : [],
+  );
+  const diff = $derived(netmap.topo.diff);
   function key(e: KeyboardEvent, n: MapNode) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -76,6 +86,7 @@
 
   onMount(() => {
     if (!netmap.labelsLoaded) void netmap.loadLabels();
+    if (!netmap.layoutLoaded) void netmap.loadLayout();
     void netmap.loadInventory();
   });
 
@@ -181,7 +192,7 @@
       {system.portMapLoading ? "AUDITING…" : "AUDIT PORTS ON ALL HOSTS"}
     </button>
     <span class="legend" aria-label="Legend">
-      <i class="sw internet"></i>internet-facing <i class="sw lan"></i>LAN <i class="sw tailnet"></i>tailnet <b class="scanmark">◉</b>can scan
+      <i class="sw internet"></i>internet-facing <i class="sw lan"></i>LAN <i class="sw tailnet"></i>tailnet <i class="sw routed"></i>routed <b class="scanmark">◉</b>can scan
     </span>
   </header>
 
@@ -192,6 +203,11 @@
       · {netmap.result.devices.length} devices{#if netmap.result.ranges.length} · swept {netmap.result.ranges.join(", ")}{/if}
       {#if netmap.newDevices.length}<span class="newc"> · {netmap.newDevices.length} new</span>{/if}
       {#if netmap.result.missing.length}<span class="miss"> · {netmap.result.missing.length} missing</span>{/if}
+      {#if diff.hasExpected}
+        {#if diff.missing.length || diff.unexpected.length}
+          <span class="miss" data-guide="netmap-diff"> · differs from the expected map: {diff.missing.length} missing, {diff.unexpected.length} not in it</span>
+        {:else}<span class="ok"> · matches the expected map</span>{/if}
+      {/if}
       {#each netmap.result.notes as n (n)}<span class="note"> · {n}</span>{/each}
     </p>
   {:else}
@@ -199,9 +215,24 @@
   {/if}
 
   <div class="body">
-    <div class="canvas" data-guide="netmap-graph">
+    <div class="canvas" class:graph={netmap.mode === "graph"} data-guide="netmap-graph">
+      <div class="maptools">
+        <div class="seg" role="group" aria-label="Map style" data-guide="netmap-mode">
+          <button type="button" class:on={netmap.mode === "graph"} aria-pressed={netmap.mode === "graph"} onclick={() => netmap.setMode("graph")}>GRAPH</button>
+          <button type="button" class:on={netmap.mode === "list"} aria-pressed={netmap.mode === "list"} onclick={() => netmap.setMode("list")}>LIST</button>
+        </div>
+        {#if netmap.mode === "graph"}
+          <button type="button" class="btn ghost tiny" data-guide="netmap-expected" title="Remember the map as it is now (devices, positions, connections). Later scans show what's missing or new." onclick={() => netmap.saveExpected()} disabled={!netmap.result}>SAVE AS EXPECTED</button>
+          {#if diff.hasExpected}<button type="button" class="btn ghost tiny" onclick={() => netmap.clearExpected()}>CLEAR EXPECTED</button>{/if}
+          <button type="button" class="btn ghost tiny" data-guide="netmap-autolayout" title="Forget where you placed nodes and lay the map out again (connections you set stay)" onclick={() => netmap.autoLayout()}>AUTO LAYOUT</button>
+          <span class="muted small hint">Drag to place · drop on a router, access point, switch or host to connect through it</span>
+        {/if}
+        {#if netmap.layoutError}<span class="err small">{netmap.layoutError}</span>{/if}
+      </div>
       {#if !hosts.hosts.length && !netmap.result}
         <p class="empty muted">Scan from this computer, or add hosts to see them on the map and scan from them.</p>
+      {:else if netmap.mode === "graph"}
+        <TopoMap onpick={(id) => pick(id)} />
       {:else}
         <svg {width} {height} viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Network map">
           {#each HEADS as h, i (h)}
@@ -323,6 +354,28 @@
         {@const n = netmap.current}
         <h3>{n.label}</h3>
         <p class="muted mono">{n.sub}</p>
+        {#if topoSel && topoSel.node.kind !== "internet" && !topoSel.ghost}
+          <label class="through" data-guide="netmap-parent">
+            <span class="lbl">CONNECTED THROUGH</span>
+            <select
+              class="input"
+              value={topoSel.manual ? (topoSel.parent ?? "") : ""}
+              onchange={(e) => netmap.setParent(topoSel.id, e.currentTarget.value || null)}
+            >
+              <option value="">Automatic{topoSel.parent && !topoSel.manual ? ` (${netmap.topo.nodes.find((t) => t.id === topoSel.parent)?.node.label ?? "?"})` : ""}</option>
+              {#each parents as p (p.id)}<option value={p.id}>{p.node.label}</option>{/each}
+            </select>
+          </label>
+          {#if topoSel.unexpected}
+            <p class="miss small">Not in the expected map. <button type="button" class="linkish" onclick={() => netmap.expect(topoSel.id, true)}>Add it</button></p>
+          {/if}
+        {/if}
+        {#if topoSel?.ghost}
+          <p>In the expected map, but this scan didn't see it. It may be off or asleep, on another network, or gone.</p>
+          <div class="actions">
+            <button type="button" class="btn ghost" onclick={() => (netmap.expect(topoSel.id, false), (netmap.selected = null))}>REMOVE FROM EXPECTED</button>
+          </div>
+        {/if}
 
         {#if n.kind === "internet"}
           <p>Ways in found by the last scan. Nothing outside your network was contacted to find these.</p>
@@ -430,6 +483,54 @@
 </div>
 
 <style>
+  .canvas.graph {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .canvas.graph :global(.topo) {
+    flex: 1;
+  }
+  .maptools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .maptools .hint {
+    margin-left: 4px;
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--line);
+  }
+  .seg button {
+    padding: 2px 10px;
+    border: 0;
+    background: none;
+    color: var(--text-1);
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    cursor: pointer;
+  }
+  .seg button.on {
+    background: color-mix(in srgb, var(--cyan) 18%, transparent);
+    color: var(--text-0);
+  }
+  .through {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 10px 0 4px;
+  }
+  .sw.routed {
+    border-color: var(--warn);
+    border-top-style: dotted;
+  }
   .ranges {
     display: flex;
     align-items: center;
@@ -620,6 +721,13 @@
   .link.internet {
     stroke: var(--danger);
     stroke-width: 2;
+  }
+  .link.wan {
+    stroke: var(--text-1);
+  }
+  .link.routed {
+    stroke: color-mix(in srgb, var(--warn) 70%, transparent);
+    stroke-dasharray: 2 4;
   }
   .node {
     cursor: pointer;

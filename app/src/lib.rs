@@ -348,6 +348,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::netmap_inventory,
         system_cmd::netmap_device_trust,
         system_cmd::netmap_device_forget,
+        system_cmd::netmap_layout_get,
+        system_cmd::netmap_layout_save,
         system_cmd::system_vm_action,
         desktop_cmd::desktop_open,
         desktop_cmd::desktop_input,

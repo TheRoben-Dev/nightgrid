@@ -101,6 +101,7 @@ const TABLES: &[Table] = &[
     },
     Table { name: "backup_jobs", id: true, fks: &[("host_id", "hosts", Missing::Skip)], keys: &[&["host_id", "name"]] },
     Table { name: "device_labels", id: true, fks: &[], keys: &[&["key"]] },
+    Table { name: "netmap_layout", id: true, fks: &[], keys: &[&["key"]] },
     Table {
         name: "watch_items",
         id: true,

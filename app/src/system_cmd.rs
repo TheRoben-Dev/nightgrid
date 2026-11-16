@@ -259,6 +259,26 @@ pub fn netmap_device_forget(state: State<'_, AppState>, key: String) -> CmdResul
     Ok(state.store().net_device_forget(&key)?)
 }
 
+/// The network map as the user arranged it: positions, hand-set parents
+/// and the expected picture (D-141).
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_layout_get(state: State<'_, AppState>) -> CmdResult<Vec<nightgrid_core::netlayout::LayoutEntry>> {
+    Ok(state.store().netmap_layout()?)
+}
+
+/// Saves map positions and parents; `replace` makes the saved layout exactly
+/// these entries (reset, or save as expected).
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_layout_save(
+    state: State<'_, AppState>,
+    entries: Vec<nightgrid_core::netlayout::LayoutEntry>,
+    replace: bool,
+) -> CmdResult<()> {
+    Ok(state.store().netmap_layout_save(&entries, replace)?)
+}
+
 /// Searches the login user's shell history (opt-in setting). Secret-looking
 /// lines are dropped in core; nothing is stored.
 #[tauri::command]

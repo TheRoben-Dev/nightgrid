@@ -33,6 +33,7 @@ pub mod logwatch;
 pub mod metrics;
 pub mod netident;
 pub mod netinv;
+pub mod netlayout;
 pub mod netmap;
 pub mod netperf;
 pub mod notes;

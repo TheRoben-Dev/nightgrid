@@ -613,6 +613,13 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing the topology map (0.10.57)
+
+1. Network (`Cmd+0`): select a server marked ◉, tick **Ping sweep**, scan. The map draws Internet → Router → devices in a LAN region, the tailnet in its own region, and hosts the scan didn't see in a row below. Wheel zooms, dragging the background pans, **FIT** fits.
+2. Drag a device somewhere: it stays there after switching views and restarting. Drag a smart plug or lamp onto another device you've labelled **Access point** (or onto a host): it lights up while hovering, and on release the device hangs under it. Its details say **Connected through** that device; **Automatic** puts it back under the router.
+3. **Save as expected**, switch the device off (or untick Ping sweep so swept-only devices disappear) and scan again: the scan line says the map differs, and the missing device shows as a dashed MISSING box in its place. A new device shows **+**; **Add it** puts it in the picture.
+4. **LIST** shows the old columns; **AUTO LAYOUT** re-lays the graph (connections stay). Export a profile and import it on another machine: positions and connections come along.
+
 ### macOS: testing device identity and inventory (0.10.56)
 
 1. Network (`Cmd+0`): select a server marked ◉, tick **Ping sweep**, **Scan from …**. Devices show a guessed type with a "?" (Router, TV?, Printer? …); names now include reverse DNS, DHCP leases (if that server is your DHCP server), NetBIOS and UPnP names. On the first scan everything is **NEW**.
