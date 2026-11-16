@@ -16,6 +16,7 @@ pub mod confdiff;
 pub mod dashboard;
 pub mod depgraph;
 pub mod device_labels;
+pub mod diagnostics;
 pub mod diskforecast;
 pub mod docker;
 pub mod edit_hook;

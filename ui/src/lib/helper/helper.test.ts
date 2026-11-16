@@ -128,6 +128,14 @@ describe("parseReply", () => {
 });
 
 describe("md", () => {
+  it("keeps counting a numbered list split by bullets or code", () => {
+    const b = parseMd("1. **What broke**: x\n\n1. **Cause**:\n- a\n- b\n\n1. **Check**:\n```sh\nls\n```\n1. Verify");
+    expect(b.filter((x) => x.kind === "ol").map((x) => (x.kind === "ol" ? x.start : 0))).toEqual([1, 2, 3, 4]);
+    // A heading starts a new list.
+    const h = parseMd("1. a\n2. b\n\n## Next\n\n1. c", { headings: true });
+    expect(h.filter((x) => x.kind === "ol").map((x) => (x.kind === "ol" ? x.start : 0))).toEqual([1, 1]);
+  });
+
   it("parses the subset and never keeps HTML as markup", () => {
     const b = parseMd("Hi **there** `x`\n\n- one\n- two\n\n1. a\n2. b\n\n```sh\nls -la\n```\n<b>raw</b>");
     expect(b.map((x) => x.kind)).toEqual(["p", "ul", "ol", "code", "p"]);

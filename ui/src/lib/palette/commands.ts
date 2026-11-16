@@ -1,3 +1,4 @@
+import { api } from "../api";
 import { openExternal } from "../clipboard";
 import { SECTIONS } from "../sections";
 import { automation } from "../stores/automation.svelte";
@@ -45,6 +46,13 @@ export function buildCommands(): PaletteCommand[] {
       group: "SETTINGS",
       keywords: ["backup", "profile", "export", "move", "migrate", "another computer", "age", "encrypt"],
       run: () => void helper.point("settings-backup", "Export: pick a passphrase; tick secrets to include saved passwords and tokens."),
+    },
+    {
+      id: "diagnostics.export",
+      title: "Export diagnostics (app logs, secrets removed)…",
+      group: "SETTINGS",
+      keywords: ["diagnostics", "logs", "log file", "bug report", "support", "debug", "export", "troubleshoot"],
+      run: () => void api.diagnosticsExport().catch(() => undefined),
     },
     {
       id: "profile.import",

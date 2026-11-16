@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api, type AppInfo } from "../api";
+  import { api, errorText, inTauri, type AppInfo } from "../api";
   import AlertSettings from "../components/alerts/AlertSettings.svelte";
   import AlertDeps from "../components/alerts/AlertDeps.svelte";
   import BackupPanel from "../components/backup/BackupPanel.svelte";
@@ -30,6 +30,20 @@
     info: AppInfo | null;
   }
   let { info }: Props = $props();
+
+  let diagBusy = $state(false);
+  let diagNote = $state<string | null>(null);
+  async function exportDiagnostics() {
+    diagBusy = true;
+    try {
+      const path = await api.diagnosticsExport();
+      diagNote = path ? `Saved to ${path}` : inTauri() ? null : "Only available in the desktop app.";
+    } catch (e) {
+      diagNote = `Couldn't save it: ${errorText(e)}`;
+    } finally {
+      diagBusy = false;
+    }
+  }
 
   const ACTION_LABELS: Record<ActionId, string> = {
     "palette.open": "Command palette",
@@ -338,6 +352,10 @@
           <dd>DMA-BUF renderer {info.dmabufDisabled ? "disabled (workaround active)" : "enabled"}</dd>
         {/if}
       </dl>
+      <div class="diag">
+        <button type="button" class="btn chamfer-sm" data-guide="settings-diagnostics-export" disabled={diagBusy} onclick={() => void exportDiagnostics()}>Export diagnostics…</button>
+        <span class="muted small">{diagNote ?? "One text file: version, settings, alerts and the newest app logs. Passwords, tokens and secret-looking lines are removed."}</span>
+      </div>
     </Panel>
   </div>
 </div>
@@ -346,6 +364,13 @@
 {/if}
 
 <style>
+  .diag {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+  }
   .tabs {
     display: inline-flex;
     border: 1px solid var(--line);

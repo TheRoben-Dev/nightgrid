@@ -9,6 +9,12 @@ import type { InvokeOptions } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	appInfo: (options?: InvokeOptions) => __TAURI_INVOKE<AppInfo_Serialize>("app_info", undefined, options),
+	/**
+	 *  Writes a diagnostics report (versions, settings, alerts, the newest app
+	 *  logs; secrets removed) to a file the user picks. Returns its path, or
+	 *  None when the dialog was cancelled.
+	 */
+	diagnosticsExport: (options?: InvokeOptions) => __TAURI_INVOKE<string | null>("diagnostics_export", undefined, options),
 	settingsGet: (options?: InvokeOptions) => __TAURI_INVOKE<AppSettings_Serialize>("settings_get", undefined, options),
 	settingsSet: (settings: AppSettings_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<AppSettings_Serialize>("settings_set", { settings }, options),
 	hostsList: (options?: InvokeOptions) => __TAURI_INVOKE<Host_Serialize[]>("hosts_list", undefined, options),
@@ -655,6 +661,17 @@ export const commands = {
 	 *  for "what broke". Secret-looking lines were never kept.
 	 */
 	alertsLogSamples: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<string[]>("alerts_log_samples", { key }, options),
+	/**
+	 *  "Mute this pattern": adds the pattern's fingerprint to the mute list for
+	 *  its source, so it never alerts or is noted again (it's still counted).
+	 *  Returns the updated settings.
+	 */
+	alertsLogMute: (hostId: number, source: string, fingerprint: string, options?: InvokeOptions) => __TAURI_INVOKE<AppSettings_Serialize>("alerts_log_mute", { hostId, source, fingerprint }, options),
+	/**
+	 *  Groups log text into events and says which are likely harmless (WARN and
+	 *  lower, one-off 404s), for DRIFT's triage.
+	 */
+	logClassify: (text: string, options?: InvokeOptions) => __TAURI_INVOKE<LogEventView_Serialize[]>("log_classify", { text }, options),
 	backupJobsList: (options?: InvokeOptions) => __TAURI_INVOKE<BackupJob[]>("backup_jobs_list", undefined, options),
 	deviceLabelsList: (options?: InvokeOptions) => __TAURI_INVOKE<DeviceLabel[]>("device_labels_list", undefined, options),
 	tailnetStatus: (options?: InvokeOptions) => __TAURI_INVOKE<TailnetStatus_Serialize>("tailnet_status", undefined, options),
@@ -888,6 +905,26 @@ export type AlertSettings_Deserialize = {
 	 */
 	logAnomaly?: boolean,
 	/**
+	 *  A new error pattern alerts once it has happened this many times
+	 *  within `log_repeat_minutes` (1–50); fewer is a note. FATAL/panic, and
+	 *  a container that is unhealthy or restarting, alert at once.
+	 */
+	logRepeatCount?: number,
+	/**  10–240. */
+	logRepeatMinutes?: number,
+	/**
+	 *  Minutes after a container, or a reverse proxy on its host, starts
+	 *  during which its log errors are notes, not alerts (0–60).
+	 */
+	logGraceMinutes?: number,
+	/**
+	 *  HTTP 404 / NOT_FOUND lines never alert on their own; only a spike
+	 *  well above the container's usual rate does.
+	 */
+	logNotFoundNoise?: boolean,
+	/**  Patterns that never alert, per container or journal source. */
+	logMutes?: LogMute_Deserialize[],
+	/**
 	 *  Fold alerts explained by an outage upstream (a host offline, a
 	 *  service down that others depend on) under it, and don't notify for
 	 *  them separately (M10s).
@@ -941,6 +978,26 @@ export type AlertSettings_Serialize = {
 	 *  (read every 10 minutes on connected hosts). Off by default.
 	 */
 	logAnomaly: boolean,
+	/**
+	 *  A new error pattern alerts once it has happened this many times
+	 *  within `log_repeat_minutes` (1–50); fewer is a note. FATAL/panic, and
+	 *  a container that is unhealthy or restarting, alert at once.
+	 */
+	logRepeatCount: number,
+	/**  10–240. */
+	logRepeatMinutes: number,
+	/**
+	 *  Minutes after a container, or a reverse proxy on its host, starts
+	 *  during which its log errors are notes, not alerts (0–60).
+	 */
+	logGraceMinutes: number,
+	/**
+	 *  HTTP 404 / NOT_FOUND lines never alert on their own; only a spike
+	 *  well above the container's usual rate does.
+	 */
+	logNotFoundNoise: boolean,
+	/**  Patterns that never alert, per container or journal source. */
+	logMutes: LogMute_Serialize[],
 	/**
 	 *  Fold alerts explained by an outage upstream (a host offline, a
 	 *  service down that others depend on) under it, and don't notify for
@@ -1007,6 +1064,10 @@ export type AlertsSnapshot_Deserialize = {
 	enabled: boolean,
 	/**  A UPS shutdown waiting to start (M10s), shown with a Cancel button. */
 	upsCountdown?: UpsCountdown | null,
+	/**  New log errors that were only noted (once, or right after a restart). */
+	logNotes: LogNote_Deserialize[],
+	/**  Log events left out by a mute or as 404 noise, per source, since the app started. */
+	logQuiet: LogQuiet[],
 };
 
 export type AlertsSnapshot_Serialize = {
@@ -1017,6 +1078,10 @@ export type AlertsSnapshot_Serialize = {
 	enabled: boolean,
 	/**  A UPS shutdown waiting to start (M10s), shown with a Cancel button. */
 	upsCountdown: UpsCountdown | null,
+	/**  New log errors that were only noted (once, or right after a restart). */
+	logNotes: LogNote_Serialize[],
+	/**  Log events left out by a mute or as 404 noise, per source, since the app started. */
+	logQuiet: LogQuiet[],
 };
 
 export type AmpAction = "start" | "stop" | "restart";
@@ -3916,6 +3981,33 @@ export type Listing_Serialize = {
 /**  What the log channel carries. */
 export type LogEvent = LogEvent_Serialize | LogEvent_Deserialize;
 
+/**  One event from attached log lines, judged by the same rules as the log alerts. */
+export type LogEventView = LogEventView_Serialize | LogEventView_Deserialize;
+
+/**  One event from attached log lines, judged by the same rules as the log alerts. */
+export type LogEventView_Deserialize = {
+	/**  The first line. */
+	head: string,
+	lines: number,
+	/**  debug, info, warn, error or fatal. */
+	level: string,
+	notFound: boolean,
+	/**  Why it is likely harmless under the rules, or None. */
+	harmless?: string | null,
+};
+
+/**  One event from attached log lines, judged by the same rules as the log alerts. */
+export type LogEventView_Serialize = {
+	/**  The first line. */
+	head: string,
+	lines: number,
+	/**  debug, info, warn, error or fatal. */
+	level: string,
+	notFound: boolean,
+	/**  Why it is likely harmless under the rules, or None. */
+	harmless: string | null,
+};
+
 /**  What the log channel carries. */
 export type LogEvent_Deserialize = { kind: "lines"; lines: LogLine_Deserialize[] } | 
 /**  The stream ended (container stopped, backlog sent, or an error). */
@@ -3951,6 +4043,67 @@ export type LogLine_Serialize = {
 	text: string,
 };
 
+/**
+ *  A user's "don't alert on this": a fingerprint ("Mute this pattern") or a
+ *  regex, for one source (`container/<name>`, `journal/<ident>`) or all ("").
+ */
+export type LogMute = LogMute_Serialize | LogMute_Deserialize;
+
+/**
+ *  A user's "don't alert on this": a fingerprint ("Mute this pattern") or a
+ *  regex, for one source (`container/<name>`, `journal/<ident>`) or all ("").
+ */
+export type LogMute_Deserialize = {
+	source?: string,
+	/**  Matched against every line of the event. */
+	regex?: string,
+	fingerprint?: string,
+	/**  What it mutes, for the list (a pattern with values blanked, or the regex). */
+	label?: string,
+};
+
+/**
+ *  A user's "don't alert on this": a fingerprint ("Mute this pattern") or a
+ *  regex, for one source (`container/<name>`, `journal/<ident>`) or all ("").
+ */
+export type LogMute_Serialize = {
+	source: string,
+	/**  Matched against every line of the event. */
+	regex: string,
+	fingerprint: string,
+	/**  What it mutes, for the list (a pattern with values blanked, or the regex). */
+	label: string,
+};
+
+/**  A new log error that didn't alert: seen once, or right after a restart. */
+export type LogNote = LogNote_Serialize | LogNote_Deserialize;
+
+/**  A new log error that didn't alert: seen once, or right after a restart. */
+export type LogNote_Deserialize = {
+	hostId: number,
+	/**  `container/<name>` or `journal/<ident>`. */
+	source: string,
+	fingerprint: string,
+	/**  The event's first lines (None if they looked like they held a secret). */
+	sample?: string | null,
+	count: number,
+	why: NoteWhy,
+	at: number,
+};
+
+/**  A new log error that didn't alert: seen once, or right after a restart. */
+export type LogNote_Serialize = {
+	hostId: number,
+	/**  `container/<name>` or `journal/<ident>`. */
+	source: string,
+	fingerprint: string,
+	/**  The event's first lines (None if they looked like they held a secret). */
+	sample: string | null,
+	count: number,
+	why: NoteWhy,
+	at: number,
+};
+
 export type LogQuery = LogQuery_Serialize | LogQuery_Deserialize;
 
 export type LogQuery_Deserialize = {
@@ -3967,6 +4120,13 @@ export type LogQuery_Serialize = {
 	tail: number | null,
 	/**  Unix seconds. */
 	since: number | null,
+};
+
+export type LogQuiet = {
+	hostId: number,
+	source: string,
+	muted: number,
+	notFound: number,
 };
 
 export type LogSearchQuery = LogSearchQuery_Serialize | LogSearchQuery_Deserialize;
@@ -4258,6 +4418,13 @@ export type NoteInput_Serialize = {
 	alertKinds: AlertKind[],
 	serviceId: number | null,
 };
+
+/**  Why a new pattern is a note and not an alert. */
+export type NoteWhy = 
+/**  Fewer times than the repeat threshold. */
+"once" | 
+/**  Right after the container or the reverse proxy started. */
+"grace";
 
 export type Note_Deserialize = {
 	id: number,

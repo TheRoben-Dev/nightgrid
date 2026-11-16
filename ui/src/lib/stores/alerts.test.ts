@@ -38,9 +38,9 @@ describe("alerts helpers", () => {
 
   it("picks the strip tone from the worst active alert", () => {
     expect(tone(null)).toBe("ok");
-    expect(tone({ active: [], history: [], quiet: false, enabled: true, upsCountdown: null })).toBe("ok");
-    expect(tone({ active: [alert({ severity: "warn" })], history: [], quiet: false, enabled: true, upsCountdown: null })).toBe("warn");
-    expect(tone({ active: [alert({ severity: "warn" }), alert({ id: 2 })], history: [], quiet: false, enabled: true, upsCountdown: null })).toBe("bad");
+    expect(tone({ active: [], history: [], quiet: false, enabled: true, upsCountdown: null, logNotes: [], logQuiet: [] })).toBe("ok");
+    expect(tone({ active: [alert({ severity: "warn" })], history: [], quiet: false, enabled: true, upsCountdown: null, logNotes: [], logQuiet: [] })).toBe("warn");
+    expect(tone({ active: [alert({ severity: "warn" }), alert({ id: 2 })], history: [], quiet: false, enabled: true, upsCountdown: null, logNotes: [], logQuiet: [] })).toBe("bad");
   });
 
   it("names where an alert leads", () => {

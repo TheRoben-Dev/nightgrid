@@ -108,3 +108,92 @@ pub fn settings_set(
     tracing::debug!(theme = %settings.theme, "settings saved");
     Ok(settings)
 }
+
+/// Writes a diagnostics report (versions, settings, alerts, the newest app
+/// logs; secrets removed) to a file the user picks. Returns its path, or
+/// None when the dialog was cancelled.
+#[tauri::command]
+#[specta::specta]
+pub async fn diagnostics_export(app: tauri::AppHandle) -> CmdResult<Option<String>> {
+    use tauri::Manager;
+    use tauri_plugin_dialog::DialogExt;
+    let state = app.state::<AppState>();
+    let info = app_info(state.clone())?;
+    let (settings, counts) = {
+        let store = state.store();
+        let s = AppSettings::load(&store).unwrap_or_default();
+        let hosts = store.list_hosts().map(|h| h.len()).unwrap_or(0);
+        let services = store.list_services().map(|v| v.len()).unwrap_or(0);
+        (
+            serde_json::to_string_pretty(&s).unwrap_or_default(),
+            vec![("hosts".to_owned(), hosts), ("services".to_owned(), services)],
+        )
+    };
+    let alerts: Vec<String> = {
+        let mut v: Vec<String> = state
+            .alerts
+            .active()
+            .iter()
+            .map(|a| format!("ACTIVE {} · {} · {} · since {}", a.kind.label(), a.title, a.detail, a.since))
+            .collect();
+        v.extend(state.alerts.history().iter().take(50).map(|a| {
+            format!(
+                "RESOLVED {} · {} · {} · {}–{}",
+                a.kind.label(),
+                a.title,
+                a.detail,
+                a.since,
+                a.resolved.unwrap_or(0)
+            )
+        }));
+        v
+    };
+    let mut files: Vec<std::path::PathBuf> = std::fs::read_dir(&state.log_dir)
+        .map(|d| {
+            d.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "log")).collect()
+        })
+        .unwrap_or_default();
+    files.sort();
+    let logs = files
+        .iter()
+        .rev()
+        .take(3)
+        .rev()
+        .filter_map(|p| {
+            let name = p.file_name()?.to_string_lossy().into_owned();
+            let bytes = std::fs::read(p).ok()?;
+            Some((name, String::from_utf8_lossy(&bytes).into_owned()))
+        })
+        .collect();
+    let now = chrono::Local::now();
+    let text = nightgrid_core::diagnostics::report(&nightgrid_core::diagnostics::Input {
+        version: info.version,
+        os: info.os,
+        arch: info.arch,
+        schema: i64::from(info.schema_version),
+        keychain: if info.keychain.available {
+            "available".into()
+        } else {
+            info.keychain.detail.unwrap_or_else(|| "unavailable".into())
+        },
+        generated: now.format("%Y-%m-%d %H:%M:%S %z").to_string(),
+        counts,
+        settings,
+        alerts,
+        logs,
+    });
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .file()
+        .set_title("Save Nightgrid diagnostics")
+        .set_file_name(format!("nightgrid-diagnostics-{}.txt", now.format("%Y-%m-%d")))
+        .add_filter("Text", &["txt"])
+        .save_file(move |p| {
+            let _ = tx.send(p);
+        });
+    let Some(path) = rx.await.ok().flatten().and_then(|p| p.into_path().ok()) else {
+        return Ok(None);
+    };
+    std::fs::write(&path, text).map_err(nightgrid_core::Error::Io)?;
+    Ok(Some(path.display().to_string()))
+}

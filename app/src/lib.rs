@@ -57,6 +57,7 @@ fn raw_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + Send + Syn
 pub fn specta_builder() -> Builder<tauri::Wry> {
     Builder::<tauri::Wry>::new().commands(collect_commands![
         commands::app_info,
+        commands::diagnostics_export,
         commands::settings_get,
         commands::settings_set,
         hosts_cmd::hosts_list,
@@ -323,6 +324,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_webhook_set,
         alerts_cmd::alerts_test,
         alerts_cmd::alerts_log_samples,
+        alerts_cmd::alerts_log_mute,
+        alerts_cmd::log_classify,
         backup_jobs_cmd::backup_jobs_list,
         backup_jobs_cmd::device_labels_list,
         tailnet_cmd::tailnet_status,

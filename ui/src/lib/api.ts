@@ -302,6 +302,8 @@ import {
   type UpdatesReport_Serialize as UpdatesReport,
   type UpgradeOp,
   type AuthNotice_Serialize as AuthNotice,
+  type LogEventView_Serialize as LogEventView,
+  type LogNote_Serialize as LogNote,
   type HostAuthNotice_Serialize as HostAuthNotice,
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
@@ -337,7 +339,7 @@ import { mockSystem } from "./mockSystem";
 /** Browser preview: what `sshAuthNotices` returns (tests fill it). */
 export const mockAuthNotices: HostAuthNotice[] = [];
 
-export type { AuthNotice, HostAuthNotice };
+export type { AuthNotice, HostAuthNotice, LogEventView, LogNote };
 
 export type {
   ChatTurn,
@@ -676,6 +678,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
     forecastDays: 14,
     poolDegraded: true,
     logAnomaly: false,
+    logRepeatCount: 3,
+    logRepeatMinutes: 10,
+    logGraceMinutes: 5,
+    logNotFoundNoise: true,
+    logMutes: [],
     foldDependent: true,
     native: true,
     quietHours: false,
@@ -707,7 +714,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.52-web",
+      version: "0.10.53-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -765,6 +772,8 @@ function jobsChannel(listener: (jobs: JobView[]) => void) {
 
 export const api = {
   appInfo: (): Promise<AppInfo> => (T() ? commands.appInfo() : mock.appInfo()),
+  /** Saves a diagnostics report where the user picks; the path, or null if cancelled. */
+  diagnosticsExport: (): Promise<string | null> => (T() ? commands.diagnosticsExport() : Promise.resolve(null)),
   settingsGet: (): Promise<AppSettings> => (T() ? commands.settingsGet() : mock.settingsGet()),
   settingsSet: (s: AppSettings): Promise<AppSettings> => (T() ? commands.settingsSet(s) : mock.settingsSet(s)),
 
@@ -1264,6 +1273,16 @@ export const api = {
   netTestsClear: (fromHost: number, toHost: number): Promise<number> => (T() ? commands.netTestsClear(fromHost, toHost) : mockNetperf.clear(fromHost, toHost)),
   timerCalendarPreview: (hostId: number, calendar: string): Promise<CalendarPreview> => (T() ? commands.timerCalendarPreview(hostId, calendar) : mockJobs.preview(calendar)),
   alertsLogSamples: (key: string): Promise<string[]> => (T() ? commands.alertsLogSamples(key) : mockOps.logSamples(key)),
+  logClassify: (text: string): Promise<LogEventView[]> => (T() ? commands.logClassify(text) : Promise.resolve(mockAlerts.classify(text))),
+  alertsLogMute: (hostId: number, source: string, fingerprint: string): Promise<AppSettings> =>
+    T()
+      ? commands.alertsLogMute(hostId, source, fingerprint)
+      : mock.settingsGet().then((cur) => {
+          mockAlerts.dropNote(source, fingerprint);
+          const mutes = cur.alerts.logMutes ?? [];
+          const label = `pattern ${fingerprint}`;
+          return mock.settingsSet({ ...cur, alerts: { ...cur.alerts, logMutes: [...mutes, { source, regex: "", fingerprint, label }] } });
+        }),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));

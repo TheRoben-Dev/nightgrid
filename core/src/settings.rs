@@ -201,6 +201,20 @@ pub struct AlertSettings {
     /// Error bursts and new error patterns in container logs and the journal
     /// (read every 10 minutes on connected hosts). Off by default.
     pub log_anomaly: bool,
+    /// A new error pattern alerts once it has happened this many times
+    /// within `log_repeat_minutes` (1–50); fewer is a note. FATAL/panic, and
+    /// a container that is unhealthy or restarting, alert at once.
+    pub log_repeat_count: u16,
+    /// 10–240.
+    pub log_repeat_minutes: u16,
+    /// Minutes after a container, or a reverse proxy on its host, starts
+    /// during which its log errors are notes, not alerts (0–60).
+    pub log_grace_minutes: u16,
+    /// HTTP 404 / NOT_FOUND lines never alert on their own; only a spike
+    /// well above the container's usual rate does.
+    pub log_not_found_noise: bool,
+    /// Patterns that never alert, per container or journal source.
+    pub log_mutes: Vec<crate::logwatch::LogMute>,
     /// Fold alerts explained by an outage upstream (a host offline, a
     /// service down that others depend on) under it, and don't notify for
     /// them separately (M10s).
@@ -234,6 +248,11 @@ impl Default for AlertSettings {
             forecast_days: 14,
             pool_degraded: true,
             log_anomaly: false,
+            log_repeat_count: 3,
+            log_repeat_minutes: 10,
+            log_grace_minutes: 5,
+            log_not_found_noise: true,
+            log_mutes: Vec::new(),
             fold_dependent: true,
             native: true,
             quiet_hours: false,
@@ -337,6 +356,22 @@ impl AppSettings {
     }
 
     pub fn validate(&self) -> Result<()> {
+        let a = &self.alerts;
+        if !(1..=50).contains(&a.log_repeat_count)
+            || !(10..=240).contains(&a.log_repeat_minutes)
+            || a.log_grace_minutes > 60
+        {
+            return Err(Error::Invalid {
+                field: "alerts.logRepeat",
+                reason: "repeat count 1–50, window 10–240 minutes, grace 0–60 minutes".into(),
+            });
+        }
+        if a.log_mutes.len() > 200 {
+            return Err(Error::Invalid { field: "alerts.logMutes", reason: "at most 200".into() });
+        }
+        if let Some(p) = a.log_mutes.iter().find_map(|m| m.problem()) {
+            return Err(Error::Invalid { field: "alerts.logMutes", reason: p });
+        }
         if self.disabled_features.len() > 64
             || self.disabled_features.iter().any(|f| {
                 f.is_empty()

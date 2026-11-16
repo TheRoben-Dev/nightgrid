@@ -8,7 +8,7 @@
 //! uses hosts already in the pool. SMART only runs where sudo needs no
 //! prompt (root, NOPASSWD, or a password the user chose to remember).
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -17,7 +17,7 @@ use nightgrid_core::backup_jobs;
 use nightgrid_core::depgraph::{self, Folding, Graph};
 use nightgrid_core::docker::LogQuery;
 use nightgrid_core::hosts::HostId;
-use nightgrid_core::logwatch::{self, Detector};
+use nightgrid_core::logwatch::{self, Detector, NoteWhy, RawLine, SourceCtx};
 use nightgrid_core::secrets::{Secret, SecretRef, SecretStore};
 use nightgrid_core::services::check::now_unix;
 use nightgrid_core::settings::AppSettings;
@@ -61,7 +61,40 @@ pub struct AlertsSnapshot {
     pub enabled: bool,
     /// A UPS shutdown waiting to start (M10s), shown with a Cancel button.
     pub ups_countdown: Option<crate::ups_cmd::UpsCountdown>,
+    /// New log errors that were only noted (once, or right after a restart).
+    pub log_notes: Vec<LogNote>,
+    /// Log events left out by a mute or as 404 noise, per source, since the app started.
+    pub log_quiet: Vec<LogQuiet>,
 }
+
+/// A new log error that didn't alert: seen once, or right after a restart.
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogNote {
+    pub host_id: HostId,
+    /// `container/<name>` or `journal/<ident>`.
+    pub source: String,
+    pub fingerprint: String,
+    /// The event's first lines (None if they looked like they held a secret).
+    pub sample: Option<String>,
+    pub count: u32,
+    pub why: NoteWhy,
+    #[specta(type = u32)]
+    pub at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogQuiet {
+    pub host_id: HostId,
+    pub source: String,
+    pub muted: u32,
+    pub not_found: u32,
+}
+
+/// Notes kept, and for how long.
+const NOTES_MAX: usize = 60;
+const NOTES_FOR: i64 = 24 * 3600;
 
 #[derive(Default)]
 pub struct AlertsHub {
@@ -76,6 +109,10 @@ pub struct AlertsHub {
     pool_last: Mutex<HashMap<HostId, i64>>,
     logs_last: Mutex<HashMap<HostId, i64>>,
     logs: Mutex<Detector>,
+    /// Hosts whose stored log patterns are loaded into the detector.
+    logs_seeded: Mutex<HashSet<HostId>>,
+    log_notes: Mutex<VecDeque<LogNote>>,
+    log_quiet: Mutex<HashMap<(HostId, String), (u32, u32)>>,
     /// Which active alerts are explained by an outage upstream (M10s).
     folding: Mutex<Folding>,
     /// Fired alerts whose notification waits for a cause in its grace period.
@@ -95,6 +132,11 @@ impl AlertsHub {
     /// Active alerts right now.
     pub fn active(&self) -> Vec<Alert> {
         self.tracker.lock().expect("poisoned").active()
+    }
+
+    /// Resolved alerts, newest first.
+    pub fn history(&self) -> Vec<Alert> {
+        self.tracker.lock().expect("poisoned").history()
     }
 
     /// Active alerts and critical ones, not counting those folded under a cause.
@@ -118,6 +160,14 @@ impl AlertsHub {
             quiet: is_quiet(settings),
             enabled: settings.alerts.enabled,
             ups_countdown: self.ups_countdown.lock().expect("poisoned").clone(),
+            log_notes: self.log_notes.lock().expect("poisoned").iter().cloned().collect(),
+            log_quiet: self
+                .log_quiet
+                .lock()
+                .expect("poisoned")
+                .iter()
+                .map(|((h, src), (m, nf))| LogQuiet { host_id: *h, source: src.clone(), muted: *m, not_found: *nf })
+                .collect(),
         }
     }
 
@@ -553,30 +603,85 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     } else {
         let mut covered = HashSet::new();
         let mut conds = Vec::new();
+        let lrules = logwatch::Rules::new(
+            usize::from(rules.log_repeat_count),
+            i64::from(rules.log_repeat_minutes) * 60,
+            i64::from(rules.log_grace_minutes) * 60,
+            rules.log_not_found_noise,
+            &rules.log_mutes,
+        );
         for id in &connected {
             let since = hub.logs_last.lock().expect("poisoned").get(id).copied();
             if since.is_some_and(|t| now - t < LOGS_EVERY) {
                 continue;
             }
             let since = since.unwrap_or(now - LOGS_LEARN);
-            let read = read_error_lines(app, *id, since, now);
+            let read = read_log_lines(app, *id, since, now);
             let Ok(Some(by_source)) = tokio::time::timeout(Duration::from_secs(90), read).await else { continue };
             hub.logs_last.lock().expect("poisoned").insert(*id, now);
             covered.insert(*id);
-            let mut det = hub.logs.lock().expect("poisoned");
             let prefix = format!("{id}|");
+            if hub.logs_seeded.lock().expect("poisoned").insert(*id) {
+                let stored = app.state::<AppState>().store().log_patterns(*id).unwrap_or_default();
+                let mut by: HashMap<String, Vec<(String, i64)>> = HashMap::new();
+                for (src, fp, at) in stored {
+                    by.entry(src).or_default().push((fp, at));
+                }
+                let mut det = hub.logs.lock().expect("poisoned");
+                for (src, known) in by {
+                    det.seed(&format!("{prefix}{src}"), known);
+                }
+            }
+            let mut det = hub.logs.lock().expect("poisoned");
             let mut sources: Vec<String> = by_source.keys().cloned().collect();
             for known in det.sources_with_prefix(&prefix) {
                 if !sources.contains(&known) {
                     sources.push(known);
                 }
             }
+            let mut notes = Vec::new();
             for key in sources {
-                let lines = by_source.get(&key).cloned().unwrap_or_default();
-                let finding = det.observe(&key, &lines);
-                let source = key.strip_prefix(&prefix).unwrap_or(&key);
-                conds.extend(alerts::log_anomaly(*id, &name(*id), source, &finding));
+                let (lines, ctx) = by_source.get(&key).cloned().unwrap_or_default();
+                let finding = det.observe(&key, &lines, &ctx, &lrules, now);
+                let source = key.strip_prefix(&prefix).unwrap_or(&key).to_owned();
+                if finding.muted + finding.not_found > 0 {
+                    let mut q = hub.log_quiet.lock().expect("poisoned");
+                    let e = q.entry((*id, source.clone())).or_default();
+                    e.0 += finding.muted as u32;
+                    e.1 += finding.not_found as u32;
+                }
+                for (n, why) in &finding.notes {
+                    notes.push(LogNote {
+                        host_id: *id,
+                        source: source.clone(),
+                        fingerprint: n.fingerprint.clone(),
+                        sample: n.sample.clone(),
+                        count: n.count as u32,
+                        why: *why,
+                        at: now,
+                    });
+                }
+                conds.extend(alerts::log_anomaly(*id, &name(*id), &source, &finding));
             }
+            let learned: Vec<(String, String, i64)> = det
+                .take_learned()
+                .into_iter()
+                .filter_map(|(k, fp, at)| k.strip_prefix(&prefix).map(|s| (s.to_owned(), fp, at)))
+                .collect();
+            drop(det);
+            if !learned.is_empty() {
+                if let Err(e) = app.state::<AppState>().store().log_patterns_add(*id, &learned) {
+                    tracing::warn!("storing log patterns: {e}");
+                }
+            }
+            let mut kept = hub.log_notes.lock().expect("poisoned");
+            for n in notes {
+                // One note per pattern: a newer sighting replaces the older one.
+                kept.retain(|o| !(o.host_id == n.host_id && o.source == n.source && o.fingerprint == n.fingerprint));
+                kept.push_front(n);
+            }
+            kept.retain(|n| now - n.at <= NOTES_FOR);
+            kept.truncate(NOTES_MAX);
         }
         changes.extend(hub.tracker.lock().expect("poisoned").report(
             &Scope { source: "logs", hosts: Some(&covered) },
@@ -587,14 +692,23 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     changes
 }
 
-/// Error lines since `since` per source, keyed `<host>|journal/<ident>` and
-/// `<host>|container/<name>`. `None` if the host couldn't be read at all.
-async fn read_error_lines(app: &AppHandle, id: HostId, since: i64, now: i64) -> Option<HashMap<String, Vec<String>>> {
+/// Log lines since `since` per source with what's known about the source,
+/// keyed `<host>|journal/<ident>` and `<host>|container/<name>`. `None` if
+/// the host couldn't be read at all.
+async fn read_log_lines(
+    app: &AppHandle,
+    id: HostId,
+    since: i64,
+    now: i64,
+) -> Option<HashMap<String, (Vec<RawLine>, SourceCtx)>> {
     let conn = crate::term_cmd::connect_host(app, id).await.ok()?;
-    let mut out: HashMap<String, Vec<String>> = HashMap::new();
+    let mut out: HashMap<String, (Vec<RawLine>, SourceCtx)> = HashMap::new();
     if let Ok((_, text, _)) = conn.exec(&logwatch::journal_command(since)).await {
         for (ident, msg) in logwatch::parse_journal(&String::from_utf8_lossy(&text)) {
-            out.entry(format!("{id}|journal/{ident}")).or_default().push(msg);
+            let e = out
+                .entry(format!("{id}|journal/{ident}"))
+                .or_insert_with(|| (Vec::new(), SourceCtx { journal: true, ..Default::default() }));
+            e.0.push(RawLine::new(None, msg));
         }
     }
     let hub = app.state::<AppState>().alerts.clone();
@@ -603,15 +717,34 @@ async fn read_error_lines(app: &AppHandle, id: HostId, since: i64, now: i64) -> 
     }
     if let Ok(d) = crate::docker_cmd::docker_for(app, id).await {
         if let Ok(list) = d.containers().await {
-            for c in list.iter().filter(|c| c.state == "running").take(LOGS_MAX_CONTAINERS) {
+            let started = |status: &str| logwatch::uptime_from_status(status).map(|up| now - up);
+            // The newest reverse-proxy start on the host: every site behind it reloads.
+            let proxy = list
+                .iter()
+                .filter(|c| c.state == "running" && logwatch::is_reverse_proxy(&c.image))
+                .filter_map(|c| started(&c.status))
+                .max();
+            for c in list.iter().filter(|c| c.state == "running" || c.state == "restarting").take(LOGS_MAX_CONTAINERS) {
                 let mut lines = Vec::new();
                 let q = LogQuery { follow: false, tail: Some(500), since: Some(since.max(0) as u32) };
                 let read = d.logs(&c.id, q, |batch| {
-                    lines.extend(batch.into_iter().map(|l| l.text).filter(|t| logwatch::is_error_line(t)));
+                    lines.extend(
+                        batch
+                            .into_iter()
+                            .map(|l| RawLine::new(l.ts.as_deref().and_then(logwatch::parse_rfc3339), l.text)),
+                    );
                     true
                 });
                 let _ = tokio::time::timeout(Duration::from_secs(10), read).await;
-                out.insert(format!("{id}|container/{}", c.name), lines);
+                let is_proxy = logwatch::is_reverse_proxy(&c.image);
+                let ctx = SourceCtx {
+                    journal: false,
+                    started_at: started(&c.status),
+                    proxy_started_at: if is_proxy { None } else { proxy },
+                    unhealthy: c.health.as_deref() == Some("unhealthy"),
+                    restarting: c.state == "restarting",
+                };
+                out.insert(format!("{id}|container/{}", c.name), (lines, ctx));
             }
         }
     }
@@ -767,8 +900,108 @@ pub fn alerts_log_samples(state: State<'_, AppState>, key: String) -> CmdResult<
     let (Some("logs"), Some(host), Some(rest)) = (parts.next(), parts.next(), parts.next()) else {
         return Ok(Vec::new());
     };
-    let source = rest.rsplit_once(':').map_or(rest, |(s, _)| s);
+    let source = rest
+        .split_once(":new:")
+        .map(|(s, _)| s)
+        .or_else(|| rest.strip_suffix(":burst"))
+        .or_else(|| rest.strip_suffix(":404"))
+        .unwrap_or(rest);
     Ok(state.alerts.logs.lock().expect("poisoned").samples(&format!("{host}|{source}")))
+}
+
+/// One event from attached log lines, judged by the same rules as the log alerts.
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LogEventView {
+    /// The first line.
+    pub head: String,
+    pub lines: u32,
+    /// debug, info, warn, error or fatal.
+    pub level: String,
+    pub not_found: bool,
+    /// Why it is likely harmless under the rules, or None.
+    pub harmless: Option<String>,
+}
+
+/// Groups log text into events and says which are likely harmless (WARN and
+/// lower, one-off 404s), for DRIFT's triage.
+#[tauri::command]
+#[specta::specta]
+pub fn log_classify(text: String) -> Vec<LogEventView> {
+    let lines: Vec<RawLine> = text.lines().take(2000).map(|l| RawLine::new(None, l)).collect();
+    logwatch::events(&lines, false)
+        .into_iter()
+        .take(100)
+        .map(|e| {
+            let level = match e.level {
+                logwatch::Level::Debug => "debug",
+                logwatch::Level::Info => "info",
+                logwatch::Level::Warn => "warn",
+                logwatch::Level::Error => "error",
+                logwatch::Level::Fatal => "fatal",
+            };
+            let harmless = if e.level == logwatch::Level::Fatal {
+                None
+            } else if e.not_found {
+                Some(
+                    "an HTTP 404 / NOT_FOUND: a request for something that doesn't exist, not a fault in the app"
+                        .to_owned(),
+                )
+            } else if e.level < logwatch::Level::Error {
+                Some(format!("logged at {} level, not as an error", level.to_uppercase()))
+            } else {
+                None
+            };
+            LogEventView {
+                head: e.head.chars().take(300).collect(),
+                lines: e.lines as u32,
+                level: level.into(),
+                not_found: e.not_found,
+                harmless,
+            }
+        })
+        .collect()
+}
+
+/// "Mute this pattern": adds the pattern's fingerprint to the mute list for
+/// its source, so it never alerts or is noted again (it's still counted).
+/// Returns the updated settings.
+#[tauri::command]
+#[specta::specta]
+pub fn alerts_log_mute(
+    state: State<'_, AppState>,
+    host_id: HostId,
+    source: String,
+    fingerprint: String,
+) -> CmdResult<AppSettings> {
+    let pattern = state.alerts.logs.lock().expect("poisoned").pattern_of(&format!("{host_id}|{source}"), &fingerprint);
+    let label = pattern
+        .filter(|p| !nightgrid_core::redact::line_has_secret(p))
+        .map(|p| p.chars().take(160).collect::<String>())
+        .unwrap_or_else(|| format!("pattern {fingerprint}"));
+    let mute =
+        logwatch::LogMute { source: source.clone(), regex: String::new(), fingerprint: fingerprint.clone(), label };
+    if let Some(p) = mute.problem() {
+        return Err(nightgrid_core::Error::Invalid { field: "fingerprint", reason: p }.into());
+    }
+    let store = state.store();
+    let mut s = AppSettings::load(&store)?;
+    if !s.alerts.log_mutes.iter().any(|m| m.source == source && m.fingerprint == fingerprint) {
+        s.alerts.log_mutes.push(mute);
+        s.save(&store)?;
+    }
+    drop(store);
+    state.alerts.log_notes.lock().expect("poisoned").retain(|n| !(n.source == source && n.fingerprint == fingerprint));
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64);
+    state
+        .alerts
+        .tracker
+        .lock()
+        .expect("poisoned")
+        .resolve_key(&format!("logs:{host_id}:{source}:new:{fingerprint}"), now);
+    state.alerts.push(&s);
+    state.alerts.wake();
+    Ok(s)
 }
 
 #[derive(Debug, Serialize, Type)]
