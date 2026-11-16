@@ -389,6 +389,16 @@ export const commands = {
 	gitStackDeploy: (id: number, target: string, options?: InvokeOptions) => __TAURI_INVOKE<GitDeployed_Serialize>("git_stack_deploy", { id, target }, options),
 	/**  Stops tracking; the checkout and the stack stay on the host. */
 	gitStackRemove: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("git_stack_remove", { id }, options),
+	/**
+	 *  Measures `from_host` → `to_host`: ping, then iperf3 up and down for
+	 *  `secs` seconds each. `target` is the address the source connects to
+	 *  (default: the target host's saved hostname).
+	 */
+	netTestRun: (fromHost: number, toHost: number, target: string | null, secs: number, options?: InvokeOptions) => __TAURI_INVOKE<NetTestResult_Serialize>("net_test_run", { fromHost, toHost, target, secs }, options),
+	/**  Recent results, newest first. */
+	netTestsList: (options?: InvokeOptions) => __TAURI_INVOKE<NetTest_Serialize[]>("net_tests_list", undefined, options),
+	/**  Forgets the results of one pair. */
+	netTestsClear: (fromHost: number, toHost: number, options?: InvokeOptions) => __TAURI_INVOKE<number>("net_tests_clear", { fromHost, toHost }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -3918,6 +3928,72 @@ export type MountView_Serialize = {
 	destination: string,
 	rw: boolean,
 	name: string | null,
+};
+
+export type NetTest = NetTest_Serialize | NetTest_Deserialize;
+
+export type NetTestResult = NetTestResult_Serialize | NetTestResult_Deserialize;
+
+export type NetTestResult_Deserialize = {
+	test: NetTest_Deserialize,
+	/**  Something worth a look (Fast Ethernet speed, slower than usual). */
+	finding?: string | null,
+};
+
+export type NetTestResult_Serialize = {
+	test: NetTest_Serialize,
+	/**  Something worth a look (Fast Ethernet speed, slower than usual). */
+	finding: string | null,
+};
+
+export type NetTest_Deserialize = {
+	id: number | null,
+	/**  Runs the client. */
+	fromHost: number,
+	/**  Runs the server. */
+	toHost: number,
+	/**  Address the client connected to. */
+	target: string,
+	/**  Unix seconds. */
+	at: number | null,
+	/**  From → to, bits per second (as received by the server). */
+	upBps?: number | null,
+	/**  To → from, bits per second. */
+	downBps?: number | null,
+	/**  TCP retransmits, both directions together. */
+	retransmits?: number | null,
+	/**  Average round trip, ms. */
+	rttMs?: number | null,
+	/**  Round-trip spread (mdev / stddev), ms. */
+	jitterMs?: number | null,
+	/**  Packets lost by ping, %. */
+	lossPct?: number | null,
+	error?: string | null,
+};
+
+export type NetTest_Serialize = {
+	id: number | null,
+	/**  Runs the client. */
+	fromHost: number,
+	/**  Runs the server. */
+	toHost: number,
+	/**  Address the client connected to. */
+	target: string,
+	/**  Unix seconds. */
+	at: number | null,
+	/**  From → to, bits per second (as received by the server). */
+	upBps: number | null,
+	/**  To → from, bits per second. */
+	downBps: number | null,
+	/**  TCP retransmits, both directions together. */
+	retransmits: number | null,
+	/**  Average round trip, ms. */
+	rttMs: number | null,
+	/**  Round-trip spread (mdev / stddev), ms. */
+	jitterMs: number | null,
+	/**  Packets lost by ping, %. */
+	lossPct: number | null,
+	error: string | null,
 };
 
 export type NetworkView = {

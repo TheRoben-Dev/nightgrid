@@ -164,6 +164,14 @@ xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 3. Open a terminal, run `docker compose up` in a broken folder (or `cat /nonexistent`), select the error lines, press `Cmd+J` and ask "What does this mean?". The SELECTION chip shows the line count; the reply explains it. **What I was given** shows the exact prompt; a line like `PASSWORD=x` in the selection appears as `PASSWORD=••••`.
 4. **Settings → Helper**: *Free memory* unloads the model; *Delete model…* removes the 2.5 GB file after you confirm.
 
+### macOS: testing 0.10.40 (network tests)
+
+1. Install `iperf3` on two hosts on the same LAN. **Fleet → SPEED**: From the first, To the second, address = the second's LAN IP, **Run test**. Within ~15 s the row shows up and down near your link speed (≈940 Mbit/s on gigabit) and a sub-millisecond latency.
+2. On the target, `pgrep iperf3` right after the test finds nothing (the server was stopped).
+3. Force the source's port to 100 Mbit/s (`sudo ethtool -s eth0 speed 100 duplex full autoneg off`, then undo it) and run again: the row turns orange with the Fast Ethernet hint.
+4. Block 5201 on the target's firewall (Nightgrid's own FIREWALL tab works) and run: the error says the target's firewall may block it.
+5. **Clear…** forgets the pair after naming it.
+
 ### macOS: testing 0.10.39 (GPU history)
 
 1. On a host with an NVIDIA card (`nvidia-smi` works) or an AMD card, open its monitor: **GPU** shows busy and VRAM lines, **TEMP** has a "GPU temp (hottest)" line, **GPU W** shows power. Run a GPU load (a transcode or `glmark2`) and watch them rise within a minute.

@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.40] - 2026-11-16
+
+### Added: more signals, part 2: network tests between hosts (M10x)
+- **Fleet → SPEED**: pick two hosts and **Run test**. Nightgrid measures throughput both ways with `iperf3` and latency with `ping`, from one host straight to the other (5, 10 or 20 seconds each way).
+- Results are kept per pair with a throughput history line, so you can compare a link with itself. About 100 Mbit/s on a link is flagged as a possible Fast Ethernet negotiation (a bad cable or port), and a run well below the pair's usual speed is called out. **Again** repeats a test, **Clear…** forgets a pair's results.
+- The target runs an iperf3 server only during the test; it stops itself after two minutes at most. Both hosts need `iperf3` installed, and the target's firewall must allow port 5201 from the source.
+
 ## [0.10.39] - 2026-11-16
 
 ### Added: more signals, part 1: GPU history (M10x)

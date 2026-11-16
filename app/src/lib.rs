@@ -23,6 +23,7 @@ mod keys_cmd;
 mod logging;
 mod logsearch_cmd;
 mod metrics_cmd;
+mod netperf_cmd;
 mod notes_cmd;
 mod platform;
 mod proxy_cmd;
@@ -204,6 +205,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         gitstack_cmd::git_stack_diff,
         gitstack_cmd::git_stack_deploy,
         gitstack_cmd::git_stack_remove,
+        netperf_cmd::net_test_run,
+        netperf_cmd::net_tests_list,
+        netperf_cmd::net_tests_clear,
         notes_cmd::notes_list,
         notes_cmd::note_save,
         notes_cmd::note_delete,
