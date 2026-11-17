@@ -47,6 +47,12 @@ import {
   type Dependency as AlertDependency,
   type Node as DepNode,
   type UpsCountdown,
+  type BlueprintSummary_Serialize as BlueprintSummary,
+  type BpInclude_Deserialize as BpInclude,
+  type BpStep,
+  type BpStepResult,
+  type BpStepKind,
+  type BpStepState,
   type ChangeArea,
   type ChangeEntry_Serialize as ChangeEntry,
   type ChangeQuery_Deserialize as ChangeQuery,
@@ -335,6 +341,7 @@ import {
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockJournal } from "./mockJournal";
+import { mockBlueprint } from "./mockBlueprint";
 import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
 import { mockAccess } from "./mockAccess";
@@ -447,6 +454,12 @@ export type {
   AlertDependency,
   DepNode,
   UpsCountdown,
+  BlueprintSummary,
+  BpInclude,
+  BpStep,
+  BpStepResult,
+  BpStepKind,
+  BpStepState,
   ChangeArea,
   ChangeEntry,
   ChangeQuery,
@@ -1232,6 +1245,14 @@ export const api = {
   upsStatus: (): Promise<UpsStatus[]> => (T() ? commands.upsStatus() : mockUps.status()),
   upsReadNow: (hostId: number, target: string): Promise<UpsReading> => (T() ? commands.upsReadNow(hostId, target) : mockUps.readNow(hostId, target)),
   upsCancel: (): Promise<null> => (T() ? commands.upsCancel() : mockUps.cancel()),
+  blueprintCapture: (hostId: number, include: BpInclude, sudo: SudoInput | null): Promise<BlueprintSummary> =>
+    T() ? commands.blueprintCapture(hostId, include, sudo) : mockBlueprint.capture(hostId, include),
+  blueprintSave: (hostId: number, passphrase: string): Promise<string | null> => (T() ? commands.blueprintSave(hostId, passphrase) : mockBlueprint.save()),
+  blueprintOpen: (passphrase: string): Promise<BlueprintSummary | null> => (T() ? commands.blueprintOpen(passphrase) : mockBlueprint.open(passphrase)),
+  blueprintClose: (): Promise<null> => (T() ? commands.blueprintClose().then(() => null) : mockBlueprint.close()),
+  blueprintPlan: (hostId: number, sudo: SudoInput | null): Promise<BpStep[]> => (T() ? commands.blueprintPlan(hostId, sudo) : mockBlueprint.plan()),
+  blueprintApply: (hostId: number, steps: string[], sudo: SudoInput | null): Promise<BpStepResult[]> =>
+    T() ? commands.blueprintApply(hostId, steps, sudo) : mockBlueprint.apply(hostId, steps),
   journalQuery: (query: ChangeQuery): Promise<ChangeEntry[]> => (T() ? commands.journalQuery(query) : mockJournal.query(query)),
   journalStats: (): Promise<ChangeStats> => (T() ? commands.journalStats() : mockJournal.stats()),
   journalNote: (hostId: number | null, title: string, detail: string, at: number | null): Promise<ChangeEntry> =>

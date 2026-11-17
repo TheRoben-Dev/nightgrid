@@ -10,6 +10,7 @@ pub mod automation;
 pub mod backup;
 pub mod backup_jobs;
 pub mod backup_restore;
+pub mod blueprint;
 pub mod bookmarks;
 pub mod cmdwidget;
 pub mod confdiff;
