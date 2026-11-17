@@ -17,7 +17,8 @@ export interface MdOptions {
   headings?: boolean;
   /**
    * Runbook steps (notes): `- [ ] step` items become checkboxes and
-   * `[label](view:fleet)` becomes a link to a view.
+   * `[label](view:fleet)` becomes a link to a view, `[label](kb:basics/backups)`
+   * to a library article (view "kb:…").
    */
   steps?: boolean;
 }
@@ -25,7 +26,7 @@ export interface MdOptions {
 export function inline(s: string, links = false): Inline[] {
   const out: Inline[] = [];
   const re = links
-    ? /`([^`]+)`|\*\*([^*]+)\*\*|(?<![\w*])\*([^*\s][^*\n]*?)\*(?![\w*])|\[([^\]\n]+)\]\(view:([a-z]+)\)/g
+    ? /`([^`]+)`|\*\*([^*]+)\*\*|(?<![\w*])\*([^*\s][^*\n]*?)\*(?![\w*])|\[([^\]\n]+)\]\((?:view:([a-z]+)|(kb:[a-z]+\/[\w-]+))\)/g
     : /`([^`]+)`|\*\*([^*]+)\*\*|(?<![\w*])\*([^*\s][^*\n]*?)\*(?![\w*])/g;
   let last = 0;
   for (let m = re.exec(s); m; m = re.exec(s)) {
@@ -36,7 +37,7 @@ export function inline(s: string, links = false): Inline[] {
         : m[2] !== undefined
           ? { kind: "bold", text: m[2] }
           : m[4] !== undefined
-            ? { kind: "view", text: m[4], view: m[5] }
+            ? { kind: "view", text: m[4], view: m[5] ?? m[6] }
             : { kind: "em", text: m[3] },
     );
     last = m.index + m[0].length;

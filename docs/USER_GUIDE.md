@@ -168,6 +168,7 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 - **Steps**: `- [ ] step` lines become checkboxes you tick while you work (they reset when you open the note again), and `[label](view:fleet)` becomes a link to that view (any view's id: overview, terminal, files, docker, services, tunnels, system, fleet, desktops, network, automation, notes, settings).
 - Notes never store passwords or tokens: saving refuses them, and **Mask them** swaps the values for `••••`. Notes travel in encrypted backups.
 - DRIFT searches your notes along with its guide and says which notes it used. Tick **Hide from DRIFT** on a note to keep it out.
+- **Library** (the tab beside Notes, `Mod+Shift+L`): the built-in help, all offline. **Using Nightgrid** has one article per feature (this guide), **Homelab basics** explains SSH keys, sshd hardening, Docker and compose, the docker group, reverse proxies, Tailscale and WireGuard, backups and reading logs, and **Guides** walk through whole setups step by step. Search finds words anywhere in an article. In a guide, the **Objectives** box lists its parts with how many steps you've ticked; ticks are kept on this computer, and **Reset** clears them. **?** beside any view's title opens its article, and the command palette has every article as **Help: …**. DRIFT reads the library too and links the articles it used.
 
 ## Network map
 
@@ -280,7 +281,7 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 
 ## Backups and moving between machines
 
-- **Settings → Data → Export** writes your setup to one file encrypted with a passphrase (an [age](https://age-encryption.org) file). It holds hosts, groups, tags, snippets, playbooks, services, tunnels, integrations, bookmarks and settings. Tick **Include saved passwords and tokens** to bring the keychain entries along.
+- **Settings → Data → Export** writes your setup to one file encrypted with a passphrase (an age file). It holds hosts, groups, tags, snippets, playbooks, services, tunnels, integrations, bookmarks and settings. Tick **Include saved passwords and tokens** to bring the keychain entries along.
 - **Import** shows what's inside first.
   - **Merge** keeps everything you have and adds what's new.
   - **Replace** swaps your setup for the backup. Type `replace` to confirm.

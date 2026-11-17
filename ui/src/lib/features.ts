@@ -35,12 +35,12 @@ export const FEATURES: Feature[] = [
   { id: "network", label: "Network map", hint: "Hosts, containers and ports as a graph; LAN discovery." },
   { id: "nettools", label: "Network tools", hint: "Ping, path, DNS, port check, HTTP/TLS, Wake-on-LAN, subnet and MAC lookups." },
   { id: "automation", label: "Automation", hint: "Snippets and playbooks across hosts." },
-  { id: "notes", label: "Knowledge", hint: "Your notes and runbooks (and, later, the built-in guides)." },
+  { id: "notes", label: "Knowledge", hint: "Your notes and runbooks. The Library (help) stays on." },
   { id: "drift", label: "DRIFT helper", hint: "The local AI helper. Off: the model is never loaded." },
 ];
 
 /** Sections that can't be turned off. */
-const ALWAYS: SectionId[] = ["overview", "settings"];
+const ALWAYS: SectionId[] = ["overview", "settings", "library"];
 
 export const featureById = (id: string): Feature | undefined => FEATURES.find((f) => f.id === id);
 

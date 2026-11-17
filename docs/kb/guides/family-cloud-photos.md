@@ -84,7 +84,7 @@ chown -R 101000:101000 /tank/family/photos /tank/family/cloud
 - [ ] Run Caddy as its own stack on the same container (official `caddy` image, ports 80 and 443, a volume for `/data`).
 - [ ] Docker → **Routes** → **Edit routes…** → **Add site…**: `photos.example.com` → `immich-server:2283` (or `127.0.0.1:2283` if Caddy uses host networking). Nightgrid shows the change as a diff, then **Save and reload Caddy**. Caddy checks the file and keeps the old one if it can't load it.
 - [ ] Forward only 80 and 443 to this container on your router, or skip public exposure and use Tailscale.
-- [ ] [Services](view:services): add a check for each site. Certificate expiry shows automatically for HTTPS services, and **Expiry watch** lists them soonest first. Add your domain's renewal date there too.
+- [ ] [Services](view:services): add a check for each site. Certificate expiry shows automatically for HTTPS services, and Services → **EXPIRY WATCH** lists them soonest first. Add your domain's renewal date there too.
 
 #### Check
 

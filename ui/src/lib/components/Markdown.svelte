@@ -14,8 +14,13 @@
     /** Runbook steps: `- [ ]` checkboxes (ticked for this reading only) and `[label](view:id)` links. */
     steps?: boolean;
     onview?: (view: string) => void;
+    /** `[label](kb:shelf/slug)` links to library articles. */
+    onarticle?: (id: string) => void;
+    /** Kept checklist state (library guides): `block-item` keys, saved by the caller. */
+    ticks?: Record<string, boolean>;
+    ontick?: (key: string, on: boolean) => void;
   }
-  let { src, code, steps = false, onview }: Props = $props();
+  let { src, code, steps = false, onview, onarticle, ticks, ontick }: Props = $props();
 
   const blocks = $derived(parseMd(src, { headings: true, steps }));
   let ticked = $state<Record<string, boolean>>({});
@@ -24,12 +29,16 @@
     void src;
     ticked = {};
   });
-  const isTicked = (key: string, initial: boolean | null) => ticked[key] ?? !!initial;
+  const isTicked = (key: string, initial: boolean | null) => (ticks ? (ticks[key] ?? !!initial) : (ticked[key] ?? !!initial));
+  function tick(key: string, on: boolean) {
+    if (ontick) ontick(key, on);
+    else ticked[key] = on;
+  }
   const view = (id: string) => SECTIONS.find((s) => s.id === (id as SectionId));
 </script>
 
 {#snippet inl(parts: Inline[])}{#each parts as t, ti (ti)}{#if t.kind === "code"}<code>{t.text}</code>{:else if t.kind === "bold"}<b>{t.text}</b
-      >{:else if t.kind === "em"}<i>{t.text}</i>{:else if t.kind === "view"}{#if onview && view(t.view)}<button
+      >{:else if t.kind === "em"}<i>{t.text}</i>{:else if t.kind === "view"}{#if t.view.startsWith("kb:")}{#if onarticle}<button type="button" class="vlink" title="Open the article" onclick={() => onarticle(t.view.slice(3))}>{t.text} ▤</button>{:else}{t.text}{/if}{:else if onview && view(t.view)}<button
           type="button"
           class="vlink"
           title="Open {view(t.view)?.label}"
@@ -40,7 +49,7 @@
   {#if check === null || check === undefined}<li>{@render inl(parts)}</li>
   {:else}
     <li class="task" class:done={isTicked(key, check)}>
-      <label><input type="checkbox" checked={isTicked(key, check)} onchange={(e) => (ticked[key] = e.currentTarget.checked)} /> <span>{@render inl(parts)}</span></label>
+      <label><input type="checkbox" checked={isTicked(key, check)} onchange={(e) => tick(key, e.currentTarget.checked)} /> <span>{@render inl(parts)}</span></label>
     </li>
   {/if}
 {/snippet}

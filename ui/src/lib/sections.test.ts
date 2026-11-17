@@ -12,7 +12,8 @@ describe("sidebar rows", () => {
     expect(railPath("system")).toBe("System → One host");
     expect(railPath("fleet")).toBe("System → Fleet");
     expect(railPath("tunnels")).toBe("Network → Tunnels");
-    expect(railPath("notes")).toBe("Knowledge");
+    expect(railPath("notes")).toBe("Knowledge → Notes");
+    expect(railPath("library")).toBe("Knowledge → Library");
     expect(railPath("settings")).toBe("Settings");
   });
   it("maps a view's guide id to its row's button", () => {
