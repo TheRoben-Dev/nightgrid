@@ -348,6 +348,18 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/pairdrop", shelf: "apps", title: "PairDrop local file sharing", cat: "productivity" },
   { id: "apps/ntopng", shelf: "apps", title: "ntopng traffic analysis", cat: "network" },
   { id: "apps/webtop", shelf: "apps", title: "Webtop Linux desktop in a browser", cat: "virtualization" },
+  { id: "linux/ssh-2fa", shelf: "linux", title: "Two-factor codes for SSH logins", cat: "security" },
+  { id: "linux/sftp-chroot", shelf: "linux", title: "SFTP-only accounts locked to one folder", cat: "security" },
+  { id: "linux/iscsi", shelf: "linux", title: "iSCSI block storage from a NAS or server", cat: "storage" },
+  { id: "linux/auditd", shelf: "linux", title: "Track changes with auditd", cat: "security" },
+  { id: "linux/sysctl-tuning", shelf: "linux", title: "Kernel settings with sysctl", cat: "linux" },
+  { id: "apps/technitium-dns", shelf: "apps", title: "Technitium DNS Server", cat: "network" },
+  { id: "apps/homarr", shelf: "apps", title: "Homarr dashboard", cat: "monitoring" },
+  { id: "apps/matrix-synapse", shelf: "apps", title: "Matrix chat with Synapse", cat: "productivity" },
+  { id: "apps/mattermost", shelf: "apps", title: "Mattermost team chat", cat: "productivity" },
+  { id: "apps/gotosocial", shelf: "apps", title: "GoToSocial fediverse server", cat: "productivity" },
+  { id: "apps/db-admin-uis", shelf: "apps", title: "Database web UIs: Adminer and pgAdmin", cat: "dev" },
+  { id: "apps/opentofu-proxmox", shelf: "apps", title: "Proxmox VMs as code with OpenTofu", cat: "virtualization" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));
