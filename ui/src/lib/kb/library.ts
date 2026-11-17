@@ -1,8 +1,8 @@
 /**
- * The knowledge base library (M11): articles bundled with the app, on three
+ * The knowledge base library (M11): articles bundled with the app, on six
  * shelves. "Using Nightgrid" is the user guide split at its `##` headings,
- * so it never drifts from the docs; "Homelab basics" and "Guides" are the
- * markdown files under docs/kb. Everything is local: no links out, no images
+ * so it never drifts from the docs; the other shelves are the markdown files
+ * under docs/kb (howto, basics, linux, apps, guides). Everything is local: no links out, no images
  * fetched, rendered as the safe markdown subset (helper/md.ts).
  *
  * This module holds the article text, so only the Library view and DRIFT's
@@ -13,7 +13,7 @@ import { chunkMarkdown, Index, type Chunk } from "../helper/knowledge";
 import { parseMd } from "../helper/md";
 import type { Shelf } from "./catalog";
 
-const FILES = import.meta.glob("../../../../docs/kb/{basics,guides}/*.md", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const FILES = import.meta.glob("../../../../docs/kb/{basics,guides,howto,apps,linux}/*.md", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
 export interface Article {
   /** `shelf/slug`, stable: used for links, checklist progress and the catalog. */
@@ -82,7 +82,7 @@ export function fromGuide(md: string): Article[] {
 
 /** An article file: `# Title`, then the body. */
 export function fromFile(path: string, raw: string): Article | null {
-  const m = /\/kb\/(basics|guides)\/([\w-]+)\.md$/.exec(path);
+  const m = /\/kb\/(basics|guides|howto|apps|linux)\/([\w-]+)\.md$/.exec(path);
   if (!m || m[2].toLowerCase() === "readme") return null;
   const lines = raw.replace(/\r\n/g, "\n").split("\n");
   const at = lines.findIndex((l) => /^#\s+/.test(l));
@@ -94,7 +94,7 @@ export function fromFile(path: string, raw: string): Article | null {
   return { id: `${m[1]}/${m[2]}`, shelf: m[1] as Shelf, title, summary: firstParagraph(body), body };
 }
 
-const SHELF_ORDER: Shelf[] = ["nightgrid", "basics", "guides"];
+const SHELF_ORDER: Shelf[] = ["nightgrid", "howto", "basics", "linux", "apps", "guides"];
 
 export const ARTICLES: Article[] = [
   ...fromGuide(guideMd),

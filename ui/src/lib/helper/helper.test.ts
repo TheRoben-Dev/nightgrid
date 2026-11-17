@@ -138,6 +138,11 @@ describe("md", () => {
     expect(h.filter((x) => x.kind === "ol").map((x) => (x.kind === "ol" ? x.start : 0))).toEqual([1, 1]);
   });
 
+  it("treats an odd fence line as text instead of hanging", () => {
+    expect(parseMd("````md\nhi\n````").map((x) => x.kind)).toEqual(["p", "p", "p"]);
+    expect(parseMd("```js title\nx").length).toBeGreaterThan(0);
+  });
+
   it("parses the subset and never keeps HTML as markup", () => {
     const b = parseMd("Hi **there** `x`\n\n- one\n- two\n\n1. a\n2. b\n\n```sh\nls -la\n```\n<b>raw</b>");
     expect(b.map((x) => x.kind)).toEqual(["p", "ul", "ol", "code", "p"]);

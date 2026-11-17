@@ -109,6 +109,8 @@ export function parseMd(src: string, opts: MdOptions = {}): Block[] {
     ) {
       para.push(inline(lines[i++].replace(/^#+\s+/, ""), opts.steps));
     }
+    // A line that opens no block (say "````md" or "```js title") is text, not a hang.
+    if (!para.length) para.push(inline(lines[i++], opts.steps));
     blocks.push({ kind: "p", lines: para });
   }
   return blocks;

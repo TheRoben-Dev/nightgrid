@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.64] - 2026-11-17
+
+### Added: a much bigger Library, with topics
+- **161 new articles**, all offline, on three new shelves. **How-tos** (44): one job in Nightgrid from start to finish, such as adding your first host, jump hosts, reaching servers away from home, deploying a stack, proxy routes, alerts and runbooks, backups, disks, updates, the firewall, schedules, power and UPS, the network map and tools, Proxmox, VM desktops and profiles. **Self-hosted apps** (96): install and run an app on a Linux server and watch it from Nightgrid, from Docker hosts, ZFS, Samba and restic to Caddy, Traefik, Pi-hole, Authentik, Vaultwarden, Nextcloud, Immich, Jellyfin, the *arr stack, Home Assistant, Frigate, Prometheus and Grafana, Forgejo, k3s, game servers, Ollama and more. **Linux skills** (19): systemd units, journald, fstab, LVM, static IPs, users and sudo, swap and zram, RAID, Btrfs snapshots, release upgrades, permissions, SELinux, Podman quadlets, rpm-ostree, tmux and more. Two more **Guides**: a first homelab weekend and a DIY NAS.
+- **Topics** across the shelves (Getting started, Docker & containers, Networking & DNS, Security & access, Storage & backups, Monitoring & alerts, Media, Smart home, Productivity, Dev & automation, Gaming, Virtualization, Power & hardware, Linux skills): pick one on the Library's home page or in the topic list beside the search, with a count for each. Shelf chips show counts too, and both filters also narrow search results.
+- **Objectives and ticks** now work in every step-by-step article (how-tos, apps, Linux skills and guides), not only the guides.
+- DRIFT reads every new article and links the ones it used.
+- The whole library is about 0.4 MB of plain text (about 120 KB compressed) and still loads only with the Library view or a DRIFT question.
+
+### Fixed
+- A markdown line starting with four backticks (or a fence with words after the language) no longer freezes notes, DRIFT answers or the Library.
+
 ## [0.10.63] - 2026-11-17
 
 ### Added: open a service's web UI inside Nightgrid

@@ -320,7 +320,7 @@ class HelperStore {
     ctx.checks = checks.length ? checksText(checks) : null;
     // Questions about the user's own hosts (or with exact checks) lean on those, not the guide.
     const guideN = ctx.hosts.length || checks.length ? 2 : 4;
-    // The library's basics and guides (M11); its "Using Nightgrid" shelf is the guide above.
+    // The library (M11) beyond its "Using Nightgrid" shelf, which is the guide above.
     const lib = await import("../kb/library");
     const libDocs = (lib.libraryIndex().search(q, 6) as { title: string; text: string; articleId?: string }[])
       .filter((c) => c.articleId && !c.articleId.startsWith("nightgrid/"))

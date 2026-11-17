@@ -3,7 +3,7 @@
  * checklist progress. Progress is a per-computer convenience kept in
  * localStorage; losing it loses nothing but ticks.
  */
-import type { Shelf } from "../kb/catalog";
+import type { Category, Shelf } from "../kb/catalog";
 import { ui } from "./ui.svelte";
 
 const KEY = "nightgrid.library.progress";
@@ -22,6 +22,7 @@ class LibraryStore {
   current = $state<string | null>(null);
   query = $state("");
   shelf = $state<Shelf | "all">("all");
+  cat = $state<Category | "all">("all");
   progress = $state<Record<string, Record<string, boolean>>>(read());
 
   /** Articles read before this one, for BACK. */
