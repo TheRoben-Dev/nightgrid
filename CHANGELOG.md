@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.79] - 2026-11-17
+
+### Added: a diagram for most of the Library
+- **148 more diagrams**. Nearly every Nightgrid how-to now has one, as do the Linux skills (boot and storage stacks, SELinux, DKMS, sysctl, static IPs and more) and most app guides (game servers, media and NAS layouts, monitoring agents, home automation, backups, CI, password and secret stores).
+- 267 of 321 articles now have a picture. That is 220 figures, about 1.3 MB in all.
+
 ## [0.10.78] - 2026-11-17
 
 ### Added: diagrams across the Library
