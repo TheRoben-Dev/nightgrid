@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.68] - 2026-11-17
+
+### Added: 12 more Library articles
+- **Linux skills**: two-factor codes for SSH (without breaking key logins or Nightgrid), SFTP-only accounts jailed to one folder, iSCSI block storage, tracking who changed what with auditd, and the kernel settings worth changing with sysctl.
+- **Apps**: Technitium DNS Server, Homarr, Matrix with Synapse, Mattermost, GoToSocial, Adminer and pgAdmin opened through Nightgrid's tunnel, and Proxmox VMs as code with OpenTofu.
+- The library now holds 296 articles.
+
 ## [0.10.67] - 2026-11-17
 
 ### Added: 17 more Library articles
