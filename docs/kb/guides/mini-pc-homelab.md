@@ -1,5 +1,7 @@
 # Mini PC homelab
 
+![One or two mini PCs idling at a few watts.](fig:guide-mini-pc-homelab)
+
 Turn one or two small, quiet, low-power mini PCs (Intel N100/N150, older 8th–10th gen business minis like the Lenovo Tiny, Dell Micro or HP Mini, or a Ryzen mini) into a homelab that idles at 6–15 W, runs dozens of containers and is managed entirely from Nightgrid.
 
 ## What you end up with

@@ -1,5 +1,7 @@
 # Family cloud and photos
 
+![Every phone's photos and files on hardware you own.](fig:guide-family-cloud-photos)
+
 Host Immich (photo backup from phones) and optionally Nextcloud (files, calendars, contacts) on your Proxmox node, behind Caddy with real certificates. Nightgrid handles the stacks, secrets, certificates and backups, and test-restores the backups so you know the family photos can actually be recovered.
 
 ## What you end up with

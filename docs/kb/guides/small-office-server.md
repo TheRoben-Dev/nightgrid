@@ -1,5 +1,7 @@
 # Small office server
 
+![One server for a small office's daily tools.](fig:guide-small-office-server)
+
 One server for a small shop or office of 2–15 people: shared files, calendars, passwords, a task board for jobs, document signing, scanned paperwork and backups of the workstations. Everything self-hosted, reachable from the office and from phones via a tailnet, and watched from Nightgrid.
 
 ## What you end up with

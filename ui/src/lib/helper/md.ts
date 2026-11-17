@@ -10,7 +10,8 @@ export type Block =
   | { kind: "p"; lines: Inline[][] }
   | { kind: "ul" | "ol"; items: Inline[][]; start?: number; checks?: (boolean | null)[] }
   | { kind: "code"; lang: string; text: string; open?: boolean }
-  | { kind: "h"; level: number; text: Inline[] };
+  | { kind: "h"; level: number; text: Inline[] }
+  | { kind: "fig"; name: string; alt: string };
 
 export interface MdOptions {
   /** Keep `#` headings as heading blocks (notes); DRIFT folds them into text. */
@@ -21,7 +22,16 @@ export interface MdOptions {
    * to a library article (view "kb:…").
    */
   steps?: boolean;
+  /**
+   * Library figures: a line holding only `![caption](fig:name)` becomes a
+   * figure block naming a bundled SVG. Off everywhere else (DRIFT, notes), so
+   * model output or a pasted note can never show an image.
+   */
+  figures?: boolean;
 }
+
+/** `![caption](fig:name)` on a line of its own. */
+export const FIG_LINE = /^\s*!\[([^\]\n]*)\]\(fig:([a-z0-9-]+)\)\s*$/;
 
 export function inline(s: string, links = false): Inline[] {
   const out: Inline[] = [];
@@ -67,6 +77,12 @@ export function parseMd(src: string, opts: MdOptions = {}): Block[] {
       i++;
       continue;
     }
+    const fig = opts.figures ? FIG_LINE.exec(line) : null;
+    if (fig) {
+      blocks.push({ kind: "fig", alt: fig[1].trim(), name: fig[2] });
+      i++;
+      continue;
+    }
     const h = opts.headings ? heading.exec(line) : null;
     if (h) {
       blocks.push({ kind: "h", level: h[1].length, text: inline(h[2], opts.steps) });
@@ -105,7 +121,8 @@ export function parseMd(src: string, opts: MdOptions = {}): Block[] {
       !/^\s*```/.test(lines[i]) &&
       !bullet.test(lines[i]) &&
       !num.test(lines[i]) &&
-      !(opts.headings && heading.test(lines[i]))
+      !(opts.headings && heading.test(lines[i])) &&
+      !(opts.figures && FIG_LINE.test(lines[i]))
     ) {
       para.push(inline(lines[i++].replace(/^#+\s+/, ""), opts.steps));
     }

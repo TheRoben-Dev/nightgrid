@@ -2,6 +2,8 @@
 
 A VPN lets you reach home servers from anywhere as if you were on the LAN, without opening ports on your router. **WireGuard** is the fast, simple VPN protocol underneath; **Tailscale** builds a managed mesh on top of it.
 
+![Devices join the tailnet directly; a subnet router covers LAN gear that can't.](fig:tailnet-subnet)
+
 ## WireGuard on its own
 
 You run one WireGuard server (often the router or a small VM), forward one UDP port to it, and give each device a key pair and a config file. It's fast and has no outside dependency, but you manage keys, addresses and the port forward yourself, and every device connects through that one server.

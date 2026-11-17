@@ -2,8 +2,8 @@
  * The knowledge base library (M11): articles bundled with the app, on six
  * shelves. "Using Nightgrid" is the user guide split at its `##` headings,
  * so it never drifts from the docs; the other shelves are the markdown files
- * under docs/kb (howto, basics, linux, apps, guides). Everything is local: no links out, no images
- * fetched, rendered as the safe markdown subset (helper/md.ts).
+ * under docs/kb (howto, basics, linux, apps, guides). Everything is local: no links out, nothing
+ * fetched (figures are bundled SVGs, kb/figures.ts), rendered as the safe markdown subset (helper/md.ts).
  *
  * This module holds the article text, so only the Library view and DRIFT's
  * retrieval load it (lazily); the palette uses the small catalog instead.
@@ -37,6 +37,7 @@ export function slug(s: string): string {
 export function plain(md: string): string {
   return md
     .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!\[([^\]\n]*)\]\(fig:[\w-]+\)/g, "$1")
     .replace(/\[([^\]]+)\]\((?:view|kb):[\w/-]+\)/g, "$1")
     .replace(/[`*]/g, "")
     .replace(/^\s*[-*]\s+(\[[ xX]\]\s+)?/gm, "")
@@ -49,7 +50,7 @@ function firstParagraph(body: string): string {
   const p = body
     .split(/\n{2,}/)
     .map((b) => b.trim())
-    .find((b) => b && !b.startsWith("#") && !b.startsWith("```") && !/^\s*[-*\d]/.test(b));
+    .find((b) => b && !b.startsWith("#") && !b.startsWith("```") && !b.startsWith("![") && !/^\s*[-*\d]/.test(b));
   const text = plain(p ?? "");
   return text.length > 220 ? `${text.slice(0, 217).replace(/\s+\S*$/, "")}…` : text;
 }
@@ -115,7 +116,7 @@ export interface Part {
 export function parts(a: Article): Part[] {
   const out: Part[] = [];
   let cur: Part | null = null;
-  parseMd(a.body, { headings: true, steps: true }).forEach((b, bi) => {
+  parseMd(a.body, { headings: true, steps: true, figures: true }).forEach((b, bi) => {
     if (b.kind === "h" && b.level === 2) {
       cur = { title: b.text.map((t) => t.text).join(""), keys: [] };
       out.push(cur);

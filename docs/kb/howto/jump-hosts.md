@@ -2,6 +2,8 @@
 
 Bring your existing `~/.ssh/config` into Nightgrid and reach machines that are only visible from another server, such as hosts on a home LAN behind one always-on box.
 
+![Reaching a private LAN through one SSH jump host.](fig:jump-host)
+
 ## What you end up with
 
 - Every host from your SSH config in the sidebar, with users, ports, keys and `ProxyJump` kept

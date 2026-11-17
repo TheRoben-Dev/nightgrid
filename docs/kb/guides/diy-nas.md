@@ -1,5 +1,7 @@
 # Build a DIY NAS
 
+![Build the pool, share it on the LAN, snapshot and back it up.](fig:guide-diy-nas)
+
 Turn a Debian box with a few drives into a NAS: a ZFS mirror, SMB shares for every computer, NFS for other servers, snapshots, offsite backups and disk alerts, all run from Nightgrid.
 
 ## What you end up with

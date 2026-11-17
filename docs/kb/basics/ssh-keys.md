@@ -2,6 +2,8 @@
 
 An SSH key pair replaces a password with something that can't be guessed or phished: a **private key** that stays on your computer and a **public key** you copy to each server. Nightgrid prefers the SSH agent, so it never needs to read the private key itself.
 
+![Where each half of an SSH key pair lives, and what checks what.](fig:ssh-keys)
+
 ## Make a key
 
 Ed25519 keys are short, fast and supported everywhere that matters.

@@ -11,6 +11,8 @@
   import Panel from "../components/Panel.svelte";
   import { CATEGORIES, SHELVES, categoryOf, type Shelf } from "../kb/catalog";
   import type { Article } from "../kb/library";
+  import { FIG_LINE } from "../helper/md";
+  import { figure } from "../kb/figures";
   import { ARTICLES, article, parts, search } from "../kb/library";
   import { scramble } from "../scramble";
   import { library } from "../stores/library.svelte";
@@ -33,6 +35,12 @@
   const catCount = $derived(new Map(CATEGORIES.map((c) => [c.id, ARTICLES.filter((a) => categoryOf(a.id) === c.id && inShelf(a)).length])));
   const catLabel = (id: string) => CATEGORIES.find((c) => c.id === categoryOf(id))?.label ?? "";
   const cur = $derived(library.current ? (article(library.current) ?? null) : null);
+  /** A figure on the article's first line is its briefing banner, shown above the objectives. */
+  const lead = $derived.by(() => {
+    const m = cur ? FIG_LINE.exec(cur.body.split("\n", 1)[0]) : null;
+    const url = m ? figure(m[2]) : undefined;
+    return m && url ? { url, alt: m[1].trim() } : null;
+  });
   const objectives = $derived(cur ? parts(cur) : []);
   const ticks = $derived(cur ? (library.progress[cur.id] ?? {}) : {});
 
@@ -119,6 +127,13 @@
         {#if flash}<span class="flash" role="status">{flash}</span>{/if}
       </header>
 
+      {#if lead}
+        <figure class="brief">
+          <img src={lead.url} alt={lead.alt} decoding="async" draggable="false" />
+          {#if lead.alt}<figcaption><span class="btag" aria-hidden="true">◢ BRIEFING</span> {lead.alt}</figcaption>{/if}
+        </figure>
+      {/if}
+
       {#if tracked(cur) && objectives.length}
         <aside class="quest" aria-label="Objectives" data-guide="library-objectives">
           <div class="qhead">
@@ -145,6 +160,8 @@
         steps
         onview={(v) => ui.go(v as never)}
         onarticle={(id) => library.read(id)}
+        {figure}
+        hideLead={!!lead}
         ticks={tracked(cur) ? ticks : undefined}
         ontick={tracked(cur) ? (k, on) => library.tick(cur.id, k, on) : undefined}
       >
@@ -335,6 +352,30 @@
   .flash {
     font-size: var(--fs-xs);
     color: var(--mint);
+  }
+  /* A guide's briefing banner (its leading figure), above the objectives. */
+  .brief {
+    margin: 0 0 14px;
+  }
+  .brief img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+    border-left: 3px solid var(--warn);
+    background: #07080b;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    user-select: none;
+  }
+  .brief figcaption {
+    margin-top: 5px;
+    font-size: var(--fs-xs);
+    color: var(--text-1);
+  }
+  .btag {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-label);
+    color: var(--warn);
   }
   /* Guides: a quest log of objectives (the article's parts). */
   .quest {

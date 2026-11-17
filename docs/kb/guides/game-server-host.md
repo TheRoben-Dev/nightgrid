@@ -1,5 +1,7 @@
 # Game server host
 
+![Game worlds that stay up when you log off.](fig:guide-game-server-host)
+
 Run Valheim, Minecraft, ARK and similar dedicated servers on one Proxmox node, and handle all of the day-to-day work from Nightgrid: starting and stopping, updates, mods, backups and power. The servers keep running with Nightgrid closed. Nightgrid is where you control them.
 
 ## What you end up with

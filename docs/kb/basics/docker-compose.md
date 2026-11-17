@@ -2,6 +2,8 @@
 
 Docker runs each app in a **container**: its own filesystem and processes, built from an **image**, sharing the host's kernel. **Compose** describes a set of containers in one YAML file, so the whole app comes up with one command and the file is the documentation.
 
+![What a compose stack turns into on the host.](fig:compose-anatomy)
+
 ## Words you'll see
 
 - **Image**: a read-only template (`jellyfin/jellyfin:10.9`). The part after `:` is the tag; `latest` is just a tag that moves.

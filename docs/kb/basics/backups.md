@@ -2,6 +2,8 @@
 
 A backup you haven't restored is a hope, not a backup. The aim is simple: when a disk dies, a container corrupts its database or you delete the wrong folder, you can get the data back, and you know it works because you've tried.
 
+![The 3-2-1 rule, with the restore test that proves it.](fig:backups-321)
+
 ## The 3-2-1 rule
 
 - **3** copies of data that matters (the original and two backups),

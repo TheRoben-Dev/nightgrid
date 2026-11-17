@@ -2,6 +2,8 @@
 
 Sonarr (TV), Radarr (films), Prowlarr (indexers), Bazarr (subtitles) and a download client, set up so imports are instant hardlinks instead of slow copies.
 
+![One /data mount everywhere makes imports instant hardlinks.](fig:arr-hardlinks)
+
 ## What you end up with
 
 - Requests that search, download, rename and file themselves into your media library
