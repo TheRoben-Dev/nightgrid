@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CHECKS, followUpHint, lookupBlock, notYetRun, pathsIn, planLookups, takeCheckRequests, wantsLookups } from "./lookups";
-import { contextBlock } from "./prompt";
+import { contextBlock, estimateTokens, fitTurns } from "./prompt";
 
 const kinds = (q: string) => planLookups(q).map((l) => (l.target ? `${l.kind}:${l.target}` : l.kind));
 
@@ -61,6 +61,25 @@ describe("DRIFT read-only checks", () => {
     expect(ctx).toContain("SERVER CHECKS");
     expect(ctx).not.toContain("abc123456789");
     expect(ctx).toContain("[[check KIND]]");
+  });
+
+  it("shares a host's space between its checks and fits the model's window", () => {
+    const big = (kind: "disk" | "containerLogs") => ({ lookup: { kind, target: kind === "disk" ? null : "web" }, command: "x", ok: true, output: Array.from({ length: 600 }, (_, i) => `line ${i}`).join("\n"), clipped: false });
+    const block = lookupBlock("server01", [big("disk"), big("containerLogs")]);
+    expect(block).toContain("line 0\n");
+    expect(block).toContain("line 599");
+    expect(block).toContain("[older lines cut]");
+    expect(block.length).toBeLessThan(6000);
+    const blocks = [block, lookupBlock("server02", [big("disk")])];
+    const roomy = fitTurns([], "why is server01 slow", { view: "overview", lookups: blocks, lookupHint: followUpHint() }, [], 16384);
+    expect(roomy.trimmed).toEqual([]);
+    const sys = estimateTokens(roomy.turns[0].content);
+    // A window with room for the system prompt plus about 1,000 tokens: the checks shrink to fit.
+    const small = fitTurns([], "why is server01 slow", { view: "overview", lookups: blocks, lookupHint: followUpHint() }, [], sys + 1100 + 768 + 64);
+    expect(small.trimmed).toContain("part of the live facts");
+    expect(small.tokens).toBeLessThanOrEqual(sys + 1100);
+    const fit = small;
+    expect(fit.turns[fit.turns.length - 1].content).toContain("SERVER CHECKS");
   });
 
   it("names every check once", () => {
