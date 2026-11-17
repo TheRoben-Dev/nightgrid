@@ -27,7 +27,12 @@ Scan your LAN from one of your hosts, see every device with its maker and servic
 - [ ] **Trust** devices you expect and **Forget** ones that are gone. An unknown NEW device on your LAN is worth identifying.
 - [ ] Networks behind a router, VPN or subnet route: type the range (for example `10.20.0.0/24`) and scan. Devices there show less detail, because MACs and local names don't cross a router.
 
-## Part 4 · Label devices
+## Part 4 · Arrange the map
+
+- [ ] Drag nodes to place them; drop a device onto an access point, switch or host to say it connects through it (or use **Connected through** in its details). **Auto layout** forgets positions; **LIST** gives a compact view.
+- [ ] **Save as expected** remembers the map. Later scans show missing devices as dashed **MISSING** boxes and unexpected ones with **+**.
+
+## Part 5 · Label devices
 
 - [ ] Select a device for its address, MAC, maker (looked up offline), names and services.
 - [ ] **Label** it: a name, a type, `#tags` and a note. Labels follow the MAC and travel in profile exports.

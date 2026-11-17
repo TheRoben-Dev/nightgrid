@@ -17,7 +17,7 @@ Work out why a saved host shows **OFFLINE**, **needs a login** or an error, from
 
 ## Part 2 · Quick checks from another host
 
-- [ ] From a host on the same LAN, in a [Terminal](view:terminal):
+- [ ] [Network](view:network) → **Tools** with **Run from** set to another host on the same LAN: **Ping**, then **Ports** with `22`. Or in a [Terminal](view:terminal) on that host:
 
 ```sh
 ping -c3 <address>
