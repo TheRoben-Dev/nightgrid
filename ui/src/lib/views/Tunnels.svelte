@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { errorText, type TunnelView } from "../api";
-  import { openExternal, writeClipboard } from "../clipboard";
+  import { writeClipboard } from "../clipboard";
+  import { webui } from "../stores/webui.svelte";
   import Panel from "../components/Panel.svelte";
   import Sparkline from "../components/metrics/Sparkline.svelte";
   import { formatSize } from "../files/util";
@@ -148,7 +149,7 @@
             </span>
             <span class="acts" role="cell">
               {#if endpoint && t.kind === "local"}
-                <button type="button" class="btn ghost tiny" onclick={() => openExternal(`http://${endpoint}/`)}>Browse</button>
+                <button type="button" class="btn ghost tiny" title="Open http://{endpoint}/ in a Nightgrid window" onclick={() => void webui.open(null, `http://${endpoint}/`, t.name)}>Browse</button>
               {/if}
               <button type="button" class="btn tiny" class:primary={!isActive(s)} disabled={tunnels.busy.includes(t.id)} onclick={() => tunnels.toggle(t.id)}>
                 {isActive(s) ? (t.temporary ? "Close" : "Stop") : "Start"}

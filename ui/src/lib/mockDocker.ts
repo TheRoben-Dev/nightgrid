@@ -60,6 +60,9 @@ function seed(): Fake[] {
       service,
       composeDir: project ? `/srv/${project}` : null,
       composeFiles: project ? [`/srv/${project}/compose.yaml`] : [],
+      web: ports
+        .filter(([, pub]) => pub !== null)
+        .map(([p, pub]) => ({ port: pub as number, scheme: [443, 8443, 9443].includes(p) ? "https" : "http", path: "/", bind: null, labelled: false })),
     },
     env,
   });

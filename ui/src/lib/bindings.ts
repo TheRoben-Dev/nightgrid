@@ -221,6 +221,11 @@ export const commands = {
 	 *  existing temporary tunnel to the same place is reused.
 	 */
 	tunnelOpenTemporary: (hostId: number, destHost: string, destPort: number, options?: InvokeOptions) => __TAURI_INVOKE<number>("tunnel_open_temporary", { hostId, destHost, destPort }, options),
+	/**
+	 *  Opens `url` in a Nightgrid window. With `host_id`, the URL is as that host
+	 *  sees it (so `http://127.0.0.1:8080` means the host's own port 8080).
+	 */
+	webuiOpen: (hostId: number | null, url: string, title: string, options?: InvokeOptions) => __TAURI_INVOKE<WebUiOpen_Serialize>("webui_open", { hostId, url, title }, options),
 	systemInfo: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<SystemInfo>("system_info", { hostId }, options),
 	/**  Deletes the host's saved sudo password. */
 	systemSudoForget: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_sudo_forget", { hostId }, options),
@@ -2090,6 +2095,8 @@ export type ContainerView_Deserialize = {
 	composeDir?: string | null,
 	/**  Compose files the project was started with (absolute paths). */
 	composeFiles: string[],
+	/**  Published ports that look like a web UI, best first (D-147). */
+	web: WebUiTarget_Deserialize[],
 };
 
 export type ContainerView_Serialize = {
@@ -2110,6 +2117,8 @@ export type ContainerView_Serialize = {
 	composeDir: string | null,
 	/**  Compose files the project was started with (absolute paths). */
 	composeFiles: string[],
+	/**  Published ports that look like a web UI, best first (D-147). */
+	web: WebUiTarget_Serialize[],
 };
 
 /**  A change to one crontab. */
@@ -8112,6 +8121,65 @@ export type WatchKind =
 "token" | 
 /**  A licence or subscription. */
 "license" | "other";
+
+export type WebUiOpen = WebUiOpen_Serialize | WebUiOpen_Deserialize;
+
+export type WebUiOpen_Deserialize = {
+	/**  Whether a window is showing the page. */
+	opened: boolean,
+	/**  What the window loaded (the local end of the tunnel, when tunnelled). */
+	url: string,
+	viaTunnel: boolean,
+	/**
+	 *  Why it didn't open in Nightgrid, with a browser as the way out
+	 *  (an untrusted certificate, which the window can't step past).
+	 */
+	problem?: string | null,
+};
+
+export type WebUiOpen_Serialize = {
+	/**  Whether a window is showing the page. */
+	opened: boolean,
+	/**  What the window loaded (the local end of the tunnel, when tunnelled). */
+	url: string,
+	viaTunnel: boolean,
+	/**
+	 *  Why it didn't open in Nightgrid, with a browser as the way out
+	 *  (an untrusted certificate, which the window can't step past).
+	 */
+	problem: string | null,
+};
+
+/**  One way into a container's web UI. */
+export type WebUiTarget = WebUiTarget_Serialize | WebUiTarget_Deserialize;
+
+/**  One way into a container's web UI. */
+export type WebUiTarget_Deserialize = {
+	/**  The port published on the host. */
+	port: number,
+	/**  "http" or "https". */
+	scheme: string,
+	/**  Starts with "/". */
+	path: string,
+	/**  The address Docker bound the port to, when not every address. */
+	bind?: string | null,
+	/**  Picked by the `nightgrid.webui` label rather than guessed. */
+	labelled: boolean,
+};
+
+/**  One way into a container's web UI. */
+export type WebUiTarget_Serialize = {
+	/**  The port published on the host. */
+	port: number,
+	/**  "http" or "https". */
+	scheme: string,
+	/**  Starts with "/". */
+	path: string,
+	/**  The address Docker bound the port to, when not every address. */
+	bind: string | null,
+	/**  Picked by the `nightgrid.webui` label rather than guessed. */
+	labelled: boolean,
+};
 
 export type WebhookInfo = WebhookInfo_Serialize | WebhookInfo_Deserialize;
 

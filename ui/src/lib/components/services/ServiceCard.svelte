@@ -6,6 +6,7 @@
   import Sparkline from "../metrics/Sparkline.svelte";
   import { errorText } from "../../api";
   import { tunnels } from "../../stores/tunnels.svelte";
+  import { webui } from "../../stores/webui.svelte";
 
   interface Props {
     service: Service;
@@ -80,7 +81,14 @@
   <header>
     <span class="mono-badge" aria-hidden="true">{monogram}</span>
     <div class="title">
-      <button type="button" class="name" title="Open {service.url} in your browser" onclick={() => openExternal(service.url)}>
+      <button
+        type="button"
+        class="name"
+        title="Open {service.url} in a Nightgrid window"
+        data-guide="service-webui"
+        disabled={webui.isBusy(service.hostId ?? null, service.url)}
+        onclick={() => void webui.open(service.hostId ?? null, service.url, service.name)}
+      >
         {service.name}
       </button>
       <span class="url">{hostOfUrl(service.url)}</span>
@@ -145,6 +153,7 @@
         onclick={viaTunnel}>{viaBusy ? "…" : "Tunnel"}</button
       >
     {/if}
+    <button type="button" class="btn ghost tiny" title="Open {service.url} in your browser" aria-label="Open {service.name} in your browser" onclick={() => openExternal(service.url)}>↗</button>
     <button type="button" class="btn ghost tiny" onclick={() => (services.editing = service.id)}>Edit</button>
   </footer>
 </article>

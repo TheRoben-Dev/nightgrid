@@ -100,6 +100,7 @@ _Last updated: M2 (SFTP + editor)._
 - **Forwarding** (`core/src/tunnels/forward.rs`): `listen`, `serve_local` (`direct-tcpip` per connection), `serve_dynamic` (SOCKS5 from `socks.rs`, then `direct-tcpip`), `request_remote` + `serve_remote` (`tcpip-forward`; incoming `forwarded-tcpip` channels are routed by the russh handler through `Connection::forwards`). `Stats` counts bytes at the local end. Each loop ends when the SSH connection closes or the future is dropped.
 - **App** (`app/src/tunnels_cmd.rs`): `TunnelHub` holds one task per running tunnel (connect via the pool → serve → backoff and retry), the states, temporary forwards (negative ids) and a 1 s stats ticker. `connect_host` calls `host_connected` so auto-start tunnels follow reconnects (D-047).
 - **UI**: `stores/tunnels.svelte.ts` (states, traffic, per-second rates, `openThrough`), `views/Tunnels.svelte`, `components/tunnels/TunnelEditor.svelte`; `mockTunnels.ts` for browser dev.
+- **Web UI windows** (D-147): `core/src/webui.rs` picks a container's web ports (`ContainerView.web`) and parses URLs; `app/src/webui_cmd.rs` (`webui_open`) dials directly or opens a temporary tunnel, probes the page, then opens a `web-<n>` window with no capability (the invoke handler in `lib.rs` also refuses non-`main` webviews). UI: `stores/webui.svelte.ts`, `components/webui/WebUiNotice.svelte`.
 
 ## System (M6)
 

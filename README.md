@@ -613,6 +613,14 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing web UIs in Nightgrid (0.10.63)
+
+1. Docker: a running container with a web port (AMP, Portainer, Homepage…) has **⧉** on its row. Click it: the page opens in its own window titled with the service. Clicking again focuses the same window.
+2. A container whose port is published only on `127.0.0.1`, or a host you reach only through the built-in tailnet: **⧉** still opens it (through a temporary SSH tunnel, listed under Tunnels).
+3. Services: click a service's name; it opens in a Nightgrid window. **↗** opens it in your browser instead.
+4. A self-signed HTTPS panel (Proxmox on 8006): a WEB UI note says the window can't show it, and **Open in browser** opens it there.
+5. Stop the container and click its Web UI button in the detail panel quickly: a note says nothing answers on that port.
+
 ### macOS: testing the Library (0.10.62)
 
 1. `Mod+Shift+L` (or Knowledge → **LIBRARY**): three shelves; search "restic password" lists Backups first.

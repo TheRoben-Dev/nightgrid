@@ -42,6 +42,7 @@ mod tunnels_cmd;
 mod update_cmd;
 mod ups_cmd;
 mod uptime_cmd;
+mod webui_cmd;
 
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
@@ -148,6 +149,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         tunnels_cmd::tunnel_start,
         tunnels_cmd::tunnel_stop,
         tunnels_cmd::tunnel_open_temporary,
+        webui_cmd::webui_open,
         system_cmd::system_info,
         system_cmd::system_sudo_forget,
         system_cmd::system_units,
@@ -402,12 +404,25 @@ pub fn run() {
         .manage(update_cmd::PendingUpdate::default())
         .manage(helper_cmd::Helper::default())
         .manage(desktop_cmd::Desktops::default())
+        .manage(webui_cmd::WebWindows::default())
         .invoke_handler({
             // desktop_frame returns raw bytes, which specta can't type, so it's
             // registered beside the typed commands.
             let typed = builder.invoke_handler();
             let raw = raw_handler();
-            move |invoke| if invoke.message.command() == "desktop_frame" { raw(invoke) } else { typed(invoke) }
+            move |invoke| {
+                // Only the app's own window talks to the backend. Web UI
+                // windows show remote pages and get no IPC at all (D-147).
+                if invoke.message.webview().label() != "main" {
+                    invoke.resolver.reject("not allowed from this window");
+                    return true;
+                }
+                if invoke.message.command() == "desktop_frame" {
+                    raw(invoke)
+                } else {
+                    typed(invoke)
+                }
+            }
         })
         .setup(move |app| {
             builder.mount_events(app);

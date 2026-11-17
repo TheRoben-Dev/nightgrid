@@ -792,6 +792,7 @@ mod tests {
             service: None,
             compose_dir: None,
             compose_files: vec![],
+            web: vec![],
         }
     }
 
