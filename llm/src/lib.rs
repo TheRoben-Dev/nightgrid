@@ -157,6 +157,43 @@ impl Engine {
         self.model.vocab().tokenize(text.as_bytes(), false, true).len()
     }
 
+    /// Fits `messages` into the context window, leaving `reserve` tokens for
+    /// the reply: drops the oldest turns between the system prompt and the
+    /// newest message, then cuts the middle out of the newest message (its
+    /// start and its end, where the question is, stay). Returns the prompt's
+    /// tokens. Fails only when the system prompt alone doesn't fit.
+    pub fn fit(&self, messages: &mut Vec<Message>, reserve: usize) -> Result<usize> {
+        let limit = self.context() as usize;
+        let reserve = reserve.min(limit / 4);
+        let max = limit.saturating_sub(reserve + 16);
+        let count = |m: &[Message]| -> Result<usize> { Ok(self.count_tokens(&self.render(m)?) + 1) };
+        let mut n = count(messages)?;
+        let first = usize::from(messages.first().is_some_and(|m| m.role == "system"));
+        while n > max && messages.len() > first + 1 {
+            messages.remove(first);
+            n = count(messages)?;
+        }
+        while n > max {
+            let Some(last) = messages.last_mut() else { break };
+            let chars: Vec<char> = last.content.chars().collect();
+            if chars.len() < 200 {
+                break;
+            }
+            // Keep a quarter at the start and the end; tokens shrink about as
+            // much as the text, so this converges in a few rounds.
+            let keep = ((chars.len() as f64) * (max as f64 / n as f64) * 0.9) as usize;
+            let keep = keep.min(chars.len() - 100).max(100);
+            let head: String = chars[..keep / 4].iter().collect();
+            let tail: String = chars[chars.len() - (keep - keep / 4)..].iter().collect();
+            last.content = format!("{head}\n[… cut to fit the model's context …]\n{tail}");
+            n = count(messages)?;
+        }
+        if n > max {
+            return Err(LlmError::TooLong { tokens: n, limit });
+        }
+        Ok(n)
+    }
+
     /// Generates the assistant's reply, calling `on_text` with each new piece
     /// of valid UTF-8 as it is produced. Stops at the end of the turn, at
     /// `max_tokens`, or soon after `cancel` is set.
@@ -287,5 +324,22 @@ mod tests {
         let long = Message::new("user", "word ".repeat(4000));
         let e = engine.generate(&[long], &GenOptions::default(), &AtomicBool::new(false), |_| {}).unwrap_err();
         assert!(matches!(e, LlmError::TooLong { .. }), "{e}");
+
+        // fit() makes it fit instead: older turns go, then the newest
+        // message loses its middle but keeps its start and its question.
+        let mut msgs = vec![
+            Message::new("system", "You are terse."),
+            Message::new("user", "old question ".repeat(300)),
+            Message::new("assistant", "old answer ".repeat(300)),
+            Message::new("user", format!("START {} Question: what now?", "word ".repeat(4000))),
+        ];
+        let n = engine.fit(&mut msgs, 256).unwrap();
+        assert!(n + 256 <= 2048, "{n}");
+        assert_eq!(msgs.len(), 2);
+        assert!(msgs[1].content.starts_with("START") && msgs[1].content.ends_with("what now?"));
+        let out = engine
+            .generate(&msgs, &GenOptions { max_tokens: 8, temperature: 0.0, seed: 1 }, &AtomicBool::new(false), |_| {})
+            .unwrap();
+        assert!(out.prompt_tokens == n || out.prompt_tokens + 1 == n, "{} vs {n}", out.prompt_tokens);
     }
 }

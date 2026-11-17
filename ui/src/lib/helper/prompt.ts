@@ -6,7 +6,7 @@
 import { RAIL, SECTIONS, railPath, type SectionId } from "../sections";
 import { FEATURES } from "../features";
 import { GUIDE_TARGETS, guideTarget, VIEW_IDS } from "./guide";
-import type { Chunk } from "./knowledge";
+import { clip, terms, type Chunk } from "./knowledge";
 import { TOURS, tourById } from "./tours";
 
 export interface Turn {
@@ -63,7 +63,52 @@ export function setFeatureCheck(f: (id: string) => boolean) {
   on = f;
 }
 
-export function systemPrompt(): string {
+/** What the question is about, so the prompt lists only the controls that matter. */
+export interface Focus {
+  question: string;
+  view?: SectionId;
+  /** Titles of the retrieved guide sections ("Docker", "Fleet › Updates"). */
+  titles?: string[];
+}
+
+/** Most "point" targets listed for one question (beyond the sidebar rows). */
+export const MAX_TARGETS = 24;
+const TARGETS_CHARS = 3600;
+
+/**
+ * The view-specific "point" targets worth listing for a question: the ones
+ * whose words match it, then the ones in the views it's about (the current
+ * view, views it names and views the retrieved sections cover). Listing all
+ * 200+ cost about 6k tokens, more than the small models' whole window.
+ */
+export function focusTargets(all: { id: string; view: SectionId | null; what: string }[], focus?: Focus): typeof all {
+  if (!focus) return [];
+  const q = new Set(terms(focus.question));
+  const text = `${focus.question} ${(focus.titles ?? []).join(" ")}`.toLowerCase();
+  const views = new Set<string>(focus.view ? [focus.view] : []);
+  for (const s of SECTIONS) if (new RegExp(`\\b${s.label.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(text) || new RegExp(`\\b${s.id}\\b`).test(text)) views.add(s.id);
+  const scored = all
+    .map((t, i) => {
+      const words = new Set(terms(`${t.id.replace(/-/g, " ")} ${t.what}`));
+      let s = 0;
+      for (const w of q) if (words.has(w)) s += 2;
+      if (t.view && views.has(t.view)) s += 1;
+      return { t, s, i };
+    })
+    .filter((x) => x.s > 0)
+    .sort((a, b) => b.s - a.s || a.i - b.i);
+  const out: typeof all = [];
+  let chars = 0;
+  for (const { t } of scored) {
+    const n = t.id.length + t.what.length + 3;
+    if (out.length >= MAX_TARGETS || chars + n > TARGETS_CHARS) break;
+    out.push(t);
+    chars += n;
+  }
+  return out;
+}
+
+export function systemPrompt(focus?: Focus): string {
   // Views turned off in Settings → Features aren't offered.
   const views = SECTIONS.filter((s) => on(s.id))
     .map((s) => `${s.id} (${railPath(s.id)})`)
@@ -78,7 +123,15 @@ export function systemPrompt(): string {
     .filter((x) => x.m.length)
     .map(({ r, m }) => (m.length > 1 ? `${r.label} (tabs: ${m.map((v) => r.tabs?.[v] ?? SECTIONS.find((s) => s.id === v)?.label).join(", ")})` : SECTIONS.find((s) => s.id === m[0])?.label))
     .join(", ");
-  const targets = GUIDE_TARGETS.filter(targetOn).map((t) => `${t.id}: ${t.what}`).join("\n");
+  // Sidebar rows, view tabs and controls visible everywhere are always
+  // listed; a view's own controls only when the question is about them.
+  const usable = GUIDE_TARGETS.filter(targetOn);
+  const always = usable.filter((t) => t.view === null || own(t.id));
+  const picked = new Set(focusTargets(usable.filter((t) => !always.includes(t)), focus).map((t) => t.id));
+  const targets = usable
+    .filter((t) => always.includes(t) || picked.has(t.id))
+    .map((t) => `${t.id}: ${t.what}`)
+    .join("\n");
   const off = FEATURES.filter((f) => !on(f.id)).map((f) => f.label);
   const tours = TOURS.map((t) => `${t.id} (${t.what})`).join("; ");
   return `You are DRIFT, the built-in helper of Nightgrid, a desktop app that manages servers over SSH (terminals, files, Docker, monitoring, services, tunnels, system tasks, automation). You run locally on the user's computer.
@@ -100,7 +153,7 @@ Showing the user where things are: when it helps, end your reply with action lin
 [[show VIEW]]
 [[point TARGET: short note]]
 "show" switches to a view: ${views}.
-"point" highlights a control (it never clicks it). Only use these TARGET ids:
+"point" highlights a control (it never clicks it). Only use these TARGET ids (when none fits, use show alone):
 ${targets}
 Use at most one show and three points, in the order the user should follow.
 For a task with several steps across views, offer a guided tour instead (it waits for the user at each step):
@@ -134,18 +187,112 @@ export function contextBlock(ctx: HelperContext, docs: Chunk[]): string {
   return parts.join("\n\n");
 }
 
+// ── fitting the model's window ─────────────────────────────────────────
+
+/** Tokens kept free for the reply (the backend's max_tokens). */
+export const REPLY_TOKENS = 768;
+/** Context window assumed until the backend reports the loaded model's. */
+export const DEFAULT_CONTEXT = 8192;
+/** Longest single guide, library or note section in the prompt. */
+export const MAX_DOC = 1800;
+/** Longest CHECKS block and longest MY HOSTS block per host (lookups can reuse it). */
+export const MAX_LIVE = 3000;
+
+/**
+ * A safe upper estimate of the tokens `text` takes. Qwen's tokenizer averages
+ * about 4 characters per token on English and 3 on code and markdown; 3 keeps
+ * an estimate on the high side, and the backend trims anything still over.
+ */
+export const estimateTokens = (text: string) => Math.ceil(text.length / 3);
+
+/** Chat-template tokens around each turn. */
+const TURN_OVERHEAD = 8;
+
+const group = (d: Chunk) => (d.noteId !== undefined ? 2 : (d as { articleId?: string }).articleId ? 1 : 0);
+
+/** Docs in the order to keep them: the best of each kind first, round robin. */
+export function byPriority(docs: Chunk[]): Chunk[] {
+  const groups: Chunk[][] = [[], [], []];
+  for (const d of docs) groups[group(d)].push(d);
+  const out: Chunk[] = [];
+  for (let i = 0; out.length < docs.length; i++) for (const g of groups) if (g[i]) out.push(g[i]);
+  return out;
+}
+
+export interface Fitted {
+  turns: Turn[];
+  /** The sections that made it into the prompt, in their original order. */
+  docs: Chunk[];
+  /** Estimated prompt tokens. */
+  tokens: number;
+  /** What was left out to fit, for the "What I was given" list. */
+  trimmed: string[];
+}
+
+/**
+ * Builds the conversation and fits it into `contextTokens` (minus room for
+ * the reply): long sections are cut, then the lowest-ranked sections, older
+ * turns, the rest of the sections, the selection and the live facts are
+ * dropped in that order. The first question always fits.
+ */
+export function fitTurns(history: Turn[], question: string, ctx: HelperContext, docs: Chunk[], contextTokens = DEFAULT_CONTEXT): Fitted {
+  const budget = Math.max(1024, contextTokens - REPLY_TOKENS - 64);
+  const trimmed: string[] = [];
+  const sys = systemPrompt({ question, view: ctx.view, titles: docs.filter((d) => d.noteId === undefined).map((d) => d.title) });
+  let c: HelperContext = {
+    ...ctx,
+    checks: ctx.checks ? clip(ctx.checks, MAX_LIVE, "\n[cut to fit]") : ctx.checks,
+    hosts: ctx.hosts?.map((h) => clip(h, MAX_LIVE, "\n[cut to fit]")),
+    devices: ctx.devices?.slice(0, 40),
+  };
+  const clipped = docs.map((d) => (d.text.length > MAX_DOC ? { ...d, text: clip(d.text, MAX_DOC, "\n[…]") } : d));
+  const ranked = byPriority(clipped);
+  let keep = ranked.length;
+  let past = history.filter((t) => t.role !== "system").slice(-8);
+  // A past turn starts with its question's role, so drop them in pairs.
+  while (past.length && past[0].role !== "user") past = past.slice(1);
+  const build = () => {
+    const kept = new Set(ranked.slice(0, keep));
+    const used = clipped.filter((d) => kept.has(d));
+    const turns: Turn[] = [{ role: "system", content: sys }, ...past, { role: "user", content: `${contextBlock(c, used)}\n\nQuestion: ${redact(question.trim())}` }];
+    const tokens = turns.reduce((a, t) => a + estimateTokens(t.content) + TURN_OVERHEAD, 0);
+    return { turns, used, tokens };
+  };
+  let r = build();
+  const step = (): boolean => {
+    if (keep > 2) {
+      trimmed.push(ranked[keep - 1].title);
+      keep--;
+    } else if (past.length) {
+      past = past.slice(2);
+      trimmed.push("earlier messages");
+    } else if (keep > 0) {
+      trimmed.push(ranked[keep - 1].title);
+      keep--;
+    } else if (c.selection && c.selection.length > 400) {
+      c = { ...c, selection: c.selection.slice(-Math.floor(c.selection.length / 2)) };
+      if (!trimmed.includes("part of the attached text")) trimmed.push("part of the attached text");
+    } else if (c.hosts?.some((h) => h.length > 400) || (c.checks?.length ?? 0) > 400) {
+      c = {
+        ...c,
+        hosts: c.hosts?.map((h) => clip(h, Math.max(400, Math.floor(h.length / 2)), "\n[cut to fit]")),
+        checks: c.checks ? clip(c.checks, Math.max(400, Math.floor(c.checks.length / 2)), "\n[cut to fit]") : c.checks,
+      };
+      if (!trimmed.includes("part of the live facts")) trimmed.push("part of the live facts");
+    } else return false;
+    return true;
+  };
+  while (r.tokens > budget && step()) r = build();
+  return { turns: r.turns, docs: r.used, tokens: r.tokens, trimmed };
+}
+
 /**
  * The full conversation sent to the model. Earlier turns are kept as plain
  * text; only the newest question carries the context and guide sections,
  * which keeps the prompt small.
  */
-export function buildTurns(history: Turn[], question: string, ctx: HelperContext, docs: Chunk[]): Turn[] {
-  const past = history.filter((t) => t.role !== "system").slice(-8);
-  return [
-    { role: "system", content: systemPrompt() },
-    ...past,
-    { role: "user", content: `${contextBlock(ctx, docs)}\n\nQuestion: ${redact(question.trim())}` },
-  ];
+export function buildTurns(history: Turn[], question: string, ctx: HelperContext, docs: Chunk[], contextTokens = DEFAULT_CONTEXT): Turn[] {
+  return fitTurns(history, question, ctx, docs, contextTokens).turns;
 }
 
 const ACTION = /^\s*\[\[\s*(show|point|tour)\s+([a-z0-9-]+)\s*(?::\s*(.*?))?\s*\]\]\s*$/i;
