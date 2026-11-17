@@ -331,6 +331,23 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/duplicati", shelf: "apps", title: "Duplicati backups with a web UI", cat: "storage" },
   { id: "apps/sabnzbd", shelf: "apps", title: "SABnzbd Usenet downloader", cat: "media" },
   { id: "apps/jellystat", shelf: "apps", title: "Jellystat for Jellyfin statistics", cat: "media" },
+  { id: "apps/wazuh", shelf: "apps", title: "Wazuh security monitoring (SIEM)", cat: "security" },
+  { id: "apps/zabbix", shelf: "apps", title: "Zabbix monitoring", cat: "monitoring" },
+  { id: "apps/graylog", shelf: "apps", title: "Graylog central log server", cat: "monitoring" },
+  { id: "apps/keycloak", shelf: "apps", title: "Keycloak identity server", cat: "security" },
+  { id: "apps/netbird", shelf: "apps", title: "NetBird mesh VPN", cat: "network" },
+  { id: "apps/seafile", shelf: "apps", title: "Seafile file sync", cat: "storage" },
+  { id: "apps/outline", shelf: "apps", title: "Outline team wiki", cat: "productivity" },
+  { id: "apps/hedgedoc", shelf: "apps", title: "HedgeDoc collaborative Markdown", cat: "productivity" },
+  { id: "apps/semaphore", shelf: "apps", title: "Semaphore UI for Ansible", cat: "dev" },
+  { id: "apps/valheim", shelf: "apps", title: "Valheim server in Docker", cat: "gaming" },
+  { id: "apps/satisfactory", shelf: "apps", title: "Satisfactory dedicated server", cat: "gaming" },
+  { id: "guides/mini-pc-homelab", shelf: "guides", title: "Mini PC homelab", cat: "hardware" },
+  { id: "linux/cups-print-server", shelf: "linux", title: "Share a printer with CUPS", cat: "hardware" },
+  { id: "apps/romm", shelf: "apps", title: "RomM retro game library", cat: "gaming" },
+  { id: "apps/pairdrop", shelf: "apps", title: "PairDrop local file sharing", cat: "productivity" },
+  { id: "apps/ntopng", shelf: "apps", title: "ntopng traffic analysis", cat: "network" },
+  { id: "apps/webtop", shelf: "apps", title: "Webtop Linux desktop in a browser", cat: "virtualization" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));

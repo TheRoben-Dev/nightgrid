@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.67] - 2026-11-17
+
+### Added: 17 more Library articles
+- **Apps**: Wazuh security monitoring, Zabbix, Graylog, Keycloak, NetBird, Seafile, Outline, HedgeDoc, Semaphore UI for Ansible, ntopng, PairDrop, Webtop (a Linux desktop opened through Nightgrid's SSH tunnel), RomM, and Valheim and Satisfactory servers.
+- **Guide**: a mini PC homelab, from choosing an N100 or used business mini to BIOS settings, install, Wake-on-LAN and power draw.
+- **Linux skills**: share a printer with CUPS (AirPrint for phones, Windows by address).
+- The library now holds 284 articles.
+
 ## [0.10.66] - 2026-11-17
 
 ### Added: 12 more Library articles
