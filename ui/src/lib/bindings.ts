@@ -755,7 +755,7 @@ export const commands = {
 	 *  these entries (reset, or save as expected).
 	 */
 	netmapLayoutSave: (entries: LayoutEntry_Deserialize[], replace: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_layout_save", { entries, replace }, options),
-	/**  Saved networks (D-153), most recently seen first. */
+	/**  Saved networks (D-154), most recently seen first. */
 	netmapNetworks: (options?: InvokeOptions) => __TAURI_INVOKE<SavedNetwork_Serialize[]>("netmap_networks", undefined, options),
 	/**  The last scan of a saved network, to show it (or overlay it) without a rescan. */
 	netmapNetworkScan: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize | null>("netmap_network_scan", { id }, options),
@@ -4755,7 +4755,7 @@ export type NetDevice_Deserialize = {
 	lastSeen: number | null,
 	trusted: boolean,
 	/**
-	 *  The saved network it was last seen on (D-153); none for tailnet-only
+	 *  The saved network it was last seen on (D-154); none for tailnet-only
 	 *  peers and devices from before saved networks.
 	 */
 	network?: number | null,
@@ -4774,7 +4774,7 @@ export type NetDevice_Serialize = {
 	lastSeen: number | null,
 	trusted: boolean,
 	/**
-	 *  The saved network it was last seen on (D-153); none for tailnet-only
+	 *  The saved network it was last seen on (D-154); none for tailnet-only
 	 *  peers and devices from before saved networks.
 	 */
 	network: number | null,

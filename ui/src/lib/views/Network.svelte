@@ -87,7 +87,7 @@
   const ago = (t: number | null) => (t ? new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
   const tsPeers = $derived(netmap.result?.devices.filter((d) => d.seen.includes("tailscale")) ?? []);
 
-  // Saved networks (D-153).
+  // Saved networks (D-154).
   const curNet = $derived(netmap.result?.network ?? null);
   let editNet = $state<number | null>(null);
   let netName = $state("");

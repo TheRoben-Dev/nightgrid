@@ -28,7 +28,7 @@ pub struct NetDevice {
     #[cfg_attr(feature = "specta", specta(type = f64))]
     pub last_seen: i64,
     pub trusted: bool,
-    /// The saved network it was last seen on (D-153); none for tailnet-only
+    /// The saved network it was last seen on (D-154); none for tailnet-only
     /// peers and devices from before saved networks.
     #[cfg_attr(feature = "specta", specta(type = Option<i32>))]
     pub network: Option<i64>,

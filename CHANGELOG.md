@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
-## [0.10.81] - 2026-11-17
+## [0.10.82] - 2026-11-17
 
 ### Added: saved networks on the network map
 - **Scans know which network they're on**: each scan is matched to a saved network by its subnet and its router's MAC address. A laptop on home Wi-Fi and servers on another LAN are separate networks, and so are two places that both use `192.168.1.x`.

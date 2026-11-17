@@ -106,7 +106,7 @@ export function networkOf(addr: string, prefix: number): string | null {
 /** The saved-layout key of a map node. */
 export function nodeKey(n: MapNode): string {
   if (n.kind === "host" && n.hostId !== undefined) return `host:${n.label}`;
-  // Each network's router has its own place on the map: keyed by its MAC (D-153).
+  // Each network's router has its own place on the map: keyed by its MAC (D-154).
   if (n.kind === "gateway" && n.device?.mac) return `gw:${labelKey(n.device.mac, n.ip ?? "")}`;
   if (n.kind === "device" && n.device) return labelKey(n.device.mac, n.device.ip);
   return n.id;
@@ -167,7 +167,7 @@ export function buildTopology({ graph, disc, layout, inventory = [], labels = ne
   const expected = layout.filter((e) => e.expected);
   const isDeviceKey = (k: string) => k.startsWith("ip:") || /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/.test(k);
   const diff: TopoDiff = { hasExpected: expected.length > 0, missing: [], unexpected: [] };
-  // A device last seen on another saved network is there, not missing from this one (D-153).
+  // A device last seen on another saved network is there, not missing from this one (D-154).
   const thisNet = disc?.network?.id ?? null;
   const elsewhere = (inv: NetDevice | undefined) => thisNet !== null && inv !== undefined && inv.network !== null && inv.network !== thisNet;
   const onThisLan = (ip: string | undefined) =>

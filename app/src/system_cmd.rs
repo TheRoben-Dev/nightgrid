@@ -191,7 +191,7 @@ pub(crate) fn now_secs() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
 }
 
-/// Records a scan: finds (or saves) the network it was on (D-153), merges
+/// Records a scan: finds (or saves) the network it was on (D-154), merges
 /// it into the device inventory (new/missing/trusted fields), and keeps it as
 /// that network's last scan. An error here doesn't lose the scan.
 pub(crate) fn with_inventory(
@@ -270,7 +270,7 @@ pub fn netmap_device_forget(state: State<'_, AppState>, key: String) -> CmdResul
     Ok(state.store().net_device_forget(&key)?)
 }
 
-/// Saved networks (D-153), most recently seen first.
+/// Saved networks (D-154), most recently seen first.
 #[tauri::command]
 #[specta::specta]
 pub fn netmap_networks(state: State<'_, AppState>) -> CmdResult<Vec<nightgrid_core::netnets::SavedNetwork>> {

@@ -32,7 +32,7 @@ class NetmapStore {
 
   readonly labelMap: ReadonlyMap<string, DeviceLabel> = $derived(new Map(this.labels.map((l) => [l.key, l])));
 
-  /** Saved networks (D-153), most recently seen first. */
+  /** Saved networks (D-154), most recently seen first. */
   networks = $state<SavedNetwork[]>([]);
   networksError = $state<string | null>(null);
   /** Saved networks drawn on the map beside the scan on show (ids; kept across restarts). */

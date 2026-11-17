@@ -119,7 +119,7 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
 
 const inventory = new Map<string, NetDevice>();
 
-/** A second made-up network for saved networks (D-153): a lab behind its own router, seen from one of its hosts. */
+/** A second made-up network for saved networks (D-154): a lab behind its own router, seen from one of its hosts. */
 function labDiscovery(): Discovery {
   const now = Math.floor(Date.now() / 1000);
   const t = now - 2 * 86400;

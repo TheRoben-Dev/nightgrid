@@ -1,4 +1,4 @@
-//! Saved networks for the network map (D-153). A scan is matched to a
+//! Saved networks for the network map (D-154). A scan is matched to a
 //! network by its fingerprint: the subnet the scanner sits on and its
 //! router's address and MAC. The router's MAC tells two networks that both
 //! use `192.168.1.0/24` apart (a home and a friend's place), and the subnet
