@@ -109,6 +109,8 @@ pub struct AppSettings {
     pub profile_reminder_snooze: Option<f64>,
     /// Read-only phone status page served by the app. Machine-specific.
     pub status_page: StatusPageSettings,
+    /// Background network scans with alerts (D-145).
+    pub net_watch: NetWatchSettings,
     /// Overview dashboards (M10o). Empty means the built-in default.
     pub dashboards: Vec<crate::dashboard::Dashboard>,
     /// Index of the dashboard shown.
@@ -168,6 +170,39 @@ pub struct StatusPageSettings {
 impl Default for StatusPageSettings {
     fn default() -> Self {
         Self { enabled: false, bind: "lan".into(), port: 8787 }
+    }
+}
+
+/// The network watch: a quiet discovery every so often from one machine,
+/// with alerts for new devices, expected devices that are gone and risky
+/// exposure. Off by default.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(default, rename_all = "camelCase")]
+pub struct NetWatchSettings {
+    pub enabled: bool,
+    /// The host to scan from; `None` = this computer.
+    pub scanner: Option<crate::hosts::HostId>,
+    /// Minutes between scans, 10–1440.
+    pub minutes: u16,
+    /// Also ping-sweep the scanner's subnet (finds quiet devices; ~30 s).
+    pub sweep: bool,
+    pub alert_new: bool,
+    pub alert_missing: bool,
+    pub alert_risks: bool,
+}
+
+impl Default for NetWatchSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            scanner: None,
+            minutes: 60,
+            sweep: false,
+            alert_new: true,
+            alert_missing: true,
+            alert_risks: true,
+        }
     }
 }
 
@@ -305,6 +340,7 @@ impl Default for AppSettings {
             last_profile_export: None,
             profile_reminder_snooze: None,
             status_page: StatusPageSettings::default(),
+            net_watch: NetWatchSettings::default(),
             handheld: false,
             controller_nav: true,
             helper_enabled: false,
@@ -446,6 +482,7 @@ impl AppSettings {
         range("servicesIntervalSecs", self.services_interval_secs, 15, 3600)?;
         range("profileReminderDays", self.profile_reminder_days, 0, 90)?;
         range("statusPage.port", self.status_page.port, 1024, 65535)?;
+        range("netWatch.minutes", self.net_watch.minutes, 10, 1440)?;
         if !STATUS_BINDS.contains(&self.status_page.bind.as_str()) {
             return Err(Error::Invalid {
                 field: "statusPage.bind",

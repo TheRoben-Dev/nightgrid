@@ -31,7 +31,11 @@ describe("network topology", () => {
     expect(node(t, "net").parent).toBeNull();
     expect(node(t, "d192.168.1.48").parent).toBe("gw");
     expect(node(t, "d100.101.7.12").parent).toBe("ts");
-    expect(node(t, "h1").parent).toBe("gw");
+    // The scanner is plugged into a switch (LLDP), the switch into the router.
+    expect(node(t, "h1").parent).toBe("saa:bb:cc:00:00:02");
+    expect(node(t, "saa:bb:cc:00:00:02").parent).toBe("gw");
+    expect(node(t, "saa:bb:cc:00:00:02").icon).toBe("switch");
+    expect(node(t, "h2").parent).toBe("gw");
     expect(node(t, "d192.168.1.48").icon).toBe("iot");
     expect(node(t, "gw").icon).toBe("router");
     // The scanned host's tailnet side stays as a second, non-tree link.
@@ -85,6 +89,11 @@ describe("network topology", () => {
     expect(lan.members).toContain("d192.168.1.48");
     expect(t.zones.find((z) => z.kind === "routed")?.members).toEqual(["d10.20.0.10", "d10.20.0.25"]);
     expect(t.links.find((l) => l.to === "d10.20.0.10")?.kind).toBe("routed");
+    // The traceroute's last router before the range sits between the router and its devices.
+    expect(node(t, "d10.20.0.10").parent).toBe("r192.168.1.2");
+    expect(node(t, "r192.168.1.2").parent).toBe("gw");
+    expect(node(t, "r192.168.1.2").icon).toBe("router");
+    expect(t.zones.find((z) => z.kind === "routed")?.label).toBe("ROUTED 10.20.0.0/24 via 192.168.1.2 (2 hops)");
     expect(t.zones.find((z) => z.kind === "tailnet")?.members).toContain("ts");
   });
 

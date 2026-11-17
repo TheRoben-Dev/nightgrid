@@ -22,6 +22,9 @@ export const KIND_LABEL: Record<AlertKind, string> = {
   poolDegraded: "POOL DEGRADED",
   upsOnBattery: "ON BATTERY",
   logMatch: "LOG MATCH",
+  netNewDevice: "NEW DEVICE",
+  netMissing: "DEVICE MISSING",
+  netRisk: "NETWORK RISK",
 };
 
 /** Log alerts can be explained from their recent error lines. */
@@ -66,6 +69,10 @@ export function targetLabel(a: Alert): string {
       return "Fleet UPS";
     case "logMatch":
       return "Fleet logs";
+    case "netNewDevice":
+    case "netMissing":
+    case "netRisk":
+      return "Network map";
   }
 }
 
@@ -174,6 +181,11 @@ class AlertsStore {
       case "logMatch":
         fleet.tab = "logs";
         ui.go("fleet");
+        break;
+      case "netNewDevice":
+      case "netMissing":
+      case "netRisk":
+        ui.go("network");
         break;
       case "logBurst":
       case "logNewError": {

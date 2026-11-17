@@ -613,6 +613,26 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing the Library (0.10.62)
+
+1. `Mod+Shift+L` (or Knowledge → **LIBRARY**): three shelves; search "restic password" lists Backups first.
+2. Open **Smart home hub**: the Objectives box shows each part; tick a few steps, quit and reopen the app, and the ticks are still there. **Reset** clears them.
+3. Go to Network and press **?** beside the title: the Network map article opens. In the command palette, type "Help: docker".
+4. Ask DRIFT "how do I back up a postgres container?": the answer lists **From the library: Backups** and the chip opens it.
+
+### macOS: testing security checks and the network watch (0.10.61)
+
+1. Scan from a host with UPnP on your router: SECURITY shows "The router accepts UPnP port forwards" and any forward to a risky port in red.
+2. Click **Check web security**: a router or printer admin page, a self-signed certificate (e.g. Proxmox on 8006) or a plain-HTTP login appears with ⚠ on that device.
+3. Turn on **Watch the network** with a 15 min interval, then connect a phone you haven't scanned before: within one interval a NEW DEVICE alert appears; mark the phone trusted and it clears.
+4. Save the map as expected, unplug a device and wait an interval: DEVICE MISSING names it.
+
+### macOS: testing switches, paths and tailnet links (0.10.60)
+
+1. On a Linux server, `sudo apt install lldpd` (if your switch speaks LLDP). Scan from that server: a switch node with its port sits between the router and the server.
+2. Add a routed range you reach through another router (a VLAN, a VPN site) and scan: a "Router <address>" node appears with that range's devices under it; the range's region says "via <address> (n hops)".
+3. Select the Tailnet node: peers list `direct` or `relay <region>`; a peer's details explain which.
+
 ### macOS: testing the service scan (0.10.59)
 
 1. Network → Map: scan from a server, select a device you know (the NAS, a printer, a Pi) and press **Scan services**. Open ports list what answers (SSH version, "Web (HTTPS): nginx", …) within about 10 seconds.

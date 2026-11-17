@@ -1,0 +1,60 @@
+import { describe, expect, it } from "vitest";
+import { SECTIONS } from "../sections";
+import { CATALOG, VIEW_HELP } from "./catalog";
+import { inline } from "../helper/md";
+import { ARTICLES, article, fromFile, fromGuide, parts, plain, search } from "./library";
+
+describe("library", () => {
+  it("has all three shelves and a catalog in step with them", () => {
+    for (const s of ["nightgrid", "basics", "guides"]) expect(ARTICLES.some((a) => a.shelf === s)).toBe(true);
+    const ids = (xs: { id: string; title: string }[]) => xs.map((x) => `${x.id}|${x.title}`).sort();
+    expect(ids(CATALOG)).toEqual(ids(ARTICLES));
+    expect(new Set(ARTICLES.map((a) => a.id)).size).toBe(ARTICLES.length);
+  });
+
+  it("gives every view a help article", () => {
+    for (const s of SECTIONS) expect(article(VIEW_HELP[s.id]), s.id).toBeDefined();
+  });
+
+  it("only links to views that exist, and never out of the app", () => {
+    const views = new Set(SECTIONS.map((s) => s.id as string));
+    for (const a of ARTICLES) {
+      for (const m of a.body.matchAll(/\]\(view:([a-z]+)\)/g)) expect(views.has(m[1]), `${a.id} → view:${m[1]}`).toBe(true);
+      for (const m of a.body.matchAll(/\]\(kb:([\w/-]+)\)/g)) expect(article(m[1]), `${a.id} → kb:${m[1]}`).toBeDefined();
+      // Bundled and offline: no images, no raw HTML, no markdown links out.
+      expect(a.body, a.id).not.toMatch(/!\[|<img|<script|<iframe|\]\(https?:/i);
+    }
+  });
+
+  it("splits the user guide by section and reads article files", () => {
+    const g = fromGuide("# Guide\n\nintro\n\n## Hosts\n\nAdd **hosts** here.\n\n### More\n\ntext\n\n## Files\n\nBrowse.");
+    expect(g.map((a) => a.id)).toEqual(["nightgrid/hosts", "nightgrid/files"]);
+    expect(g[0].summary).toBe("Add hosts here.");
+    expect(g[0].body).toContain("### More");
+    expect(fromFile("/x/docs/kb/basics/ssh-keys.md", "# SSH keys\n\nKeys.\n")).toMatchObject({ id: "basics/ssh-keys", shelf: "basics", title: "SSH keys", summary: "Keys." });
+    expect(fromFile("/x/docs/kb/guides/README.md", "# x")).toBeNull();
+    expect(plain("Run `ls` in [Files](view:files) **now**")).toBe("Run ls in Files now");
+    expect(inline("see [Backups](kb:basics/backups) and [Fleet](view:fleet)", true).filter((t) => t.kind === "view")).toEqual([
+      { kind: "view", text: "Backups", view: "kb:basics/backups" },
+      { kind: "view", text: "Fleet", view: "fleet" },
+    ]);
+  });
+
+  it("turns a guide's parts into objectives", () => {
+    const a = { id: "guides/t", shelf: "guides" as const, title: "T", summary: "", body: "Intro\n\n## Part 1 · Set up\n\n- [ ] one\n- [ ] two\n\n```sh\n- [ ] not a step\n```\n\n## Notes\n\nNo steps.\n\n## Part 2 · Run\n\n- [x] three" };
+    const p = parts(a);
+    expect(p.map((x) => [x.title, x.keys.length])).toEqual([
+      ["Part 1 · Set up", 2],
+      ["Part 2 · Run", 1],
+    ]);
+    // Keys match Markdown.svelte's block-item keys.
+    expect(p[0].keys).toEqual(["2-0", "2-1"]);
+    for (const g of ARTICLES.filter((x) => x.shelf === "guides")) expect(parts(g).length, g.id).toBeGreaterThan(0);
+  });
+
+  it("finds articles by their words", () => {
+    expect(search("restic password")[0]?.article.id).toBe("basics/backups");
+    expect(search("PasswordAuthentication sshd").some((h) => h.article.id === "basics/sshd-hardening")).toBe(true);
+    expect(search("qwxyzzy")).toEqual([]);
+  });
+});

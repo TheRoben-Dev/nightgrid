@@ -3,7 +3,7 @@
  * list, port audits (System → Security) and one discovery scan run from a
  * chosen host. Pure, so it is unit-tested without a backend.
  */
-import type { Device, DeviceLabel, Discovery, Exposure, Listener, SecurityReport } from "../api";
+import type { Device, DeviceLabel, Discovery, Exposure, Listener, LldpNeighbour, SecurityReport } from "../api";
 
 export interface HostLike {
   id: number;
@@ -42,6 +42,12 @@ export interface MapNode {
   unseen?: boolean;
   /** The user's label for a device (or the router). */
   named?: DeviceLabel;
+  /** Type for a node the scan inferred without seeing it as a device (a switch from LLDP, a router on a path). */
+  hint?: string;
+  /** What the scanner's LLDP said about this switch. */
+  lldp?: LldpNeighbour;
+  /** One line on where this node came from. */
+  note?: string;
 }
 
 export interface MapLink {
@@ -256,6 +262,81 @@ export function buildGraph(
     if (net) link(net, n.id, viaTs ? "tailnet" : d.routed ? "routed" : "lan");
   }
 
+  const dropLink = (from: string, to: string) => {
+    const i = links.findIndex((l) => l.from === from && l.to === to);
+    if (i >= 0) links.splice(i, 1);
+  };
+  const ipNode = (ip: string | null | undefined) => (ip ? nodes.find((n) => (n.kind === "device" || n.kind === "host" || n.kind === "gateway") && n.ip === ip) : undefined);
+
+  // What the scanning host is plugged into (LLDP): a switch between it and the router.
+  if (scanNode && disc) {
+    for (const nb of disc.lldp ?? []) {
+      const gwMac = nodes.find((n) => n.id === "gw")?.device?.mac;
+      if (nb.mac && gwMac && nb.mac === gwMac) continue; // plugged straight into the router
+      let sw = ipNode(nb.mgmtIp) ?? nodes.find((n) => n.kind === "device" && !!nb.mac && n.device?.mac === nb.mac);
+      if (!sw) {
+        sw = {
+          id: `s${nb.mac ?? nb.name ?? nb.iface}`,
+          kind: "device",
+          label: nb.name ?? nb.mac ?? "Switch",
+          sub: `Switch${nb.port ? ` · port ${nb.port}` : ""}`,
+          col: 1,
+          row: nodes.filter((n) => n.col === 1).length,
+          ip: nb.mgmtIp ?? undefined,
+          exposures: [],
+          hint: "switch",
+          lldp: nb,
+          note: `${scanNode.label} is plugged into ${nb.port ? `port ${nb.port} of ` : ""}this switch (LLDP, on ${nb.iface}).`,
+        };
+        nodes.push(sw);
+      } else {
+        sw.lldp = nb;
+        sw.hint ??= "switch";
+      }
+      if (gw && sw.id !== "gw") {
+        dropLink("gw", sw.id);
+        link("gw", sw.id, "lan");
+      }
+      dropLink("gw", scanNode.id);
+      link(sw.id, scanNode.id, "lan");
+    }
+  }
+
+  // Routed ranges: the last router before each range, from the scanner's traceroute.
+  for (const p of disc?.paths ?? []) {
+    const [net, bits] = p.range.split("/");
+    const inside = (ip: string) => inRange(ip, net, Number(bits));
+    const before = p.hops.filter((h) => !inside(h));
+    const last = before.at(-1);
+    if (!last || last === gw || before.length < 2) continue;
+    let r = ipNode(last);
+    if (!r) {
+      r = {
+        id: `r${last}`,
+        kind: "device",
+        label: `Router ${last}`,
+        sub: `Router · to ${p.range}`,
+        col: 1,
+        row: nodes.filter((n) => n.col === 1).length,
+        ip: last,
+        exposures: [],
+        hint: "router",
+        note: `On the way from the scanner to ${p.range} (hop ${before.length} of the traceroute).`,
+      };
+      nodes.push(r);
+      if (gw) link("gw", r.id, "lan");
+    } else {
+      r.hint ??= "router";
+      r.note ??= `The last router on the way to ${p.range}.`;
+    }
+    for (const n of nodes) {
+      if (n.kind === "device" && n.device?.routed && n.ip && inside(n.ip)) {
+        dropLink("gw", n.id);
+        link(r.id, n.id, "routed");
+      }
+    }
+  }
+
   // The internet sits above the router even when nothing is forwarded in.
   if (exposures.length || gw) {
     nodes.push({
@@ -290,6 +371,18 @@ export function buildGraph(
   }
 
   return { nodes, links, cols: 4 };
+}
+
+function inRange(ip: string, net: string, prefix: number): boolean {
+  const v = (s: string) => {
+    const p = s.split(".");
+    return p.length === 4 && p.every((x) => /^\d{1,3}$/.test(x)) ? p.reduce((n, x) => n * 256 + Number(x), 0) : null;
+  };
+  const a = v(ip);
+  const b = v(net);
+  if (a === null || b === null || !(prefix >= 0 && prefix <= 32)) return false;
+  const size = 2 ** (32 - prefix);
+  return Math.floor(a / size) === Math.floor(b / size);
 }
 
 export function seenText(d: Device): string {

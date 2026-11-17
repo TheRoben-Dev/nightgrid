@@ -26,6 +26,8 @@
   import { updates } from "./lib/stores/updates.svelte";
   import { terms } from "./lib/stores/terms.svelte";
   import { ui } from "./lib/stores/ui.svelte";
+  import { library } from "./lib/stores/library.svelte";
+  import { CATALOG, VIEW_HELP } from "./lib/kb/catalog";
   import Overview from "./lib/views/Overview.svelte";
   import Placeholder from "./lib/views/Placeholder.svelte";
   import LazyView from "./lib/components/LazyView.svelte";
@@ -133,6 +135,7 @@
   const siblings = $derived((railEntry?.members ?? []).filter((m) => settings.on(m)).map((id) => ({ id, label: railEntry?.tabs?.[id] ?? sectionById(id).label })));
   // A shared entry's views are titled by the entry (NETWORK · MAP | TUNNELS).
   const title = $derived(siblings.length > 1 && railEntry ? railEntry.label : section.label);
+  const helpFor = $derived(section.id === "library" ? null : (CATALOG.find((a) => a.id === VIEW_HELP[section.id]) ?? null));
 
   const handlers: Partial<Record<ActionId, () => void>> = {
     "palette.open": () => (ui.paletteOpen = !ui.paletteOpen),
@@ -183,16 +186,19 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.59"} />
+  <LeftRail version={info?.version ?? "0.10.62"} />
   <div class="main">
     <TopBar />
     <UpsCountdown />
-    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network" || section.id === "nettools" || section.id === "fleet" || section.id === "desktops" || section.id === "proxmox"} aria-label={section.label}>
+    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "library" || section.id === "network" || section.id === "nettools" || section.id === "fleet" || section.id === "desktops" || section.id === "proxmox"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>
           <span use:scramble={title.toUpperCase()}></span>
         </h1>
+        {#if helpFor}
+          <button type="button" class="help" class:solo={siblings.length < 2} data-guide="view-help" title={`Help: ${helpFor.title}`} aria-label={`Help: ${helpFor.title}`} onclick={() => library.open(helpFor.id)}>?</button>
+        {/if}
         {#if siblings.length > 1}
           <div class="viewtabs" role="tablist" aria-label="Related views">
             {#each siblings as v (v.id)}
@@ -335,6 +341,25 @@
     gap: 10px;
   }
   .slash {
+    color: var(--magenta);
+  }
+  .help {
+    width: 22px;
+    height: 22px;
+    margin: 0 0 0 10px;
+    align-self: center;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--cyan);
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    cursor: pointer;
+  }
+  .help.solo {
+    margin-right: auto;
+  }
+  .help:hover {
+    border-color: var(--cyan);
     color: var(--magenta);
   }
   .micro {

@@ -10,9 +10,9 @@ describe("features", () => {
     expect(featureOn(["overview", "settings"], "settings")).toBe(true);
   });
 
-  it("every section but overview and settings can be turned off", () => {
+  it("every section but overview, settings and the library can be turned off", () => {
     for (const s of SECTIONS) {
-      if (s.id === "overview" || s.id === "settings") continue;
+      if (s.id === "overview" || s.id === "settings" || s.id === "library") continue;
       expect(FEATURES.some((f) => f.id === s.id)).toBe(true);
     }
     for (const f of FEATURES) if (f.parent) expect(FEATURES.some((p) => p.id === f.parent)).toBe(true);

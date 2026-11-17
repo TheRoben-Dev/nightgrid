@@ -1,6 +1,6 @@
 import type { ActionId } from "./keys";
 
-export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "fleet" | "desktops" | "proxmox" | "network" | "nettools" | "automation" | "notes" | "settings";
+export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "fleet" | "desktops" | "proxmox" | "network" | "nettools" | "automation" | "notes" | "library" | "settings";
 
 export interface Section {
   id: SectionId;
@@ -25,6 +25,7 @@ export const SECTIONS: Section[] = [
   { id: "nettools", label: "Network tools", code: "NTL", action: "nav.nettools", milestone: "M10i" },
   { id: "automation", label: "Automation", code: "AUT", action: "nav.automation", milestone: "M8" },
   { id: "notes", label: "Knowledge", code: "KNW", action: "nav.notes", milestone: "M10e" },
+  { id: "library", label: "Library", code: "LIB", action: "nav.library", milestone: "M11" },
   { id: "settings", label: "Settings", code: "CFG", action: "nav.settings", milestone: "M0" },
 ];
 
@@ -54,7 +55,7 @@ export const RAIL: RailEntry[] = [
   { id: "network", label: "Network", code: "NET", members: ["network", "nettools", "tunnels"], tabs: { network: "Map", nettools: "Tools" } },
   { id: "vms", label: "VMs", code: "VMS", members: ["proxmox", "desktops"] },
   { id: "automation", label: "Automation", code: "AUT", members: ["automation"] },
-  { id: "notes", label: "Knowledge", code: "KNW", members: ["notes"] },
+  { id: "notes", label: "Knowledge", code: "KNW", members: ["notes", "library"], tabs: { notes: "Notes", library: "Library" } },
 ];
 
 /** The sidebar entry a view belongs to (Settings has none: it's in the foot). */

@@ -107,6 +107,34 @@ pub struct Device {
     pub is_new: bool,
     /// Marked as known and expected.
     pub trusted: bool,
+    /// Tailscale peers: `direct` (peer-to-peer) or `relay <region>` (through
+    /// a Tailscale relay; also shown for idle peers, since a direct path is
+    /// only set up when there's traffic).
+    pub link: Option<String>,
+}
+
+/// A switch or other device the scanning host's port is plugged into, from LLDP.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct LldpNeighbour {
+    /// The scanning host's interface.
+    pub iface: String,
+    pub name: Option<String>,
+    pub mac: Option<String>,
+    pub mgmt_ip: Option<String>,
+    /// The neighbour's port ("gi1/0/5", "Port 5").
+    pub port: Option<String>,
+    pub descr: Option<String>,
+}
+
+/// The routers between the scanner and a routed range (first hop first).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct RangePath {
+    pub range: String,
+    pub hops: Vec<String>,
 }
 
 /// A device the inventory knows that this scan didn't see, in a subnet this
@@ -167,6 +195,14 @@ pub struct Discovery {
     pub ranges: Vec<String>,
     /// Inventory devices in the swept subnets that didn't answer this time.
     pub missing: Vec<MissingDevice>,
+    /// What the scanning host is plugged into (LLDP), when it can tell.
+    pub lldp: Vec<LldpNeighbour>,
+    /// How each swept range is reached (traceroute).
+    pub paths: Vec<RangePath>,
+    /// DHCP servers the scanning host got leases from.
+    pub dhcp: Vec<String>,
+    /// Security findings from what the scan saw (UPnP, public address, DHCP).
+    pub findings: Vec<crate::netsec::NetFinding>,
     /// Tools that were missing or failed, in words.
     pub notes: Vec<String>,
 }
@@ -284,6 +320,33 @@ pub fn discover_command(sweeps: &[(Ipv4Addr, u32)]) -> String {
             ),
         );
     }
+    // How each swept range is reached: the routers on the way to its first address.
+    for &(net, n) in sweeps {
+        let first = Ipv4Addr::from(u32::from(net) + 1);
+        sec(
+            &mut s,
+            &format!("path {net}/{}", 32 - (n + 1).next_power_of_two().trailing_zeros()),
+            &format!(
+                "if command -v traceroute >/dev/null 2>&1; then t 15 traceroute -n -m 6 -q 1 -w 1 {first} 2>/dev/null | awk 'NR>1 {{print $2}}'; \
+                 elif command -v tracepath >/dev/null 2>&1; then t 15 tracepath -n -m 6 {first} 2>/dev/null | awk '$1 ~ /^[0-9]+:$/ {{print $2}}' | uniq; fi"
+            ),
+        );
+    }
+    sec(
+        &mut s,
+        "lldp",
+        "if command -v lldpctl >/dev/null 2>&1; then t 5 lldpctl -f keyvalue 2>/dev/null | head -n 300; \
+         elif command -v networkctl >/dev/null 2>&1; then t 5 networkctl lldp --no-legend 2>/dev/null | head -n 50 | sed 's/^/nctl /'; \
+         else echo missing; fi",
+    );
+    sec(
+        &mut s,
+        "dhcp",
+        "{ cat /var/lib/dhcp/*.leases /var/lib/dhclient/*.lease* 2>/dev/null | grep dhcp-server-identifier; \
+         cat /run/systemd/netif/leases/* 2>/dev/null | grep '^SERVER_ADDRESS='; \
+         command -v nmcli >/dev/null 2>&1 && t 3 nmcli -t -f DHCP4.OPTION device show 2>/dev/null | grep -i server_identifier; \
+         if command -v ipconfig >/dev/null 2>&1; then for i in en0 en1; do ipconfig getpacket $i 2>/dev/null | grep server_identifier; done; fi; } | head -n 20",
+    );
     sec(&mut s, "neigh", "ip neigh show 2>/dev/null || arp -an 2>/dev/null");
     s.push_str(IDENT_SCRIPT);
     // Network shares this host mounts, and LAN peers it talks to right now.
@@ -640,8 +703,19 @@ fn unescape_avahi(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// Peers from `tailscale status --json`: (ip, name, os, online).
-pub fn parse_tailscale(json: &str) -> Vec<(String, String, Option<String>, Option<bool>)> {
+/// One peer from `tailscale status --json`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TsPeer {
+    pub ip: String,
+    pub name: String,
+    pub os: Option<String>,
+    pub online: Option<bool>,
+    /// `direct` or `relay <region>` (see `Device::link`).
+    pub link: Option<String>,
+}
+
+/// Peers from `tailscale status --json`.
+pub fn parse_tailscale(json: &str) -> Vec<TsPeer> {
     let Ok(v) = serde_json::from_str::<serde_json::Value>(json) else { return Vec::new() };
     let Some(peers) = v.get("Peer").and_then(|p| p.as_object()) else { return Vec::new() };
     peers
@@ -653,14 +727,78 @@ pub fn parse_tailscale(json: &str) -> Vec<(String, String, Option<String>, Optio
                 .and_then(|x| x.as_str())
                 .filter(|s| !s.is_empty())
                 .or_else(|| p.get("DNSName").and_then(|x| x.as_str()).map(|d| d.split('.').next().unwrap_or(d)))?;
-            Some((
-                ip.to_owned(),
-                name.to_owned(),
-                p.get("OS").and_then(|x| x.as_str()).filter(|s| !s.is_empty()).map(str::to_owned),
-                p.get("Online").and_then(|x| x.as_bool()),
-            ))
+            let online = p.get("Online").and_then(serde_json::Value::as_bool);
+            let cur = p.get("CurAddr").and_then(|x| x.as_str()).unwrap_or("");
+            let relay = p.get("Relay").and_then(|x| x.as_str()).unwrap_or("");
+            let link = if online == Some(false) {
+                None
+            } else if !cur.is_empty() {
+                Some("direct".to_owned())
+            } else if !relay.is_empty() {
+                Some(format!("relay {relay}"))
+            } else {
+                None
+            };
+            Some(TsPeer {
+                ip: ip.to_owned(),
+                name: name.to_owned(),
+                os: p.get("OS").and_then(|x| x.as_str()).filter(|s| !s.is_empty()).map(str::to_owned),
+                online,
+                link,
+            })
         })
         .collect()
+}
+
+/// `lldpctl -f keyvalue` (`lldp.eth0.chassis.name=sw1`, …) or systemd's
+/// `networkctl lldp` table (prefixed `nctl`: link, chassis id, system name,
+/// caps, port id, port description).
+pub fn parse_lldp(lines: &[&str]) -> Vec<LldpNeighbour> {
+    let mut by: BTreeMap<String, LldpNeighbour> = BTreeMap::new();
+    let blank = |iface: &str| LldpNeighbour {
+        iface: iface.to_owned(),
+        name: None,
+        mac: None,
+        mgmt_ip: None,
+        port: None,
+        descr: None,
+    };
+    let keep = |v: &str| {
+        let v = v.trim();
+        (!v.is_empty() && v.len() <= 120 && !v.contains(char::is_control)).then(|| v.to_owned())
+    };
+    for l in lines {
+        if let Some(rest) = l.strip_prefix("nctl ") {
+            let w: Vec<&str> = rest.split_whitespace().collect();
+            if w.len() >= 5 {
+                let mut n = blank(w[0]);
+                n.mac = (w[1].len() == 17 && w[1].matches(':').count() == 5).then(|| w[1].to_ascii_lowercase());
+                n.name = keep(w[2]).filter(|s| s != "n/a");
+                n.port = keep(w[4]).filter(|s| s != "n/a");
+                n.descr = keep(&w[5..].join(" ")).filter(|s| s != "n/a");
+                by.insert(w[0].to_owned(), n);
+            }
+            continue;
+        }
+        let Some((k, v)) = l.split_once('=') else { continue };
+        let parts: Vec<&str> = k.split('.').collect();
+        if parts.len() < 4 || parts[0] != "lldp" {
+            continue;
+        }
+        let e = by.entry(parts[1].to_owned()).or_insert_with(|| blank(parts[1]));
+        match &parts[2..] {
+            ["chassis", "name"] => e.name = keep(v),
+            ["chassis", "mac"] => e.mac = keep(v).map(|m| m.to_ascii_lowercase()),
+            ["chassis", "mgmt-ip"] if e.mgmt_ip.is_none() && v.trim().parse::<Ipv4Addr>().is_ok() => {
+                e.mgmt_ip = keep(v)
+            }
+            ["chassis", "descr"] => e.descr = keep(v).map(|d| d.chars().take(80).collect()),
+            ["port", "ifname"] => e.port = keep(v),
+            ["port", "descr"] if e.port.is_none() => e.port = keep(v),
+            _ => {}
+        }
+    }
+    by.into_values().filter(|n| n.name.is_some() || n.mac.is_some()).collect()
 }
 
 /// One UPnP mapping: protocol, external port, internal address, internal port, description.
@@ -754,6 +892,10 @@ pub fn parse_discovery(out: &str) -> Discovery {
         swept: None,
         ranges: Vec::new(),
         missing: Vec::new(),
+        lldp: Vec::new(),
+        paths: Vec::new(),
+        dhcp: Vec::new(),
+        findings: Vec::new(),
         notes: Vec::new(),
     };
     let mut ssdp_missing = false;
@@ -764,6 +906,29 @@ pub fn parse_discovery(out: &str) -> Discovery {
         let head = name.split_whitespace().next().unwrap_or("");
         match head {
             "addr" => d.ifaces = parse_addrs(&body),
+            "path" => {
+                if let Some(r) = name.split_whitespace().nth(1) {
+                    let hops: Vec<String> = body
+                        .iter()
+                        .map(|l| l.trim())
+                        .filter(|l| l.parse::<Ipv4Addr>().is_ok())
+                        .map(str::to_owned)
+                        .collect();
+                    d.paths.push(RangePath { range: r.to_owned(), hops });
+                }
+            }
+            "lldp" => d.lldp = parse_lldp(&body),
+            "dhcp" => {
+                for l in &body {
+                    let ip =
+                        l.split(|c: char| !(c.is_ascii_digit() || c == '.')).find(|w| w.parse::<Ipv4Addr>().is_ok());
+                    if let Some(ip) = ip {
+                        if !d.dhcp.iter().any(|x| x == ip) {
+                            d.dhcp.push(ip.to_owned());
+                        }
+                    }
+                }
+            }
             "route" => d.gateway = parse_gateway(&body),
             "sweep" => {
                 if let Some(r) = name.split_whitespace().nth(1) {
@@ -832,13 +997,14 @@ pub fn parse_discovery(out: &str) -> Discovery {
                 if body.first().is_some_and(|l| l.trim() == "missing") {
                     continue;
                 }
-                for (ip, n, os, online) in parse_tailscale(&body.join("\n")) {
-                    let e = add(&mut devs, &ip, Seen::Tailscale);
-                    if !e.names.contains(&n) {
-                        e.names.insert(0, n);
+                for p in parse_tailscale(&body.join("\n")) {
+                    let e = add(&mut devs, &p.ip, Seen::Tailscale);
+                    if !e.names.contains(&p.name) {
+                        e.names.insert(0, p.name);
                     }
-                    e.os = os;
-                    e.online = online;
+                    e.os = p.os;
+                    e.online = p.online;
+                    e.link = p.link;
                 }
             }
             "rdns" | "netbios" => {
@@ -1042,6 +1208,7 @@ pub fn parse_discovery(out: &str) -> Discovery {
     let own: Vec<&str> = d.ifaces.iter().map(|i| i.addr.as_str()).collect();
     d.devices = devs.into_values().filter(|x| !own.contains(&x.ip.as_str())).collect();
     d.devices.sort_by_key(|x| ip_sort_key(&x.ip));
+    d.findings = crate::netsec::discovery_findings(&d);
     d
 }
 
@@ -1062,6 +1229,7 @@ fn add<'a>(devs: &'a mut BTreeMap<String, Device>, ip: &str, seen: Seen) -> &'a 
         first_seen: None,
         is_new: false,
         trusted: false,
+        link: None,
     });
     if !e.seen.contains(&seen) {
         e.seen.push(seen);
@@ -1275,6 +1443,47 @@ mod tests {
         let d = discover_local(false, &["127.0.0.0/30".into()]).await.expect("local discovery");
         assert_eq!(d.ranges, ["127.0.0.0/30"]);
         assert!(discover_local(false, &["8.8.8.0/24".into()]).await.is_err());
+    }
+
+    #[test]
+    fn lldp_paths_and_tailscale_links() {
+        let n = parse_lldp(&[
+            "lldp.eth0.via=LLDP",
+            "lldp.eth0.chassis.mac=AA:BB:CC:00:00:02",
+            "lldp.eth0.chassis.name=office-switch",
+            "lldp.eth0.chassis.mgmt-ip=192.168.1.2",
+            "lldp.eth0.chassis.mgmt-ip=fe80::1",
+            "lldp.eth0.port.ifname=gi1/0/5",
+            "lldp.eth0.port.descr=uplink to lab",
+        ]);
+        assert_eq!(n.len(), 1);
+        assert_eq!(n[0].name.as_deref(), Some("office-switch"));
+        assert_eq!(n[0].mac.as_deref(), Some("aa:bb:cc:00:00:02"));
+        assert_eq!(n[0].mgmt_ip.as_deref(), Some("192.168.1.2"));
+        assert_eq!(n[0].port.as_deref(), Some("gi1/0/5"));
+        let n = parse_lldp(&["nctl enp3s0 aa:bb:cc:00:00:03 core-sw ..b........ 5 Port 5"]);
+        assert_eq!(
+            (n[0].name.as_deref(), n[0].port.as_deref(), n[0].descr.as_deref()),
+            (Some("core-sw"), Some("5"), Some("Port 5"))
+        );
+
+        let d = parse_discovery(
+            "@@NGNET@@ path 10.20.0.0/24\n192.168.1.1\n10.0.0.2\n*\n10.20.0.1\n@@NGNET@@ lldp\nmissing\n@@NGNET@@ tailscale\n\
+             {\"Peer\":{\"a\":{\"TailscaleIPs\":[\"100.64.0.2\"],\"HostName\":\"laptop\",\"Online\":true,\"CurAddr\":\"203.0.113.9:41641\",\"Relay\":\"fra\"},\
+             \"b\":{\"TailscaleIPs\":[\"100.64.0.3\"],\"HostName\":\"phone\",\"Online\":true,\"CurAddr\":\"\",\"Relay\":\"ams\"}}}\n@@NGNET@@ end\n",
+        );
+        assert_eq!(
+            d.paths,
+            [RangePath {
+                range: "10.20.0.0/24".into(),
+                hops: vec!["192.168.1.1".into(), "10.0.0.2".into(), "10.20.0.1".into()]
+            }]
+        );
+        assert!(d.lldp.is_empty());
+        let link = |ip: &str| d.devices.iter().find(|x| x.ip == ip).and_then(|x| x.link.clone());
+        assert_eq!(link("100.64.0.2").as_deref(), Some("direct"));
+        assert_eq!(link("100.64.0.3").as_deref(), Some("relay ams"));
+        assert!(discover_command(&[(Ipv4Addr::new(10, 20, 0, 0), 254)]).contains("path 10.20.0.0/24"));
     }
 
     #[test]

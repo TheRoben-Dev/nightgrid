@@ -748,6 +748,15 @@ export const commands = {
 	 *  connections) on a host, or on this computer when `host_id` is null (D-142).
 	 */
 	netTool: (hostId: number | null, req: ToolRequest, options?: InvokeOptions) => __TAURI_INVOKE<ToolResult_Serialize>("net_tool", { hostId, req }, options),
+	/**
+	 *  Web security check of `ips` (D-145): expired or self-signed
+	 *  certificates, admin pages of gear with default passwords, logins over
+	 *  plain HTTP. Runs on a host, or this computer when `host_id` is null.
+	 *  Reads one page or certificate per port; never tries a login.
+	 */
+	netmapSecurity: (hostId: number | null, ips: string[], options?: InvokeOptions) => __TAURI_INVOKE<NetFinding_Serialize[]>("netmap_security", { hostId, ips }, options),
+	/**  The last scheduled network scan, if one ran since the app started. */
+	netmapWatchLast: (options?: InvokeOptions) => __TAURI_INVOKE<NetWatchRun_Serialize | null>("netmap_watch_last", undefined, options),
 	/**  The maker of a MAC address (offline list). */
 	netMacVendor: (mac: string, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("net_mac_vendor", { mac }, options),
 	/**  Sends a Wake-on-LAN packet for `mac` from a host (null: this computer). */
@@ -892,7 +901,16 @@ export type AlertKind = "hostOffline" | "diskFull" | "containerDown" | "serviceD
 /**  A UPS runs on battery, is low, or needs a new battery (M10s). */
 "upsOnBattery" | 
 /**  A saved log search with alerts on found new lines (M10u). */
-"logMatch";
+"logMatch" | 
+/**  The network watch saw a device for the first time (D-145). */
+"netNewDevice" | 
+/**  A device in the expected network map didn't answer (D-145). */
+"netMissing" | 
+/**
+ *  Risky exposure the network watch found: a port forward to SSH or RDP,
+ *  a second DHCP server (D-145).
+ */
+"netRisk";
 
 /**  Which alerts fire and where they go. Webhook URLs live in the keychain. */
 export type AlertSettings = AlertSettings_Serialize | AlertSettings_Deserialize;
@@ -1296,6 +1314,8 @@ export type AppSettings_Deserialize = {
 	profileReminderSnooze?: number | null,
 	/**  Read-only phone status page served by the app. Machine-specific. */
 	statusPage?: StatusPageSettings_Deserialize,
+	/**  Background network scans with alerts (D-145). */
+	netWatch?: NetWatchSettings_Deserialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
 	dashboards?: Dashboard[],
 	/**  Index of the dashboard shown. */
@@ -1414,6 +1434,8 @@ export type AppSettings_Serialize = {
 	profileReminderSnooze: number | null,
 	/**  Read-only phone status page served by the app. Machine-specific. */
 	statusPage: StatusPageSettings_Serialize,
+	/**  Background network scans with alerts (D-145). */
+	netWatch: NetWatchSettings_Serialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
 	dashboards: Dashboard[],
 	/**  Index of the dashboard shown. */
@@ -2275,6 +2297,12 @@ export type Device_Deserialize = {
 	isNew: boolean,
 	/**  Marked as known and expected. */
 	trusted: boolean,
+	/**
+	 *  Tailscale peers: `direct` (peer-to-peer) or `relay <region>` (through
+	 *  a Tailscale relay; also shown for idle peers, since a direct path is
+	 *  only set up when there's traffic).
+	 */
+	link?: string | null,
 };
 
 export type Device_Serialize = {
@@ -2313,6 +2341,12 @@ export type Device_Serialize = {
 	isNew: boolean,
 	/**  Marked as known and expected. */
 	trusted: boolean,
+	/**
+	 *  Tailscale peers: `direct` (peer-to-peer) or `relay <region>` (through
+	 *  a Tailscale relay; also shown for idle peers, since a direct path is
+	 *  only set up when there's traffic).
+	 */
+	link: string | null,
 };
 
 export type DiffLine = DiffLine_Serialize | DiffLine_Deserialize;
@@ -2346,6 +2380,14 @@ export type Discovery_Deserialize = {
 	ranges: string[],
 	/**  Inventory devices in the swept subnets that didn't answer this time. */
 	missing: MissingDevice_Deserialize[],
+	/**  What the scanning host is plugged into (LLDP), when it can tell. */
+	lldp: LldpNeighbour_Deserialize[],
+	/**  How each swept range is reached (traceroute). */
+	paths: RangePath[],
+	/**  DHCP servers the scanning host got leases from. */
+	dhcp: string[],
+	/**  Security findings from what the scan saw (UPnP, public address, DHCP). */
+	findings: NetFinding_Deserialize[],
 	/**  Tools that were missing or failed, in words. */
 	notes: string[],
 };
@@ -2361,6 +2403,14 @@ export type Discovery_Serialize = {
 	ranges: string[],
 	/**  Inventory devices in the swept subnets that didn't answer this time. */
 	missing: MissingDevice_Serialize[],
+	/**  What the scanning host is plugged into (LLDP), when it can tell. */
+	lldp: LldpNeighbour_Serialize[],
+	/**  How each swept range is reached (traceroute). */
+	paths: RangePath[],
+	/**  DHCP servers the scanning host got leases from. */
+	dhcp: string[],
+	/**  Security findings from what the scan saw (UPnP, public address, DHCP). */
+	findings: NetFinding_Serialize[],
 	/**  Tools that were missing or failed, in words. */
 	notes: string[],
 };
@@ -4143,6 +4193,33 @@ export type Listing_Serialize = {
 	entries: Entry_Serialize[],
 };
 
+/**  A switch or other device the scanning host's port is plugged into, from LLDP. */
+export type LldpNeighbour = LldpNeighbour_Serialize | LldpNeighbour_Deserialize;
+
+/**  A switch or other device the scanning host's port is plugged into, from LLDP. */
+export type LldpNeighbour_Deserialize = {
+	/**  The scanning host's interface. */
+	iface: string,
+	name?: string | null,
+	mac?: string | null,
+	mgmtIp?: string | null,
+	/**  The neighbour's port ("gi1/0/5", "Port 5"). */
+	port?: string | null,
+	descr?: string | null,
+};
+
+/**  A switch or other device the scanning host's port is plugged into, from LLDP. */
+export type LldpNeighbour_Serialize = {
+	/**  The scanning host's interface. */
+	iface: string,
+	name: string | null,
+	mac: string | null,
+	mgmtIp: string | null,
+	/**  The neighbour's port ("gi1/0/5", "Port 5"). */
+	port: string | null,
+	descr: string | null,
+};
+
 /**  What the log channel carries. */
 export type LogEvent = LogEvent_Serialize | LogEvent_Deserialize;
 
@@ -4543,6 +4620,24 @@ export type NetDevice_Serialize = {
 	trusted: boolean,
 };
 
+export type NetFinding = NetFinding_Serialize | NetFinding_Deserialize;
+
+export type NetFinding_Deserialize = {
+	ip?: string | null,
+	port?: number | null,
+	level: Tone,
+	title: string,
+	detail: string,
+};
+
+export type NetFinding_Serialize = {
+	ip: string | null,
+	port: number | null,
+	level: Tone,
+	title: string,
+	detail: string,
+};
+
 export type NetTest = NetTest_Serialize | NetTest_Deserialize;
 
 export type NetTestResult = NetTestResult_Serialize | NetTestResult_Deserialize;
@@ -4607,6 +4702,74 @@ export type NetTest_Serialize = {
 	/**  Packets lost by ping, %. */
 	lossPct: number | null,
 	error: string | null,
+};
+
+/**  The last scheduled scan, for the Network view. */
+export type NetWatchRun = NetWatchRun_Serialize | NetWatchRun_Deserialize;
+
+/**  The last scheduled scan, for the Network view. */
+export type NetWatchRun_Deserialize = {
+	at: number | null,
+	scanner: string,
+	devices: number,
+	newDevices: number,
+	missing: number,
+	findings: NetFinding_Deserialize[],
+	error?: string | null,
+};
+
+/**  The last scheduled scan, for the Network view. */
+export type NetWatchRun_Serialize = {
+	at: number | null,
+	scanner: string,
+	devices: number,
+	newDevices: number,
+	missing: number,
+	findings: NetFinding_Serialize[],
+	error: string | null,
+};
+
+/**
+ *  The network watch: a quiet discovery every so often from one machine,
+ *  with alerts for new devices, expected devices that are gone and risky
+ *  exposure. Off by default.
+ */
+export type NetWatchSettings = NetWatchSettings_Serialize | NetWatchSettings_Deserialize;
+
+/**
+ *  The network watch: a quiet discovery every so often from one machine,
+ *  with alerts for new devices, expected devices that are gone and risky
+ *  exposure. Off by default.
+ */
+export type NetWatchSettings_Deserialize = {
+	enabled?: boolean,
+	/**  The host to scan from; `None` = this computer. */
+	scanner?: number | null,
+	/**  Minutes between scans, 10–1440. */
+	minutes?: number,
+	/**  Also ping-sweep the scanner's subnet (finds quiet devices; ~30 s). */
+	sweep?: boolean,
+	alertNew?: boolean,
+	alertMissing?: boolean,
+	alertRisks?: boolean,
+};
+
+/**
+ *  The network watch: a quiet discovery every so often from one machine,
+ *  with alerts for new devices, expected devices that are gone and risky
+ *  exposure. Off by default.
+ */
+export type NetWatchSettings_Serialize = {
+	enabled: boolean,
+	/**  The host to scan from; `None` = this computer. */
+	scanner: number | null,
+	/**  Minutes between scans, 10–1440. */
+	minutes: number,
+	/**  Also ping-sweep the scanner's subnet (finds quiet devices; ~30 s). */
+	sweep: boolean,
+	alertNew: boolean,
+	alertMissing: boolean,
+	alertRisks: boolean,
 };
 
 export type NetworkView = {
@@ -6002,6 +6165,12 @@ export type PveVolume = {
 	size: number | null,
 	/**  The file name part of the volume id. */
 	name: string,
+};
+
+/**  The routers between the scanner and a routed range (first hop first). */
+export type RangePath = {
+	range: string,
+	hops: string[],
 };
 
 /**  Throughput of one network interface or block device, in bytes/s. */

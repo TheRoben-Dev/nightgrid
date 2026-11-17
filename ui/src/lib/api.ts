@@ -283,6 +283,11 @@ import {
   type MissingDevice_Serialize as MissingDevice,
   type NetDevice_Serialize as NetDevice,
   type LayoutEntry_Serialize as LayoutEntry,
+  type LldpNeighbour_Serialize as LldpNeighbour,
+  type RangePath,
+  type NetFinding_Serialize as NetFinding,
+  type NetWatchRun_Serialize as NetWatchRun,
+  type NetWatchSettings,
   type ToolResult_Serialize as ToolResult,
   type ToolRequest,
   type Tool as NetToolId,
@@ -620,6 +625,11 @@ export type {
   MissingDevice,
   NetDevice,
   LayoutEntry,
+  LldpNeighbour,
+  RangePath,
+  NetFinding,
+  NetWatchRun,
+  NetWatchSettings,
   ToolResult,
   ToolRequest,
   NetToolId,
@@ -730,6 +740,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   disabledFeatures: [],
   profileReminderSnooze: null,
   statusPage: { enabled: false, bind: "lan", port: 8787 },
+  netWatch: { enabled: false, scanner: null, minutes: 60, sweep: false, alertNew: true, alertMissing: true, alertRisks: true },
 };
 
 const MOCK_KEY = "nightgrid.mock.settings";
@@ -737,7 +748,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.59-web",
+      version: "0.10.62-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -1067,6 +1078,9 @@ export const api = {
   netmapLayoutSave: (entries: LayoutEntry[], replace = false): Promise<null> =>
     T() ? commands.netmapLayoutSave(entries, replace) : mockOps.layoutSave(entries, replace),
   netTool: (hostId: number | null, req: ToolRequest): Promise<ToolResult> => (T() ? commands.netTool(hostId, req) : mockOps.tool(hostId, req)),
+  netmapSecurity: (hostId: number | null, ips: string[]): Promise<NetFinding[]> =>
+    T() ? commands.netmapSecurity(hostId, ips) : mockOps.security(ips),
+  netmapWatchLast: (): Promise<NetWatchRun | null> => (T() ? commands.netmapWatchLast() : Promise.resolve(null)),
   netMacVendor: (mac: string): Promise<string | null> => (T() ? commands.netMacVendor(mac) : mockOps.macVendor(mac)),
   netWake: (hostId: number | null, mac: string): Promise<string> => (T() ? commands.netWake(hostId, mac) : mockOps.wake(mac)),
   deviceLabelsList: (): Promise<DeviceLabel[]> => (T() ? commands.deviceLabelsList() : mockOps.labelsList()),

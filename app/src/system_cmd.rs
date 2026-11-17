@@ -187,13 +187,13 @@ pub async fn system_security(app: AppHandle, host_id: HostId) -> SysResult<Secur
     Ok(security::audit(&conn).await?)
 }
 
-fn now_secs() -> i64 {
+pub(crate) fn now_secs() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
 }
 
 /// Records a scan in the device inventory and fills its new/missing/trusted
 /// fields. An inventory error doesn't lose the scan.
-fn with_inventory(
+pub(crate) fn with_inventory(
     app: &AppHandle,
     origin: &str,
     mut d: nightgrid_core::netmap::Discovery,
@@ -275,6 +275,28 @@ pub async fn net_tool(
             nightgrid_core::nettools::run(&conn, &req).await
         }
         None => nightgrid_core::nettools::run_local(&req).await,
+    };
+    Ok(r.map_err(SystemError::other)?)
+}
+
+/// Web security check of `ips` (D-145): expired or self-signed
+/// certificates, admin pages of gear with default passwords, logins over
+/// plain HTTP. Runs on a host, or this computer when `host_id` is null.
+/// Reads one page or certificate per port; never tries a login.
+#[tauri::command]
+#[specta::specta]
+pub async fn netmap_security(
+    app: AppHandle,
+    host_id: Option<HostId>,
+    ips: Vec<String>,
+) -> SysResult<Vec<nightgrid_core::netsec::NetFinding>> {
+    tracing::info!(host = ?host_id, devices = ips.len(), "network security check");
+    let r = match host_id {
+        Some(id) => {
+            let conn = connect_host(&app, id).await?;
+            nightgrid_core::netsec::web_check(&conn, &ips).await
+        }
+        None => nightgrid_core::netsec::web_check_local(&ips).await,
     };
     Ok(r.map_err(SystemError::other)?)
 }

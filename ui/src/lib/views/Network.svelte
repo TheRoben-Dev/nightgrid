@@ -9,6 +9,7 @@
   import { netmap } from "../stores/netmap.svelte";
   import { nettools } from "../stores/nettools.svelte";
   import { services } from "../stores/services.svelte";
+  import { settings } from "../stores/settings.svelte";
   import { system } from "../stores/system.svelte";
 
   const W = 196;
@@ -90,7 +91,16 @@
     if (!netmap.labelsLoaded) void netmap.loadLabels();
     if (!netmap.layoutLoaded) void netmap.loadLayout();
     void netmap.loadInventory();
+    void netmap.loadWatch();
   });
+
+  const watch = $derived(settings.value.netWatch);
+  const watchFrom = $derived(watch.scanner === null ? "this computer" : (hosts.byId(watch.scanner)?.name ?? "a removed host"));
+  let secOpen = $state(false);
+  const worst = $derived(netmap.findings.some((f) => f.level === "bad") ? "bad" : netmap.findings.some((f) => f.level === "warn") ? "warn" : "ok");
+  function setWatch(patch: Partial<typeof watch>) {
+    void settings.update({ netWatch: { ...watch, ...patch } });
+  }
 
   const devKey = (d: { mac: string | null; ip: string }) => labelKey(d.mac, d.ip);
   const kindText = (k: string | null | undefined) => (k && k !== "other" ? (KIND_LABEL[k] ?? k) : "");
@@ -263,6 +273,64 @@
   {:else}
     <p class="meta muted">Nothing is scanned until you click <strong>Scan</strong>. Select a node marked ◉ (a host that answers, or this computer) and the scan runs from there: it reads that machine's neighbour table, mDNS, Tailscale peers and router port forwards; it doesn't probe anything outside your network.</p>
   {/if}
+
+  <section class="sec" data-guide="netmap-security" aria-label="Network security and watch">
+    <div class="sec-row">
+      <button type="button" class="btn ghost tiny" aria-expanded={secOpen} onclick={() => (secOpen = !secOpen)}>
+        {secOpen ? "▾" : "▸"} SECURITY
+      </button>
+      {#if netmap.result}
+        <span class={`small sum ${worst}`}>
+          {netmap.findings.length ? `${netmap.findings.length} finding${netmap.findings.length === 1 ? "" : "s"}` : "nothing found in this scan"}
+          {#if !netmap.security.findings && !netmap.security.running} · web check not run{/if}
+        </span>
+        <button type="button" class="btn ghost tiny" data-guide="netmap-webcheck" disabled={netmap.security.running} onclick={() => { secOpen = true; void netmap.checkSecurity(); }} title="Reads one page or certificate on the common web ports of each device found (at most 64). Finds expired or self-signed certificates, admin pages of gear that ships with default passwords, and logins over plain HTTP. Never tries a password.">
+          {netmap.security.running ? "CHECKING…" : "CHECK WEB SECURITY"}
+        </button>
+      {:else}
+        <span class="small muted">Scan first: the check uses what the scan found.</span>
+      {/if}
+      <span class="grow"></span>
+      <span class="watch" data-guide="netmap-watch">
+        <Toggle
+          label="Watch the network"
+          hint={`Scheduled scans from ${watch.enabled ? watchFrom : scannerName || "the selected scanner"}: alerts for new devices, missing expected ones and risks.`}
+          checked={watch.enabled}
+          onchange={(v) => setWatch(v ? { enabled: true, scanner: netmap.from === "local" || netmap.from === null ? null : netmap.from } : { enabled: false })}
+        />
+        {#if watch.enabled}
+          <span class="small muted">from {watchFrom}, every</span>
+          <select class="input tiny" aria-label="Watch interval" value={String(watch.minutes)} onchange={(e) => setWatch({ minutes: Number((e.currentTarget as HTMLSelectElement).value) })}>
+            {#each [15, 30, 60, 180, 360, 1440] as m (m)}<option value={String(m)}>{m < 60 ? `${m} min` : m === 1440 ? "day" : `${m / 60} h`}</option>{/each}
+          </select>
+          {#if netmap.watchLast}<span class="small muted">· last {ago((netmap.watchLast?.at ?? 0) * 1000)}{#if netmap.watchLast.error}: <span class="err">{netmap.watchLast.error}</span>{/if}</span>{/if}
+        {/if}
+      </span>
+    </div>
+    {#if secOpen}
+      {#if netmap.security.error}<p class="err small">{netmap.security.error}</p>{/if}
+      {#if netmap.findings.length}
+        <ul class="findings">
+          {#each netmap.findings as f, i (i)}
+            <li class={f.level}>
+              <b>{f.level === "bad" ? "✕" : f.level === "warn" ? "⚠" : "·"}</b>
+              <span><strong>{f.title}</strong><br /><span class="muted">{f.detail}</span></span>
+              {#if f.ip}<button type="button" class="btn ghost tiny" onclick={() => nettools.open(f.port ? "http" : "ping", f.port ? `${[443, 8443, 9443].includes(f.port) ? "https" : "http"}://${f.ip}:${f.port}` : f.ip!, netmap.resultHost)}>OPEN IN TOOLS</button>{/if}
+            </li>
+          {/each}
+        </ul>
+      {:else if netmap.result}
+        <p class="small muted">No forwarded risky ports, no extra DHCP server, no public addresses{netmap.security.findings ? ", and nothing wrong on the devices' web pages" : ""}.</p>
+      {/if}
+      <label class="small muted wopts">
+        Alert on:
+        <input type="checkbox" checked={watch.alertNew} onchange={(e) => setWatch({ alertNew: e.currentTarget.checked })} /> new devices
+        <input type="checkbox" checked={watch.alertMissing} onchange={(e) => setWatch({ alertMissing: e.currentTarget.checked })} /> missing expected devices
+        <input type="checkbox" checked={watch.alertRisks} onchange={(e) => setWatch({ alertRisks: e.currentTarget.checked })} /> risks
+        <input type="checkbox" checked={watch.sweep} onchange={(e) => setWatch({ sweep: e.currentTarget.checked })} /> ping sweep each time
+      </label>
+    {/if}
+  </section>
 
   <div class="body">
     <div class="canvas" class:graph={netmap.mode === "graph"} data-guide="netmap-graph">
@@ -442,7 +510,7 @@
         {:else if n.kind === "tailnet"}
           <ul class="plain">
             {#each tsPeers as d (d.ip)}
-              <li><span class:ok={d.online} class:off={d.online === false}>●</span> {d.names[0] ?? d.ip} <span class="muted mono">{d.ip}{d.os ? ` · ${d.os}` : ""}</span></li>
+              <li><span class:ok={d.online} class:off={d.online === false}>●</span> {d.names[0] ?? d.ip} <span class="muted mono">{d.ip}{d.os ? ` · ${d.os}` : ""}{d.link ? ` · ${d.link}` : ""}</span></li>
             {:else}
               <li class="muted">No peers in the last scan.</li>
             {/each}
@@ -507,6 +575,19 @@
               <span class="muted small">Offline: can't scan from here now.</span>
             {/if}
           </div>
+        {:else if n.kind === "device" && !n.device && (n.note || n.lldp)}
+          {#if n.note}<p>{n.note}</p>{/if}
+          {#if n.lldp}
+            <dl>
+              {#if n.lldp.name}<dt>NAME</dt><dd>{n.lldp.name}</dd>{/if}
+              {#if n.lldp.port}<dt>PORT</dt><dd class="mono">{n.lldp.port}</dd>{/if}
+              {#if n.lldp.mac}<dt>MAC</dt><dd class="mono">{n.lldp.mac}</dd>{/if}
+              {#if n.lldp.mgmtIp}<dt>MANAGEMENT</dt><dd class="mono">{n.lldp.mgmtIp}</dd>{/if}
+              {#if n.lldp.descr}<dt>SAYS</dt><dd>{n.lldp.descr}</dd>{/if}
+            </dl>
+          {/if}
+          {#if n.ip}{@render toolRow(n.ip, n.lldp?.mac)}{/if}
+          <p class="muted small">Drop devices onto it to say they connect through it.</p>
         {:else if n.kind === "device" && n.device}
           {@const d = n.device}
           <dl>
@@ -519,6 +600,7 @@
             {#if d.names.length}<dt>NAMES</dt><dd>{d.names.join(", ")}</dd>{/if}
             {#if d.services.length}<dt>SERVICES</dt><dd>{[...new Set(d.services.map(serviceLabel))].join(", ")}</dd>{/if}
             {#if d.os}<dt>OS</dt><dd>{d.os}{d.online === false ? " (offline)" : ""}</dd>{/if}
+            {#if d.link}<dt>TAILNET</dt><dd>{d.link === "direct" ? "direct (peer to peer)" : `${d.link.replace("relay ", "through the Tailscale relay in ")}`}<span class="muted">{d.link === "direct" ? "" : " (or idle: a direct path is set up when there's traffic)"}</span></dd>{/if}
             <dt>SEEN BY</dt><dd>{seenText(d)}</dd>
           </dl>
           {@render toolRow(d.ip, d.mac)}
@@ -748,6 +830,61 @@
   .sw.tailnet {
     border-color: var(--mint);
     border-top-style: dashed;
+  }
+  .sec {
+    border: 1px solid var(--line);
+    padding: 4px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .sec-row,
+  .watch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .grow {
+    flex: 1;
+  }
+  .sum.bad {
+    color: var(--danger);
+  }
+  .sum.warn {
+    color: var(--warn);
+  }
+  .sum.ok {
+    color: var(--mint);
+  }
+  .findings {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 220px;
+    overflow: auto;
+    font-size: var(--fs-xs);
+  }
+  .findings li {
+    display: grid;
+    grid-template-columns: 16px 1fr auto;
+    gap: 8px;
+    align-items: start;
+  }
+  .findings li.bad b {
+    color: var(--danger);
+  }
+  .findings li.warn b {
+    color: var(--warn);
+  }
+  .wopts {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
   }
   .meta {
     margin: 0;

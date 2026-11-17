@@ -5,6 +5,7 @@
 import type {
   HostSchedule_Serialize as HostSchedule,
   HostEvent,
+  NetFinding_Serialize as NetFinding,
   Timeline,
   DriftReport_Serialize as DriftReport,
   FileDiff_Serialize as FileDiff,
@@ -62,7 +63,7 @@ let guests: Vm[] = [
   { kind: "lxc", id: "200", name: "pihole", state: "running", vcpus: 1, memoryMb: 512, autostart: true },
   { kind: "libvirt", id: "debian-lab", name: "debian-lab", state: "paused", vcpus: 2, memoryMb: 2048, autostart: false },
 ];
-const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false, ...d });
+const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false, link: null, ...d });
 
 /** A made-up home LAN for the network map. Addresses are documentation-style examples. */
 function discovery(sweep: boolean, ranges: string[] = []): Discovery {
@@ -76,7 +77,7 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
     dev("192.168.1.48", { mac: "24:0a:c4:aa:00:48", vendor: "Espressif Inc.", names: ["kitchen-lamp.lan"], seen: ["neighbour"], kind: "iot", firstSeen: now - 12 * day }),
     dev("192.168.1.52", { mac: "3c:22:fb:00:00:52", vendor: "Apple", seen: ["neighbour"], firstSeen: now - 5 * day }),
     dev("192.168.1.61", { mac: "5c:aa:fd:00:00:61", vendor: "Sonos, Inc.", names: ["Kitchen"], model: "Sonos One", seen: ["neighbour", "ssdp"], kind: "speaker", firstSeen: now, isNew: true }),
-    dev("100.101.7.12", { names: ["macbook"], seen: ["tailscale"], os: "macOS", online: true, kind: "laptop", firstSeen: now - 60 * day }),
+    dev("100.101.7.12", { names: ["macbook"], seen: ["tailscale"], os: "macOS", online: true, kind: "laptop", firstSeen: now - 60 * day, link: "direct" }),
     dev("100.88.1.9", { names: ["phone"], seen: ["tailscale"], os: "iOS", online: false, kind: "phone", firstSeen: now - 60 * day }),
   ];
   if (sweep) devices.push(dev("192.168.1.77", { seen: ["ping"], firstSeen: now, isNew: true }), dev("192.168.1.78", { seen: ["ping"], firstSeen: now - 3 * day }));
@@ -100,9 +101,16 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
     ],
     swept: sweep ? "192.168.1.0/24" : (ranges[0] ?? null),
     ranges: [...(sweep ? ["192.168.1.0/24"] : []), ...ranges],
+    lldp: [{ iface: "eth0", name: "office-switch", mac: "aa:bb:cc:00:00:02", mgmtIp: null, port: "gi1/0/5", descr: "8-port managed switch" }],
+    paths: ranges.map((r) => ({ range: r, hops: ["192.168.1.1", "192.168.1.2", `${r.split("/")[0].split(".").slice(0, 3).join(".")}.1`] })),
     missing: sweep
       ? [{ key: "aa:bb:cc:00:00:90", ip: "192.168.1.90", name: "garage-camera", vendor: "Reolink", kind: "camera", lastSeen: now - 2 * day, trusted: true }]
       : [],
+    dhcp: ["192.168.1.1"],
+    findings: [
+      { ip: "192.168.1.40", port: 32400, level: "warn", title: "192.168.1.40:32400 is forwarded from the internet", detail: "A UPnP mapping on the router (Plex Media Server). Check it should be public." },
+      { ip: null, port: null, level: "warn", title: "The router accepts UPnP port forwards", detail: "Any device on the LAN can open ports to the internet. Turn UPnP off on the router if nothing needs it." },
+    ],
     notes: ranges.length ? ["Devices in routed ranges show no maker or local names: MAC addresses, mDNS and NetBIOS don't cross a router. Scan from a host on that network for the full picture."] : [],
   };
 }
@@ -354,6 +362,15 @@ export const mockOps = {
     return null;
   },
   tool: async (_host: number | null, r: ToolRequest): Promise<ToolResult> => delay(mockTool(r), r.tool === "path" ? 1500 : 600),
+  security: async (ips: string[]): Promise<NetFinding[]> => {
+    await new Promise((r) => setTimeout(r, 300));
+    const out: NetFinding[] = [];
+    if (ips.includes("192.168.1.31"))
+      out.push({ ip: "192.168.1.31", port: 443, level: "info", title: "Self-signed certificate", detail: "CN=raspberrypi, expires in 210 days. Browsers will warn; fine on a LAN if you know it." });
+    if (ips.includes("192.168.1.48"))
+      out.push({ ip: "192.168.1.48", port: 80, level: "bad", title: "Login page over plain HTTP on 192.168.1.48:80", detail: "Passwords typed here cross the network unencrypted." });
+    return out;
+  },
   macVendor: async (mac: string): Promise<string | null> => {
     const hex = mac.replace(/[^0-9a-f]/gi, "").toLowerCase();
     if (hex.length !== 12) return null;

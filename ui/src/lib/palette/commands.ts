@@ -14,6 +14,8 @@ import { settings } from "../stores/settings.svelte";
 import { terms } from "../stores/terms.svelte";
 import { ui } from "../stores/ui.svelte";
 import { helper } from "../stores/helper.svelte";
+import { CATALOG, SHELVES } from "../kb/catalog";
+import { library } from "../stores/library.svelte";
 import { THEME_IDS, THEMES } from "../theme/themes";
 import type { PaletteCommand } from "./types";
 
@@ -353,8 +355,17 @@ export function buildCommands(): PaletteCommand[] {
     })),
   ];
 
+  // The library (M11): every article as "Help: …".
+  const help: PaletteCommand[] = CATALOG.map((a) => ({
+    id: `help.${a.id}`,
+    title: `Help: ${a.title}`,
+    group: "HELP",
+    keywords: ["help", "guide", "article", "library", "docs", SHELVES.find((s) => s.id === a.shelf)?.label.toLowerCase() ?? ""],
+    run: () => library.open(a.id),
+  }));
+
   const all = [...snippetCmds, ...automationCmds, ...connect, ...browse, ...dockerHosts, ...tunnelCmds, ...systemCmds,
-    ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...profile, ...themes];
+    ...stackHosts, ...monitorHosts, ...containers, ...hostCmds, ...serviceCmds, ...nav, ...view, ...profile, ...themes, ...help];
   // Commands of features turned off in Settings → Features are left out.
   return all.filter((c) => {
     const f = GROUP_FEATURE[c.group];
