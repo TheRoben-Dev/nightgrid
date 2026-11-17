@@ -99,6 +99,10 @@ import {
   type PveVmSpec_Deserialize as PveVmSpec,
   type PveCtSpec_Deserialize as PveCtSpec,
   type PveCloneSpec_Deserialize as PveCloneSpec,
+  type PveSandboxSpec_Deserialize as PveSandboxSpec,
+  type PveSandboxDone_Serialize as PveSandboxDone,
+  type PveIsolation,
+  type PveBridge_Serialize as PveBridge,
   type PveAppliance,
   type PveConfig_Serialize as PveConfig,
   type PveHostDevices,
@@ -429,6 +433,10 @@ export type {
   PveVmSpec,
   PveCtSpec,
   PveCloneSpec,
+  PveSandboxSpec,
+  PveSandboxDone,
+  PveIsolation,
+  PveBridge,
   PveAppliance,
   PveNetwork,
   PveIfaceSpec,
@@ -1334,6 +1342,14 @@ export const api = {
   pveVmCreate: (hostId: number, spec: PveVmSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveVmCreate(hostId, spec, sudo) : mockProxmox.vmCreate(spec)),
   pveCtCreate: (hostId: number, spec: PveCtSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveCtCreate(hostId, spec, sudo) : mockProxmox.ctCreate(spec)),
   pveClone: (hostId: number, spec: PveCloneSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveClone(hostId, spec, sudo) : mockProxmox.clone(spec)),
+  pveSandboxCreate: (hostId: number, spec: PveSandboxSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveSandboxCreate(hostId, spec, sudo) : mockProxmox.sandboxCreate(spec)),
+  pveSandboxIsolate: (hostId: number, spec: PveSandboxSpec, sudo: SudoInput | null): Promise<PveSandboxDone> => (T() ? commands.pveSandboxIsolate(hostId, spec, sudo) : mockProxmox.sandboxIsolate(spec)),
+  pveSandboxExtend: (hostId: number, node: string, kind: string, vmid: number, hours: number, sudo: SudoInput | null): Promise<number | null> =>
+    T() ? commands.pveSandboxExtend(hostId, node, kind, vmid, hours, sudo) : mockProxmox.sandboxExtend(vmid, hours),
+  pveSandboxKeep: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.pveSandboxKeep(hostId, node, kind, vmid, sudo) : mockProxmox.sandboxKeep(vmid),
+  pveSandboxDestroy: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.pveSandboxDestroy(hostId, node, kind, vmid, sudo) : mockProxmox.sandboxDestroy(node, vmid),
   pveTemplate: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null): Promise<string> =>
     T() ? commands.pveTemplate(hostId, node, kind, vmid, sudo) : mockProxmox.template(node, vmid),
   pveDestroy: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null): Promise<string> =>

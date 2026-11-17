@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.83] - 2026-11-17
+
+### Added: sandbox clones
+- **Proxmox → SANDBOX**: make a throwaway copy of a VM or container to try an upgrade or a risky change on, from its current state or from a snapshot. **+ Sandbox** on the tab, or **Sandbox copy…** in a guest's ⋯ menu.
+- The copy starts **cut off from your network**: every network card's cable is pulled, or every card moves to a bridge you pick (one with no ports keeps sandboxes on their own little network). It can't clash with the original's IP or hostname.
+- PCI and USB passthrough is removed from the copy, and so are a container's bind mounts of the node's folders, so a sandbox never grabs the original's GPU or writes to its data. It never starts at boot.
+- **It expires**: pick 2 hours to a week (or never). A timer on the node stops and destroys the copy on time, even while Nightgrid is closed, and only if it's still that sandbox. **Expiry** sets a new time, **Keep…** turns it into an ordinary guest, **Destroy…** removes it now.
+- Sandboxes are marked with Proxmox tags, so they show up from any Nightgrid and in Proxmox's own UI. Making, extending, keeping and destroying them lands in the journal.
+- Settings → Features → Proxmox → Sandboxes turns the tab off.
+
 ## [0.10.82] - 2026-11-17
 
 ### Added: lab blueprints

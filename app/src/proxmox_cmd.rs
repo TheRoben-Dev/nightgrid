@@ -854,3 +854,215 @@ pub async fn pve_fw_settle(
     );
     Ok(())
 }
+
+// ---- sandbox clones (M12c) ----
+
+use nightgrid_core::journal::ChangeArea;
+use nightgrid_core::proxmox::sandbox::{self as psb, PveSandboxDone, PveSandboxSpec};
+
+use crate::journal_cmd::{self, Change};
+
+fn until_of(hours: u32) -> Option<u64> {
+    (hours > 0).then(|| nightgrid_core::services::check::now_unix().max(0) as u64 + u64::from(hours) * 3600)
+}
+
+fn now_u64() -> u64 {
+    nightgrid_core::services::check::now_unix().max(0) as u64
+}
+
+async fn read_config(
+    app: &AppHandle,
+    host_id: HostId,
+    sudo: Option<SudoInput>,
+    node: &str,
+    kind: &str,
+    vmid: u32,
+) -> SysResult<PveConfig> {
+    let script = phw::config_script(node, kind, vmid).ok_or_else(|| invalid("guest"))?;
+    let out = root_run(app, host_id, sudo, &script).await?;
+    Ok(phw::parse_config(&out, kind).map_err(other)?)
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn set_config(
+    app: &AppHandle,
+    host_id: HostId,
+    sudo: Option<SudoInput>,
+    node: &str,
+    kind: &str,
+    vmid: u32,
+    cfg: &PveConfig,
+    set: &[PveSetting],
+    remove: &[String],
+) -> SysResult<()> {
+    let script = phw::config_set_script(node, kind, vmid, &cfg.digest, set, remove).map_err(other)?;
+    let out = root_run(app, host_id, sudo, &script).await?;
+    psb::parse_ok(&out).map_err(|e| other(e).into())
+}
+
+/// Tags with ours replaced; an empty list is a removal, since Proxmox
+/// refuses an empty value.
+fn tag_change(tags: String) -> (Vec<PveSetting>, Vec<String>) {
+    if tags.is_empty() {
+        (vec![], vec!["tags".into()])
+    } else {
+        (vec![PveSetting { key: "tags".into(), value: tags }], vec![])
+    }
+}
+
+fn sandbox_only(cfg: &PveConfig, vmid: u32) -> SysResult<()> {
+    if psb::is_sandbox(cfg) {
+        Ok(())
+    } else {
+        Err(other(format!("{vmid} isn't a Nightgrid sandbox")).into())
+    }
+}
+
+/// Step 1: starts the clone. Returns the task's UPID.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_sandbox_create(
+    app: AppHandle,
+    host_id: HostId,
+    spec: PveSandboxSpec,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let s = psb::clone_script(&spec).map_err(other)?;
+    start_task(&app, host_id, sudo, Some(s), "sandbox").await
+}
+
+/// Step 2, once the clone task has ended: cuts the copy off, marks it,
+/// arms the expiry and starts it when asked.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_sandbox_isolate(
+    app: AppHandle,
+    host_id: HostId,
+    spec: PveSandboxSpec,
+    sudo: Option<SudoInput>,
+) -> SysResult<PveSandboxDone> {
+    psb::check(&spec).map_err(other)?;
+    let (node, kind, id) = (spec.node.as_str(), spec.kind.as_str(), spec.newid);
+    let cfg = read_config(&app, host_id, sudo.clone(), node, kind, id).await?;
+    let until = until_of(spec.hours);
+    let plan = psb::plan(&cfg, &spec, until);
+    let done = set_config(&app, host_id, sudo.clone(), node, kind, id, &cfg, &plan.set, &plan.delete).await;
+    let title = format!("Proxmox: sandbox {id} of {}", spec.vmid);
+    if let Err(e) = done {
+        let msg = e.to_string();
+        journal_cmd::record(&app, Change::new(host_id, ChangeArea::Proxmox, &title).detail(&msg).ok(false));
+        return Err(e);
+    }
+    let mut notes = plan.notes;
+    if let Some(u) = until {
+        let script = psb::arm_script(node, kind, id, u, now_u64()).ok_or_else(|| invalid("guest"))?;
+        let out = root_run(&app, host_id, sudo.clone(), &script).await?;
+        if let Err(e) = psb::parse_ok(&out) {
+            notes.push(format!("The expiry timer didn't arm ({e}); destroy it yourself when you're done."));
+        }
+    }
+    let upid = if spec.start {
+        let s = proxmox::action_script(node, kind, id, PveAction::Start);
+        Some(start_task(&app, host_id, sudo, s, "guest").await?)
+    } else {
+        None
+    };
+    let detail = format!(
+        "{} on {}{}: {}",
+        spec.name,
+        spec.node,
+        spec.snapshot.as_deref().map(|s| format!(", from snapshot {s}")).unwrap_or_default(),
+        notes.join("; ")
+    );
+    journal_cmd::record(&app, Change::new(host_id, ChangeArea::Proxmox, &title).detail(&detail));
+    tracing::info!(host = %host_id, source = spec.vmid, sandbox = id, "proxmox sandbox made");
+    Ok(PveSandboxDone { notes, until: until.map(|u| u as f64), upid })
+}
+
+/// Sets a new expiry `hours` from now (0: never) and re-arms the timer.
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn pve_sandbox_extend(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    kind: String,
+    vmid: u32,
+    hours: u32,
+    sudo: Option<SudoInput>,
+) -> SysResult<Option<f64>> {
+    if hours > psb::MAX_HOURS {
+        return Err(other(format!("at most {} hours", psb::MAX_HOURS)).into());
+    }
+    let cfg = read_config(&app, host_id, sudo.clone(), &node, &kind, vmid).await?;
+    sandbox_only(&cfg, vmid)?;
+    let until = until_of(hours);
+    let (set, del) = tag_change(psb::retag(&cfg, None, until, true));
+    set_config(&app, host_id, sudo.clone(), &node, &kind, vmid, &cfg, &set, &del).await?;
+    let script = match until {
+        Some(u) => psb::arm_script(&node, &kind, vmid, u, now_u64()),
+        None => psb::disarm_script(vmid),
+    }
+    .ok_or_else(|| invalid("guest"))?;
+    let out = root_run(&app, host_id, sudo, &script).await?;
+    psb::parse_ok(&out).map_err(other)?;
+    let title = format!(
+        "Proxmox: sandbox {vmid} {}",
+        if hours > 0 { format!("extended {hours} h") } else { "set to never expire".into() }
+    );
+    journal_cmd::record(&app, Change::new(host_id, ChangeArea::Proxmox, &title).detail(&node));
+    Ok(until.map(|u| u as f64))
+}
+
+/// Keeps a sandbox as an ordinary guest: our tags and the timer go. Its
+/// network stays as the sandbox left it.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_sandbox_keep(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    kind: String,
+    vmid: u32,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let cfg = read_config(&app, host_id, sudo.clone(), &node, &kind, vmid).await?;
+    sandbox_only(&cfg, vmid)?;
+    let (set, del) = tag_change(psb::retag(&cfg, None, None, false));
+    set_config(&app, host_id, sudo.clone(), &node, &kind, vmid, &cfg, &set, &del).await?;
+    let out = root_run(&app, host_id, sudo, &psb::disarm_script(vmid).ok_or_else(|| invalid("guest"))?).await?;
+    psb::parse_ok(&out).map_err(other)?;
+    journal_cmd::record(
+        &app,
+        Change::new(host_id, ChangeArea::Proxmox, &format!("Proxmox: sandbox {vmid} kept")).detail(&node),
+    );
+    Ok(())
+}
+
+/// Destroys a sandbox now; refuses a guest that isn't one.
+#[tauri::command]
+#[specta::specta]
+pub async fn pve_sandbox_destroy(
+    app: AppHandle,
+    host_id: HostId,
+    node: String,
+    kind: String,
+    vmid: u32,
+    sudo: Option<SudoInput>,
+) -> SysResult<String> {
+    let cfg = read_config(&app, host_id, sudo.clone(), &node, &kind, vmid).await?;
+    sandbox_only(&cfg, vmid)?;
+    let _ = root_run(&app, host_id, sudo.clone(), &psb::disarm_script(vmid).ok_or_else(|| invalid("guest"))?).await;
+    // A running guest has to stop before Proxmox destroys it.
+    let script = pcr::destroy_script(&node, &kind, vmid).map(|d| {
+        format!(
+            "pvesh create {} >/dev/null 2>&1; i=0; while [ $i -lt 45 ]; do pvesh get {} --output-format json 2>/dev/null | grep -q '\"status\":\"stopped\"' && break; sleep 2; i=$((i+1)); done\n{d}",
+            nightgrid_core::files::path::shell_quote(&format!("/nodes/{node}/{kind}/{vmid}/status/stop")),
+            nightgrid_core::files::path::shell_quote(&format!("/nodes/{node}/{kind}/{vmid}/status/current")),
+        )
+    });
+    let upid = start_task(&app, host_id, sudo, script, "guest").await?;
+    note(&app, host_id, Level::Info, format!("Proxmox: sandbox {vmid} destroyed"), format!("{kind} on {node}"));
+    Ok(upid)
+}

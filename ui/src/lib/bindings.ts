@@ -523,6 +523,22 @@ export const commands = {
 	pveFwObject: (hostId: number, local: string, token: string | null, op: string, name: string, cidr: string, comment: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveFwRun>("pve_fw_object", { hostId, local, token, op, name, cidr, comment, sudo }, options),
 	/**  Keeps the session's firewall changes, or restores the saved files now. */
 	pveFwSettle: (hostId: number, token: string, keep: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_fw_settle", { hostId, token, keep, sudo }, options),
+	/**  Step 1: starts the clone. Returns the task's UPID. */
+	pveSandboxCreate: (hostId: number, spec: PveSandboxSpec_Deserialize, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_sandbox_create", { hostId, spec, sudo }, options),
+	/**
+	 *  Step 2, once the clone task has ended: cuts the copy off, marks it,
+	 *  arms the expiry and starts it when asked.
+	 */
+	pveSandboxIsolate: (hostId: number, spec: PveSandboxSpec_Deserialize, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<PveSandboxDone_Serialize>("pve_sandbox_isolate", { hostId, spec, sudo }, options),
+	/**  Sets a new expiry `hours` from now (0: never) and re-arms the timer. */
+	pveSandboxExtend: (hostId: number, node: string, kind: string, vmid: number, hours: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<number | null>("pve_sandbox_extend", { hostId, node, kind, vmid, hours, sudo }, options),
+	/**
+	 *  Keeps a sandbox as an ordinary guest: our tags and the timer go. Its
+	 *  network stays as the sandbox left it.
+	 */
+	pveSandboxKeep: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("pve_sandbox_keep", { hostId, node, kind, vmid, sudo }, options),
+	/**  Destroys a sandbox now; refuses a guest that isn't one. */
+	pveSandboxDestroy: (hostId: number, node: string, kind: string, vmid: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("pve_sandbox_destroy", { hostId, node, kind, vmid, sudo }, options),
 	notesList: (options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize[]>("notes_list", undefined, options),
 	/**  Creates (`id` = null) or updates a note. */
 	noteSave: (id: number | null, input: NoteInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Note_Serialize>("note_save", { id, input }, options),
@@ -6227,6 +6243,16 @@ export type PveIface_Serialize = {
 	comments: string,
 };
 
+/**  How the copy is kept off the network. */
+export type PveIsolation = 
+/**  Every network card has its cable pulled (`link_down=1`). */
+"cut" | 
+/**
+ *  Every network card moves to one bridge (ideally one with no ports),
+ *  without its VLAN tag, so sandboxes can talk to each other only.
+ */
+"bridge";
+
 export type PveNetApply = PveNetApply_Serialize | PveNetApply_Deserialize;
 
 export type PveNetApply_Deserialize = {
@@ -6392,6 +6418,66 @@ export type PvePci = {
 	class: string,
 	/**  -1 when the IOMMU is off. */
 	iommuGroup: number,
+};
+
+export type PveSandboxDone = PveSandboxDone_Serialize | PveSandboxDone_Deserialize;
+
+export type PveSandboxDone_Deserialize = {
+	notes: string[],
+	/**  Unix time it expires, if it does. */
+	until?: number | null,
+	/**  The start task, when asked to start. */
+	upid?: string | null,
+};
+
+export type PveSandboxDone_Serialize = {
+	notes: string[],
+	/**  Unix time it expires, if it does. */
+	until: number | null,
+	/**  The start task, when asked to start. */
+	upid: string | null,
+};
+
+export type PveSandboxSpec = PveSandboxSpec_Serialize | PveSandboxSpec_Deserialize;
+
+export type PveSandboxSpec_Deserialize = {
+	node: string,
+	kind: string,
+	/**  The guest being copied. */
+	vmid: number,
+	newid: number,
+	name: string,
+	/**  Copy this snapshot instead of the current state. */
+	snapshot?: string | null,
+	/**  A full copy; a linked clone needs a template as the source. */
+	full: boolean,
+	storage?: string | null,
+	isolation: PveIsolation,
+	/**  Only with `Bridge`. */
+	bridge?: string | null,
+	/**  Destroyed after this many hours; 0 keeps it until you act. */
+	hours: number,
+	start: boolean,
+};
+
+export type PveSandboxSpec_Serialize = {
+	node: string,
+	kind: string,
+	/**  The guest being copied. */
+	vmid: number,
+	newid: number,
+	name: string,
+	/**  Copy this snapshot instead of the current state. */
+	snapshot: string | null,
+	/**  A full copy; a linked clone needs a template as the source. */
+	full: boolean,
+	storage: string | null,
+	isolation: PveIsolation,
+	/**  Only with `Bridge`. */
+	bridge: string | null,
+	/**  Destroyed after this many hours; 0 keeps it until you act. */
+	hours: number,
+	start: boolean,
 };
 
 export type PveSetting = {
