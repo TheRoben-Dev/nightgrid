@@ -3294,6 +3294,8 @@ export type HelperStatus_Deserialize = {
 	loaded: boolean,
 	/**  The build offloads to the GPU (Metal on macOS); otherwise CPU. */
 	gpu: boolean,
+	/**  The loaded model's context window in tokens (0 until it's loaded). */
+	context: number,
 };
 
 export type HelperStatus_Serialize = {
@@ -3314,6 +3316,8 @@ export type HelperStatus_Serialize = {
 	loaded: boolean,
 	/**  The build offloads to the GPU (Metal on macOS); otherwise CPU. */
 	gpu: boolean,
+	/**  The loaded model's context window in tokens (0 until it's loaded). */
+	context: number,
 };
 
 export type HistoryEntry = HistoryEntry_Serialize | HistoryEntry_Deserialize;

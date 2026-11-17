@@ -275,7 +275,7 @@
             {/if}
             {#if !m.streaming && m.sent}
               <details class="sent">
-                <summary>What I was given{m.sources?.length ? ` · ${m.sources.join(", ")}` : ""}{m.stats ? ` · ${m.stats}` : ""}</summary>
+                <summary>What I was given{m.sources?.length ? ` · ${m.sources.join(", ")}` : ""}{m.trimmed?.length ? ` · left out to fit: ${m.trimmed.join(", ")}` : ""}{m.stats ? ` · ${m.stats}` : ""}</summary>
                 <pre>{lastUser(m)}</pre>
               </details>
             {/if}
