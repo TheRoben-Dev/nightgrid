@@ -66,6 +66,10 @@ pub struct Host {
     pub tailnet_address: Option<String>,
     /// DRIFT may read this host's recent shell history (opt-in).
     pub drift_history: bool,
+    /// DRIFT may run read-only checks on this host (opt-in, D-151).
+    pub drift_lookups: bool,
+    /// Extra folders DRIFT may read files from (one per line).
+    pub drift_paths: Option<String>,
     /// For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`).
     pub mac_address: Option<String>,
     /// Another saved host on this host's LAN that sends the magic packet.
@@ -100,6 +104,10 @@ pub struct HostInput {
     pub tailnet_address: Option<String>,
     /// DRIFT may read this host's recent shell history (opt-in).
     pub drift_history: bool,
+    /// DRIFT may run read-only checks on this host (opt-in, D-151).
+    pub drift_lookups: bool,
+    /// Extra folders DRIFT may read files from (one per line).
+    pub drift_paths: Option<String>,
     /// For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`).
     pub mac_address: Option<String>,
     /// Another saved host on this host's LAN that sends the magic packet.
@@ -212,6 +220,16 @@ impl HostInput {
         h.proxy_jump = blank_to_none(&h.proxy_jump);
         h.ssh_alias = blank_to_none(&h.ssh_alias);
         h.tailnet_address = blank_to_none(&h.tailnet_address);
+        h.drift_paths = blank_to_none(&h.drift_paths)
+            .map(|p| p.lines().map(str::trim).filter(|l| !l.is_empty()).take(40).collect::<Vec<_>>().join("\n"));
+        if let Some(bad) = h.drift_paths.as_deref().and_then(|p| {
+            p.lines().find(|l| !(l.starts_with('/') || l.starts_with("~/")) || l.split('/').any(|c| c == ".."))
+        }) {
+            return Err(Error::Invalid {
+                field: "driftPaths",
+                reason: format!("\"{bad}\" isn't an absolute folder (start it with / or ~/)"),
+            });
+        }
         if h.tailnet_address.as_deref().is_some_and(|a| a.chars().any(char::is_whitespace) || a.contains('/')) {
             return Err(Error::Invalid { field: "tailnetAddress", reason: "a host name or address, no spaces".into() });
         }
@@ -241,7 +259,7 @@ impl HostInput {
 }
 
 const HOST_COLS: &str = "id, name, hostname, port, username, group_id, color, icon, favorite, notes, \
-     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role";
+     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths";
 
 fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
     Ok(Host {
@@ -267,6 +285,8 @@ fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
         wake_relay_id: r.get(18)?,
         sleep_window: r.get(19)?,
         role: r.get(20)?,
+        drift_lookups: r.get(21)?,
+        drift_paths: r.get(22)?,
     })
 }
 
@@ -334,8 +354,8 @@ impl Store {
             tx.execute(
                 "INSERT INTO hosts (name, hostname, port, username, group_id, color, icon, favorite, notes,
                     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history,
-                    mac_address, wake_relay_id, sleep_window, role)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20)",
+                    mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
                 params![
                     h.name,
                     h.hostname,
@@ -356,7 +376,9 @@ impl Store {
                     h.mac_address,
                     h.wake_relay_id,
                     h.sleep_window,
-                    h.role
+                    h.role,
+                    h.drift_lookups,
+                    h.drift_paths
                 ],
             )?;
             let id = tx.last_insert_rowid() as HostId;
@@ -374,7 +396,7 @@ impl Store {
                     icon = ?8, favorite = ?9, notes = ?10, auth_method = ?11, identity_file = ?12,
                     proxy_jump = ?13, remember_secret = ?14, ssh_alias = ?15,
                     tailnet_address = ?16, drift_history = ?17, mac_address = ?18,
-                    wake_relay_id = ?19, sleep_window = ?20, role = ?21, updated_at = unixepoch()
+                    wake_relay_id = ?19, sleep_window = ?20, role = ?21, drift_lookups = ?22, drift_paths = ?23, updated_at = unixepoch()
                  WHERE id = ?1",
                 params![
                     id,
@@ -397,7 +419,9 @@ impl Store {
                     h.mac_address,
                     h.wake_relay_id,
                     h.sleep_window,
-                    h.role
+                    h.role,
+                    h.drift_lookups,
+                    h.drift_paths
                 ],
             )?;
             if n > 0 {

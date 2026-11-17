@@ -39,6 +39,8 @@
     sshAlias: null,
     tailnetAddress: null,
     driftHistory: false,
+    driftLookups: false,
+    driftPaths: null,
     macAddress: null,
     wakeRelayId: null,
     sleepWindow: null,
@@ -48,6 +50,7 @@
 
   const fromHost = (h: Host): HostInput => ({ ...h, port: h.port === 22 ? null : h.port, tags: [...h.tags] });
 
+  const pathsHint = "/data/apps\n~/stacks";
   let form = $state<HostInput>(blank());
   let tagsText = $state("");
   let newGroup = $state("");
@@ -360,7 +363,20 @@
           checked={form.driftHistory}
           onchange={(v) => (form.driftHistory = v)}
         />
+        <Toggle
+          label="DRIFT may run read-only checks"
+          hint="When you ask DRIFT about this host, it can look around over SSH as your login user: disk, memory, processes, services and their logs, containers and their logs, timers, mounts, updates, and config files under /etc, /var/log, /opt, /srv plus compose and .env files. Only fixed read-only commands, never sudo, never a change. Secrets are masked and every check is shown in the reply."
+          checked={form.driftLookups}
+          onchange={(v) => (form.driftLookups = v)}
+        />
       </div>
+      {#if form.driftLookups}
+        <label class="field span6" data-guide="host-drift-paths">
+          <span>More folders DRIFT may read <span class="muted">(optional, one per line)</span></span>
+          <textarea class="input mono" rows="2" placeholder={pathsHint} value={form.driftPaths ?? ""} oninput={(e) => (form.driftPaths = e.currentTarget.value || null)}></textarea>
+          <span class="field-hint">Keys, password files and anything under .ssh stay off limits whatever you list here.</span>
+        </label>
+      {/if}
       {#if form.sshAlias}
         <p class="span6 field-hint">Imported from ~/.ssh/config alias <code>{form.sshAlias}</code>.</p>
       {/if}

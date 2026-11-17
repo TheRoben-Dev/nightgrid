@@ -552,6 +552,13 @@ export const commands = {
 	 *  as Tasks → History search).
 	 */
 	helperHostHistory: (hostId: number, terms: string[], options?: InvokeOptions) => __TAURI_INVOKE<HostHistory_Serialize>("helper_host_history", { hostId, terms }, options),
+	/**
+	 *  Runs read-only checks on a host for DRIFT, when the host allows it
+	 *  ("DRIFT may run read-only checks" in the host editor). `terms` are the
+	 *  question's words: containers and services they name get their state and
+	 *  recent logs checked too. Nothing is stored.
+	 */
+	helperHostLookups: (hostId: number, lookups: Lookup_Deserialize[], terms: string[], options?: InvokeOptions) => __TAURI_INVOKE<LookupResult_Serialize[]>("helper_host_lookups", { hostId, lookups, terms }, options),
 	/**  Registers the UI channel and sends the current snapshot. */
 	alertsSubscribe: (onEvent: Channel<AlertsSnapshot_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_subscribe", { onEvent }, options),
 	/**  Re-evaluates now (after alert settings change). */
@@ -3488,6 +3495,10 @@ export type HostInput_Deserialize = {
 	tailnetAddress?: string | null,
 	/**  DRIFT may read this host's recent shell history (opt-in). */
 	driftHistory?: boolean,
+	/**  DRIFT may run read-only checks on this host (opt-in, D-151). */
+	driftLookups?: boolean,
+	/**  Extra folders DRIFT may read files from (one per line). */
+	driftPaths?: string | null,
 	/**  For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`). */
 	macAddress?: string | null,
 	/**  Another saved host on this host's LAN that sends the magic packet. */
@@ -3519,6 +3530,10 @@ export type HostInput_Serialize = {
 	tailnetAddress: string | null,
 	/**  DRIFT may read this host's recent shell history (opt-in). */
 	driftHistory: boolean,
+	/**  DRIFT may run read-only checks on this host (opt-in, D-151). */
+	driftLookups: boolean,
+	/**  Extra folders DRIFT may read files from (one per line). */
+	driftPaths: string | null,
 	/**  For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`). */
 	macAddress: string | null,
 	/**  Another saved host on this host's LAN that sends the magic packet. */
@@ -3615,6 +3630,10 @@ export type Host_Deserialize = {
 	tailnetAddress?: string | null,
 	/**  DRIFT may read this host's recent shell history (opt-in). */
 	driftHistory: boolean,
+	/**  DRIFT may run read-only checks on this host (opt-in, D-151). */
+	driftLookups: boolean,
+	/**  Extra folders DRIFT may read files from (one per line). */
+	driftPaths?: string | null,
 	/**  For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`). */
 	macAddress?: string | null,
 	/**  Another saved host on this host's LAN that sends the magic packet. */
@@ -3648,6 +3667,10 @@ export type Host_Serialize = {
 	tailnetAddress: string | null,
 	/**  DRIFT may read this host's recent shell history (opt-in). */
 	driftHistory: boolean,
+	/**  DRIFT may run read-only checks on this host (opt-in, D-151). */
+	driftLookups: boolean,
+	/**  Extra folders DRIFT may read files from (one per line). */
+	driftPaths: string | null,
 	/**  For Wake-on-LAN (`aa:bb:cc:dd:ee:ff`). */
 	macAddress: string | null,
 	/**  Another saved host on this host's LAN that sends the magic packet. */
@@ -4464,6 +4487,101 @@ export type LoginEvent_Serialize = {
 	method: string,
 	/**  The key's SHA256 fingerprint, for public-key logins. */
 	key: string | null,
+};
+
+/**  One check DRIFT wants to run. */
+export type Lookup = Lookup_Serialize | Lookup_Deserialize;
+
+/**  What DRIFT may look up. Each kind maps to one fixed command. */
+export type LookupKind = 
+/**  Uptime, load, disk use and memory in one go. */
+"overview" | "disk" | "memory" | 
+/**  Load and the busiest processes by CPU. */
+"processes" | 
+/**  Listening TCP/UDP ports. */
+"ports" | 
+/**  Addresses and routes. */
+"network" | 
+/**  systemd units in the failed state. */
+"failedUnits" | 
+/**  Error-level journal lines from the last day. */
+"errors" | 
+/**  All containers with image and status. */
+"containers" | 
+/**  One container's state (never its environment). */
+"container" | "containerLogs" | 
+/**  `systemctl status` of one unit. */
+"service" | "serviceLogs" | 
+/**  One file under an allowed path (start of it; the end for logs). */
+"file" | 
+/**  Compose projects and their files. */
+"composeProjects" | 
+/**  OS, kernel, hostname, virtualization and whether a reboot is pending. */
+"system" | 
+/**  Kernel warnings and errors (OOM kills, disk and network errors). */
+"kernelLog" | 
+/**  systemd timers: when each last ran and runs next. */
+"timers" | 
+/**  Cron jobs of the login user and /etc/cron.*. */
+"cron" | 
+/**  Mounted filesystems (network shares included). */
+"mounts" | 
+/**  Block devices, RAID and ZFS pool health. */
+"storage" | 
+/**  Temperatures, fans and GPU use, where tools exist. */
+"sensors" | 
+/**  Who is logged in and recent logins. */
+"logins" | 
+/**  Pending package updates (read from the package cache). */
+"updates" | 
+/**  Running services. */
+"services" | 
+/**  Connection counts and the busiest remote peers. */
+"connections" | 
+/**  CPU, memory and I/O per running container. */
+"dockerStats" | 
+/**  Docker events of the last hour (restarts, OOM, health changes). */
+"dockerEvents" | 
+/**  Space used by images, containers and volumes. */
+"dockerDisk";
+
+/**  What a check returned, as shown to the user and given to the model. */
+export type LookupResult = LookupResult_Serialize | LookupResult_Deserialize;
+
+/**  What a check returned, as shown to the user and given to the model. */
+export type LookupResult_Deserialize = {
+	lookup: Lookup_Deserialize,
+	/**  The exact command that ran (empty when it was refused). */
+	command: string,
+	ok: boolean,
+	/**  Masked and clipped output, or why it couldn't run. */
+	output: string,
+	clipped: boolean,
+};
+
+/**  What a check returned, as shown to the user and given to the model. */
+export type LookupResult_Serialize = {
+	lookup: Lookup_Serialize,
+	/**  The exact command that ran (empty when it was refused). */
+	command: string,
+	ok: boolean,
+	/**  Masked and clipped output, or why it couldn't run. */
+	output: string,
+	clipped: boolean,
+};
+
+/**  One check DRIFT wants to run. */
+export type Lookup_Deserialize = {
+	kind: LookupKind,
+	/**  Container or unit name, or a file path, for kinds that take one. */
+	target?: string | null,
+};
+
+/**  One check DRIFT wants to run. */
+export type Lookup_Serialize = {
+	kind: LookupKind,
+	/**  Container or unit name, or a file path, for kinds that take one. */
+	target: string | null,
 };
 
 export type Manager = "apt" | "dnf" | "pacman" | 

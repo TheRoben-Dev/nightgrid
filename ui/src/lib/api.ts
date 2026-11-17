@@ -234,6 +234,8 @@ import {
   type Schedules_Serialize as Schedules,
   type HistoryEntry_Serialize as HistoryEntry,
   type HostHistory_Serialize as HostHistory,
+  type Lookup_Serialize as Lookup,
+  type LookupResult_Serialize as LookupResult,
   type PowerAction,
   type WakeSent_Serialize as WakeSent,
   type HostSchedule_Serialize as HostSchedule,
@@ -344,6 +346,7 @@ import { mockDesktop } from "./mockDesktop";
 import { mockTailnet } from "./mockTailnet";
 import { mockKeys } from "./mockKeys";
 import { mockHelper } from "./mockHelper";
+import { mockLookups } from "./mockLookups";
 import { mockBackup } from "./mockBackup";
 import { mockIntegrations } from "./mockIntegrations";
 import { mockBackend } from "./mock";
@@ -1186,6 +1189,8 @@ export const api = {
           ],
           matches: terms.some((t) => "nginx".includes(t.toLowerCase())) ? [{ command: "sudo nginx -t && sudo systemctl reload nginx", shell: "bash", when: null }] : [],
         }),
+  helperHostLookups: (hostId: number, lookups: Lookup[], terms: string[] = []): Promise<LookupResult[]> =>
+    T() ? commands.helperHostLookups(hostId, lookups, terms) : mockLookups(lookups, terms),
   appRestart: (): Promise<void> => (T() ? commands.appRestart() : Promise.resolve(location.reload())),
   alertsSubscribe: (on: (s: AlertsSnapshot) => void): Promise<null> => {
     if (!T()) return mockAlerts.subscribe(on);

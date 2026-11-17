@@ -28,6 +28,10 @@ export interface HelperContext {
   devices?: string[] | null;
   /** Live facts about the saved hosts the question names (one block each). */
   hosts?: string[] | null;
+  /** Read-only checks Nightgrid just ran on those hosts (one block per host, D-151). */
+  lookups?: string[] | null;
+  /** How the model may ask for more checks (first round only). */
+  lookupHint?: string | null;
   /** Exact results of DRIFT's skills (command check, compose review, error reference, cron). */
   checks?: string | null;
 }
@@ -170,6 +174,12 @@ export function contextBlock(ctx: HelperContext, docs: Chunk[]): string {
   if (ctx.program) parts.push(`Running in the terminal: ${ctx.program.name}. Its keys: ${ctx.program.keys}.`);
   if (ctx.checks?.trim()) parts.push(`CHECKS (exact, computed by Nightgrid):\n${redact(ctx.checks.trim())}`);
   if (ctx.hosts?.length) parts.push("MY HOSTS (live facts from Nightgrid, about the hosts this question names):\n" + ctx.hosts.map(redact).join("\n\n"));
+  if (ctx.lookups?.length)
+    parts.push(
+      "SERVER CHECKS (read-only commands Nightgrid just ran on the host for you, exact output, secrets masked; answer from these first, quote the lines that matter, and don't claim anything they don't show):\n" +
+        ctx.lookups.map(redact).join("\n\n") +
+        (ctx.lookupHint ? `\n\n${ctx.lookupHint}` : ""),
+    );
   if (ctx.devices?.length) parts.push("NETWORK DEVICES (the user's own labels):\n" + ctx.devices.map((d) => `- ${d}`).join("\n"));
   const guide = docs.filter((d) => d.noteId === undefined);
   const mine = docs.filter((d) => d.noteId !== undefined);
@@ -197,6 +207,8 @@ export const DEFAULT_CONTEXT = 8192;
 export const MAX_DOC = 1800;
 /** Longest CHECKS block and longest MY HOSTS block per host (lookups can reuse it). */
 export const MAX_LIVE = 3000;
+/** Longest SERVER CHECKS block per host (D-151; each check already shares it, see lookupBlock). */
+export const MAX_LOOKUPS_LIVE = 6000;
 
 /**
  * A safe upper estimate of the tokens `text` takes. Qwen's tokenizer averages
@@ -243,6 +255,7 @@ export function fitTurns(history: Turn[], question: string, ctx: HelperContext, 
     ...ctx,
     checks: ctx.checks ? clip(ctx.checks, MAX_LIVE, "\n[cut to fit]") : ctx.checks,
     hosts: ctx.hosts?.map((h) => clip(h, MAX_LIVE, "\n[cut to fit]")),
+    lookups: ctx.lookups?.map((x) => clip(x, MAX_LOOKUPS_LIVE, "\n[cut to fit]")),
     devices: ctx.devices?.slice(0, 40),
   };
   const clipped = docs.map((d) => (d.text.length > MAX_DOC ? { ...d, text: clip(d.text, MAX_DOC, "\n[…]") } : d));
@@ -272,10 +285,12 @@ export function fitTurns(history: Turn[], question: string, ctx: HelperContext, 
     } else if (c.selection && c.selection.length > 400) {
       c = { ...c, selection: c.selection.slice(-Math.floor(c.selection.length / 2)) };
       if (!trimmed.includes("part of the attached text")) trimmed.push("part of the attached text");
-    } else if (c.hosts?.some((h) => h.length > 400) || (c.checks?.length ?? 0) > 400) {
+    } else if (c.hosts?.some((h) => h.length > 400) || c.lookups?.some((h) => h.length > 400) || (c.checks?.length ?? 0) > 400) {
       c = {
         ...c,
         hosts: c.hosts?.map((h) => clip(h, Math.max(400, Math.floor(h.length / 2)), "\n[cut to fit]")),
+        lookups: c.lookups?.map((h) => clip(h, Math.max(400, Math.floor(h.length / 2)), "\n[cut to fit]")),
+        lookupHint: null,
         checks: c.checks ? clip(c.checks, Math.max(400, Math.floor(c.checks.length / 2)), "\n[cut to fit]") : c.checks,
       };
       if (!trimmed.includes("part of the live facts")) trimmed.push("part of the live facts");

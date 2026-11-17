@@ -19,6 +19,7 @@
   import { ui } from "../../stores/ui.svelte";
   import { tour } from "../../stores/tour.svelte";
   import { thingsHere, tourById, toursFor } from "../../helper/tours";
+  import { lookupLabel } from "../../helper/lookups";
 
   function openNote(id: number) {
     notes.draft = null;
@@ -148,7 +149,7 @@
     <div class="title">
       <span class="label" use:scramble={"DRIFT"}></span>
       <span class="micro">
-        {#if !helper.enabled}OFF{:else if helper.loading}LOADING MODEL…{:else if helper.busy}THINKING{:else if helper.ready}LOCAL · {helper.status?.gpu ? "GPU" : "CPU"}{:else}NO MODEL{/if}
+        {#if !helper.enabled}OFF{:else if helper.loading}LOADING MODEL…{:else if helper.checking}CHECKING{:else if helper.busy}THINKING{:else if helper.ready}LOCAL · {helper.status?.gpu ? "GPU" : "CPU"}{:else}NO MODEL{/if}
       </span>
     </div>
     <div class="tools">
@@ -199,6 +200,7 @@
           </div>
         </div>
       {/if}
+      {#if helper.checking}<p class="muted small checking" role="status">Checking {helper.checking}…</p>{/if}
       {#each helper.messages as m (m.id)}
         <div class="msg {m.role}">
           {#if m.role === "user"}
@@ -273,6 +275,21 @@
                 {#each m.noteRefs as r (r.id)}<button type="button" class="chip" onclick={() => openNote(r.id)}>▤ {r.title}</button>{/each}
               </div>
             {/if}
+            {#if m.lookups?.length}
+              <details class="sent checked" data-guide="drift-checked">
+                <summary>What I checked · {m.lookups.map((x) => `${x.host} (${x.results.length})`).join(", ")}</summary>
+                {#each m.lookups as hl (hl.host)}
+                  {#if hl.error}<p class="muted small">{hl.host}: couldn't run checks ({hl.error})</p>{/if}
+                  {#each hl.results as r, ri (ri)}
+                    <div class="look" class:bad={!r.ok}>
+                      <div class="look-head"><b>{hl.host}</b> · {lookupLabel(r.lookup)}{r.clipped ? " · cut to fit" : ""}{r.ok ? "" : " · couldn't check"}</div>
+                      {#if r.command}<code class="cmd">{r.command}</code>{/if}
+                      <pre>{r.output}</pre>
+                    </div>
+                  {/each}
+                {/each}
+              </details>
+            {/if}
             {#if !m.streaming && m.sent}
               <details class="sent">
                 <summary>What I was given{m.sources?.length ? ` · ${m.sources.join(", ")}` : ""}{m.trimmed?.length ? ` · left out to fit: ${m.trimmed.join(", ")}` : ""}{m.stats ? ` · ${m.stats}` : ""}</summary>
@@ -310,7 +327,7 @@
           <button type="submit" class="btn primary" disabled={!input.trim()}>Ask</button>
         {/if}
       </div>
-      <p class="muted micro hint">Answers can be wrong. I never run commands; Nightgrid asks before anything destructive.</p>
+      <p class="muted micro hint">Answers can be wrong. On hosts you allow, I run read-only checks and show them; I never change anything.</p>
     </form>
   {/if}
 </aside>
@@ -573,6 +590,24 @@
   }
   .sent summary {
     cursor: pointer;
+  }
+  .checked .look {
+    margin-top: 6px;
+  }
+  .checked .look-head {
+    color: var(--text-1);
+  }
+  .checked .look.bad .look-head {
+    color: var(--warn);
+  }
+  .checked .cmd {
+    display: block;
+    margin: 2px 0;
+    word-break: break-all;
+    color: var(--accent);
+  }
+  .checking {
+    order: 99;
   }
   .sent pre {
     max-height: 240px;

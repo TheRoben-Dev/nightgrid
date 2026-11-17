@@ -2,7 +2,8 @@
  * DRIFT helper state: the side panel, the conversation, the attached view
  * context, the model download and the "show me" spotlight.
  */
-import { api, type HelperModels, type HelperStatus } from "../api";
+import { api, type Host, type HelperModels, type HelperStatus } from "../api";
+import type { Lookup_Serialize as Lookup, LookupResult_Serialize as LookupResult } from "../bindings";
 import { guideTarget } from "../helper/guide";
 import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
 import { tour } from "./tour.svelte";
@@ -12,9 +13,10 @@ import { settingsTabFor } from "../settingsTabs";
 import { labelLines } from "../netmap/graph";
 import { keymap } from "../term/keyhints";
 import { historyTerms, hostFacts, mentionedHosts } from "../helper/hostFacts";
+import { followUpHint, lookupBlock, lookupLabel, notYetRun, planLookups, takeCheckRequests, wantsLookups } from "../helper/lookups";
 import { checksText, runSkills, summaryCheck, type Check } from "../helper/skills";
 import { wantsSummary, type SummaryInput } from "../helper/skills/summary";
-import { diskRows, totals, updateRows } from "../fleet";
+import { diskRows, disksText, totals, updateRows, updatesText } from "../fleet";
 import { backups, jobState } from "./backups.svelte";
 import { fleet } from "./fleet.svelte";
 import { healthOf, services } from "./services.svelte";
@@ -55,6 +57,14 @@ export interface ChatMessage {
   attached?: string;
   /** Exact skill results shown above the reply (and given to the model). */
   checks?: Check[];
+  /** Read-only checks run on hosts for this reply ("What I checked", D-151). */
+  lookups?: HostLookups[];
+}
+
+export interface HostLookups {
+  host: string;
+  results: LookupResult[];
+  error?: string;
 }
 
 export interface Spotlight {
@@ -124,6 +134,10 @@ class HelperStore {
   typing = $state(false);
   /** Text put in the question box for the user to send or edit. */
   draft = $state("");
+  /** What DRIFT is checking on a host right now ("server01: disk, storage"). */
+  checking = $state<string | null>(null);
+  /** Hosts the last question named (for read-only checks). */
+  private named: Host[] = [];
   /** Checks a view attached to the next question (alert triage). */
   private pendingChecks: Check[] = [];
   private seq = 0;
@@ -285,6 +299,7 @@ class HelperStore {
         if (found.length) break;
       }
     }
+    this.named = found;
     if (!found.length) return [];
     const now = Math.floor(Date.now() / 1000);
     const all = [...(alerts.snap?.active ?? []), ...(alerts.snap?.history ?? [])];
@@ -303,9 +318,39 @@ class HelperStore {
           }
         }
         const mine = all.filter((a, i) => a.hostId === h.id && all.findIndex((b) => b.id === a.id) === i);
-        return hostFacts({ host: h, ping: hosts.pings[h.id], metrics: metrics.byHost[h.id], alerts: mine, history, historyMatches, historyError, now });
+        return hostFacts({ host: h, ping: hosts.pings[h.id], metrics: metrics.byHost[h.id], alerts: mine, history, historyMatches, historyError, known: this.knownAbout(h), now });
       }),
     );
+  }
+
+  /**
+   * Hosts DRIFT may run read-only checks on for this question: the ones it
+   * names, else the host the current view is about (each only when allowed).
+   */
+  private lookupHosts(viewHost: string | null | undefined): Host[] {
+    const named = this.named.filter((h) => h.driftLookups);
+    if (named.length || this.named.length) return named.slice(0, 2);
+    const v = viewHost ? hosts.hosts.find((h) => h.name === viewHost) : undefined;
+    return v?.driftLookups ? [v] : [];
+  }
+
+  /** Runs read-only checks on each host (D-151). Never throws. */
+  private async runLookups(targets: Host[], plan: Lookup[], terms: string[]): Promise<HostLookups[]> {
+    const out: HostLookups[] = [];
+    for (const h of targets) {
+      this.checking = `${h.name}: ${plan.map(lookupLabel).join(", ") || "looking around"}`;
+      try {
+        out.push({ host: h.name, results: await api.helperHostLookups(h.id, plan, terms) });
+      } catch (e) {
+        out.push({ host: h.name, results: [], error: errMsg(e) });
+      }
+    }
+    this.checking = null;
+    return out;
+  }
+
+  private static blocks(all: HostLookups[]): string[] {
+    return all.filter((x) => x.results.length || x.error).map((x) => (x.error ? `### ${x.host}\nCouldn't run checks: ${x.error}` : lookupBlock(x.host, x.results)));
   }
 
   async ask(question: string) {
@@ -316,6 +361,19 @@ class HelperStore {
     if (!netmap.labelsLoaded) await netmap.loadLabels();
     ctx.devices = labelLines(netmap.labels, netmap.result?.devices ?? [], q, ctx.view === "network");
     ctx.hosts = await this.hostContext(q);
+    // Read-only checks on hosts that allow them (D-151).
+    const lookTargets = wantsLookups(q) ? this.lookupHosts(ctx.host) : [];
+    let looked: HostLookups[] = [];
+    if (lookTargets.length) {
+      this.busy = true;
+      try {
+        looked = await this.runLookups(lookTargets, planLookups(q), historyTerms(q, lookTargets.map((h) => h.name)));
+      } finally {
+        this.busy = false;
+      }
+      ctx.lookups = HelperStore.blocks(looked);
+      ctx.lookupHint = ctx.lookups.length ? followUpHint() : null;
+    }
     const checks = [...this.pendingChecks, ...runSkills(q, ctx.selection)];
     this.pendingChecks = [];
     if (wantsSummary(q)) checks.unshift(summaryCheck(this.summaryInput()));
@@ -324,7 +382,7 @@ class HelperStore {
     errRef.addErrorRefs(checks, errRef.matchErrors(`${q}\n${ctx.selection ?? ""}`, 3));
     ctx.checks = checks.length ? checksText(checks) : null;
     // Questions about the user's own hosts (or with exact checks) lean on those, not the guide.
-    const guideN = ctx.hosts.length || checks.length ? 2 : 4;
+    const guideN = ctx.hosts.length || checks.length || looked.length ? 2 : 4;
     // The library (M11) beyond its "Using Nightgrid" shelf, which is the guide above.
     const lib = await import("../kb/library");
     const libDocs = (lib.libraryIndex().search(q, 6) as { title: string; text: string; articleId?: string }[])
@@ -345,16 +403,17 @@ class HelperStore {
     const n = sel ? sel.split("\n").length : 0;
     const attached = sel ? `${ctx.source ?? "selection"} · ${n} line${n === 1 ? "" : "s"}` : undefined;
     this.messages.push({ id: ++this.seq, role: "user", text: q, actions: [], attached });
-    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), trimmed: fit.trimmed, noteRefs: noteRefs(docs), articleRefs, checks });
+    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), trimmed: fit.trimmed, noteRefs: noteRefs(docs), articleRefs, checks, lookups: looked.length ? looked : undefined });
     const msg = this.messages[this.messages.length - 1];
     // Selection is used once; the view context stays.
     this.context = { ...this.context, selection: null, source: null };
     this.busy = true;
+    this.stopped = false;
     this.mood = null;
     this.clearSpotlight();
     let raw = "";
-    try {
-      const reply = await api.helperAsk(sent, (e) => {
+    const stream = (turns: Turn[]) =>
+      api.helperAsk(turns, (e) => {
         if (e.kind === "loading") this.loading = true;
         else if (e.kind === "thinking") this.loading = false;
         else if (e.kind === "text") {
@@ -362,7 +421,25 @@ class HelperStore {
           msg.text = streamingText(raw);
         }
       });
-      const parsed = parseReply(reply.text || raw);
+    try {
+      let reply = await stream(sent);
+      // The model asked for more checks: run them once and answer again (D-151).
+      const more = takeCheckRequests(reply.text || raw);
+      const fresh = lookTargets.length ? notYetRun(more.asked, looked[0]?.results ?? []) : [];
+      if (fresh.length && !this.stopped) {
+        const extra = await this.runLookups(lookTargets.slice(0, 1), fresh, []);
+        looked = looked.map((x, i) => (i === 0 && extra[0] ? { ...x, results: [...x.results, ...extra[0].results], error: x.error ?? extra[0].error } : x));
+        msg.lookups = looked;
+        const again = { ...ctx, lookups: HelperStore.blocks(looked), lookupHint: null };
+        const refit = fitTurns(history, q, again, docs, this.status?.context || undefined);
+        const turns = refit.turns;
+        msg.sent = turns;
+        msg.trimmed = refit.trimmed;
+        raw = "";
+        msg.text = "";
+        reply = await stream(turns);
+      }
+      const parsed = parseReply(takeCheckRequests(reply.text || raw).text);
       msg.text = parsed.text;
       msg.actions = parsed.actions;
       const secs = reply.seconds ?? 0;
@@ -374,7 +451,7 @@ class HelperStore {
       }
     } catch (e) {
       msg.error = errMsg(e);
-      if (raw) msg.text = parseReply(raw).text;
+      if (raw) msg.text = parseReply(takeCheckRequests(raw).text).text;
     } finally {
       msg.streaming = false;
       this.busy = false;
@@ -383,7 +460,10 @@ class HelperStore {
     }
   }
 
+  private stopped = false;
+
   stop() {
+    this.stopped = true;
     void api.helperStop();
   }
 
@@ -402,6 +482,31 @@ class HelperStore {
     const title = (q?.text ?? "DRIFT answer").replace(/\s+/g, " ").trim();
     notes.draft = { id: null, input: { title: title.length > 70 ? `${title.slice(0, 67)}…` : title, body: parts.join("\n\n"), hostId: host?.id ?? null, tags: ["runbook"], pinned: false, hideFromDrift: false, runbook: false, alertKinds: [], serviceId: null } };
     ui.go("notes");
+  }
+
+  /** What Nightgrid's other views already know about a host (no new requests). */
+  private knownAbout(h: Host): string[] {
+    const out: string[] = [];
+    const clip = (xs: string[], n: number) => (xs.length > n ? [...xs.slice(0, n), `…and ${xs.length - n} more`] : xs);
+    const svc = services.services.filter((v) => v.hostId === h.id).map((v) => `${v.name}: ${healthOf(v, services.status[v.id])}`);
+    if (svc.length) out.push(`Service checks (Services view): ${clip(svc, 12).join("; ")}`);
+    if (fleet.updates[h.id]) {
+      const t = updatesText(updateRows([h], fleet.updates), []).trim();
+      if (t) out.push(`Updates (Fleet → UPDATES): ${t.split("\n").slice(0, 6).join(" / ")}`);
+    }
+    if (fleet.disks[h.id]) {
+      const t = disksText(diskRows([h], fleet.disks, settings.value.alerts.forecastDays)).trim();
+      if (t) out.push(`Disks (Fleet → DISKS):\n${t.split("\n").slice(0, 10).join("\n")}`);
+    }
+    if (backups.loaded) {
+      const jobs = backups.jobs.filter((j) => j.hostId === h.id).map((j) => `${j.name}: ${jobState(backups.status[j.id])}`);
+      if (jobs.length) out.push(`Backup jobs (Fleet → BACKUPS): ${clip(jobs, 8).join("; ")}`);
+    }
+    if (docker.hostId === h.id && docker.containers.length) {
+      const cs = docker.containers.map((c) => `${c.name} ${c.state}${c.health ? ` (${c.health})` : ""}`);
+      out.push(`Containers (Docker view, ${cs.length}): ${clip(cs, 20).join("; ")}`);
+    }
+    return out;
   }
 
   /** What the app knows about the last day, for the daily summary skill. */
