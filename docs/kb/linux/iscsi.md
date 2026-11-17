@@ -2,6 +2,8 @@
 
 Share a disk over the network as a raw block device instead of files: the client formats it and sees a local disk. Good for VM disks on Proxmox, a Steam library on a NAS, or a Windows PC that wants "a local drive" stored on the server. Linux serves it with the kernel's LIO target, managed by `targetcli`.
 
+![An iSCSI target lends a block device to one initiator.](fig:lx-iscsi)
+
 ## What you end up with
 
 - An iSCSI target on a Linux server backed by a file, LVM volume or ZFS zvol

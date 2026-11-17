@@ -2,6 +2,8 @@
 
 A kernel update, a bad fstab line or a full disk can leave a server stuck at boot. Most of these are fixed from the console in minutes without reinstalling.
 
+![The boot chain, stage by stage.](fig:lx-boot-chain)
+
 ## What you end up with
 
 - A way into the system from the GRUB menu or a live USB

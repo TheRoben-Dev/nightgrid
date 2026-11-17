@@ -2,6 +2,8 @@
 
 Back up with BorgBackup driven by borgmatic: one YAML file for sources, retention, consistency checks and database dumps, on a systemd timer.
 
+![A nightly borgmatic run to a local and a remote repository.](fig:app-backup-repo)
+
 ## What you end up with
 
 - Encrypted, deduplicated archives on a local disk or a remote borg server

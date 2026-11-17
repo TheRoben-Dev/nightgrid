@@ -2,6 +2,8 @@
 
 Take a new drive from blank to mounted at boot, by UUID, with options that won't hang the machine if the disk is missing.
 
+![From a device name to a mount point that survives reboots.](fig:lx-fstab)
+
 ## What you end up with
 
 - A GPT partition with ext4 or xfs

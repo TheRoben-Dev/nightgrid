@@ -2,6 +2,8 @@
 
 Export folders from a Linux server or NAS over NFS to other Linux hosts and containers, and mount them so a NAS reboot doesn't hang the client.
 
+![One NFS export, automounted on two clients.](fig:app-nfs)
+
 ## What you end up with
 
 - An NFSv4 export limited to your LAN

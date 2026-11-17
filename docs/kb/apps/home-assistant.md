@@ -2,6 +2,8 @@
 
 Run Home Assistant Container on an existing Linux server, with USB radios passed in, a reverse proxy in front and backups that restore.
 
+![How Zigbee devices reach Home Assistant through MQTT.](fig:app-ha-zigbee)
+
 ## What you end up with
 
 - Home Assistant at `ha.example.com` on host networking (so discovery works)

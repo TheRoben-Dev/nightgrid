@@ -2,6 +2,8 @@
 
 Put a login page with two-factor authentication in front of apps that have weak or no login of their own, using Authelia with your reverse proxy's forward-auth.
 
+![Forward auth: the proxy checks every request with Authelia first.](fig:app-forward-auth)
+
 ## What you end up with
 
 - One login (with TOTP or a passkey) for all your admin apps

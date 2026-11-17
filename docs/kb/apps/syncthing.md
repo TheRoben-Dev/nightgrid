@@ -2,6 +2,8 @@
 
 Keep folders in sync between computers, phones and servers directly, peer to peer, with no cloud in between.
 
+![An always-on server keeps every device in sync.](fig:app-syncthing)
+
 ## What you end up with
 
 - A Syncthing instance on a server that's always on, so devices sync even when they're never online together

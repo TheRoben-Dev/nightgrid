@@ -2,6 +2,8 @@
 
 Back up phone photos and videos automatically to your own server, with face recognition, search and shared albums. A self-hosted alternative to Google Photos.
 
+![The parts of an Immich install and what to back up.](fig:app-immich)
+
 ## What you end up with
 
 - Phones uploading in the background with the Immich app

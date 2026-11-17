@@ -2,6 +2,8 @@
 
 A DNS server with ad blocking, encrypted upstreams (DoH, DoT, DoQ) and per-client rules in one binary. An alternative to Pi-hole with built-in DNS-over-HTTPS.
 
+![Where a filtering DNS server sits in the chain (Pi-hole shown, AdGuard Home works the same).](fig:dns-chain)
+
 ## What you end up with
 
 - Network-wide blocking with encrypted upstream DNS

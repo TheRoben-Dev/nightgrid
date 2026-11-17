@@ -2,6 +2,8 @@
 
 Record IP cameras locally with real-time object detection (people, cars, animals), using a Coral, an Intel iGPU or an NVIDIA GPU, and send events to Home Assistant.
 
+![Cameras into Frigate, recordings on disk, events into Home Assistant.](fig:app-frigate)
+
 ## What you end up with
 
 - Continuous or event recording on your own disk

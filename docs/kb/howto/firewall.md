@@ -2,6 +2,8 @@
 
 Add and remove ufw or firewalld rules from Nightgrid with an automatic rollback, so a mistake that cuts off SSH undoes itself.
 
+![Look, change, test, keep: the host undoes a change you don't confirm.](fig:ng-firewall-rollback)
+
 ## What you end up with
 
 - The host's firewall rules readable in one place, whatever tool it uses

@@ -2,6 +2,8 @@
 
 Pool mismatched disks into one folder with mergerfs and protect them with SnapRAID parity. A good fit for a media server that grows one disk at a time.
 
+![Data disks pooled by mergerfs and protected by SnapRAID parity.](fig:app-mergerfs)
+
 ## What you end up with
 
 - One mount (`/mnt/storage`) spread across disks of any size

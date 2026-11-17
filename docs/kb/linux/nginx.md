@@ -2,6 +2,8 @@
 
 nginx serves static sites and forwards traffic to apps, and it's on almost every Linux server. This article covers the layout of its config, a static site, a reverse proxy that handles WebSockets, HTTPS with certbot, and how to test changes before they break anything.
 
+![nginx as a reverse proxy in front of several apps.](fig:reverse-proxy)
+
 ## What you end up with
 
 - nginx from the distro packages, with one file per site

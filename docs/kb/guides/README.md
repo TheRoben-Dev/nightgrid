@@ -9,3 +9,6 @@ UI names in sync with the app.
 Pictures: put `![caption](fig:name)` on a line of its own; `name` is an SVG
 in `docs/kb/figures`, drawn by `scripts/kb_figures.py` (run it after editing).
 A figure on the first line under the title is the article's briefing banner.
+Most diagrams are data in `scripts/kb_figspecs.py` (flow, stack or steps
+layouts; the script warns when a label won't fit). List the article in
+`PLACE` there and run `scripts/kb_figplace.py` to insert the figure line.

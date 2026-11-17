@@ -2,6 +2,8 @@
 
 See and use a virtual machine's graphical console inside Nightgrid, and connect to Windows guests over RDP, without opening any ports.
 
+![The VM's console reaches Nightgrid's VNC client through SSH, never an open port.](fig:ng-vm-console)
+
 ## What you end up with
 
 - A tab per VM screen, streamed over the host's SSH connection

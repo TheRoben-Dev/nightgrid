@@ -2,6 +2,8 @@
 
 Give a server a safety margin against memory spikes with a swap file or compressed RAM swap (zram), and tune how eagerly it's used.
 
+![Memory pressure, from page cache to zram to disk swap.](fig:lx-zram)
+
 ## What you end up with
 
 - zram swap (fast, no disk wear) or a swap file on disk, or both

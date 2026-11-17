@@ -2,6 +2,8 @@
 
 Decide what alerts, fold follow-on alerts under their cause, mute noisy log patterns, set quiet hours and send alerts to your phone through ntfy or Discord.
 
+![From check to phone: folding, quiet hours and the webhook.](fig:ng-alert-path)
+
 ## What you end up with
 
 - One notification per real outage, not ten

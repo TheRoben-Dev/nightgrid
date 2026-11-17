@@ -2,6 +2,8 @@
 
 Use btrfs subvolumes and Snapper to take automatic snapshots of root and data, roll back a bad update, and recover deleted files. Fedora, openSUSE and many desktops already use btrfs.
 
+![Subvolumes and Snapper snapshots on one Btrfs volume.](fig:lx-btrfs-snapper)
+
 ## What you end up with
 
 - Hourly and daily snapshots with automatic cleanup

@@ -2,6 +2,8 @@
 
 Mirror two disks (RAID 1) or stripe with parity (RAID 5/6) using Linux's built-in md RAID, get mail and Nightgrid alerts when a disk drops, and replace a failed disk.
 
+![Partitions become one md device, which carries the filesystem.](fig:lx-mdadm)
+
 ## What you end up with
 
 - `/dev/md0` surviving a disk failure

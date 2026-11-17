@@ -2,6 +2,8 @@
 
 Turn a container image into a running Docker Compose stack with its ports, volumes and secrets set up properly, then keep it healthy.
 
+![What a compose file turns into on the host.](fig:compose-anatomy)
+
 ## What you end up with
 
 - A folder on the host with `compose.yaml` and a mode-600 `.env`

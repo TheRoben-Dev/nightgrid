@@ -2,6 +2,8 @@
 
 Ship journal and container logs from every host to Loki with Grafana Alloy, keep them for months, and search them in Grafana. Nightgrid searches live logs; Loki is for history.
 
+![Logs from every host into Loki, searched from Grafana.](fig:app-loki)
+
 ## What you end up with
 
 - Loki storing logs with a retention you choose

@@ -2,6 +2,8 @@
 
 Three kinds of SSH forward cover most "I need to reach that port from here" problems, with nothing opened on a firewall. This is plain OpenSSH, so it works from any machine, Nightgrid or not.
 
+![Local, remote and dynamic forwards side by side.](fig:lx-ssh-tunnels)
+
 ## What you end up with
 
 - A remote admin page or database on a local port (`-L`)

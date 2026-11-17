@@ -2,6 +2,8 @@
 
 Make one good key, put it on every host, see at a glance which key works where, and replace a key everywhere without locking yourself out.
 
+![Your private key stays home; hosts hold only the public half.](fig:ssh-keys)
+
 ## What you end up with
 
 - An ed25519 key in `~/.ssh` (optionally with a passphrase kept in the OS keychain)

@@ -2,6 +2,8 @@
 
 Run your Zigbee network independently of Home Assistant: Mosquitto as the MQTT broker and Zigbee2MQTT talking to the USB coordinator.
 
+![From a Zigbee device to Home Assistant through Zigbee2MQTT and MQTT.](fig:app-ha-zigbee)
+
 ## What you end up with
 
 - An MQTT broker with a password

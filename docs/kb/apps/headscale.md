@@ -2,6 +2,8 @@
 
 Host your own Tailscale control server with Headscale, so your tailnet's coordination never leaves your hardware. The normal Tailscale clients (and Nightgrid's built-in one) connect to it.
 
+![Headscale coordinates; devices talk to each other directly.](fig:app-headscale)
+
 ## What you end up with
 
 - A Headscale server behind HTTPS on a public name

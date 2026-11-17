@@ -2,6 +2,8 @@
 
 nftables is the firewall underneath ufw and firewalld on current distros. Writing rules directly gives you one readable file, sets of addresses, and per-port counters. This article builds a small default-deny input policy that coexists with Docker, with an automatic rollback while you test.
 
+![The netfilter hooks a packet passes through.](fig:lx-nftables-path)
+
 ## What you end up with
 
 - `/etc/nftables.conf` with a default-drop input chain and explicit allows

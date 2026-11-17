@@ -2,6 +2,8 @@
 
 Free, auto-renewing certificates from Let's Encrypt (or ZeroSSL) for services that don't sit behind Caddy or Traefik: a mail server, a NAS, an MQTT broker, or a proxy that wants files on disk.
 
+![How an ACME certificate is issued and renewed.](fig:lx-acme)
+
 ## What you end up with
 
 - A certificate and key in a known path, renewed automatically

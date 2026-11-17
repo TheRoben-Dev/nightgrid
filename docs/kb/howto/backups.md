@@ -2,6 +2,8 @@
 
 See every restic, borg, rsync and rclone job on one board, get an alert when one fails or goes stale, and prove a backup can actually be read back.
 
+![The 3-2-1 rule the backup board helps you keep.](fig:backups-321)
+
 ## What you end up with
 
 - A board with last run, size, result and a stale flag per job

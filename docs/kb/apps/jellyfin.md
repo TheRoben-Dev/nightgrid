@@ -2,6 +2,8 @@
 
 Stream your own movies, shows and music to TVs, phones and browsers, with hardware transcoding on an Intel or AMD GPU. Free and open source, no account required.
 
+![Media in, GPU transcoding, viewing at home and away.](fig:app-jellyfin)
+
 ## What you end up with
 
 - Jellyfin with your libraries organised and artwork fetched

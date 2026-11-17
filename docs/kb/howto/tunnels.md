@@ -2,6 +2,8 @@
 
 Keep admin panels (Portainer, qBittorrent, Zigbee2MQTT, Proxmox, router UIs) bound to localhost or the LAN, and open them from anywhere through the host's SSH connection. No ports opened, no reverse proxy entry, nothing public.
 
+![A tunnel carries a localhost-only admin panel inside the host's SSH connection.](fig:ng-tunnels)
+
 ## What you end up with
 
 - One-click web UIs through **OPEN WEB UI VIA**
