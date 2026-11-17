@@ -22,7 +22,7 @@ Get one server into Nightgrid with key login, a trusted host key and monitoring,
 - [ ] Press **+** in the sidebar.
 - [ ] Fill in a name you'll recognise (`media`, `nas`, `server01`), the address (LAN IP, DNS name or tailnet name), port 22 and your user.
 - [ ] Pick **SSH agent** if your key is loaded in an agent (1Password and Secretive count), or **Key file** and choose the private key.
-- [ ] Laptops, desktops and handhelds you also manage: tick **Client, not a server** so views never open on them by themselves.
+- [ ] Laptops, desktops and handhelds you also manage: tick **Client, not a server** so views never open on them by themselves, and so they show as away (no offline alert) when they're off.
 - [ ] Add a group (`home`, `lab`) and a tag or two now. Groups drive group power, fleet upgrades and Automation targets later.
 
 ## Part 2 · Connect once

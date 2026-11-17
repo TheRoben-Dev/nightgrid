@@ -49,6 +49,9 @@ pub enum PollState {
     ShuttingDown,
     /// Doesn't answer inside its expected sleep window.
     Asleep,
+    /// A client device (laptop, handheld, desktop) that doesn't answer: it
+    /// comes and goes, so no offline alert and not counted as down.
+    Away,
 }
 
 impl PollState {
@@ -286,16 +289,20 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
                 if let Some(w) = watcher.take() {
                     w.abort();
                 }
-                let window = app
-                    .state::<AppState>()
-                    .store()
-                    .get_host(host_id)
-                    .ok()
-                    .flatten()
-                    .and_then(|h| h.sleep_window)
-                    .and_then(|w| nightgrid_core::power::SleepWindow::parse(&w).ok());
+                let host = app.state::<AppState>().store().get_host(host_id).ok().flatten();
+                let window = host
+                    .as_ref()
+                    .and_then(|h| h.sleep_window.as_deref())
+                    .and_then(|w| nightgrid_core::power::SleepWindow::parse(w).ok());
+                let away = host.as_ref().is_some_and(|h| h.away_when_unreachable());
                 match nightgrid_core::power::current(host_id, window.as_ref(), local_minutes(), now_secs()) {
                     Some(n) => set_state(&mut state, PollState::planned(n.state), Some(n.reason), Some(backoff)),
+                    None if away => set_state(
+                        &mut state,
+                        PollState::Away,
+                        Some(format!("client device, not answering ({e})")),
+                        Some(backoff),
+                    ),
                     None => set_state(&mut state, PollState::Offline, Some(e.to_string()), Some(backoff)),
                 }
                 continue;

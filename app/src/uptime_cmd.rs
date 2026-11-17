@@ -26,6 +26,8 @@ fn host_seen(p: &PollState) -> Option<Seen> {
         PollState::Ok => Some(Seen::Up),
         PollState::Offline => Some(Seen::Down),
         PollState::Suspended | PollState::Rebooting | PollState::ShuttingDown | PollState::Asleep => Some(Seen::Asleep),
+        // A client device that's away isn't an outage either.
+        PollState::Away => Some(Seen::Asleep),
         // Connecting, waiting for a login, a broken collect script or
         // metrics off: not known either way.
         _ => None,

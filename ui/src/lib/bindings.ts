@@ -3507,6 +3507,8 @@ export type HostInput_Deserialize = {
 	sleepWindow?: string | null,
 	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
 	role?: string,
+	/**  A client raises offline alerts only when this is on (servers always do). */
+	alertOffline?: boolean,
 };
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
@@ -3542,6 +3544,8 @@ export type HostInput_Serialize = {
 	sleepWindow: string | null,
 	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
 	role: string,
+	/**  A client raises offline alerts only when this is on (servers always do). */
+	alertOffline: boolean,
 };
 
 /**  A host key as shown to the user. */
@@ -3642,6 +3646,8 @@ export type Host_Deserialize = {
 	sleepWindow?: string | null,
 	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
 	role: string,
+	/**  A client raises offline alerts only when this is on (servers always do). */
+	alertOffline: boolean,
 };
 
 export type Host_Serialize = {
@@ -3679,6 +3685,8 @@ export type Host_Serialize = {
 	sleepWindow: string | null,
 	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
 	role: string,
+	/**  A client raises offline alerts only when this is on (servers always do). */
+	alertOffline: boolean,
 };
 
 export type Iface = {
@@ -5266,7 +5274,12 @@ export type PollState =
 /**  Doesn't answer after a shutdown. */
 "shuttingDown" | 
 /**  Doesn't answer inside its expected sleep window. */
-"asleep";
+"asleep" | 
+/**
+ *  A client device (laptop, handheld, desktop) that doesn't answer: it
+ *  comes and goes, so no offline alert and not counted as down.
+ */
+"away";
 
 export type Pool = Pool_Serialize | Pool_Deserialize;
 
