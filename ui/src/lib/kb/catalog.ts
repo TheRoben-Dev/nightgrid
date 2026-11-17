@@ -371,6 +371,15 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/teslamate", shelf: "apps", title: "TeslaMate car data logger", cat: "smarthome" },
   { id: "apps/trilium", shelf: "apps", title: "Trilium notes", cat: "productivity" },
   { id: "apps/wordpress", shelf: "apps", title: "WordPress site in Docker", cat: "productivity" },
+  { id: "linux/disk-full", shelf: "linux", title: "Fix a full disk", cat: "storage" },
+  { id: "linux/nftables", shelf: "linux", title: "Write nftables rules by hand", cat: "security" },
+  { id: "linux/dkms", shelf: "linux", title: "Kernel modules that survive updates (DKMS)", cat: "linux" },
+  { id: "linux/hba-it-mode", shelf: "linux", title: "HBA cards in IT mode for a NAS", cat: "hardware" },
+  { id: "apps/recyclarr", shelf: "apps", title: "Recyclarr quality profiles for Sonarr and Radarr", cat: "media" },
+  { id: "apps/pinchflat", shelf: "apps", title: "Pinchflat YouTube channel archiver", cat: "media" },
+  { id: "apps/joplin-server", shelf: "apps", title: "Joplin Server for note sync", cat: "productivity" },
+  { id: "apps/nocodb", shelf: "apps", title: "NocoDB spreadsheet database", cat: "productivity" },
+  { id: "apps/ghost", shelf: "apps", title: "Ghost blog and newsletter", cat: "productivity" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));

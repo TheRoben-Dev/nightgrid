@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.70] - 2026-11-17
+
+### Added: 9 more Library articles
+- **Linux skills**: fix a full disk (including deleted-but-open files, inodes and snapshots), write nftables rules by hand with a rollback armed, keep DKMS modules (ZFS, NVIDIA) working across kernel updates, and HBA cards in IT mode for a NAS.
+- **Apps**: Recyclarr, Pinchflat, Joplin Server, NocoDB and Ghost.
+- The library now holds 316 articles.
+
 ## [0.10.69] - 2026-11-17
 
 ### Added: 11 more Library articles
