@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.74] - 2026-11-17
+
+### Added: 6 more Library articles
+- **Apps**: LanCache for game downloads, netboot.xyz network boot menu, SFTPGo file transfer server, Mailpit test mail catcher, and Verdaccio private npm registry.
+- **Linux skills**: reset a forgotten root or sudo password from the console.
+- The library now holds 343 articles.
+
 ## [0.10.73] - 2026-11-17
 
 ### Added: 7 more Library articles

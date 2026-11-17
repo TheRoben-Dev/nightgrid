@@ -401,6 +401,12 @@ export const CATALOG: CatalogEntry[] = [
   { id: "linux/age-encryption", shelf: "linux", title: "Encrypt files with age", cat: "security" },
   { id: "linux/avahi-mdns", shelf: "linux", title: "Reach servers by name.local (mDNS)", cat: "network" },
   { id: "guides/small-office-server", shelf: "guides", title: "Small office server", cat: "productivity" },
+  { id: "apps/lancache", shelf: "apps", title: "LanCache for game downloads", cat: "gaming" },
+  { id: "apps/netbootxyz", shelf: "apps", title: "netboot.xyz network boot menu", cat: "hardware" },
+  { id: "apps/sftpgo", shelf: "apps", title: "SFTPGo file transfer server", cat: "storage" },
+  { id: "apps/mailpit", shelf: "apps", title: "Mailpit test mail catcher", cat: "dev" },
+  { id: "apps/verdaccio", shelf: "apps", title: "Verdaccio private npm registry", cat: "dev" },
+  { id: "linux/reset-root-password", shelf: "linux", title: "Reset a forgotten root or sudo password", cat: "linux" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));
