@@ -319,6 +319,18 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/jupyterlab", shelf: "apps", title: "JupyterLab notebooks on a server", cat: "dev" },
   { id: "apps/excalidraw", shelf: "apps", title: "Excalidraw whiteboard", cat: "productivity" },
   { id: "apps/tubearchivist", shelf: "apps", title: "Tube Archivist video archive", cat: "media" },
+  { id: "linux/docker-cleanup", shelf: "linux", title: "Free disk space Docker is using", cat: "docker" },
+  { id: "linux/dns-debug", shelf: "linux", title: "Debug DNS on a Linux server", cat: "network" },
+  { id: "linux/mount-smb", shelf: "linux", title: "Mount a Windows or NAS share on Linux", cat: "storage" },
+  { id: "linux/vlans-bonds", shelf: "linux", title: "VLANs and bonded NICs on a server", cat: "network" },
+  { id: "linux/power-saving", shelf: "linux", title: "Cut a home server's power draw", cat: "hardware" },
+  { id: "linux/nvidia-drivers", shelf: "linux", title: "Install NVIDIA drivers on a server", cat: "hardware" },
+  { id: "linux/ssh-config", shelf: "linux", title: "Organise SSH with ~/.ssh/config", cat: "security" },
+  { id: "linux/bash-scripts", shelf: "linux", title: "Write admin scripts that don't bite", cat: "linux" },
+  { id: "guides/10gbe-upgrade", shelf: "guides", title: "Upgrade the homelab to 10 GbE", cat: "network" },
+  { id: "apps/duplicati", shelf: "apps", title: "Duplicati backups with a web UI", cat: "storage" },
+  { id: "apps/sabnzbd", shelf: "apps", title: "SABnzbd Usenet downloader", cat: "media" },
+  { id: "apps/jellystat", shelf: "apps", title: "Jellystat for Jellyfin statistics", cat: "media" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));
