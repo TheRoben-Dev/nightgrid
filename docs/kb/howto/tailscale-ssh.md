@@ -2,6 +2,8 @@
 
 Log in to machines where Tailscale handles SSH authentication (`tailscale up --ssh`), including check-mode policies that ask you to re-approve in a browser.
 
+![Tailscale SSH, with a browser approval in check mode.](fig:ng-tailscale-ssh)
+
 ## What you end up with
 
 - Hosts that need no SSH key on the server: the tailnet's ACL decides who may log in

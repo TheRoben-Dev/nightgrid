@@ -2,6 +2,8 @@
 
 Encrypt a file before it goes to a USB stick, a cloud bucket or an email, with one small tool and no key servers. age can use its own keys, a passphrase, or the SSH keys you already have.
 
+![Encrypt to a recipient, decrypt with the identity.](fig:lx-age)
+
 ## What you end up with
 
 - An age key pair for your own files

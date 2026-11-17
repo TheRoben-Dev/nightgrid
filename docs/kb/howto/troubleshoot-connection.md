@@ -2,6 +2,8 @@
 
 Work out why a saved host shows **OFFLINE**, **needs a login** or an error, from the quickest checks to the rarer causes.
 
+![What each connection message usually means.](fig:ng-ssh-errors)
+
 ## Before you start
 
 - Note the exact message on the host's row or in the terminal tab. Most causes can be read straight off it.

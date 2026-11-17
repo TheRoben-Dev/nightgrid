@@ -2,6 +2,8 @@
 
 When something breaks, the answer is almost always in a log. The trick is knowing where to look and how to cut it down to the lines that matter.
 
+![Where journal entries come from and how to read them.](fig:lx-journald)
+
 ## Where logs live
 
 - **systemd journal** (most Linux services): `journalctl`.

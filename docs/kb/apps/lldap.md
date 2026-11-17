@@ -2,6 +2,8 @@
 
 One list of users and groups that your apps log in against over LDAP: Jellyfin, Nextcloud, Gitea/Forgejo, Authelia, Proxmox and more. Much simpler than OpenLDAP, with a web UI for adding people and resetting passwords.
 
+![LLDAP as the user directory for apps and SSO.](fig:app-ldap)
+
 ## What you end up with
 
 - Users and groups in one place, managed from a web page

@@ -2,6 +2,8 @@
 
 Run local language models with Ollama and chat with them in Open WebUI, a ChatGPT-style interface with accounts, document chat and model management. Nothing leaves your network.
 
+![Open WebUI in front, Ollama and the GPU behind.](fig:app-ollama)
+
 ## What you end up with
 
 - Ollama serving models on your GPU (or CPU)

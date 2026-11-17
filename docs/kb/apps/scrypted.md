@@ -2,6 +2,8 @@
 
 Bring IP cameras into Apple Home (HomeKit Secure Video), Google Home or Alexa with low-latency streams. Scrypted is the go-to bridge when you want cameras in the Home app with notifications and recordings.
 
+![Cameras into Apple Home through Scrypted.](fig:app-scrypted)
+
 ## What you end up with
 
 - RTSP and ONVIF cameras (Reolink, Amcrest, Hikvision, UniFi Protect and more) in the Home app

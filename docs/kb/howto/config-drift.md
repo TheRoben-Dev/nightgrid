@@ -2,6 +2,8 @@
 
 Save a baseline of a host's configuration, see exactly what changed since, compare two hosts that should match, and read a timeline of everything that happened to a host.
 
+![Baseline versus today, as a diff.](fig:ng-config-drift)
+
 ## What you end up with
 
 - Baselines of `/etc`, compose files and the package list, stored on the host itself

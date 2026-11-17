@@ -2,6 +2,8 @@
 
 Ban addresses that keep failing to log in. fail2ban is simple and local; CrowdSec adds shared blocklists and parsers for web apps. Pick one per host.
 
+![From failed logins to a firewall ban.](fig:app-fail2ban)
+
 ## What you end up with
 
 - Brute-force SSH attempts banned after a few failures

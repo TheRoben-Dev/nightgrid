@@ -2,6 +2,8 @@
 
 Fix the "permission denied" errors that come up with containers, shares and shared folders: users and groups, the setgid bit, umask and ACLs.
 
+![Owner, group and other permission bits.](fig:lx-permissions)
+
 ## Part 1 · Read what you have
 
 ```sh

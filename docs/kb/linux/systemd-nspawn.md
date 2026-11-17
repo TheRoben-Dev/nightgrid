@@ -2,6 +2,8 @@
 
 Run a full second Linux system (Debian, Ubuntu, Fedora, Arch) inside a folder on the host, with its own init, users and services, using only systemd. Lighter than a VM, more "real machine" than a Docker container, and nothing to install beyond `debootstrap`.
 
+![An nspawn container and machinectl.](fig:lx-nspawn)
+
 ## What you end up with
 
 - A Debian container in `/var/lib/machines/`, started at boot

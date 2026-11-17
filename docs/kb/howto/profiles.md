@@ -2,6 +2,8 @@
 
 Export everything Nightgrid knows (hosts, groups, snippets, services, dashboards, notes and optionally saved passwords) into one encrypted file, and bring it to another computer or OS.
 
+![One encrypted profile, restored on any OS.](fig:ng-profile)
+
 ## What you end up with
 
 - An age-encrypted profile you can restore on macOS, Windows or Linux

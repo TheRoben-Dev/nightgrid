@@ -2,6 +2,8 @@
 
 Re-encode a media library automatically (for example H.264 to HEVC or AV1 to save space), with workers on any machine that has a GPU.
 
+![A Tdarr server with worker nodes.](fig:app-tdarr)
+
 ## What you end up with
 
 - A Tdarr server scanning your library

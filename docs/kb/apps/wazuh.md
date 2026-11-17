@@ -2,6 +2,8 @@
 
 An open-source security platform: agents on each host report logins, file changes, rootkit checks, known vulnerabilities in installed packages and configuration problems to one manager, with a web dashboard to search and alert on all of it.
 
+![Wazuh agents, manager, indexer and dashboard.](fig:app-wazuh)
+
 ## What you end up with
 
 - A single-node Wazuh manager, indexer and dashboard in Docker

@@ -2,6 +2,8 @@
 
 Scan your LAN from one of your hosts, see every device with its maker and services, label the ones that aren't servers, and spot anything reachable from the internet.
 
+![What the map shows: internet, router, your hosts and other devices.](fig:ng-network-map)
+
 ## What you end up with
 
 - A map: internet, router, tailnet, your hosts and other devices

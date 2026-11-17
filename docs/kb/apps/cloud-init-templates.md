@@ -2,6 +2,8 @@
 
 Make a Debian or Ubuntu cloud image into a Proxmox template, then clone new VMs in seconds with your SSH key, user and network already set.
 
+![From a cloud image to ready clones.](fig:app-cloud-init)
+
 ## What you end up with
 
 - A template VM built from an official cloud image

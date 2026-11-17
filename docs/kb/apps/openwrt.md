@@ -2,6 +2,8 @@
 
 Replace a router's stock firmware (or run on a small x86 box) with OpenWrt: a real Linux router with a package manager, VLANs, WireGuard, ad blocking and SQM to fix bufferbloat, configured from the LuCI web UI or the `uci` command line.
 
+![SQM shapes the line inside the router.](fig:app-openwrt-sqm)
+
 ## What you end up with
 
 - OpenWrt installed on supported hardware, with a backup of its config

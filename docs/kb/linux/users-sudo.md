@@ -2,6 +2,8 @@
 
 Create admin and service accounts properly, give sudo only where needed, and allow the few passwordless commands Nightgrid's unattended features need.
 
+![Your own user, then sudo for root.](fig:lx-sudo)
+
 ## What you end up with
 
 - A personal admin user with key login and sudo

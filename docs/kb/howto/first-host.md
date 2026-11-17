@@ -2,6 +2,8 @@
 
 Get one server into Nightgrid with key login, a trusted host key and monitoring, in about five minutes. Everything after this builds on it.
 
+![From an address to a monitored host.](fig:ng-first-host)
+
 ## What you end up with
 
 - A saved host that logs in with your SSH key, never a typed password

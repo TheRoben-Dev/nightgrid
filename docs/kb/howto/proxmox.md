@@ -2,6 +2,8 @@
 
 Run a Proxmox VE node or cluster from Nightgrid: guests, snapshots, backups, hardware, network, firewall and storage, all over SSH with no API token.
 
+![Nightgrid talks to one node; pvesh sees the whole cluster.](fig:ng-proxmox)
+
 ## What you end up with
 
 - The whole cluster read with `pvesh` over SSH as root

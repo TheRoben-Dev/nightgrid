@@ -2,6 +2,8 @@
 
 A web dashboard for disk health that tracks SMART attributes over time and compares them to real-world failure rates. Useful next to Nightgrid's SMART checks when you want long attribute history per drive.
 
+![Collectors on each host, history in one place.](fig:app-scrutiny)
+
 ## What you end up with
 
 - Per-drive history of temperatures and failure-predicting attributes

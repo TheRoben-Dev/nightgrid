@@ -2,6 +2,8 @@
 
 Before a drive is sold, returned, sent for RMA or reused for someone else, erase it so nothing comes back. The right method depends on whether it's an SSD, an NVMe drive or a spinning disk.
 
+![The right wipe for each kind of drive.](fig:lx-secure-wipe)
+
 ## What you end up with
 
 - A drive with no recoverable data, using the drive's own erase where it has one

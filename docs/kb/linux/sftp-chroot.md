@@ -2,6 +2,8 @@
 
 Give someone (a family member, a scanner, a camera, a website's backup job) an account that can upload and download files over SFTP, can't open a shell, and can't see anything outside its own folder. Built into OpenSSH; nothing else to install.
 
+![A chrooted SFTP user with one writable folder.](fig:lx-sftp-chroot)
+
 ## What you end up with
 
 - A `sftponly` group whose members are jailed to `/srv/sftp/<user>`

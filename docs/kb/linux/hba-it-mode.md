@@ -2,6 +2,8 @@
 
 A used LSI/Broadcom SAS HBA adds 8 or more SATA/SAS ports to a NAS or server cheaply. For ZFS, mdadm, SnapRAID or Unraid it must run in **IT mode** (plain pass-through), not RAID mode, so the OS sees every disk directly with SMART. This article helps you pick one, check what you got, and keep it cool.
 
+![RAID firmware versus IT mode.](fig:lx-hba-it)
+
 ## What you end up with
 
 - A card the OS sees as a plain HBA with every disk and its SMART data

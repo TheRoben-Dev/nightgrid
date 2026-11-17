@@ -2,6 +2,8 @@
 
 Turn a script or a binary into a proper service that starts at boot, restarts when it crashes, logs to the journal and shows up in Nightgrid's System → services.
 
+![A timer, its service and the journal.](fig:ng-timers)
+
 ## What you end up with
 
 - A unit file in `/etc/systemd/system`

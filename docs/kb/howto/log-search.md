@@ -2,6 +2,8 @@
 
 Find an error in every host's journal and container logs at once, save the searches you repeat, and turn one into an alert.
 
+![One search over every host, saved and turned into an alert.](fig:ng-log-search)
+
 ## What you end up with
 
 - One newest-first stream of matching lines from all hosts

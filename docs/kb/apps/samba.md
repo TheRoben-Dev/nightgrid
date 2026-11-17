@@ -2,6 +2,8 @@
 
 Share a folder with Windows, macOS and Linux machines over SMB, with per-user access and sensible security.
 
+![One Samba share used from Windows, macOS and Linux.](fig:app-samba)
+
 ## What you end up with
 
 - A share like `\\server\media` that works from every OS

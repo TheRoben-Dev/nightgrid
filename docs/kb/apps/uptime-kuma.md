@@ -2,6 +2,8 @@
 
 An always-on monitor on a server: HTTP, TCP, ping, DNS and Docker checks every minute, status pages, and notifications, even when your laptop is closed. Nightgrid reads its status page into the Services board.
 
+![Uptime Kuma checking services around the clock.](fig:app-uptime-kuma)
+
 ## What you end up with
 
 - 24/7 checks that don't depend on Nightgrid running

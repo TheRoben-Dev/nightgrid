@@ -2,6 +2,8 @@
 
 Images, stopped containers, build cache and container logs pile up until the root disk fills. Find what's big and clean it up without deleting anything you still need.
 
+![Docker cleanup from safest to riskiest.](fig:lx-docker-cleanup)
+
 ## What you end up with
 
 - A clear picture of where Docker's space goes

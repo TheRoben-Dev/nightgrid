@@ -2,6 +2,8 @@
 
 "It's always DNS." Find out which resolver a server actually uses, what it answers, and why a name works on your laptop but not on the server (or the other way round).
 
+![The resolver chain to test one step at a time.](fig:lx-dns-debug)
+
 ## What you end up with
 
 - The resolver chain on a host, from `/etc/resolv.conf` to the upstream

@@ -2,6 +2,8 @@
 
 Make `nas.local` or `pi.local` work on your LAN without running a DNS server, and advertise services so phones and computers find them. Uses Avahi, the standard mDNS daemon on Linux; Macs and iPhones speak mDNS out of the box.
 
+![How a .local name is found.](fig:lx-avahi)
+
 ## What you end up with
 
 - Each Linux host answering to `<hostname>.local`

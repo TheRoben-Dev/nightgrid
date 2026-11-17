@@ -714,7 +714,7 @@ def flow(code, caption, cols, edges=(), zones=(), gap=80, nh=60, row=88, name=""
             p.append(t(lpos[0], lpos[1], label, 12, color))
         else:
             if label:
-                _fits(name, label, 13, room * 2 - 6)
+                _fits(name, label, 13, room - 8)
             p.append(wire(pts, color, dash, arrow, label=label, lpos=lpos))
     for col in cols:
         for nd in col:
@@ -753,8 +753,8 @@ def stack(code, caption, layers, note=None, name=""):
         if i:
             p.append(f'<path d="M{x + w / 2},{y - gapy + 2} V{y - 2}" stroke="{LINE}" stroke-width="2"/>')
     y1, y2 = 50 + lh / 2, 50 + (len(layers) - 1) * (lh + gapy) + lh / 2
-    p.append(wire([(x + w + 40, y1), (x + w + 40, y2)], AMBER))
     if note:
+        p.append(wire([(x + w + 40, y1), (x + w + 40, y2)], AMBER))
         p.append(f'<text x="{x + w + 64}" y="{(y1 + y2) / 2}" font-family="{MONO}" font-size="12" fill="{AMBER}" text-anchor="middle" transform="rotate(90 {x + w + 64} {(y1 + y2) / 2})">{escape(note)}</text>')
     _fits(name, caption, 14, W - 40)
     p.append(caption_bar(W, h, caption))

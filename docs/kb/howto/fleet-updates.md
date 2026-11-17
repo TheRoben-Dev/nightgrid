@@ -2,6 +2,8 @@
 
 See pending and security updates on all hosts, upgrade a batch with one confirmation, and know which machines still need a reboot.
 
+![Check, pick, upgrade, reboot.](fig:ng-fleet-updates)
+
 ## What you end up with
 
 - One list of hosts with pending, security and reboot-needed counts, worst first

@@ -2,6 +2,8 @@
 
 Self-host ntfy so alerts from Nightgrid, scripts, backups and Uptime Kuma land on your phone, through topics only you can read.
 
+![Notifications from Nightgrid and scripts to your phone.](fig:app-ntfy)
+
 ## What you end up with
 
 - ntfy at `ntfy.example.com` with logins and private topics

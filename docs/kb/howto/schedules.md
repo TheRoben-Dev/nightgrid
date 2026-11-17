@@ -2,6 +2,8 @@
 
 Read, add and change cron jobs and systemd timers on a host, with schedules explained in plain words, so recurring work runs on the server with Nightgrid closed.
 
+![A systemd timer starts a oneshot service; its output goes to the journal.](fig:ng-timers)
+
 ## What you end up with
 
 - Every timer and cron job on a host in one list with next and last run

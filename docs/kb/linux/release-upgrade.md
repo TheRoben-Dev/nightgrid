@@ -2,6 +2,8 @@
 
 Move a server to the next Debian or Ubuntu release with a backup, a checklist and a way back, instead of hoping.
 
+![The five steps of a release upgrade.](fig:lx-release-upgrade)
+
 ## Before you start
 
 - Read the release notes for the new version (Debian's "Issues to be aware of", Ubuntu's release notes).

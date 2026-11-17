@@ -2,6 +2,8 @@
 
 A virtual LAN across sites and devices: every member gets an address on the same network, peer to peer through NAT. An alternative to Tailscale when you want layer 2 (broadcasts, some LAN games) or a self-hosted controller.
 
+![Members, the controller and a route into the LAN.](fig:app-overlay-vpn)
+
 ## What you end up with
 
 - Servers, laptops and phones on one private network with fixed addresses

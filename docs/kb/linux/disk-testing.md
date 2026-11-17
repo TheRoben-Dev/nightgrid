@@ -2,6 +2,8 @@
 
 New, used or returned, every drive gets the same treatment before it holds data: read its SMART history, run the long self-test, and for spinning disks, write and read every sector once.
 
+![The drive test sequence.](fig:lx-disk-health)
+
 ## What you end up with
 
 - A pass or fail you can write on the drive (or the RMA form)

@@ -2,6 +2,8 @@
 
 Describe how each server should be configured (packages, users, files, services) and apply it repeatably with Ansible over the same SSH access Nightgrid uses.
 
+![A control host running playbooks over SSH.](fig:app-ansible)
+
 ## What you end up with
 
 - An inventory of your hosts in groups

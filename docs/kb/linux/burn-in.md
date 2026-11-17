@@ -2,6 +2,8 @@
 
 A new build, a used server off eBay or a machine back from repair: load it hard for a few hours and watch for errors and heat before it runs anything you care about.
 
+![The burn-in sequence for a new drive.](fig:lx-disk-health)
+
 ## What you end up with
 
 - Memory checked for bad cells

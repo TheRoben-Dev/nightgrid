@@ -2,6 +2,8 @@
 
 One file turns `ssh -i ~/.ssh/lab_ed25519 -p 2222 -J admin@gateway admin@10.0.0.15` into `ssh nas`. Nightgrid imports the same file, so a tidy config pays off twice.
 
+![A short name expands to the full connection.](fig:lx-ssh-config)
+
 ## What you end up with
 
 - Short names for every server, with user, port, key and jump host
