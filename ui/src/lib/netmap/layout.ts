@@ -9,6 +9,9 @@
 import type { DeviceLabel, Discovery, LayoutEntry, NetDevice } from "../api";
 import { KIND_LABEL, labelKey, type LinkKind, type MapNode, type NetGraph } from "./graph";
 
+/** A router node: the shown scan's (`gw`) or an overlaid network's (`n<id>:gw`). */
+export const isRouterId = (id: string) => id === "gw" || /^n\d+:gw$/.test(id);
+
 /** Node box size and spacing, in map units. */
 export const NW = 184;
 export const NH = 52;
@@ -103,6 +106,8 @@ export function networkOf(addr: string, prefix: number): string | null {
 /** The saved-layout key of a map node. */
 export function nodeKey(n: MapNode): string {
   if (n.kind === "host" && n.hostId !== undefined) return `host:${n.label}`;
+  // Each network's router has its own place on the map: keyed by its MAC (D-154).
+  if (n.kind === "gateway" && n.device?.mac) return `gw:${labelKey(n.device.mac, n.ip ?? "")}`;
   if (n.kind === "device" && n.device) return labelKey(n.device.mac, n.device.ip);
   return n.id;
 }
@@ -153,16 +158,31 @@ export function buildTopology({ graph, disc, layout, inventory = [], labels = ne
     return { id: n.id, key: nodeKey(n), node: n, icon, parent: null, manual: false, x: 0, y: 0, pinned: false, ghost: false, status: statusOf(n), unexpected: false };
   });
   const byKey = new Map(nodes.map((t) => [t.key, t]));
+  const byId0 = new Map(nodes.map((t) => [t.id, t]));
+  // Parents set by hand before routers had their own keys say `gw`: the shown scan's router.
+  const gwNode = byId0.get("gw");
+  if (gwNode && !byKey.has("gw")) byKey.set("gw", gwNode);
 
   // Expected nodes this scan didn't see come back as ghosts.
   const expected = layout.filter((e) => e.expected);
   const isDeviceKey = (k: string) => k.startsWith("ip:") || /^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/.test(k);
   const diff: TopoDiff = { hasExpected: expected.length > 0, missing: [], unexpected: [] };
+  // A device last seen on another saved network is there, not missing from this one (D-154).
+  const thisNet = disc?.network?.id ?? null;
+  const elsewhere = (inv: NetDevice | undefined) => thisNet !== null && inv !== undefined && inv.network !== null && inv.network !== thisNet;
+  const onThisLan = (ip: string | undefined) =>
+    !disc || !ip || disc.ranges.concat(disc.ifaces.filter((f) => f.kind === "private" && !f.addr.includes(":")).map((f) => `${networkOf(f.addr, f.prefix)}/${f.prefix}`)).some((r) => {
+      const [n, p] = r.split("/");
+      return inSubnet(ip, n, Number(p));
+    });
   if (disc && diff.hasExpected) {
     for (const e of expected) {
-      if (byKey.has(e.key) || !(isDeviceKey(e.key) || e.key === "gw")) continue;
-      diff.missing.push(e.key);
+      if (byKey.has(e.key) || !(isDeviceKey(e.key) || (e.key === "gw" && !byId0.has("gw")))) continue;
       const inv = inventory.find((d) => d.key === e.key);
+      if (elsewhere(inv)) continue;
+      // Not placed on a network yet (from before saved networks): only missing here when its address is on this scan's LAN.
+      if ((inv?.network ?? null) === null && !onThisLan(inv?.ip ?? (e.key.startsWith("ip:") ? e.key.slice(3) : undefined))) continue;
+      diff.missing.push(e.key);
       const lab = labels.get(e.key);
       const ip = inv?.ip ?? (e.key.startsWith("ip:") ? e.key.slice(3) : undefined);
       const node: MapNode = {
@@ -184,7 +204,7 @@ export function buildTopology({ graph, disc, layout, inventory = [], labels = ne
     }
     const exp = new Set(expected.map((e) => e.key));
     for (const t of nodes) {
-      if (!t.ghost && t.node.kind === "device" && !exp.has(t.key)) {
+      if (!t.ghost && t.node.kind === "device" && t.node.network === undefined && !exp.has(t.key)) {
         t.unexpected = true;
         diff.unexpected.push(t.key);
       }
@@ -202,10 +222,10 @@ export function buildTopology({ graph, disc, layout, inventory = [], labels = ne
   // The most specific thing the scan saw it behind: a switch or router, then the main router, then the tailnet.
   const inferred = (t: TopoNode): string | null => {
     if (t.ghost) return byId.has("gw") ? "gw" : null;
-    if (t.id === "gw") return byId.has("net") ? "net" : null;
+    if (t.node.kind === "gateway") return byId.has("net") ? "net" : null;
     if (t.id === "net" || t.id === "ts") return null;
     const f = incoming.get(t.id) ?? [];
-    return f.find((x) => x !== "gw" && x !== "ts") ?? (f.includes("gw") ? "gw" : f.includes("ts") ? "ts" : null);
+    return f.find((x) => !isRouterId(x) && x !== "ts") ?? (f.includes("gw") ? "gw" : (f.find(isRouterId) ?? (f.includes("ts") ? "ts" : null)));
   };
   for (const t of nodes) {
     const p = saved.get(t.key)?.parent;
@@ -239,7 +259,7 @@ export function buildTopology({ graph, disc, layout, inventory = [], labels = ne
   for (const t of nodes) {
     if (!t.parent) continue;
     const g = graphLink.get(`${t.parent}>${t.id}`);
-    const kind: LinkKind = g ?? (t.parent === "ts" ? "tailnet" : t.node.device?.routed ? "routed" : t.id === "gw" ? "wan" : "lan");
+    const kind: LinkKind = g ?? (t.parent === "ts" ? "tailnet" : t.node.device?.routed ? "routed" : t.node.kind === "gateway" ? "wan" : "lan");
     links.push({ from: t.parent, to: t.id, kind, tree: true, manual: t.manual });
     pair.add([t.parent, t.id].sort().join("|"));
   }
@@ -250,7 +270,7 @@ export function buildTopology({ graph, disc, layout, inventory = [], labels = ne
     links.push({ from: l.from, to: l.to, kind: l.kind, tree: false, manual: false });
   }
 
-  const zones = buildZones(nodes, disc);
+  const zones = buildZones(nodes, disc, graph);
   const zoneOf = new Map<string, string>();
   for (const z of zones) for (const m of z.members) if (!zoneOf.has(m)) zoneOf.set(m, z.id);
 
@@ -276,16 +296,28 @@ export function canAttach(topo: Topology, id: string, parent: string): boolean {
   return !wouldLoop(byId, id, parent);
 }
 
-function buildZones(nodes: TopoNode[], disc: Discovery | null): Zone[] {
-  if (!disc) return [];
+function buildZones(nodes: TopoNode[], disc: Discovery | null, graph?: NetGraph): Zone[] {
   const zones: Zone[] = [];
+  // Overlaid saved networks: one zone each, with the hosts the scan placed behind its router.
+  const overlaid: Zone[] = (graph?.nets ?? []).map((o) => ({
+    id: `z:${o.prefix}`,
+    label: `${o.name}${o.subnet && !o.name.includes(o.subnet) ? ` · ${o.subnet}` : ""} · last scan`,
+    kind: "lan" as const,
+    members: nodes
+      .filter((t) => t.id.startsWith(o.prefix) || (t.node.kind === "host" && t.node.network === o.id && t.parent?.startsWith(o.prefix)))
+      .map((t) => t.id),
+  }));
+  if (!disc) return overlaid.filter((z) => z.members.length > 0);
+  const netName = disc.network?.name;
   const nets = new Set<string>();
   for (const f of disc.ifaces) {
     if (f.kind !== "private" || f.addr.includes(":") || f.prefix < 8) continue;
     const net = networkOf(f.addr, f.prefix);
     if (!net || nets.has(`${net}/${f.prefix}`)) continue;
     nets.add(`${net}/${f.prefix}`);
-    zones.push({ id: `z:${net}/${f.prefix}`, label: `LAN ${net}/${f.prefix}`, kind: "lan", members: [] });
+    const cidr = `${net}/${f.prefix}`;
+    const named = netName && zones.length === 0 && (!disc.gateway || inSubnet(disc.gateway, net, f.prefix));
+    zones.push({ id: `z:${cidr}`, label: named ? (netName.includes(cidr) ? netName : `${netName} · LAN ${cidr}`) : `LAN ${cidr}`, kind: "lan", members: [] });
   }
   for (const r of disc.ranges) {
     const [net, p] = r.split("/");
@@ -300,12 +332,12 @@ function buildZones(nodes: TopoNode[], disc: Discovery | null): Zone[] {
     for (const t of nodes) {
       const ip = t.node.ip ?? (t.node.kind === "host" && v4(t.node.sub) !== null ? t.node.sub : null);
       // Only nodes on the scanned network: a host the scan didn't see stays out.
-      if (ip && (t.parent || t.id === "gw") && inSubnet(ip, net, Number(p))) z.members.push(t.id);
+      if (ip && t.node.network === undefined && (t.parent || t.id === "gw") && inSubnet(ip, net, Number(p))) z.members.push(t.id);
     }
   }
   const ts = nodes.filter((t) => t.id === "ts" || t.parent === "ts");
   if (ts.length > 1) zones.push({ id: "z:tailnet", label: "TAILNET", kind: "tailnet", members: ts.map((t) => t.id) });
-  return zones.filter((z) => z.members.length > 0);
+  return [...zones, ...overlaid].filter((z) => z.members.length > 0);
 }
 
 const ORDER: Record<string, number> = { internet: 0, router: 1, tailnet: 2, ap: 3, switch: 4, server: 5, nas: 6, desktop: 7 };

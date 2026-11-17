@@ -28,6 +28,10 @@ pub struct NetDevice {
     #[cfg_attr(feature = "specta", specta(type = f64))]
     pub last_seen: i64,
     pub trusted: bool,
+    /// The saved network it was last seen on (D-154); none for tailnet-only
+    /// peers and devices from before saved networks.
+    #[cfg_attr(feature = "specta", specta(type = Option<i32>))]
+    pub network: Option<i64>,
 }
 
 /// Random (locally administered) MACs change; such a device is keyed by MAC
@@ -43,10 +47,11 @@ fn row(r: &rusqlite::Row<'_>) -> rusqlite::Result<NetDevice> {
         first_seen: r.get(6)?,
         last_seen: r.get(7)?,
         trusted: r.get::<_, i64>(8)? != 0,
+        network: r.get(9)?,
     })
 }
 
-const COLS: &str = "key, ip, vendor, kind, name, origin, first_seen, last_seen, trusted";
+const COLS: &str = "key, ip, vendor, kind, name, origin, first_seen, last_seen, trusted, network";
 
 /// The most devices kept; the ones seen longest ago go first.
 pub const MAX_DEVICES: usize = 5000;
@@ -61,23 +66,32 @@ impl Store {
     /// Records what a scan saw (from `origin` at `now`) and fills the
     /// discovery's inventory fields: first seen, new, trusted, and the
     /// known devices in the swept ranges that didn't answer.
+    ///
+    /// With a saved network on the scan (`net_network_identify` first), a
+    /// device is missing only when it was last seen on that same network: a
+    /// device from another network (same addresses or not) is just
+    /// elsewhere. Devices no scan has placed on a network yet are never
+    /// missing from one that has.
     pub fn net_inventory_merge(&mut self, origin: &str, d: &mut Discovery, now: i64) -> Result<()> {
         let known: std::collections::HashMap<String, NetDevice> =
             self.net_devices()?.into_iter().map(|x| (x.key.clone(), x)).collect();
         let tx = self.conn_mut().transaction()?;
         let mut seen_keys = Vec::new();
+        let net = d.network.as_ref().map(|n| n.id);
         for dev in &mut d.devices {
+            // A tailnet peer can be anywhere: it keeps the network it had.
+            let on_net = if dev.seen.iter().all(|s| *s == crate::netmap::Seen::Tailscale) { None } else { net };
             let key = key_for(dev.mac.as_deref(), &dev.ip);
             let prev = known.get(&key);
             dev.first_seen = Some(prev.map_or(now, |p| p.first_seen));
             dev.is_new = prev.is_none();
             dev.trusted = prev.is_some_and(|p| p.trusted);
             tx.execute(
-                "INSERT INTO net_devices (key, ip, vendor, kind, name, origin, first_seen, last_seen)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7)
+                "INSERT INTO net_devices (key, ip, vendor, kind, name, origin, first_seen, last_seen, network)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, ?8)
                  ON CONFLICT(key) DO UPDATE SET ip = ?2, vendor = coalesce(?3, vendor), kind = ?4,
-                   name = coalesce(?5, name), origin = ?6, last_seen = ?7",
-                params![key, dev.ip, dev.vendor, dev.kind, dev.names.first(), origin, now],
+                   name = coalesce(?5, name), origin = ?6, last_seen = ?7, network = coalesce(?8, network)",
+                params![key, dev.ip, dev.vendor, dev.kind, dev.names.first(), origin, now, on_net],
             )?;
             seen_keys.push(key);
         }
@@ -100,6 +114,7 @@ impl Store {
         let mut missing: Vec<MissingDevice> = known
             .into_values()
             .filter(|x| !seen_keys.contains(&x.key) && ranges.iter().any(|(n, p)| in_v4_subnet(&x.ip, n, *p)))
+            .filter(|x| x.network == net)
             .map(|x| MissingDevice {
                 key: x.key,
                 ip: x.ip,

@@ -48,6 +48,8 @@ export interface MapNode {
   lldp?: LldpNeighbour;
   /** One line on where this node came from. */
   note?: string;
+  /** The saved network an overlaid node belongs to (unset: the scan on show). */
+  network?: number;
 }
 
 export interface MapLink {
@@ -60,6 +62,17 @@ export interface NetGraph {
   nodes: MapNode[];
   links: MapLink[];
   cols: number;
+  /** Saved networks overlaid on the map (see `netmap/networks`). */
+  nets?: OverlaidNet[];
+}
+
+/** An overlaid saved network: its node id prefix, for zones. */
+export interface OverlaidNet {
+  id: number;
+  name: string;
+  subnet: string | null;
+  /** Every node id of this network starts with it. */
+  prefix: string;
 }
 
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;

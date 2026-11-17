@@ -30,6 +30,7 @@ import type {
   Discovery_Serialize as Discovery,
   Device_Serialize as Device,
   NetDevice_Serialize as NetDevice,
+  SavedNetwork_Serialize as SavedNetwork,
   LayoutEntry_Serialize as LayoutEntry,
   ToolResult_Serialize as ToolResult,
   ToolRequest,
@@ -111,11 +112,46 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
       { ip: "192.168.1.40", port: 32400, level: "warn", title: "192.168.1.40:32400 is forwarded from the internet", detail: "A UPnP mapping on the router (Plex Media Server). Check it should be public." },
       { ip: null, port: null, level: "warn", title: "The router accepts UPnP port forwards", detail: "Any device on the LAN can open ports to the internet. Turn UPnP off on the router if nothing needs it." },
     ],
+    network: { id: 1, name: "Home", isNew: false },
     notes: ranges.length ? ["Devices in routed ranges show no maker or local names: MAC addresses, mDNS and NetBIOS don't cross a router. Scan from a host on that network for the full picture."] : [],
   };
 }
 
 const inventory = new Map<string, NetDevice>();
+
+/** A second made-up network for saved networks (D-154): a lab behind its own router, seen from one of its hosts. */
+function labDiscovery(): Discovery {
+  const now = Math.floor(Date.now() / 1000);
+  const t = now - 2 * 86400;
+  return {
+    ifaces: [
+      { name: "eno1", addr: "10.20.0.5", prefix: 24, kind: "private" },
+      { name: "tailscale0", addr: "100.70.9.5", prefix: 32, kind: "tailnet" },
+    ],
+    gateway: "10.20.0.1",
+    devices: [
+      dev("10.20.0.1", { mac: "e4:5f:01:00:00:01", names: ["lab-router"], seen: ["gateway", "neighbour"], kind: "router", firstSeen: t }),
+      dev("10.20.0.12", { mac: "00:11:32:00:00:12", vendor: "Synology", names: ["backup-nas"], services: ["_smb._tcp"], seen: ["neighbour", "mdns"], kind: "nas", firstSeen: t, trusted: true }),
+      dev("10.20.0.30", { mac: "52:54:00:00:00:30", vendor: "Random MAC", names: ["build-vm"], seen: ["neighbour"], kind: "vm", firstSeen: t }),
+      dev("10.20.0.40", { mac: "3c:ec:ef:00:00:40", names: ["switch-lab"], seen: ["neighbour"], kind: "switch", firstSeen: t }),
+    ],
+    exposures: [],
+    swept: "10.20.0.0/24",
+    ranges: ["10.20.0.0/24"],
+    lldp: [],
+    paths: [],
+    missing: [],
+    dhcp: ["10.20.0.1"],
+    findings: [],
+    network: { id: 2, name: "Lab", isNew: false },
+    notes: [],
+  };
+}
+
+let networks: SavedNetwork[] = [
+  { id: 1, name: "Home", subnet: "192.168.1.0/24", gateway: "192.168.1.1", gatewayMac: "a4:2b:b0:11:22:33", origin: "local", firstSeen: now() - 90 * 86400, lastSeen: now(), snapshotAt: now(), devices: 9 },
+  { id: 2, name: "Lab", subnet: "10.20.0.0/24", gateway: "10.20.0.1", gatewayMac: "e4:5f:01:00:00:01", origin: "1", firstSeen: now() - 30 * 86400, lastSeen: now() - 2 * 86400, snapshotAt: now() - 2 * 86400, devices: 4 },
+];
 
 /** Made-up tool output for the browser preview (documentation addresses only). */
 function mockTool(r: ToolRequest): ToolResult {
@@ -346,9 +382,37 @@ export const mockOps = {
       const k = x.mac ?? `ip:${x.ip}`;
       const was = inventory.get(k);
       x.trusted = was?.trusted ?? x.trusted;
-      inventory.set(k, { key: k, ip: x.ip, vendor: x.vendor, kind: x.kind, name: x.names[0] ?? null, origin: "1", firstSeen: was?.firstSeen ?? x.firstSeen ?? 0, lastSeen: Math.floor(Date.now() / 1000), trusted: x.trusted });
+      inventory.set(k, { key: k, ip: x.ip, vendor: x.vendor, kind: x.kind, name: x.names[0] ?? null, origin: "1", firstSeen: was?.firstSeen ?? x.firstSeen ?? 0, lastSeen: Math.floor(Date.now() / 1000), trusted: x.trusted, network: x.seen.every((s) => s === "tailscale") ? (was?.network ?? null) : 1 });
     }
     return delay(d, sweep ? 1200 : 500);
+  },
+  networks: async (): Promise<SavedNetwork[]> => networks.map((n) => ({ ...n })),
+  networkScan: async (id: number): Promise<Discovery | null> => {
+    const n = networks.find((x) => x.id === id);
+    if (!n) return null;
+    const d = id === 2 ? labDiscovery() : id === 1 ? discovery(true) : null;
+    if (d?.network) d.network.name = n.name;
+    return d;
+  },
+  networkRename: async (id: number, name: string): Promise<SavedNetwork> => {
+    const v = name.trim();
+    if (!v || v.length > 60) throw new Error("invalid value for name: 1–60 printable characters");
+    const n = networks.find((x) => x.id === id);
+    if (!n) throw new Error("invalid value for id: no such saved network");
+    n.name = v;
+    return { ...n };
+  },
+  networkForget: async (id: number): Promise<null> => {
+    networks = networks.filter((x) => x.id !== id);
+    return null;
+  },
+  networkMerge: async (from: number, into: number): Promise<SavedNetwork> => {
+    const a = networks.find((x) => x.id === from);
+    const b = networks.find((x) => x.id === into);
+    if (!a || !b || from === into) throw new Error("invalid value for into: a different network");
+    b.devices += a.devices;
+    networks = networks.filter((x) => x.id !== from);
+    return { ...b };
   },
   inventory: async (): Promise<NetDevice[]> => [...inventory.values()].sort((a, b) => (b.lastSeen ?? 0) - (a.lastSeen ?? 0)),
   trust: async (key: string, trusted: boolean): Promise<null> => {

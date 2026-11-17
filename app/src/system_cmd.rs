@@ -191,16 +191,27 @@ pub(crate) fn now_secs() -> i64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs() as i64)
 }
 
-/// Records a scan in the device inventory and fills its new/missing/trusted
-/// fields. An inventory error doesn't lose the scan.
+/// Records a scan: finds (or saves) the network it was on (D-154), merges
+/// it into the device inventory (new/missing/trusted fields), and keeps it as
+/// that network's last scan. An error here doesn't lose the scan.
 pub(crate) fn with_inventory(
     app: &AppHandle,
     origin: &str,
     mut d: nightgrid_core::netmap::Discovery,
 ) -> nightgrid_core::netmap::Discovery {
-    if let Err(e) = app.state::<AppState>().store().net_inventory_merge(origin, &mut d, now_secs()) {
+    let now = now_secs();
+    let state = app.state::<AppState>();
+    let mut store = state.store();
+    if let Err(e) = store.net_network_identify(origin, &mut d, now) {
+        tracing::warn!("saved networks: {e}");
+        d.notes.push(format!("The saved networks couldn't be updated: {e}"));
+    }
+    if let Err(e) = store.net_inventory_merge(origin, &mut d, now) {
         tracing::warn!("device inventory: {e}");
         d.notes.push(format!("The device inventory couldn't be updated: {e}"));
+    }
+    if let Err(e) = store.net_network_keep(&d, now) {
+        tracing::warn!("saved network scan: {e}");
     }
     d
 }
@@ -257,6 +268,51 @@ pub fn netmap_device_trust(state: State<'_, AppState>, key: String, trusted: boo
 #[specta::specta]
 pub fn netmap_device_forget(state: State<'_, AppState>, key: String) -> CmdResult<()> {
     Ok(state.store().net_device_forget(&key)?)
+}
+
+/// Saved networks (D-154), most recently seen first.
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_networks(state: State<'_, AppState>) -> CmdResult<Vec<nightgrid_core::netnets::SavedNetwork>> {
+    Ok(state.store().net_networks()?)
+}
+
+/// The last scan of a saved network, to show it (or overlay it) without a rescan.
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_network_scan(
+    state: State<'_, AppState>,
+    id: i32,
+) -> CmdResult<Option<nightgrid_core::netmap::Discovery>> {
+    Ok(state.store().net_network_snapshot(id.into())?)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_network_rename(
+    state: State<'_, AppState>,
+    id: i32,
+    name: String,
+) -> CmdResult<nightgrid_core::netnets::SavedNetwork> {
+    Ok(state.store().net_network_rename(id.into(), &name)?)
+}
+
+/// Forgets a saved network; its devices stay in the inventory.
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_network_forget(state: State<'_, AppState>, id: i32) -> CmdResult<()> {
+    Ok(state.store().net_network_forget(id.into())?)
+}
+
+/// Folds one saved network into another (the router was replaced).
+#[tauri::command]
+#[specta::specta]
+pub fn netmap_network_merge(
+    state: State<'_, AppState>,
+    from: i32,
+    into: i32,
+) -> CmdResult<nightgrid_core::netnets::SavedNetwork> {
+    Ok(state.store().net_network_merge(from.into(), into.into())?)
 }
 
 /// Runs a network tool (ping, path, DNS, ports, HTTP/TLS, neighbours,
@@ -499,7 +555,6 @@ pub async fn system_journal_start(
             tx.send(ev).is_ok()
         };
         let r = sudo::stream(&conn, &auth, &cmd, Some(cancel), &mut on_line).await;
-        drop(on_line);
         drop(tx);
         let _ = forward.await;
         let error = match r {

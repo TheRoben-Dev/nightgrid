@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::LazyLock;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::netident::{guess_kind, parse_leases, parse_names, parse_ssdp};
 use crate::ssh::client::Connection;
@@ -25,7 +25,7 @@ const MARK: &str = "@@NGNET@@";
 /// Largest subnet the sweep walks (a /24).
 pub const SWEEP_MAX_HOSTS: u32 = 254;
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Iface {
@@ -36,7 +36,7 @@ pub struct Iface {
 }
 
 /// What kind of address this is, for exposure.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum AddrKind {
@@ -49,7 +49,7 @@ pub enum AddrKind {
     Public,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum Seen {
@@ -73,7 +73,7 @@ pub enum Seen {
     Ssdp,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Device {
@@ -114,7 +114,7 @@ pub struct Device {
 }
 
 /// A switch or other device the scanning host's port is plugged into, from LLDP.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LldpNeighbour {
@@ -129,7 +129,7 @@ pub struct LldpNeighbour {
 }
 
 /// The routers between the scanner and a routed range (first hop first).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct RangePath {
@@ -139,7 +139,7 @@ pub struct RangePath {
 
 /// A device the inventory knows that this scan didn't see, in a subnet this
 /// scan covered (filled by the app).
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct MissingDevice {
@@ -153,7 +153,7 @@ pub struct MissingDevice {
     pub trusted: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum ExposureKind {
@@ -167,7 +167,7 @@ pub enum ExposureKind {
     Tunnel,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Exposure {
@@ -181,7 +181,7 @@ pub struct Exposure {
     pub detail: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Discovery {
@@ -205,6 +205,10 @@ pub struct Discovery {
     pub findings: Vec<crate::netsec::NetFinding>,
     /// Tools that were missing or failed, in words.
     pub notes: Vec<String>,
+    /// The saved network this scan was on (filled by the app from the
+    /// subnet and the router's MAC, see `netnets`).
+    #[serde(default)]
+    pub network: Option<crate::netnets::NetworkTag>,
 }
 
 pub fn addr_kind(ip: &IpAddr) -> AddrKind {
@@ -897,6 +901,7 @@ pub fn parse_discovery(out: &str) -> Discovery {
         dhcp: Vec::new(),
         findings: Vec::new(),
         notes: Vec::new(),
+        network: None,
     };
     let mut ssdp_missing = false;
     let mut devs: BTreeMap<String, Device> = BTreeMap::new();

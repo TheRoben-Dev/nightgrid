@@ -32,6 +32,8 @@ pub struct NetWatchRun {
     #[specta(type = f64)]
     pub at: i64,
     pub scanner: String,
+    /// The saved network the scan was on.
+    pub network: Option<String>,
     pub devices: u32,
     pub new_devices: u32,
     pub missing: u32,
@@ -103,6 +105,7 @@ async fn scan(app: &AppHandle, hub: &Arc<NetWatchHub>, cfg: &NetWatchSettings, n
             let run = NetWatchRun {
                 at: now,
                 scanner,
+                network: d.network.as_ref().map(|n| n.name.clone()),
                 devices: d.devices.len() as u32,
                 new_devices: conds.iter().filter(|c| c.key.starts_with("netwatch:new:")).count() as u32,
                 missing: conds.iter().filter(|c| c.key.starts_with("netwatch:missing:")).count() as u32,
@@ -115,7 +118,16 @@ async fn scan(app: &AppHandle, hub: &Arc<NetWatchHub>, cfg: &NetWatchSettings, n
         Err(e) => {
             // Keep the last conditions: a failed scan says nothing new.
             tracing::warn!("network watch: {e}");
-            NetWatchRun { at: now, scanner, devices: 0, new_devices: 0, missing: 0, findings: vec![], error: Some(e) }
+            NetWatchRun {
+                at: now,
+                scanner,
+                network: None,
+                devices: 0,
+                new_devices: 0,
+                missing: 0,
+                findings: vec![],
+                error: Some(e),
+            }
         }
     };
     *hub.last.lock().expect("poisoned") = Some(run);

@@ -755,6 +755,15 @@ export const commands = {
 	 *  these entries (reset, or save as expected).
 	 */
 	netmapLayoutSave: (entries: LayoutEntry_Deserialize[], replace: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_layout_save", { entries, replace }, options),
+	/**  Saved networks (D-154), most recently seen first. */
+	netmapNetworks: (options?: InvokeOptions) => __TAURI_INVOKE<SavedNetwork_Serialize[]>("netmap_networks", undefined, options),
+	/**  The last scan of a saved network, to show it (or overlay it) without a rescan. */
+	netmapNetworkScan: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize | null>("netmap_network_scan", { id }, options),
+	netmapNetworkRename: (id: number, name: string, options?: InvokeOptions) => __TAURI_INVOKE<SavedNetwork_Serialize>("netmap_network_rename", { id, name }, options),
+	/**  Forgets a saved network; its devices stay in the inventory. */
+	netmapNetworkForget: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_network_forget", { id }, options),
+	/**  Folds one saved network into another (the router was replaced). */
+	netmapNetworkMerge: (from: number, into: number, options?: InvokeOptions) => __TAURI_INVOKE<SavedNetwork_Serialize>("netmap_network_merge", { from, into }, options),
 	/**
 	 *  Runs a network tool (ping, path, DNS, ports, HTTP/TLS, neighbours,
 	 *  connections) on a host, or on this computer when `host_id` is null (D-142).
@@ -2406,6 +2415,11 @@ export type Discovery_Deserialize = {
 	findings: NetFinding_Deserialize[],
 	/**  Tools that were missing or failed, in words. */
 	notes: string[],
+	/**
+	 *  The saved network this scan was on (filled by the app from the
+	 *  subnet and the router's MAC, see `netnets`).
+	 */
+	network?: NetworkTag | null,
 };
 
 export type Discovery_Serialize = {
@@ -2429,6 +2443,11 @@ export type Discovery_Serialize = {
 	findings: NetFinding_Serialize[],
 	/**  Tools that were missing or failed, in words. */
 	notes: string[],
+	/**
+	 *  The saved network this scan was on (filled by the app from the
+	 *  subnet and the router's MAC, see `netnets`).
+	 */
+	network: NetworkTag | null,
 };
 
 export type Disk = Disk_Serialize | Disk_Deserialize;
@@ -4743,6 +4762,11 @@ export type NetDevice_Deserialize = {
 	firstSeen: number | null,
 	lastSeen: number | null,
 	trusted: boolean,
+	/**
+	 *  The saved network it was last seen on (D-154); none for tailnet-only
+	 *  peers and devices from before saved networks.
+	 */
+	network?: number | null,
 };
 
 export type NetDevice_Serialize = {
@@ -4757,6 +4781,11 @@ export type NetDevice_Serialize = {
 	firstSeen: number | null,
 	lastSeen: number | null,
 	trusted: boolean,
+	/**
+	 *  The saved network it was last seen on (D-154); none for tailnet-only
+	 *  peers and devices from before saved networks.
+	 */
+	network: number | null,
 };
 
 export type NetFinding = NetFinding_Serialize | NetFinding_Deserialize;
@@ -4850,6 +4879,8 @@ export type NetWatchRun = NetWatchRun_Serialize | NetWatchRun_Deserialize;
 export type NetWatchRun_Deserialize = {
 	at: number | null,
 	scanner: string,
+	/**  The saved network the scan was on. */
+	network?: string | null,
 	devices: number,
 	newDevices: number,
 	missing: number,
@@ -4861,6 +4892,8 @@ export type NetWatchRun_Deserialize = {
 export type NetWatchRun_Serialize = {
 	at: number | null,
 	scanner: string,
+	/**  The saved network the scan was on. */
+	network: string | null,
 	devices: number,
 	newDevices: number,
 	missing: number,
@@ -4909,6 +4942,14 @@ export type NetWatchSettings_Serialize = {
 	alertNew: boolean,
 	alertMissing: boolean,
 	alertRisks: boolean,
+};
+
+/**  Which saved network a scan was on. */
+export type NetworkTag = {
+	id: number,
+	name: string,
+	/**  First scan of this network. */
+	isNew: boolean,
 };
 
 export type NetworkView = {
@@ -6542,6 +6583,44 @@ export type SaveResult_Serialize = {
 	 *  writable, or the owner could not be preserved through a new file).
 	 */
 	atomic: boolean,
+};
+
+export type SavedNetwork = SavedNetwork_Serialize | SavedNetwork_Deserialize;
+
+export type SavedNetwork_Deserialize = {
+	id: number,
+	name: string,
+	/**  `192.168.1.0/24` */
+	subnet?: string | null,
+	/**  The router's address. */
+	gateway?: string | null,
+	gatewayMac?: string | null,
+	/**  Where it was last scanned from: a host id or `local`. */
+	origin: string,
+	firstSeen: number | null,
+	lastSeen: number | null,
+	/**  When the kept scan ran; none when it was too big to keep. */
+	snapshotAt?: number | null,
+	/**  Devices in the inventory last seen on it. */
+	devices: number,
+};
+
+export type SavedNetwork_Serialize = {
+	id: number,
+	name: string,
+	/**  `192.168.1.0/24` */
+	subnet: string | null,
+	/**  The router's address. */
+	gateway: string | null,
+	gatewayMac: string | null,
+	/**  Where it was last scanned from: a host id or `local`. */
+	origin: string,
+	firstSeen: number | null,
+	lastSeen: number | null,
+	/**  When the kept scan ran; none when it was too big to keep. */
+	snapshotAt: number | null,
+	/**  Devices in the inventory last seen on it. */
+	devices: number,
 };
 
 export type SavedSearch = SavedSearch_Serialize | SavedSearch_Deserialize;
