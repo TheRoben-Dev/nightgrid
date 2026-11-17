@@ -12,7 +12,7 @@ Make one always-on Linux machine share your home LAN with your tailnet, so every
 
 ## Part 1 · Install and advertise
 
-- [ ] Install Tailscale with its install script or from its apt repository, then:
+- [ ] Install Tailscale with its install script or from its apt repository, then: {check: tailscale}
 
 ```sh
 echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-tailscale.conf

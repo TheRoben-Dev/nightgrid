@@ -34,7 +34,7 @@ Make one good key, put it on every host, see at a glance which key works where, 
 
 ## Part 3 · Turn off password logins
 
-- [ ] With keys working everywhere, follow [Hardening sshd](kb:basics/sshd-hardening) to set `PasswordAuthentication no`.
+- [ ] With keys working everywhere, follow [Hardening sshd](kb:basics/sshd-hardening) to set `PasswordAuthentication no`. {check: ssh-no-password}
 - [ ] [System](view:system) → **security** confirms the change in its score.
 
 ## Part 4 · Rotate a key

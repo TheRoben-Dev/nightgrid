@@ -22,7 +22,7 @@ sudo systemctl restart systemd-resolved
 
 ## Part 1 · The stack
 
-- [ ] [Docker](view:docker) → **+ New stack** named `pihole`:
+- [ ] [Docker](view:docker) → **+ New stack** named `pihole`: {check: container:pihole}
 
 ```yaml
 services:

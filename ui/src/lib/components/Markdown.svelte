@@ -23,8 +23,11 @@
     figure?: (name: string) => string | undefined;
     /** The caller shows a leading figure itself (the Library's briefing banner). */
     hideLead?: boolean;
+    /** Library quests: what a host check found for a step, by `block-item` key. */
+    verified?: Record<string, { state: "pass" | "fail" | "unknown"; detail: string; host: string }>;
   }
-  let { src, code, steps = false, onview, onarticle, ticks, ontick, figure, hideLead = false }: Props = $props();
+  let { src, code, steps = false, onview, onarticle, ticks, ontick, figure, hideLead = false, verified }: Props = $props();
+  const VMARK = { pass: "✓", fail: "✗", unknown: "?" } as const;
 
   const blocks = $derived(parseMd(src, { headings: true, steps, figures: !!figure }));
   let ticked = $state<Record<string, boolean>>({});
@@ -56,6 +59,10 @@
   {:else}
     <li class="task" class:done={isTicked(key, check)}>
       <label><input type="checkbox" checked={isTicked(key, check)} onchange={(e) => tick(key, e.currentTarget.checked)} /> <span>{@render inl(parts)}</span></label>
+      {#if verified?.[key]}
+        {@const v = verified[key]}
+        <span class="verified {v.state}" title="Checked read-only on {v.host}">{VMARK[v.state]} {v.host}: {v.detail}</span>
+      {/if}
     </li>
   {/if}
 {/snippet}
@@ -279,5 +286,18 @@
     justify-content: flex-end;
     padding: 4px 6px;
     border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  }
+  .verified {
+    display: block;
+    margin: 2px 0 0 24px;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--text-2);
+  }
+  .verified.pass {
+    color: var(--ok);
+  }
+  .verified.fail {
+    color: var(--warn);
   }
 </style>

@@ -21,7 +21,7 @@ Go from one spare computer to a monitored, backed-up home server running DNS fil
 
 - [ ] Install Debian with only "SSH server" and "standard system utilities" selected. Create your user.
 - [ ] Reserve its IP in the router's DHCP (or follow [Give a server a static IP](kb:linux/static-ip)).
-- [ ] [Add your first host](kb:howto/first-host) and put your key on it from **Settings → Connections → SSH keys**.
+- [ ] [Add your first host](kb:howto/first-host) and put your key on it from **Settings → Connections → SSH keys**. {check: ssh-key}
 
 #### Check
 
@@ -29,7 +29,10 @@ Go from one spare computer to a monitored, backed-up home server running DNS fil
 
 ## Part 2 · Lock it down
 
-- [ ] Follow the fixes in [System](view:system) → **security**: key-only SSH ([Hardening sshd](kb:basics/sshd-hardening)), ufw with SSH allowed from the LAN ([Change a firewall safely](kb:howto/firewall)), [Automatic security updates](kb:apps/unattended-upgrades).
+- [ ] Follow the fixes in [System](view:system) → **security**, starting with key-only SSH ([Hardening sshd](kb:basics/sshd-hardening)). {check: ssh-no-password}
+- [ ] No root logins with a password. {check: ssh-no-root-password}
+- [ ] ufw on, with SSH allowed from the LAN ([Change a firewall safely](kb:howto/firewall)). {check: firewall}
+- [ ] [Automatic security updates](kb:apps/unattended-upgrades). {check: auto-updates}
 - [ ] Save a baseline: [System](view:system) → **config** → **Save baseline**.
 
 #### Check
@@ -38,17 +41,17 @@ Go from one spare computer to a monitored, backed-up home server running DNS fil
 
 ## Part 3 · Docker and a proxy
 
-- [ ] [Prepare a Linux Docker host](kb:apps/docker-host).
-- [ ] [Caddy reverse proxy](kb:apps/caddy) with `tls internal` for LAN names, or a real domain if you have one.
+- [ ] [Prepare a Linux Docker host](kb:apps/docker-host). {check: docker}
+- [ ] [Caddy reverse proxy](kb:apps/caddy) with `tls internal` for LAN names, or a real domain if you have one. {check: container:caddy}
 
 ## Part 4 · DNS filtering
 
-- [ ] [Pi-hole](kb:apps/pihole) (or [AdGuard Home](kb:apps/adguard-home)), then point the router's DHCP DNS at it.
+- [ ] [Pi-hole](kb:apps/pihole) (or [AdGuard Home](kb:apps/adguard-home)), then point the router's DHCP DNS at it. {check: port:53}
 - [ ] Add local names for your server in its local DNS records, and the Pi-hole integration in [Services](view:services).
 
 ## Part 5 · Passwords
 
-- [ ] [Vaultwarden password manager](kb:apps/vaultwarden) behind Caddy. Close sign-ups once your accounts exist.
+- [ ] [Vaultwarden password manager](kb:apps/vaultwarden) behind Caddy. Close sign-ups once your accounts exist. {check: container:vaultwarden}
 
 ## Part 6 · Watch it
 
@@ -57,13 +60,13 @@ Go from one spare computer to a monitored, backed-up home server running DNS fil
 
 ## Part 7 · Back it up
 
-- [ ] [restic backups with systemd timers](kb:apps/restic) of `/etc`, `/opt/stacks` and the Vaultwarden data, to a USB disk or another machine.
+- [ ] [restic backups with systemd timers](kb:apps/restic) of `/etc`, `/opt/stacks` and the Vaultwarden data, to a USB disk or another machine. {check: backup-timer}
 - [ ] Add the job in [Fleet](view:fleet) → **Backups** and run **Test restore**.
 - [ ] Export your Nightgrid profile ([Back up and move your Nightgrid setup](kb:howto/profiles)).
 
 ## Part 8 · Away from home
 
-- [ ] Tailscale on the server as a subnet router ([Tailscale subnet router](kb:apps/tailscale-subnet-router)) and Nightgrid's built-in client ([Reach your servers away from home](kb:howto/remote-access)).
+- [ ] Tailscale on the server as a subnet router ([Tailscale subnet router](kb:apps/tailscale-subnet-router)) and Nightgrid's built-in client ([Reach your servers away from home](kb:howto/remote-access)). {check: tailscale}
 
 #### Check
 

@@ -10,7 +10,7 @@ Wrong clocks break TLS, TOTP codes, log ordering, backups and cluster quorum. Ma
 timedatectl
 ```
 
-- [ ] "System clock synchronized: yes" and "NTP service: active" is what you want.
+- [ ] "System clock synchronized: yes" and "NTP service: active" is what you want. {check: time-sync}
 
 ## Part 2 · Fix it
 
@@ -32,7 +32,7 @@ chronyc tracking
 
 #### Check
 
-- [ ] Every host reports synchronized and the expected zone.
+- [ ] Every host reports synchronized and the expected zone. {check: time-sync}
 
 ## Limits and gotchas
 

@@ -631,6 +631,8 @@ export const commands = {
 	 *  local time (`utc_offset_mins` east of UTC), and the UPSes' output.
 	 */
 	powerOverview: (days: number, utcOffsetMins: number, options?: InvokeOptions) => __TAURI_INVOKE<PowerOverview_Serialize>("power_overview", { days, utcOffsetMins }, options),
+	/**  Runs the checks on a host and judges each one. */
+	questCheck: (hostId: number, checks: string[], options?: InvokeOptions) => __TAURI_INVOKE<QuestResult[]>("quest_check", { hostId, checks }, options),
 	powerProfileSet: (hostId: number, idleW: number | null, maxW: number | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_profile_set", { hostId, idleW, maxW }, options),
 	powerProfileClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_profile_clear", { hostId }, options),
 	upsSave: (input: UpsInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<UpsWatch_Serialize>("ups_save", { input }, options),
@@ -6791,6 +6793,18 @@ export type PveVolume = {
 	/**  The file name part of the volume id. */
 	name: string,
 };
+
+export type QuestResult = {
+	/**  The check as written in the guide (`ssh-no-password`, `container:caddy`). */
+	id: string,
+	state: QuestState,
+	/**  What was seen, in a few words. */
+	detail: string,
+};
+
+export type QuestState = "pass" | "fail" | 
+/**  Couldn't tell (needs root, tool missing, host didn't answer). */
+"unknown";
 
 /**  The routers between the scanner and a routed range (first hop first). */
 export type RangePath = {

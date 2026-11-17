@@ -17,7 +17,7 @@ Back up a server's important folders with restic to a local disk, another server
 
 ## Part 1 · Install and initialise
 
-- [ ] `sudo apt install -y restic` (or the static binary from its releases for the newest version, then `sudo restic self-update`).
+- [ ] `sudo apt install -y restic` (or the static binary from its releases for the newest version, then `sudo restic self-update`). {check: command:restic}
 - [ ] Store the password where only root can read it:
 
 ```sh
@@ -67,7 +67,7 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-- [ ] `sudo systemctl daemon-reload && sudo systemctl enable --now restic-backup.timer`, then try it: `sudo systemctl start restic-backup`.
+- [ ] `sudo systemctl daemon-reload && sudo systemctl enable --now restic-backup.timer`, then try it: `sudo systemctl start restic-backup`. {check: backup-timer}
 - [ ] Add a weekly `restic check --read-data-subset=5%` the same way.
 
 ## Part 3 · In Nightgrid
