@@ -2,6 +2,8 @@
 
 Add a TOTP code (from any authenticator app) to SSH logins on a server, without breaking key logins, scripts or Nightgrid. The usual homelab setup: keys work as before, and anyone logging in with a password also needs a code.
 
+![SSH with a key and a one-time code.](fig:lx-ssh-2fa)
+
 ## What you end up with
 
 - `pam_google_authenticator` enrolled per user, with emergency codes

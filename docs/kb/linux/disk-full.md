@@ -2,6 +2,8 @@
 
 "No space left on device" breaks databases, Docker, logins and updates in odd ways. Find what filled the disk, free space safely in the right order, and stop it happening again.
 
+![Finding what filled the disk.](fig:lx-disk-full)
+
 ## What you end up with
 
 - The real cause found in minutes (big files, deleted-but-open files, inodes or snapshots)

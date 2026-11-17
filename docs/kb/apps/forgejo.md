@@ -2,6 +2,8 @@
 
 A light, self-hosted git forge (a community fork of Gitea) with issues, pull requests, packages and Actions-compatible CI runners.
 
+![Forgejo with CI and a registry.](fig:app-ci-registry)
+
 ## What you end up with
 
 - Forgejo at `git.example.com` with SSH clone on port 2222

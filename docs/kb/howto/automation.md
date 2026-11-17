@@ -2,6 +2,8 @@
 
 Run one command across a group, save commands with variables as snippets, and chain steps into playbooks you can rerun.
 
+![One run across a group, with a result per host.](fig:ng-automation)
+
 ## What you end up with
 
 - Per-host output, exit code and time for every run

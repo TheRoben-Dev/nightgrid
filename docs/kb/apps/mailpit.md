@@ -2,6 +2,8 @@
 
 A fake mail server that accepts every email and shows it in a web inbox instead of delivering it. Point apps at it while you set them up, so password-reset and notification mails can be checked without spamming real addresses or configuring a relay first.
 
+![Mailpit catching test mail.](fig:app-mailpit)
+
 ## What you end up with
 
 - Mailpit in Docker with SMTP on port 1025 and a web inbox

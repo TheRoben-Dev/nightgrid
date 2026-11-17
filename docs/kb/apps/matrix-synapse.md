@@ -2,6 +2,8 @@
 
 Your own end-to-end encrypted chat server for the family or a group of friends. Matrix is federated: your server talks to every other Matrix server, so you can join public rooms and chat with people elsewhere, while your messages and accounts live at home.
 
+![Synapse, its database and federation.](fig:app-matrix)
+
 ## What you end up with
 
 - Synapse with PostgreSQL behind your reverse proxy

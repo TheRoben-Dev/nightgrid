@@ -2,6 +2,8 @@
 
 Stop one runaway service or container from eating the whole server's RAM, and find out what the kernel killed when memory ran out. Uses the cgroup limits that systemd and Docker already build on, no extra tools.
 
+![A memory limit contains one service's leak.](fig:lx-memory-limits)
+
 ## What you end up with
 
 - Hard and soft memory limits on the services and containers that tend to balloon

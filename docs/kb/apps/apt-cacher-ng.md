@@ -2,6 +2,8 @@
 
 Download each Debian or Ubuntu package once and serve it to every other machine on the LAN. Updates across ten hosts or a stack of reinstalls at the bench go at LAN speed and save the internet line.
 
+![One download per package for the whole fleet.](fig:app-apt-cache)
+
 ## What you end up with
 
 - A caching proxy for apt on port 3142

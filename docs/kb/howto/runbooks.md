@@ -2,6 +2,8 @@
 
 Turn "what do I do when this breaks" into notes that open from the alert itself, with commands you can send to the right host's terminal and steps you tick off.
 
+![From an alert to its runbook to the terminal.](fig:ng-runbook)
+
 ## What you end up with
 
 - Knowledge notes tied to alert kinds, a host or a service

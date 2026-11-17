@@ -2,6 +2,8 @@
 
 Servers need addresses that don't move. Set one with netplan (Ubuntu), NetworkManager (Fedora, Debian desktop, many others) or `/etc/network/interfaces` (Debian server), or reserve it in the router.
 
+![Which tool sets the address on which system.](fig:lx-static-ip)
+
 ## What you end up with
 
 - A fixed LAN address the rest of your network (and Nightgrid) can rely on

@@ -2,6 +2,8 @@
 
 Connect apps and APIs with visual workflows: "when a webhook fires, post to ntfy", "every morning, summarise new RSS items", "when a file lands in a folder, process it".
 
+![A workflow from trigger to action.](fig:app-flows)
+
 ## What you end up with
 
 - n8n at `n8n.example.com` with credentials encrypted by your own key

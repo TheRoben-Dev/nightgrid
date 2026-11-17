@@ -2,6 +2,8 @@
 
 Add or remove kernel command-line options such as `intel_iommu=on` for passthrough, `nomodeset` for a GPU that won't show a console, or `pcie_aspm=off` for a flaky NIC. Where the setting lives depends on the bootloader, so find yours first.
 
+![Changing kernel parameters, step by step.](fig:lx-kernel-params)
+
 ## What you end up with
 
 - The parameter tested once from the boot menu, then made permanent

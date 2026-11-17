@@ -2,6 +2,8 @@
 
 When a drive clicks, throws read errors or a partition vanished, copy it first and repair the copy. Every extra hour a dying disk runs costs readable sectors.
 
+![Image first, then recover from the copy.](fig:lx-data-recovery)
+
 ## What you end up with
 
 - A full image of the failing drive, read in the safest order

@@ -2,6 +2,8 @@
 
 Let each server install security fixes by itself every day, reboot at a quiet time when a kernel needs it, and tell you what it did.
 
+![What unattended-upgrades does on its own.](fig:app-unattended)
+
 ## What you end up with
 
 - Daily security updates on Debian/Ubuntu (unattended-upgrades) or Fedora/RHEL (dnf-automatic)

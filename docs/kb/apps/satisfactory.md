@@ -2,6 +2,8 @@
 
 Keep your factory running for the whole group: a dedicated server in Docker that updates itself, keeps rolling save backups and lets anyone in the group play without the host being online.
 
+![Two ways for friends to reach your game server.](fig:app-game-server)
+
 ## What you end up with
 
 - A Satisfactory 1.x dedicated server claimed and managed from the game

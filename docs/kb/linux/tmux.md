@@ -2,6 +2,8 @@
 
 Keep long jobs (upgrades, copies, builds) running when your SSH connection drops, and split one terminal into panes on the server side.
 
+![A tmux session survives your SSH connection.](fig:lx-tmux)
+
 ## Part 1 · The essentials
 
 ```sh

@@ -2,6 +2,8 @@
 
 A time-series database (InfluxDB) fed by a collector agent (Telegraf) that has inputs for almost anything: SNMP switches, UPSes, MQTT sensors, Docker, Proxmox and more. Graph it in Grafana or InfluxDB's own UI.
 
+![Telegraf into InfluxDB, read by Grafana.](fig:app-telegraf)
+
 ## What you end up with
 
 - InfluxDB 2 on port 8086 with a bucket for homelab metrics

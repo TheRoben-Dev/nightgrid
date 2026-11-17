@@ -2,6 +2,8 @@
 
 Plex in Docker with hardware transcoding, its apps on every TV, and a Nightgrid card showing what's playing.
 
+![Plex streaming, transcoding and its account link.](fig:app-plex)
+
 ## What you end up with
 
 - Plex claimed to your account, libraries scanned

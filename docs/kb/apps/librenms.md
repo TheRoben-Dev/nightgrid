@@ -2,6 +2,8 @@
 
 Auto-discovering SNMP monitoring for switches, routers, access points, firewalls, printers and UPSes: port traffic graphs for every interface, device health (CPU, temperature, PSU, fans), neighbours via LLDP/CDP and alerts when a port flaps or a device stops answering.
 
+![LibreNMS polling your network gear.](fig:app-snmp)
+
 ## What you end up with
 
 - LibreNMS with MariaDB, Redis and its poller in Docker

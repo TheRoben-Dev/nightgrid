@@ -2,6 +2,8 @@
 
 A headless Factorio server for a factory that keeps running (or pauses) when everyone logs off, with saves you can back up and mods kept in step with clients.
 
+![Two ways for friends to reach your game server.](fig:app-game-server)
+
 ## What you end up with
 
 - A server on UDP 34197 that friends join by address

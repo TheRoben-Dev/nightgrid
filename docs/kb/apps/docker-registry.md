@@ -2,6 +2,8 @@
 
 Host your own images with the Distribution registry: push from CI or your laptop, pull on your servers, nothing public.
 
+![Where a private registry sits between CI and servers.](fig:app-ci-registry)
+
 ## Part 1 · The stack
 
 - [ ] Make a login file:

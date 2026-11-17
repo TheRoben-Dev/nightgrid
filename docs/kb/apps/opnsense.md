@@ -2,6 +2,8 @@
 
 Run your router and firewall as a VM: OPNsense gives you VLANs, a stateful firewall, DHCP, DNS (Unbound), WireGuard and traffic graphs. Virtualising it on a Proxmox host with two NICs saves a box, as long as you plan for the host being down.
 
+![OPNsense between the internet and your VLANs.](fig:app-opnsense)
+
 ## What you end up with
 
 - A WAN NIC passed to OPNsense, a LAN bridge for everything else

@@ -2,6 +2,8 @@
 
 Make the systemd journal persistent across reboots, cap its size, and read it efficiently, so Nightgrid's timeline, log search and alerts have history to work with.
 
+![Where journal entries come from and how to read them.](fig:lx-journald)
+
 ## What you end up with
 
 - Logs that survive a reboot (needed for "why did it crash last night?")

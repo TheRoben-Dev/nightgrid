@@ -2,6 +2,8 @@
 
 See who logged in to each host over the last week, who tried and failed, which keys are authorized and who has sudo, without storing anything.
 
+![An access report, read fresh from the host.](fig:ng-access-audit)
+
 ## What you end up with
 
 - Per-host reports: logins with the key used, failed attempts grouped by address, bans, users, sudo rules, authorized keys and sshd settings

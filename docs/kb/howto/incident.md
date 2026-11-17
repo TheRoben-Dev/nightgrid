@@ -2,6 +2,8 @@
 
 Something is down. This walk-through takes you from the first notification to the fix and a runbook for next time, using the views in the order that usually finds the cause fastest.
 
+![The six steps of this walk-through.](fig:ng-incident)
+
 ## Part 1 · Find the cause, not the symptoms
 
 - [ ] Open the alerts list (the ALERTS counter in the status bar). With dependencies set, follow-on alerts are folded under the cause ("explains 3 more alerts"). Start with the top one.

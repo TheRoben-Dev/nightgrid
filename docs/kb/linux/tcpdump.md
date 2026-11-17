@@ -2,6 +2,8 @@
 
 See exactly what reaches a server and what it answers: whether DHCP requests arrive, whether a client even tries port 443, why a VPN tunnel is silent. Capture on the server with tcpdump, read it there or open the file in Wireshark on your computer.
 
+![Capture on the server, analyse at home.](fig:lx-tcpdump)
+
 ## What you end up with
 
 - Quick live views of one host, port or protocol

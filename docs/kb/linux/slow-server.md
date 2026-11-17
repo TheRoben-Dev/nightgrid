@@ -2,6 +2,8 @@
 
 A short, ordered checklist to find what's slowing a Linux server: CPU, memory, disk or network, and which process or container is responsible.
 
+![The four resources to check, in order.](fig:lx-slow-server)
+
 ## Part 1 · Look at the trend first
 
 - [ ] Click the host on the [Overview](view:overview) for history charts. A sudden step (a deploy, an update) points elsewhere than a slow climb (a leak, a filling disk). Drag across the spike to zoom in.

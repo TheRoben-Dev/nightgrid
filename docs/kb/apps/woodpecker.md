@@ -2,6 +2,8 @@
 
 A light CI/CD server that runs pipelines in containers, connected to Forgejo or Gitea. Build images, run tests and deploy on push.
 
+![Push, build, store, pull.](fig:app-ci-registry)
+
 ## Part 1 · Connect to Forgejo
 
 - [ ] In Forgejo: Settings → Applications → create an OAuth2 app with redirect URL `https://ci.example.com/authorize`. Note the client id and secret.

@@ -2,6 +2,8 @@
 
 A server that idles at 60 W instead of 25 W costs real money over a year. Measure, then let the CPU, disks and devices sleep when there's nothing to do.
 
+![Where the power savings are.](fig:lx-power)
+
 ## What you end up with
 
 - Idle power measured at the wall, before and after

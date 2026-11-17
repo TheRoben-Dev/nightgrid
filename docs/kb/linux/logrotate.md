@@ -2,6 +2,8 @@
 
 Logs grow until something rotates them. Set limits for the journal, for app log files, and for Docker's container logs, the usual cause of a full root disk on a homelab server.
 
+![How a log moves through rotation.](fig:lx-logrotate)
+
 ## What you end up with
 
 - The journal capped at a size you choose

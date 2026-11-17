@@ -2,6 +2,8 @@
 
 DRIFT is Nightgrid's offline helper. It answers from this Library, your notes and live facts about your hosts, checks commands before you run them, and walks you through views. Nothing leaves this computer.
 
+![Where DRIFT's answers come from.](fig:ng-drift)
+
 ## What you end up with
 
 - Answers grounded in the Library and your own notes, with sources listed

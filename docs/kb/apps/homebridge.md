@@ -2,6 +2,8 @@
 
 Bring devices that don't support HomeKit (or Matter) into Apple's Home app and Siri through plugins: Ring, Tuya, Nest, Roborock, many TVs and thousands more.
 
+![Homebridge between your devices and Apple Home.](fig:app-homebridge)
+
 ## What you end up with
 
 - Non-HomeKit devices in the Home app on iPhone, iPad, Mac and Apple TV

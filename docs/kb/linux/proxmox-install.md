@@ -2,6 +2,8 @@
 
 From a blank machine to a Proxmox node that's updated, reachable with your SSH key and managed from Nightgrid's Proxmox view. Covers the installer choices that are hard to change later: disks, filesystem and network.
 
+![Installing Proxmox VE, start to finish.](fig:lx-proxmox-install)
+
 ## What you end up with
 
 - Proxmox VE installed on ZFS (mirror) or ext4/LVM-thin

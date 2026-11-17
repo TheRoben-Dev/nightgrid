@@ -2,6 +2,8 @@
 
 Shut machines down at night, wake them in the morning or on demand from anywhere, and power off a whole group in one step.
 
+![Wake-on-LAN sent by an always-on host on the same LAN.](fig:ng-wake)
+
 ## What you end up with
 
 - Shutdown, suspend, reboot and wake schedules as systemd timers on the hosts

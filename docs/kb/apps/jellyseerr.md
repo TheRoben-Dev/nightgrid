@@ -2,6 +2,8 @@
 
 Let family request films and shows from a friendly UI; requests go to Sonarr and Radarr automatically, and requesters get told when it's ready. Works with Jellyfin (and Plex/Emby).
 
+![From a family request to a ready title.](fig:app-requests)
+
 ## Part 1 · The stack
 
 - [ ] Add to your `arr` stack or a new one:

@@ -2,6 +2,8 @@
 
 Scans your LAN on a schedule and tells you when a new device joins, a known one disappears, or a device's address changes. Useful as a 24/7 watch alongside Nightgrid's on-demand network map.
 
+![Scanning the LAN for new devices.](fig:app-netalertx)
+
 ## What you end up with
 
 - A device list with first seen, last seen and online history

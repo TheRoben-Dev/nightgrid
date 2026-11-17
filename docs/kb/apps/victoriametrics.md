@@ -2,6 +2,8 @@
 
 A single-binary time-series database that speaks the Prometheus query language and stores months or years of metrics in a fraction of the disk and RAM Prometheus needs. Use it as Prometheus's long-term store, or let it scrape targets itself and skip Prometheus entirely.
 
+![The scrape model VictoriaMetrics shares with Prometheus.](fig:prometheus-pull)
+
 ## What you end up with
 
 - VictoriaMetrics single-node with a 12-month retention

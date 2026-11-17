@@ -2,6 +2,8 @@
 
 Swap a server's system disk for a bigger or healthier one without reinstalling: clone it block for block when the new disk is at least as big, or copy the files and reinstall the bootloader when you also want a new layout. Either way, the server comes back with the same hostname, keys and services.
 
+![Moving to a new SSD, step by step.](fig:lx-move-ssd)
+
 ## What you end up with
 
 - The system running from the new SSD, with all data and settings intact

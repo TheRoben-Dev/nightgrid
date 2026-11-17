@@ -2,6 +2,8 @@
 
 Fedora CoreOS, Silverblue, Bazzite and other atomic systems update as whole images and roll back in one step. Here's how to run services on them and how Nightgrid handles their updates.
 
+![Deployments side by side, with rollback.](fig:lx-rpm-ostree)
+
 ## Part 1 · Updates
 
 ```sh

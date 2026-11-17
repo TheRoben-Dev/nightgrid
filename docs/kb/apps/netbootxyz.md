@@ -2,6 +2,8 @@
 
 Boot any PC on the LAN into Linux installers, live systems and rescue tools over the network, without making USB sticks. A repair bench favourite: memtest, Clonezilla, GParted, Ubuntu, Debian and many more, all from one menu.
 
+![The PXE boot sequence.](fig:app-pxe)
+
 ## What you end up with
 
 - The netboot.xyz container serving the boot files over TFTP

@@ -2,6 +2,8 @@
 
 Watch web pages for changes: a price drop, a driver or firmware release, a stock status, a government notice. It checks on a schedule and notifies you with a diff.
 
+![Watch, filter, diff, notify.](fig:app-changedetection)
+
 ## What you end up with
 
 - A list of watched pages with change history and diffs

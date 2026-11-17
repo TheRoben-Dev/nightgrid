@@ -2,6 +2,8 @@
 
 A speed test page hosted on your own server, so you measure your LAN and Wi-Fi instead of your internet line. Open it on a phone in each room to find the dead spots.
 
+![Internet tests on a schedule and LAN tests on demand.](fig:app-speedtests)
+
 ## What you end up with
 
 - A browser speed test to your server from any device

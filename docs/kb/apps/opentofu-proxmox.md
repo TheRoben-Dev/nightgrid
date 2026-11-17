@@ -2,6 +2,8 @@
 
 Describe VMs in a file, keep the file in git, and let OpenTofu (the open-source Terraform) create, change and destroy them on Proxmox. Rebuilding a lab becomes `tofu apply` instead of an afternoon of clicking.
 
+![Describe, plan, apply.](fig:app-opentofu)
+
 ## What you end up with
 
 - An API token for OpenTofu on your Proxmox node

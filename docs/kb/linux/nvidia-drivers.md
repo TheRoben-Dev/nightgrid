@@ -2,6 +2,8 @@
 
 Get an NVIDIA GPU working for containers (Ollama, Jellyfin/Plex transcoding, Frigate, Immich machine learning) on Debian, Ubuntu or Fedora, and keep it working after kernel updates.
 
+![From the GPU up to containers.](fig:lx-nvidia)
+
 ## What you end up with
 
 - The driver loaded, with `nvidia-smi` showing the card

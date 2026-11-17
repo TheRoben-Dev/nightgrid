@@ -2,6 +2,8 @@
 
 A light S3-compatible object store for backups and apps that want S3 (restic, Kopia, rclone, Loki, Immich alternatives), with optional replication across several machines.
 
+![Apps storing in Garage, replicated to other nodes.](fig:app-s3)
+
 ## Part 1 · Config and stack
 
 - [ ] `/opt/stacks/garage/garage.toml`:

@@ -2,6 +2,8 @@
 
 Portainer is a web UI for Docker. You don't need it for Nightgrid, but if you already use it (or want a browser UI for others), here's how to run it safely and link it from Nightgrid.
 
+![Portainer with the local socket and a remote agent.](fig:app-portainer)
+
 ## What you end up with
 
 - Portainer CE on HTTPS, reachable only on your LAN or tailnet

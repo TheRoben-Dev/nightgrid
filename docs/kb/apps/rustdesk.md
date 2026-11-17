@@ -2,6 +2,8 @@
 
 Help family and friends with their computers through your own RustDesk ID and relay server, instead of a commercial remote-support service.
 
+![RustDesk's ID server and relay.](fig:app-rustdesk)
+
 ## What you end up with
 
 - `hbbs` (ID server) and `hbbr` (relay) on a server you control

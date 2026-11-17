@@ -2,6 +2,8 @@
 
 Get told when new versions of the images you run are published, without anything updating by itself. Pairs with Nightgrid's snapshot-first updates.
 
+![Diun notifies; you decide when to update.](fig:app-diun)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `diun` on each Docker host:

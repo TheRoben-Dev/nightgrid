@@ -2,6 +2,8 @@
 
 The tool for moving lots of files between disks and servers: resumes where it stopped, copies only what changed, and keeps permissions and timestamps.
 
+![rsync over SSH, sending only the changes.](fig:lx-rsync)
+
 ## What you end up with
 
 - Safe one-off copies between disks and hosts

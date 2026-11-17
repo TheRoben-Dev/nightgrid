@@ -2,6 +2,8 @@
 
 Let cron, smartd, unattended-upgrades, ZFS and apps send email through a real mail provider, using msmtp as a tiny sendmail replacement, or Postfix as a relay for apps that want an SMTP server.
 
+![Every host's mail through one relay.](fig:app-mail-relay)
+
 ## What you end up with
 
 - `mail` and `sendmail` working on every host, relayed through your provider

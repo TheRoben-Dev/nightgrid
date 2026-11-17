@@ -2,6 +2,8 @@
 
 Catch failing drives, degraded pools and disks that will be full next month, across every host, before they turn into an outage.
 
+![What the Disks tab collects and what it warns about.](fig:ng-disk-forecast)
+
 ## What you end up with
 
 - ZFS, mdraid and btrfs health with scrub and resync progress on one page

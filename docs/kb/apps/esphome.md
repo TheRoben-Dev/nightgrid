@@ -2,6 +2,8 @@
 
 Build your own sensors and switches on ESP32/ESP8266 boards from YAML, flash them over the air, and use them in Home Assistant without any cloud.
 
+![From YAML to a board on Wi-Fi in Home Assistant.](fig:app-esphome)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `esphome`:

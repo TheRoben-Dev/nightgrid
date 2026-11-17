@@ -2,6 +2,8 @@
 
 Keep Sonarr and Radarr's quality profiles, custom formats and naming in sync with the community TRaSH Guides automatically, instead of clicking through dozens of settings by hand. Recyclarr reads a YAML file and applies it through the apps' APIs on a schedule.
 
+![TRaSH profiles synced into Sonarr and Radarr.](fig:app-recyclarr)
+
 ## What you end up with
 
 - Recyclarr in the same stack as your *arr apps, syncing daily

@@ -2,6 +2,8 @@
 
 Issue trusted HTTPS certificates for LAN-only names (`nas.home.lan`) with your own ACME server, so Caddy and Traefik renew internal certs automatically like they do with Let's Encrypt.
 
+![Your own CA, an ACME client and devices that trust it.](fig:app-step-ca)
+
 ## What you end up with
 
 - A root CA you install once on your devices

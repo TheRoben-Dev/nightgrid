@@ -2,6 +2,8 @@
 
 Dockge is a small web UI for compose stacks: it edits `compose.yaml` files in a folder, runs up/down/pull, and shows the output live. Useful as a browser-based fallback on a host when you're away from the computer running Nightgrid. Both tools work on the same plain compose folders, so they don't get in each other's way.
 
+![Dockge and Nightgrid sharing compose folders.](fig:app-dockge)
+
 ## What you end up with
 
 - Dockge managing a stacks folder on one host

@@ -2,6 +2,8 @@
 
 Splits, tabs, history search, editing server files in Nightgrid's editor and key hints for programs like vim and tmux. All of it works over plain SSH with nothing installed on the server.
 
+![How the terminal knows which program is running.](fig:ng-terminal-hints)
+
 ## What you end up with
 
 - Several hosts side by side in one tab

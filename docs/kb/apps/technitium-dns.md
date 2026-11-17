@@ -2,6 +2,8 @@
 
 A full DNS server with a web UI: ad and tracker blocking like Pi-hole, a recursive resolver like Unbound, authoritative zones for your home domain, DNS-over-HTTPS/TLS/QUIC upstreams, conditional forwarding and an optional DHCP server, all in one container.
 
+![Technitium as the LAN's only DNS server.](fig:app-technitium)
+
 ## What you end up with
 
 - Technitium answering DNS for the LAN on port 53

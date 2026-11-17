@@ -2,6 +2,8 @@
 
 The classic all-in-one monitoring server: agents collect hundreds of metrics per host, templates bring ready-made triggers for Linux, Docker, databases, SNMP switches and UPSes, and everything has history, graphs and escalations. Heavier than Nightgrid's own monitoring, and a good fit when you want SNMP devices and years of data in one place.
 
+![Zabbix agents reporting to the server.](fig:app-hub-agent)
+
 ## What you end up with
 
 - Zabbix 7.0 LTS server, web UI and PostgreSQL in one stack

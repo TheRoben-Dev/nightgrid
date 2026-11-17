@@ -2,6 +2,8 @@
 
 Turn a fresh Debian or Ubuntu server into a tidy Docker host: the official engine and compose plugin, log rotation, a stacks folder and ports that don't slip past the firewall.
 
+![The layers of a Docker host.](fig:app-docker-host)
+
 ## What you end up with
 
 - Docker Engine and the compose plugin from Docker's own repository

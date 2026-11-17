@@ -2,6 +2,8 @@
 
 Measure your internet connection on a schedule and keep the history, so you can show your ISP the evenings it drops to a fraction of what you pay for.
 
+![Internet tests on a schedule and LAN tests on demand.](fig:app-speedtests)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `speedtest`:

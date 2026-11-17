@@ -2,6 +2,8 @@
 
 Run a Z-Wave network with Z-Wave JS UI: pair devices, manage security keys and expose everything to Home Assistant.
 
+![From a Z-Wave device to Home Assistant.](fig:app-zwave)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `zwave`:

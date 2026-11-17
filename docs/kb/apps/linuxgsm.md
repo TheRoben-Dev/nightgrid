@@ -2,6 +2,8 @@
 
 Run dedicated servers for 100+ games (Valheim, Counter-Strike 2, Rust, Terraria, Project Zomboid, ARK and more) with LinuxGSM's scripts: install, update, monitor and back up with one command each.
 
+![One LinuxGSM script per game server.](fig:app-linuxgsm)
+
 ## What you end up with
 
 - A game server under its own Linux user with tmux-managed console

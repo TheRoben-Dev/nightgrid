@@ -2,6 +2,8 @@
 
 Browse tables, run queries and fix a broken row in the PostgreSQL or MariaDB containers your apps use, from a browser, without publishing a database port. Adminer is one tiny PHP page for every database type; pgAdmin is the full PostgreSQL tool.
 
+![A database admin UI reached through a tunnel.](fig:app-db-ui)
+
 ## What you end up with
 
 - Adminer (and optionally pgAdmin) on loopback only, opened through Nightgrid's tunnel

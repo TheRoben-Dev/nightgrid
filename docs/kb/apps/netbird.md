@@ -2,6 +2,8 @@
 
 A WireGuard mesh like Tailscale, but with a management server you can host yourself: peers connect directly where they can, fall back to a relay where they can't, and access policies decide who reaches what. A good choice if you want the Tailscale experience with no outside account.
 
+![Peers, the management server and a route into the LAN.](fig:app-overlay-vpn)
+
 ## What you end up with
 
 - A self-hosted NetBird management server with its web dashboard

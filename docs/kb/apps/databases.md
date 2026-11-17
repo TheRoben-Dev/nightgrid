@@ -2,6 +2,8 @@
 
 Run a database container for your apps, keep it off the network, back it up with dumps rather than copying live files, and upgrade major versions safely.
 
+![One database per app, dumped nightly.](fig:app-databases)
+
 ## What you end up with
 
 - PostgreSQL or MariaDB in a compose stack, reachable only from its app

@@ -2,6 +2,8 @@
 
 Turn a USB printer (or an old network printer with poor drivers) into one every device can use: Linux, macOS and iOS find it with AirPrint, Windows adds it by address, and nobody installs vendor software.
 
+![One CUPS server sharing a printer.](fig:lx-cups)
+
 ## What you end up with
 
 - CUPS on an always-on server with the printer shared on the LAN

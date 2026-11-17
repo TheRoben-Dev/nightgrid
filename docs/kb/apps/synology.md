@@ -2,6 +2,8 @@
 
 Add a Synology NAS (DSM 7) as a Nightgrid host: a terminal, file browsing over SFTP, Docker containers from Container Manager, and service checks, while DSM keeps doing the NAS work. DSM is Linux, but with its own rules about users, packages and Docker; this article covers what to change and what to leave alone.
 
+![The layers of a NAS, as DSM builds them.](fig:app-nas-os)
+
 ## What you end up with
 
 - SSH and SFTP on the NAS for an admin user with a key

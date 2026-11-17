@@ -2,6 +2,8 @@
 
 Reach RDP, VNC and SSH machines from any browser through one login, with no client software. Useful for a locked-down work laptop or a shared family PC.
 
+![One HTTPS page in front of SSH, RDP and VNC.](fig:app-guacamole)
+
 ## What you end up with
 
 - Guacamole at `remote.example.com` with your connections organised in groups

@@ -2,6 +2,8 @@
 
 Speech-to-text (Whisper), text-to-speech (Piper) and wake word detection (openWakeWord) on your own server, connected to Home Assistant's Assist over the Wyoming protocol. "Turn off the kitchen lights" never leaves the house.
 
+![The local voice pipeline for Assist.](fig:app-wyoming)
+
 ## What you end up with
 
 - Three small services Home Assistant uses for voice

@@ -2,6 +2,8 @@
 
 Put every web app on one board with up/down checks, response times and certificate days, and track everything else that runs out on a date: domains, API tokens and licences.
 
+![What a service check tests, layer by layer.](fig:ng-service-check)
+
 ## What you end up with
 
 - A **Services** board with 30 days of history per app

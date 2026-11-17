@@ -2,6 +2,8 @@
 
 Keep a DNS name pointing at your home's changing public IP, so a VPN endpoint or a forwarded game port stays reachable.
 
+![Dynamic DNS keeps your name on your current IP.](fig:app-ddns)
+
 ## What you end up with
 
 - `home.example.com` updated within minutes of an IP change

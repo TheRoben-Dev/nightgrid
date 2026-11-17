@@ -2,6 +2,8 @@
 
 Wire up automations visually: MQTT messages, HTTP requests, schedules and Home Assistant events, in a browser flow editor.
 
+![A flow from trigger to action.](fig:app-flows)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `nodered`:

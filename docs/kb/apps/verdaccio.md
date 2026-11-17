@@ -2,6 +2,8 @@
 
 A private npm registry and caching proxy. Publish your own packages to it, and let it cache everything you install from npmjs.org, so CI and new machines install fast and keep working when the public registry has a bad day.
 
+![Verdaccio as a private registry and cache.](fig:app-pkg-proxy)
+
 ## What you end up with
 
 - Verdaccio in Docker behind your reverse proxy

@@ -2,6 +2,8 @@
 
 A full Linux desktop (XFCE, KDE, MATE and others on Debian, Ubuntu, Fedora, Arch or Alpine) running in a container and shown in a browser tab. Handy as a disposable desktop, for GUI-only tools on a headless server, or a browser that runs from home while you're away.
 
+![A desktop in a browser tab.](fig:app-browser-desktop)
+
 ## What you end up with
 
 - A Webtop container with a persistent home folder

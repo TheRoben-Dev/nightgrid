@@ -2,6 +2,8 @@
 
 Run the controller for Ubiquiti access points, switches and gateways on your own server instead of a Cloud Key. Devices keep working without it; you need it for changes, stats and firmware updates.
 
+![The UniFi controller and its adopted devices.](fig:app-unifi)
+
 ## What you end up with
 
 - The UniFi Network Application on port 8443 with its own MongoDB
