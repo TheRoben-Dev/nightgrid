@@ -59,5 +59,6 @@ pub mod tunnels;
 pub mod ups;
 pub mod uptime;
 pub mod vnc;
+pub mod webui;
 
 pub use error::{Error, Result};

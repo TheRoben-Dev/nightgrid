@@ -15,6 +15,7 @@
   import { layout } from "../stores/layout.svelte";
   import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
+  import { targetLabel, targetUrl, webui } from "../stores/webui.svelte";
 
   onMount(() => docker.start());
 
@@ -73,6 +74,17 @@
 
   const groupAll = (g: ContainerGroup) => g.containers.every((c) => docker.selected.includes(c.id));
   const groupSome = (g: ContainerGroup) => !groupAll(g) && g.containers.some((c) => docker.selected.includes(c.id));
+
+  /** Opens a container's web UI in its own window (D-147). */
+  function openWeb(c: ContainerView) {
+    const h = docker.host;
+    const t = c.web[0];
+    if (h && t) void webui.open(h.id, targetUrl(t, h.hostname), c.service ?? c.name);
+  }
+  const webBusy = (c: ContainerView) => {
+    const h = docker.host;
+    return !!h && !!c.web[0] && webui.isBusy(h.id, targetUrl(c.web[0], h.hostname));
+  };
 
   function shell(c: ContainerView) {
     if (docker.hostId === null) return;
@@ -290,6 +302,17 @@
                   {#if busy}
                     <span class="spin" aria-label="Working">◌</span>
                   {:else if isUp(c)}
+                    {#if c.web.length && c.state === "running"}
+                      <button
+                        type="button"
+                        class="act web"
+                        title="Open the web UI ({targetLabel(c.web[0])}) in a Nightgrid window"
+                        aria-label="Open the web UI of {c.name}"
+                        data-guide="docker-webui"
+                        disabled={webBusy(c)}
+                        onclick={() => openWeb(c)}>{webBusy(c) ? "◌" : "⧉"}</button
+                      >
+                    {/if}
                     <button type="button" class="act" title="Shell" aria-label="Shell in {c.name}" onclick={() => shell(c)} disabled={c.state !== "running"}>›_</button>
                     <button type="button" class="act" title="Restart" aria-label="Restart {c.name}" onclick={() => docker.request({ kind: "restart" }, [c])}>↻</button>
                     <button type="button" class="act" title="Stop" aria-label="Stop {c.name}" onclick={() => docker.request({ kind: "stop" }, [c])}>■</button>
@@ -477,7 +500,7 @@
   }
   .row {
     display: grid;
-    grid-template-columns: 26px minmax(140px, 1.3fr) minmax(120px, 1.2fr) minmax(170px, 1.3fr) minmax(70px, 0.8fr) 56px 70px 92px;
+    grid-template-columns: 26px minmax(140px, 1.3fr) minmax(120px, 1.2fr) minmax(170px, 1.3fr) minmax(70px, 0.8fr) 56px 70px 120px;
     align-items: center;
     gap: 8px;
     padding: 0 8px;
@@ -487,7 +510,11 @@
   }
   /* Next to the detail panel: drop image and ports. */
   .with-panel .row {
-    grid-template-columns: 26px minmax(110px, 1fr) minmax(110px, 1fr) 50px 64px 80px;
+    grid-template-columns: 26px minmax(90px, 1fr) minmax(90px, 1fr) 50px 64px 80px;
+  }
+  /* The panel has its own Web UI button. */
+  .with-panel .act.web {
+    display: none;
   }
   .with-panel .row > :nth-child(3),
   .with-panel .row > :nth-child(5) {

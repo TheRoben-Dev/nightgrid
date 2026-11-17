@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.63] - 2026-11-17
+
+### Added: open a service's web UI inside Nightgrid
+- **⧉** on a running container's row in Docker (and **Web UI** in its detail panel) opens the container's web interface (AMP, Portainer, Homepage, anything with a published web port) in its own Nightgrid window. Ports that aren't web pages (databases, game servers, DNS) are skipped; the `nightgrid.webui` label picks the port, scheme and path yourself.
+- Clicking a service's name in Services opens it the same way; **↗** still opens it in your browser. **Browse** on a tunnel opens in a window too.
+- It connects straight when this computer can reach the port, otherwise through a temporary SSH tunnel to the host, so ports bound to the host's loopback and hosts reached only through the built-in tailnet work too. It checks the page answers first and says why when it can't open (nothing listening, or an HTTPS certificate the window can't accept, with **Open in browser**).
+- The window shows only that site: it has no access to Nightgrid or your hosts, and pop-ups open in your browser.
+
 ## [0.10.62] - 2026-11-16
 
 ### Added: the Library, a built-in knowledge base (M11)
