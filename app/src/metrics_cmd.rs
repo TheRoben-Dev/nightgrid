@@ -20,6 +20,7 @@ use tauri::{AppHandle, Manager, State};
 use tokio::sync::Notify;
 
 use crate::commands::CmdResult;
+use crate::node_cmd::NodeSample;
 use crate::state::AppState;
 use crate::term_cmd::connect_host;
 
@@ -195,6 +196,16 @@ fn now_ms() -> f64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as f64).unwrap_or(0.0)
 }
 
+/// What one poll round got.
+enum Got {
+    /// Output of the collect script over SSH.
+    Collected(Vec<u8>, Vec<u8>),
+    /// A sample from Nightgrid Node.
+    Node(Box<Sample>),
+    /// The node is the source and has nothing newer.
+    Nothing,
+}
+
 async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
     let hub = || app.state::<AppState>().metrics.clone();
     let mut collector = Collector::new();
@@ -239,14 +250,26 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
         let started = std::time::Instant::now();
         let result = async {
             let conn = connect_host(&app, host_id).await?;
-            let (code, out, err) = tokio::time::timeout(Duration::from_secs(15), conn.exec(COLLECT))
+            // Nightgrid Node, where it runs, hands over its own samples (D-165).
+            match crate::node_cmd::sample(&app, host_id, hub().is_visible(host_id)).await {
+                NodeSample::Fresh(s) => return Ok(Got::Node(s)),
+                NodeSample::Same => return Ok(Got::Nothing),
+                NodeSample::None => {}
+            }
+            let (_, out, err) = tokio::time::timeout(Duration::from_secs(15), conn.exec(COLLECT))
                 .await
                 .map_err(|_| ConnectError::Network { host: String::new(), message: "sample timed out".into() })??;
-            Ok::<_, ConnectError>((code, out, err))
+            Ok::<_, ConnectError>(Got::Collected(out, err))
         }
         .await;
-        match result {
-            Ok((_, out, err)) => {
+        let result = match result {
+            Ok(Got::Nothing) => {
+                backoff = 0;
+                set_state(&mut state, PollState::Ok, None, None);
+                Ok(None)
+            }
+            Ok(Got::Node(s)) => Ok(Some(*s)),
+            Ok(Got::Collected(out, err)) => {
                 let text = String::from_utf8_lossy(&out);
                 let raw = parse(&text);
                 if raw.cpu.is_none() && raw.mem.total == 0 {
@@ -255,12 +278,18 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
                     backoff = 300;
                     continue;
                 }
+                Ok(Some(collector.sample(raw, now_ms())))
+            }
+            Err(e) => Err(e),
+        };
+        match result {
+            Ok(None) => {}
+            Ok(Some(sample)) => {
                 backoff = 0;
                 nightgrid_core::power::clear(host_id);
                 if watcher.as_ref().map_or(true, |w| w.inner().is_finished()) {
                     watcher = Some(watch_power(app.clone(), host_id));
                 }
-                let sample = collector.sample(raw, now_ms());
                 set_state(&mut state, PollState::Ok, None, None);
                 if let Some(done) = avg.push(&Point::from_sample(&sample)) {
                     if let Err(e) = app.state::<AppState>().store().insert_metric_point(host_id, &done) {

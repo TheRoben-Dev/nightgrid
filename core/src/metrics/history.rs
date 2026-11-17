@@ -248,6 +248,30 @@ impl Store {
         Ok(())
     }
 
+    /// Stores a 15-minute or hourly rollup from another recorder (Nightgrid
+    /// Node, D-165) that saw `n` minutes of it. An existing row is replaced
+    /// only when the other side saw more of the bucket, so a bucket the app
+    /// only half-filled takes the node's complete one.
+    pub fn merge_rollup_point(&mut self, host_id: HostId, res: i64, p: &Point, n: i64) -> Result<()> {
+        if res != ROLLUP && res != HOURLY {
+            return Ok(());
+        }
+        let ts = (p.ts as i64).div_euclid(res) * res;
+        let mut a: Vec<rusqlite::types::Value> = vec![host_id.into(), res.into(), ts.into(), n.max(1).into()];
+        a.extend(values(p).iter().map(|x| x.map_or(rusqlite::types::Value::Null, rusqlite::types::Value::Real)));
+        let ph: String = (5..5 + N).map(|i| format!("?{i}")).collect::<Vec<_>>().join(", ");
+        let set: Vec<String> = COLS.split(", ").map(|c| format!("{c} = excluded.{c}")).collect();
+        self.conn().execute(
+            &format!(
+                "INSERT INTO metric_points (host_id, res, ts, n, {COLS}) VALUES (?1, ?2, ?3, ?4, {ph})
+                 ON CONFLICT (host_id, res, ts) DO UPDATE SET {}, n = excluded.n WHERE excluded.n > metric_points.n",
+                set.join(", ")
+            ),
+            rusqlite::params_from_iter(a),
+        )?;
+        Ok(())
+    }
+
     /// Points in `[from, to]` (unix seconds): minute points for short
     /// ranges, 15-minute rollups up to a month, hourly ones beyond.
     pub fn metric_history(&self, host_id: HostId, from: i64, to: i64) -> Result<Vec<Point>> {

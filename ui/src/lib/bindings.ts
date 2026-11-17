@@ -633,6 +633,31 @@ export const commands = {
 	powerOverview: (days: number, utcOffsetMins: number, options?: InvokeOptions) => __TAURI_INVOKE<PowerOverview_Serialize>("power_overview", { days, utcOffsetMins }, options),
 	/**  Runs the checks on a host and judges each one. */
 	questCheck: (hostId: number, checks: string[], options?: InvokeOptions) => __TAURI_INVOKE<QuestResult[]>("quest_check", { hostId, checks }, options),
+	/**  What's known about the node on every host, without connecting. */
+	nodeList: (options?: InvokeOptions) => __TAURI_INVOKE<NodeView_Serialize[]>("node_list", undefined, options),
+	/**
+	 *  Looks for the node on `host` now (connecting if needed) and reads its
+	 *  details.
+	 */
+	nodeCheck: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<NodeView_Serialize>("node_check", { hostId }, options),
+	/**  Fills history from the node now. */
+	nodeSyncNow: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<SyncReport>("node_sync_now", { hostId }, options),
+	/**  Turns using the node on this host on or off (history already synced stays). */
+	nodeSetUse: (hostId: number, on: boolean, options?: InvokeOptions) => __TAURI_INVOKE<NodeView_Serialize>("node_set_use", { hostId, on }, options),
+	/**  The newest Nightgrid Node release (checked at most once an hour). */
+	nodeRelease: (options?: InvokeOptions) => __TAURI_INVOKE<Release>("node_release", undefined, options),
+	/**
+	 *  Installs or updates the node on `host_id`: the latest release's binary
+	 *  for the host's architecture, checked against its SHA256SUMS (or a file
+	 *  the person picks when `from_file`), uploaded to a private temp folder
+	 *  and installed by itself as root. `None` when the file pick was cancelled.
+	 */
+	nodeInstall: (hostId: number, fromFile: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<NodeInstallResult_Serialize | null>("node_install", { hostId, fromFile, sudo }, options),
+	/**
+	 *  Removes the node from `host_id` (with its history and account when
+	 *  `purge`), and forgets its sync cursors.
+	 */
+	nodeUninstall: (hostId: number, purge: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<NodeInstallResult_Serialize>("node_uninstall", { hostId, purge, sudo }, options),
 	powerProfileSet: (hostId: number, idleW: number | null, maxW: number | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_profile_set", { hostId, idleW, maxW }, options),
 	powerProfileClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_profile_clear", { hostId }, options),
 	upsSave: (input: UpsInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<UpsWatch_Serialize>("ups_save", { input }, options),
@@ -1532,6 +1557,11 @@ export type AppSettings_Serialize = {
 	 *  (from a newer version's profile) are kept as they are.
 	 */
 	disabledFeatures: string[],
+};
+
+export type Asset = {
+	name: string,
+	url: string,
 };
 
 export type AuthMethod = 
@@ -4104,6 +4134,29 @@ export type ImportSummary = {
 	stale: string[],
 };
 
+/**  The `--json` report of install and uninstall. */
+export type InstallReport = InstallReport_Serialize | InstallReport_Deserialize;
+
+/**  The `--json` report of install and uninstall. */
+export type InstallReport_Deserialize = {
+	action?: string,
+	version?: string,
+	steps?: string[],
+	/**  Users added to the node's group (they need a new login). */
+	users?: string[],
+	warnings?: string[],
+};
+
+/**  The `--json` report of install and uninstall. */
+export type InstallReport_Serialize = {
+	action: string,
+	version: string,
+	steps: string[],
+	/**  Users added to the node's group (they need a new login). */
+	users: string[],
+	warnings: string[],
+};
+
 /**  One installed Nightgrid timer. */
 export type InstalledJob = InstalledJob_Serialize | InstalledJob_Deserialize;
 
@@ -5262,6 +5315,126 @@ export type NewJob_Serialize = {
 };
 
 export type Node = { kind: "host"; id: number } | { kind: "service"; id: number };
+
+export type NodeAccess = {
+	name: string,
+	/**  `ok`, `denied`, `absent` or `off`. */
+	state: string,
+};
+
+export type NodeCoverage = NodeCoverage_Serialize | NodeCoverage_Deserialize;
+
+export type NodeCoverage_Deserialize = {
+	res: number,
+	points: number | null,
+	oldest?: number | null,
+	newest?: number | null,
+};
+
+export type NodeCoverage_Serialize = {
+	res: number,
+	points: number | null,
+	oldest: number | null,
+	newest: number | null,
+};
+
+export type NodeInfoView = NodeInfoView_Serialize | NodeInfoView_Deserialize;
+
+export type NodeInfoView_Deserialize = {
+	started: number | null,
+	intervalSecs: number,
+	rssBytes: number | null,
+	dbBytes: number | null,
+	coverage: NodeCoverage_Deserialize[],
+	access: NodeAccess[],
+	/**  The alerts active on the node right now. */
+	alerts: Alert_Deserialize[],
+};
+
+export type NodeInfoView_Serialize = {
+	started: number | null,
+	intervalSecs: number,
+	rssBytes: number | null,
+	dbBytes: number | null,
+	coverage: NodeCoverage_Serialize[],
+	access: NodeAccess[],
+	/**  The alerts active on the node right now. */
+	alerts: Alert_Serialize[],
+};
+
+export type NodeInstallResult = NodeInstallResult_Serialize | NodeInstallResult_Deserialize;
+
+export type NodeInstallResult_Deserialize = {
+	report: InstallReport_Deserialize,
+	view: NodeView_Deserialize,
+};
+
+export type NodeInstallResult_Serialize = {
+	report: InstallReport_Serialize,
+	view: NodeView_Serialize,
+};
+
+export type NodeState = 
+/**  Not looked yet (the host hasn't been connected). */
+"unknown" | 
+/**  Turned off for this host, or Fleet → Nightgrid Node is off. */
+"off" | "notInstalled" | 
+/**  Installed but its socket isn't there (the service is stopped or failed). */
+"notRunning" | 
+/**  Running, but the login user isn't in its group. */
+"noAccess" | 
+/**  No protocol version in common: the node needs an update. */
+"incompatible" | "ready" | "error";
+
+export type NodeView = NodeView_Serialize | NodeView_Deserialize;
+
+export type NodeView_Deserialize = {
+	hostId: number,
+	state: NodeState,
+	message?: string | null,
+	useNode: boolean,
+	version?: string | null,
+	/**  First 8 characters of the node id. */
+	nodeId?: string | null,
+	proto: number,
+	caps: string[],
+	/**  Events arrive as they happen (protocol 2). */
+	eventsLive: boolean,
+	/**  Samples arrive every 2 s instead of over SSH. */
+	metricsLive: boolean,
+	syncing: boolean,
+	syncedAt?: number | null,
+	lastSync?: SyncReport | null,
+	rulesNote?: string | null,
+	user: string,
+	arch: string,
+	/**  Filled by `node_check` only. */
+	info?: NodeInfoView_Deserialize | null,
+};
+
+export type NodeView_Serialize = {
+	hostId: number,
+	state: NodeState,
+	message: string | null,
+	useNode: boolean,
+	version: string | null,
+	/**  First 8 characters of the node id. */
+	nodeId: string | null,
+	proto: number,
+	caps: string[],
+	/**  Events arrive as they happen (protocol 2). */
+	eventsLive: boolean,
+	/**  Samples arrive every 2 s instead of over SSH. */
+	metricsLive: boolean,
+	syncing: boolean,
+	syncedAt: number | null,
+	lastSync: SyncReport | null,
+	rulesNote: string | null,
+	user: string,
+	arch: string,
+	/**  Filled by `node_check` only. */
+	info: NodeInfoView_Serialize | null,
+};
 
 export type Note = Note_Serialize | Note_Deserialize;
 
@@ -6776,6 +6949,13 @@ export type RdpTunnel = {
 	localPort: number,
 };
 
+export type Release = {
+	/**  `v0.23.0`. */
+	tag: string,
+	published: string,
+	assets: Asset[],
+};
+
 /**  What an image declares, for the deploy wizard's suggestions. */
 export type RemoteImage = RemoteImage_Serialize | RemoteImage_Deserialize;
 
@@ -7676,6 +7856,20 @@ export type SudoState =
 "password" | 
 /**  sudo isn't installed. */
 "missing";
+
+/**  What one sync brought in. */
+export type SyncReport = {
+	/**  Minute points and rollups stored. */
+	points: number,
+	diskRows: number,
+	hours: number,
+	/**  Timeline entries added (ones the app already had are skipped). */
+	events: number,
+	/**  The node's history started over (new node id), so everything was synced afresh. */
+	reset: boolean,
+	/**  Some node events were pruned before the app fetched them. */
+	pruned: boolean,
+};
 
 /**
  *  A message plus the structured cause, so the UI can show an SSH prompt,

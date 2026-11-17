@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.86] - 2026-11-17
+
+### Added: Nightgrid Node pairing
+- **Fleet → NODE**: where the optional Nightgrid Node agent runs. Nightgrid looks for it whenever it connects to a host (one read-only check) and uses it where it's running.
+- **No gaps**: after the app was closed, the node's history fills each host's graphs, long-range charts, uptime bars, disk forecasts and timeline for the time it was away.
+- **While you were away**: alerts the node recorded meanwhile land in the alerts panel, with one notification per host for those still active and none for ones that already cleared. Your alert thresholds are sent to the node, so it judges disks the way the app does.
+- **Live from the node**: events arrive as they happen, and a host's metric tiles take the node's samples (every 2 s while you look at it) instead of running a script over SSH.
+- **Install…, Update…, Remove…** per host: the latest release for the host's architecture is downloaded from GitHub, checked against the release's checksums, uploaded to a private temp folder and installed as root through the usual sudo prompt; or pick a binary file yourself. Remove can also delete the node's history and account.
+- Per host **Use on this host**, and Settings → Features → Fleet → Nightgrid Node turns it all off. Hosts without the node work exactly as before.
+- What the node project could add to make this smoother is written up in `docs/NODE_PAIRING.md`.
+
 ## [0.10.85] - 2026-11-17
 
 ### Added: Library quests

@@ -40,6 +40,7 @@ pub mod netmap;
 pub mod netperf;
 pub mod netsec;
 pub mod nettools;
+pub mod node;
 pub mod notes;
 pub mod power;
 pub mod power_schedule;
