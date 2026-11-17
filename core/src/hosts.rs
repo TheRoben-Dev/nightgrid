@@ -78,6 +78,16 @@ pub struct Host {
     pub sleep_window: Option<String>,
     /// `server` or `client` (a laptop, handheld or desktop: never picked by default).
     pub role: String,
+    /// A client raises offline alerts only when this is on (servers always do).
+    pub alert_offline: bool,
+}
+
+impl Host {
+    /// A client (laptop, handheld, desktop) that doesn't answer is just away:
+    /// no offline alert, not counted as down, unless it opted in.
+    pub fn away_when_unreachable(&self) -> bool {
+        self.role == "client" && !self.alert_offline
+    }
 }
 
 /// Fields the user edits. Missing optional fields mean "unset".
@@ -116,6 +126,8 @@ pub struct HostInput {
     pub sleep_window: Option<String>,
     /// `server` or `client` (a laptop, handheld or desktop: never picked by default).
     pub role: String,
+    /// A client raises offline alerts only when this is on (servers always do).
+    pub alert_offline: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -259,7 +271,7 @@ impl HostInput {
 }
 
 const HOST_COLS: &str = "id, name, hostname, port, username, group_id, color, icon, favorite, notes, \
-     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths";
+     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths, alert_offline";
 
 fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
     Ok(Host {
@@ -287,6 +299,7 @@ fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
         role: r.get(20)?,
         drift_lookups: r.get(21)?,
         drift_paths: r.get(22)?,
+        alert_offline: r.get(23)?,
     })
 }
 
@@ -354,8 +367,8 @@ impl Store {
             tx.execute(
                 "INSERT INTO hosts (name, hostname, port, username, group_id, color, icon, favorite, notes,
                     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history,
-                    mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+                    mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths, alert_offline)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
                 params![
                     h.name,
                     h.hostname,
@@ -378,7 +391,8 @@ impl Store {
                     h.sleep_window,
                     h.role,
                     h.drift_lookups,
-                    h.drift_paths
+                    h.drift_paths,
+                    h.alert_offline
                 ],
             )?;
             let id = tx.last_insert_rowid() as HostId;
@@ -396,7 +410,7 @@ impl Store {
                     icon = ?8, favorite = ?9, notes = ?10, auth_method = ?11, identity_file = ?12,
                     proxy_jump = ?13, remember_secret = ?14, ssh_alias = ?15,
                     tailnet_address = ?16, drift_history = ?17, mac_address = ?18,
-                    wake_relay_id = ?19, sleep_window = ?20, role = ?21, drift_lookups = ?22, drift_paths = ?23, updated_at = unixepoch()
+                    wake_relay_id = ?19, sleep_window = ?20, role = ?21, drift_lookups = ?22, drift_paths = ?23, alert_offline = ?24, updated_at = unixepoch()
                  WHERE id = ?1",
                 params![
                     id,
@@ -421,7 +435,8 @@ impl Store {
                     h.sleep_window,
                     h.role,
                     h.drift_lookups,
-                    h.drift_paths
+                    h.drift_paths,
+                    h.alert_offline
                 ],
             )?;
             if n > 0 {
@@ -527,6 +542,20 @@ mod tests {
         assert_eq!(store.update_host(c.id, &i).unwrap().role, "server");
         i.role = "laptop".into();
         assert!(store.create_host(&i).is_err());
+    }
+
+    #[test]
+    fn clients_are_away_unless_they_opt_into_offline_alerts() {
+        let mut store = Store::open_in_memory().unwrap();
+        let server = store.create_host(&input("lumen")).unwrap();
+        assert!(!server.alert_offline && !server.away_when_unreachable());
+        let mut i = input("deck");
+        i.role = "client".into();
+        let deck = store.create_host(&i).unwrap();
+        assert!(deck.away_when_unreachable());
+        i.alert_offline = true;
+        let deck = store.update_host(deck.id, &i).unwrap();
+        assert!(deck.alert_offline && !deck.away_when_unreachable());
     }
 
     #[test]

@@ -19,7 +19,7 @@ Keep a growing host list readable, and make groups do work for you: group power,
 
 - [ ] Add tags; filter the sidebar with `#tag`.
 - [ ] Give critical hosts a colour and an icon; star the ones you open most.
-- [ ] Laptops, desktops and handhelds: tick **Client, not a server** so views never default to them.
+- [ ] Laptops, desktops and handhelds: tick **Client, not a server** so views never default to them and they show as away, not offline, when they're off.
 
 ## Part 3 · Per-view picks
 

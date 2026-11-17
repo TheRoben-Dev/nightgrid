@@ -45,6 +45,7 @@
     wakeRelayId: null,
     sleepWindow: null,
     role: "server",
+    alertOffline: false,
     tags: [],
   });
 
@@ -349,6 +350,14 @@
           checked={form.role === "client"}
           onchange={(v) => (form.role = v ? "client" : "server")}
         />
+        {#if form.role === "client"}
+          <Toggle
+            label="Alert when it goes offline"
+            hint="Off: a client that stops answering shows as away, with no offline alert, and doesn't count as down in uptime or on the status page. Servers always alert."
+            checked={form.alertOffline}
+            onchange={(v) => (form.alertOffline = v)}
+          />
+        {/if}
         {#if form.authMethod !== "agent"}
           <Toggle
             label="Remember secret in OS keychain"

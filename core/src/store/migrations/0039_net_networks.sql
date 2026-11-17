@@ -1,4 +1,4 @@
--- 0038: saved networks (network map). Each scan is matched to a network by
+-- 0039: saved networks (network map). Each scan is matched to a network by
 -- its fingerprint: the scanned subnet plus the router's address and MAC, so
 -- two networks that both use 192.168.1.0/24 stay apart. Devices remember
 -- the network they were last seen on, so a scan of one network never calls

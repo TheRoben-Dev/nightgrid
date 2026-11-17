@@ -23,7 +23,7 @@
       return !best || pct > best.pct ? { mount: x.mount, pct } : best;
     }, null) ?? null,
   );
-  const PLANNED: Record<string, string> = { suspended: "SUSPENDED", rebooting: "REBOOTING", shuttingDown: "SHUT DOWN", asleep: "ASLEEP" };
+  const PLANNED: Record<string, string> = { suspended: "SUSPENDED", rebooting: "REBOOTING", shuttingDown: "SHUT DOWN", asleep: "ASLEEP", away: "AWAY" };
   const planned = $derived(PLANNED[m.state] ?? null);
   const lastSeen = $derived(s ? Math.max(0, Math.round((Date.now() - s.ts) / 60000)) : null);
   let wakeNote = $state<string | null>(null);

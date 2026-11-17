@@ -19,7 +19,8 @@ pub struct HostStatus {
     /// Shown only when the export asks for addresses.
     pub address: Option<String>,
     /// "ok", "offline", "auth" (waiting for a login), "sleep" (suspended,
-    /// rebooting or in its sleep window), "off" (not monitored).
+    /// rebooting or in its sleep window), "away" (a client device that isn't
+    /// answering), "off" (not monitored).
     pub state: String,
     pub cpu: Option<f32>,
     pub mem: Option<f32>,
@@ -236,6 +237,7 @@ pub fn render_html(s: &StatusSnapshot, o: &RenderOpts) -> String {
             "offline" => "OFFLINE",
             "auth" => "NEEDS LOGIN",
             "sleep" => "ASLEEP",
+            "away" => "AWAY",
             _ => "NOT MONITORED",
         };
         h.push_str(&format!(
@@ -461,6 +463,14 @@ mod tests {
         let s = render_html(&snap(), &RenderOpts { refresh_secs: None, utc_offset_min: 0 });
         assert!(!s.contains("refresh\" content"));
         assert!(s.contains("snapshot"));
+    }
+
+    #[test]
+    fn an_away_client_is_not_down() {
+        let mut s = snap();
+        s.hosts[1].state = "away".into();
+        let h = render_html(&s, &RenderOpts { refresh_secs: None, utc_offset_min: 0 });
+        assert!(h.contains("0 DOWN") && h.contains(">AWAY<"));
     }
 
     #[test]

@@ -185,6 +185,7 @@ pub fn ssh_config_import(state: State<'_, AppState>, aliases: Vec<String>) -> Cm
                 wake_relay_id: h.wake_relay_id,
                 sleep_window: h.sleep_window.clone(),
                 role: h.role.clone(),
+                alert_offline: h.alert_offline,
             };
             store.update_host(h.id, &input)?;
             updated += 1;

@@ -12,6 +12,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - **NETWORKS bar** on the Network view: rename networks, show a network's last scan without scanning, **merge** a network back after a router swap, or forget one.
 - **Several networks on one map**: tick **on map** to draw another network's last scan behind its own router, in its own region. One **Internet** node sits above every router and the **tailnet** links its devices across networks, showing how the networks reach each other.
 
+## [0.10.81] - 2026-11-17
+
+### Changed: client devices are away, not offline
+- A host marked **Client, not a server** (laptop, desktop, handheld) that stops answering now shows as **away**: no HOST OFFLINE alert, and it doesn't count as down in uptime bars, SLA reports or the status page. Tick **Alert when it goes offline** in the host editor to watch a client anyway. D-153.
+
 ## [0.10.80] - 2026-11-17
 
 ### Added: DRIFT reads your servers, an error reference and Nightgrid Node guides

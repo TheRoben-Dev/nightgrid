@@ -115,6 +115,7 @@ const STATE: Record<string, string> = {
   rebooting: "rebooting (planned)",
   shuttingDown: "shut down (planned, not an outage)",
   asleep: "inside its expected sleep window (not an outage)",
+  away: "away (a client device that isn't answering; expected, not an outage)",
 };
 
 export interface HostFactsInput {
