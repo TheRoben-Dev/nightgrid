@@ -99,6 +99,11 @@ import {
   type PveVmSpec_Deserialize as PveVmSpec,
   type PveCtSpec_Deserialize as PveCtSpec,
   type PveCloneSpec_Deserialize as PveCloneSpec,
+  type PowerOverview_Serialize as PowerOverview,
+  type HostPower_Serialize as HostPower,
+  type IdleWindow,
+  type UpsPower_Serialize as UpsPower,
+  type PowerProfile,
   type PveSandboxSpec_Deserialize as PveSandboxSpec,
   type PveSandboxDone_Serialize as PveSandboxDone,
   type PveIsolation,
@@ -345,6 +350,7 @@ import {
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockJournal } from "./mockJournal";
+import { mockPower } from "./mockPower";
 import { mockBlueprint } from "./mockBlueprint";
 import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
@@ -435,6 +441,11 @@ export type {
   PveVmSpec,
   PveCtSpec,
   PveCloneSpec,
+  PowerOverview,
+  HostPower,
+  IdleWindow,
+  UpsPower,
+  PowerProfile,
   PveSandboxSpec,
   PveSandboxDone,
   PveIsolation,
@@ -781,6 +792,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   disabledFeatures: [],
   profileReminderSnooze: null,
   statusPage: { enabled: false, bind: "lan", port: 8787 },
+  power: { pricePerKwh: 0, currency: "" },
   netWatch: { enabled: false, scanner: null, minutes: 60, sweep: false, alertNew: true, alertMissing: true, alertRisks: true },
 };
 
@@ -1351,6 +1363,9 @@ export const api = {
   pveVmCreate: (hostId: number, spec: PveVmSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveVmCreate(hostId, spec, sudo) : mockProxmox.vmCreate(spec)),
   pveCtCreate: (hostId: number, spec: PveCtSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveCtCreate(hostId, spec, sudo) : mockProxmox.ctCreate(spec)),
   pveClone: (hostId: number, spec: PveCloneSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveClone(hostId, spec, sudo) : mockProxmox.clone(spec)),
+  powerOverview: (days: number, utcOffsetMins: number): Promise<PowerOverview> => (T() ? commands.powerOverview(days, utcOffsetMins) : mockPower.overview(days)),
+  powerProfileSet: (hostId: number, idleW: number, maxW: number): Promise<null> => (T() ? commands.powerProfileSet(hostId, idleW, maxW) : mockPower.set(hostId, idleW, maxW)),
+  powerProfileClear: (hostId: number): Promise<null> => (T() ? commands.powerProfileClear(hostId) : mockPower.clear(hostId)),
   pveSandboxCreate: (hostId: number, spec: PveSandboxSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveSandboxCreate(hostId, spec, sudo) : mockProxmox.sandboxCreate(spec)),
   pveSandboxIsolate: (hostId: number, spec: PveSandboxSpec, sudo: SudoInput | null): Promise<PveSandboxDone> => (T() ? commands.pveSandboxIsolate(hostId, spec, sudo) : mockProxmox.sandboxIsolate(spec)),
   pveSandboxExtend: (hostId: number, node: string, kind: string, vmid: number, hours: number, sudo: SudoInput | null): Promise<number | null> =>

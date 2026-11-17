@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { blankUps, clock, needsTyped, remaining, triggerText, upsState, upsTone, upsWords, validTarget } from "./ups";
 import type { UpsReading, UpsWatch } from "./api";
 
-const reading = (p: Partial<UpsReading> = {}): UpsReading => ({ status: ["OL"], onBattery: false, lowBattery: false, replaceBattery: false, charge: 100, runtime: 1800, load: 20, inputVoltage: 230, model: null, error: null, ...p });
+const reading = (p: Partial<UpsReading> = {}): UpsReading => ({ status: ["OL"], onBattery: false, lowBattery: false, replaceBattery: false, charge: 100, runtime: 1800, load: 20, inputVoltage: 230, model: null, realpower: null, realpowerNominal: null, powerNominal: null, error: null, ...p });
 const watch = (p: Partial<UpsWatch> = {}): UpsWatch => ({ id: 1, label: "UPS", target: "ups", hostId: 1, groupId: 2, shutdown: true, onBatterySecs: 300, lowRuntimeSecs: 300, countdownSecs: 120, enabled: true, ...p });
 
 describe("ups", () => {

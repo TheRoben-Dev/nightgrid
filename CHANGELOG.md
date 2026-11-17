@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.86] - 2026-11-17
+
+### Added: power & cost
+- **Fleet → POWER**: what each host draws and costs. Give a host its watts at idle and at full CPU (**Set watts…**, or a preset from Raspberry Pi to rack server) and Nightgrid works out its average and peak draw from the CPU history it already keeps, plus the GPU watts it measures. Totals per month and per year, over the last 7, 30 or 90 days.
+- **Price per kWh** and currency at the top turn kWh into cost.
+- **Idle hours**: hours of the day a host is reliably idle (under 5% CPU and almost no traffic on 85% of days) are listed with what switching it off then would save, and **Schedule…** opens System → SCHEDULES to set up a shutdown and a Wake-on-LAN.
+- **UPS check**: a UPS that reports its output (`ups.realpower`, or load × rated power) is compared with the estimates for the hosts on it, so you can tell whether the profiles are close.
+- Nothing new is polled. Settings → Features → Fleet → Power & cost turns it off.
+
 ## [0.10.85] - 2026-11-17
 
 ### Added: sandbox clones

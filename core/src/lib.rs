@@ -44,6 +44,7 @@ pub mod nettools;
 pub mod notes;
 pub mod power;
 pub mod power_schedule;
+pub mod powercost;
 pub mod proxmox;
 pub mod redact;
 pub mod secrets;

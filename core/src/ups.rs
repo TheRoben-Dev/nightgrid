@@ -211,6 +211,12 @@ pub struct UpsReading {
     /// Percent.
     pub load: Option<f32>,
     pub input_voltage: Option<f32>,
+    /// Watts it supplies, when the UPS measures them (`ups.realpower`).
+    pub realpower: Option<f32>,
+    /// Rated watts (`ups.realpower.nominal`).
+    pub realpower_nominal: Option<f32>,
+    /// Rated VA (`ups.power.nominal`).
+    pub power_nominal: Option<f32>,
     pub model: Option<String>,
     /// Why there is no reading (no upsc, driver not connected, unknown UPS).
     pub error: Option<String>,
@@ -241,6 +247,9 @@ pub fn parse(text: &str) -> UpsReading {
             "battery.runtime" => r.runtime = num().map(|s| s.max(0.0) as u32),
             "ups.load" => r.load = num(),
             "input.voltage" => r.input_voltage = num(),
+            "ups.realpower" => r.realpower = num(),
+            "ups.realpower.nominal" => r.realpower_nominal = num(),
+            "ups.power.nominal" => r.power_nominal = num(),
             "device.model" | "ups.model" if r.model.is_none() => r.model = Some(v.trim().to_owned()),
             _ => {}
         }
