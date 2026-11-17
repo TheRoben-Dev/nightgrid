@@ -1,5 +1,7 @@
 # Smart home hub
 
+![Local smart home control without the cloud.](fig:guide-smart-home-hub)
+
 Run Home Assistant OS as a Proxmox VM with your Zigbee, Z-Wave or Thread dongle passed through, and manage it from Nightgrid. The VM starts by itself after a power cut, and you take a snapshot before every Home Assistant update, so a bad update costs you one rollback instead of an evening. A Docker-only variant (Home Assistant Container, Mosquitto, Zigbee2MQTT) is at the end.
 
 ## What you end up with

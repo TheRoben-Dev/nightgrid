@@ -1,5 +1,7 @@
 # Upgrade the homelab to 10 GbE
 
+![Fast links between the machines that need them.](fig:guide-10gbe-upgrade)
+
 Move the busiest links (NAS to server, server to workstation) from 1 GbE to 10 GbE or 2.5 GbE without replacing everything: pick the right hardware, cable it, tune it, and prove the gain with measurements before and after.
 
 ## What you end up with

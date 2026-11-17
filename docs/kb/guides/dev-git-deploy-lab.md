@@ -1,5 +1,7 @@
 # Dev and git deploy lab
 
+![Git, CI and deploys on your own hardware.](fig:guide-dev-git-deploy-lab)
+
 A self-hosted git server with CI, plus staging and production Docker hosts cloned from one Proxmox template. Staging deploys itself on every push through a CI runner. Production deploys only when you review the diff in Nightgrid and press the button, with a snapshot to roll back to.
 
 ## What you end up with

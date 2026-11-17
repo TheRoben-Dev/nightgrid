@@ -2,6 +2,8 @@
 
 A reverse proxy sits in front of your apps and routes requests by name: `photos.example.com` goes to Immich, `git.example.com` to Forgejo, all on port 443 with one certificate setup. Apps then don't need their own ports open or their own TLS.
 
+![One proxy on 443 in front of every app, each app listening only on 127.0.0.1.](fig:reverse-proxy)
+
 ## What it does for you
 
 - **One entry point**: only 80 and 443 are open; everything else listens on localhost or a Docker network.

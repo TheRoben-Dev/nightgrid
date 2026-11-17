@@ -1,5 +1,7 @@
 # Local AI GPU server
 
+![Local models on your own GPU.](fig:guide-local-ai-gpu-server)
+
 Run large language models (Ollama or llama.cpp) and image generation (Stable Diffusion front ends such as ComfyUI) in a VM that has a whole NVIDIA GPU passed through. Nightgrid sets up the passthrough, watches the GPU, keeps the APIs private behind SSH tunnels, and powers the box down when you don't need it.
 
 This is separate from DRIFT. DRIFT runs inside the Nightgrid app on your own computer and doesn't use this server.

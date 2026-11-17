@@ -19,10 +19,14 @@
     /** Kept checklist state (library guides): `block-item` keys, saved by the caller. */
     ticks?: Record<string, boolean>;
     ontick?: (key: string, on: boolean) => void;
+    /** Library figures: resolves `![caption](fig:name)` to a bundled image URL. Without it, no images. */
+    figure?: (name: string) => string | undefined;
+    /** The caller shows a leading figure itself (the Library's briefing banner). */
+    hideLead?: boolean;
   }
-  let { src, code, steps = false, onview, onarticle, ticks, ontick }: Props = $props();
+  let { src, code, steps = false, onview, onarticle, ticks, ontick, figure, hideLead = false }: Props = $props();
 
-  const blocks = $derived(parseMd(src, { headings: true, steps }));
+  const blocks = $derived(parseMd(src, { headings: true, steps, figures: !!figure }));
   let ticked = $state<Record<string, boolean>>({});
   // A different note (or an edit) starts the checklist over.
   $effect(() => {
@@ -35,6 +39,8 @@
     else ticked[key] = on;
   }
   const view = (id: string) => SECTIONS.find((s) => s.id === (id as SectionId));
+  /** A figure opened full size (click to zoom, click or Esc to close). */
+  let zoom = $state<{ url: string; alt: string } | null>(null);
 </script>
 
 {#snippet inl(parts: Inline[])}{#each parts as t, ti (ti)}{#if t.kind === "code"}<code>{t.text}</code>{:else if t.kind === "bold"}<b>{t.text}</b
@@ -64,6 +70,14 @@
       <ul class:tasks={!!b.checks}>{#each b.items as it, ii (ii)}{@render item(it, `${bi}-${ii}`, b.checks?.[ii])}{/each}</ul>
     {:else if b.kind === "ol"}
       <ol start={b.start ?? 1}>{#each b.items as it, ii (ii)}{@render item(it, `${bi}-${ii}`, b.checks?.[ii])}{/each}</ol>
+    {:else if b.kind === "fig"}
+      {@const url = bi === 0 && hideLead ? undefined : figure?.(b.name)}
+      {#if url}
+        <figure class="fig" class:lead={bi === 0}>
+          <button type="button" class="frame" title="Show full size" onclick={() => (zoom = { url, alt: b.alt })}><img src={url} alt={b.alt} loading="lazy" decoding="async" draggable="false" /></button>
+          {#if b.alt}<figcaption><span class="tag" aria-hidden="true">{bi === 0 ? "◢ BRIEFING" : "◢ INTEL"}</span> {b.alt}</figcaption>{/if}
+        </figure>
+      {/if}
     {:else if b.kind === "code"}
       <div class="code">
         <pre><code>{b.text}</code></pre>
@@ -72,6 +86,15 @@
     {/if}
   {/each}
 </div>
+
+<svelte:window onkeydown={(e) => zoom && e.key === "Escape" && (zoom = null)} />
+
+{#if zoom}
+  <button type="button" class="zoom" aria-label="Close the figure" onclick={() => (zoom = null)}>
+    <img src={zoom.url} alt={zoom.alt} />
+    {#if zoom.alt}<span class="zcap">{zoom.alt}</span>{/if}
+  </button>
+{/if}
 
 <style>
   .md {
@@ -162,6 +185,93 @@
   pre code {
     color: var(--text-0);
     white-space: pre;
+  }
+  /* Figures: framed like an intel card in a quest log. */
+  .fig {
+    margin: 4px 0 14px;
+    max-width: 760px;
+  }
+  .fig .frame {
+    position: relative;
+    display: block;
+    width: 100%;
+    cursor: zoom-in;
+    font: inherit;
+    color: inherit;
+    border: 1px solid var(--line);
+    background: #07080b;
+    padding: 0;
+    line-height: 0;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+  }
+  .fig .frame::before,
+  .fig .frame::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    pointer-events: none;
+  }
+  .fig .frame::before {
+    top: 0;
+    left: 0;
+    border-top: 2px solid var(--warn);
+    border-left: 2px solid var(--warn);
+  }
+  .fig .frame::after {
+    right: 0;
+    bottom: 0;
+    border-right: 2px solid var(--cyan);
+    border-bottom: 2px solid var(--cyan);
+  }
+  .fig img {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+  }
+  .zoom {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 3vh 3vw;
+    border: 0;
+    background: color-mix(in srgb, #000 82%, transparent);
+    cursor: zoom-out;
+  }
+  .zoom img {
+    max-width: 94vw;
+    max-height: 86vh;
+    width: auto;
+    height: auto;
+    min-width: min(94vw, 960px);
+    object-fit: contain;
+    border: 1px solid var(--line);
+  }
+  .zcap {
+    font-size: var(--fs-sm);
+    color: var(--text-1);
+  }
+  .fig figcaption {
+    margin-top: 5px;
+    font-size: var(--fs-xs);
+    color: var(--text-1);
+    line-height: 1.4;
+  }
+  .fig .tag {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-label);
+    color: var(--warn);
+    margin-right: 4px;
+  }
+  .fig.lead {
+    max-width: none;
+    margin-bottom: 16px;
   }
   .acts {
     display: flex;

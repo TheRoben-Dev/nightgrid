@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.76] - 2026-11-17
+
+### Added: pictures in the Library
+- **Quest briefings**: every guide opens with a briefing banner above its objectives, quest-log style.
+- **Diagrams** in the articles where a picture says it faster: reverse proxies, the 3-2-1 backup rule, a tailnet with a subnet router, SSH key pairs, what a compose stack becomes, Docker networks, arr-stack hardlinks and jump hosts.
+- Figures are framed like intel cards; click one to see it full size (Esc closes).
+- All drawn for Nightgrid as small bundled SVGs (about 125 KB for all 21), nothing fetched. DRIFT replies and notes still never show images.
+
 ## [0.10.75] - 2026-11-17
 
 ### Added: 2 more Library articles

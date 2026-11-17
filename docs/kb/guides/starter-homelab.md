@@ -1,5 +1,7 @@
 # First homelab weekend
 
+![One machine, a few services, and the habits that keep it alive.](fig:guide-starter-homelab)
+
 Go from one spare computer to a monitored, backed-up home server running DNS filtering, a password manager and a reverse proxy, managed entirely from Nightgrid. Each part builds on the last; stop after any of them and you still have something useful.
 
 ## What you end up with

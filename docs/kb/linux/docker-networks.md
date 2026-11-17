@@ -2,6 +2,8 @@
 
 Understand how containers talk to each other and to your LAN, set up one shared network for your reverse proxy, and give a container its own LAN address when it really needs one.
 
+![Three network setups side by side.](fig:docker-networks)
+
 ## What you end up with
 
 - Apps reachable by name from the proxy, with no published ports

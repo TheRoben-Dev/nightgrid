@@ -1,5 +1,7 @@
 # Remote family IT
 
+![Support the family's devices over the tailnet.](fig:guide-remote-family-it)
+
 Look after your family's machines (a parent's Linux mini PC, a sibling's NAS, a Mac or two) from your own desk, without installing a remote-support agent on any of them. Everything goes through SSH over your tailnet. Nightgrid gives you their updates, disk health, backups and logins on one screen, and you only connect when there's something to fix.
 
 ## What you end up with

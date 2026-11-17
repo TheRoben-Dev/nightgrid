@@ -1,5 +1,7 @@
 # Repair bench server
 
+![Network boot, drive tests and job tracking for the bench.](fig:guide-repair-bench-server)
+
 A shop server for a repair and sales counter: network boot for diagnostics and installers, a library of ISOs and drivers, a Windows test VM, a short-lived staging area for customer data, and runbooks for the repairs you do every week. Nightgrid is the bench console, and the server keeps serving PXE and shares with it closed.
 
 ## What you end up with

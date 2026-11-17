@@ -1,5 +1,7 @@
 # Proxmox media server, run from Nightgrid
 
+![Proxmox, a media stack and GPU transcoding.](fig:guide-proxmox-media-server)
+
 A Proxmox VE box that streams, downloads and backs itself up on its own, and that you manage only through Nightgrid. The server never needs the app to stay up. Nightgrid is the front end: everything you change goes through it over SSH, and the Proxmox web UI is shut off from the network.
 
 The split is simple. Anything that has to keep happening (guests starting after a power cut, backups, scrubs, UPS shutdown, the media apps' own schedules) is configured **on the server**. Anything you *do* (create, change, update, restore, inspect) happens **in Nightgrid**.
