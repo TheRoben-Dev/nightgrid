@@ -386,6 +386,14 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/unraid", shelf: "apps", title: "An Unraid server alongside Nightgrid", cat: "storage" },
   { id: "apps/openwrt", shelf: "apps", title: "OpenWrt router", cat: "network" },
   { id: "apps/jitsi-meet", shelf: "apps", title: "Jitsi Meet video calls", cat: "productivity" },
+  { id: "apps/wallabag", shelf: "apps", title: "Wallabag read-it-later", cat: "productivity" },
+  { id: "apps/kanboard", shelf: "apps", title: "Kanboard project boards", cat: "productivity" },
+  { id: "apps/docuseal", shelf: "apps", title: "DocuSeal document signing", cat: "productivity" },
+  { id: "apps/openbao", shelf: "apps", title: "OpenBao secrets manager", cat: "security" },
+  { id: "apps/penpot", shelf: "apps", title: "Penpot design and prototyping", cat: "dev" },
+  { id: "apps/kasm-workspaces", shelf: "apps", title: "Kasm Workspaces browser desktops", cat: "virtualization" },
+  { id: "linux/memory-limits", shelf: "linux", title: "Memory limits and OOM kills", cat: "linux" },
+  { id: "linux/kernel-params", shelf: "linux", title: "Change kernel boot parameters", cat: "linux" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));
