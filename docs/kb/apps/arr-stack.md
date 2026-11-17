@@ -91,5 +91,5 @@ services:
 ## Related
 
 - [Jellyfin media server](kb:apps/jellyfin)
-- [Proxmox media server](kb:guides/proxmox-media-server)
+- [Proxmox media server, run from Nightgrid](kb:guides/proxmox-media-server)
 - [mergerfs and SnapRAID](kb:apps/mergerfs-snapraid)

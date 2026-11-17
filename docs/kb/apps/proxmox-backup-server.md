@@ -60,5 +60,5 @@ pvesh create /cluster/backup --schedule "02:00" --storage pbs-store1 --all 1 --m
 ## Related
 
 - [Day-to-day Proxmox from Nightgrid](kb:howto/proxmox)
-- [Proxmox media server](kb:guides/proxmox-media-server)
+- [Proxmox media server, run from Nightgrid](kb:guides/proxmox-media-server)
 - [Backups](kb:basics/backups)

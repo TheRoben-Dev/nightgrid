@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.65] - 2026-11-17
+
+### Added: 54 more Library articles
+- **Linux skills** for the repair bench and the server room: test a drive before you trust it (SMART, long tests, badblocks), burn in a server (Memtest86+, stress-ng, MCE logs), wipe a drive properly (NVMe sanitize, ATA secure erase), recover data from a failing drive (ddrescue, testdisk, photorec), IPMI, fans and sensors, hardware inventory, LUKS encryption, fixing a server that won't boot, SSH tunnels, rsync, log rotation, finding what holds a port or file, apt and dnf, and ACME certificates.
+- **Self-hosted apps**: Snipe-IT, Homebox, Grocy, PhotoPrism, Netdata, Glances, SmokePing, LibreSpeed, apt-cacher-ng, Tautulli, Komga, Tube Archivist, linkding, Miniflux, changedetection.io, Wiki.js, LLDAP, Umami, IT-Tools, Excalidraw, UrBackup, openmediavault, TrueNAS alongside Nightgrid, Incus, OPNsense in a VM, UniFi Network Application, ZeroTier, NetBox, NetAlertX, InfluxDB and Telegraf, JupyterLab, Factorio, Palworld, Mumble, a local voice assistant for Home Assistant, Music Assistant, Homebridge and Scrypted.
+- **How-to**: open app web UIs inside Nightgrid (the 0.10.63 windows, the `nightgrid.webui` label, loopback-only ports).
+- The library now holds 255 articles in about 0.6 MB of plain text (about 200 KB compressed).
+
 ## [0.10.64] - 2026-11-17
 
 ### Added: a much bigger Library, with topics

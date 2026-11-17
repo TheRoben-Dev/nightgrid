@@ -58,4 +58,4 @@ services:
 
 - [Jellyfin media server](kb:apps/jellyfin)
 - [The *arr stack](kb:apps/arr-stack)
-- [Proxmox media server](kb:guides/proxmox-media-server)
+- [Proxmox media server, run from Nightgrid](kb:guides/proxmox-media-server)

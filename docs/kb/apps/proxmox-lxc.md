@@ -53,5 +53,5 @@ pct set <ctid> -dev0 /dev/dri/renderD128,gid=<render-gid-in-container>
 ## Related
 
 - [Day-to-day Proxmox from Nightgrid](kb:howto/proxmox)
-- [Proxmox media server](kb:guides/proxmox-media-server)
+- [Proxmox media server, run from Nightgrid](kb:guides/proxmox-media-server)
 - [File permissions, ownership and ACLs](kb:linux/permissions)
