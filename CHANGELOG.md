@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-17
+
+Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power & cost, Library quests, Node pairing) ends with an MCP server.
+
+### Added: MCP server for AI clients
+- **Settings → Connections → MCP server** (off by default): lets Claude Desktop, Claude Code or any MCP client on this computer ask about your homelab through Nightgrid. It listens only on 127.0.0.1 and needs a token.
+- **Read tools**: hosts and their state, a host's live metrics, metric history, active and past alerts, a host's timeline, service checks, the journal, disk fill-up forecasts and a host's containers. Read-only by default.
+- **Changes are opt-in**: with **Allow changes** on, a client can also start, stop or restart a container and add a journal note, and each one waits for **Allow once** or **Deny** in Nightgrid (with a notification when the window isn't in front). Unanswered requests are denied after two minutes.
+- **Connect a client**: copy a ready config as HTTP JSON, as a command (`nightgrid --mcp`, which forwards to the running app and reads the token itself) or as a `claude mcp add` line. **New token** makes old configs stop working. **Recent calls** lists what clients asked for.
+
 ## [0.10.86] - 2026-11-17
 
 ### Added: Nightgrid Node pairing

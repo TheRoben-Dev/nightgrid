@@ -96,6 +96,8 @@ pub fn settings_set(
     settings.backup_folder = current.backup_folder;
     // The status page restarts its server on change: only through its own command.
     settings.status_page = current.status_page;
+    // The MCP server too (its own command restarts it and asks before writes are allowed).
+    settings.mcp = current.mcp.clone();
     // The built-in Tailscale client starts and stops through its own commands.
     settings.tailnet_enabled = current.tailnet_enabled;
     settings.tailnet_accept_routes = current.tailnet_accept_routes;

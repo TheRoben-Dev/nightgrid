@@ -26,6 +26,7 @@ mod journal_cmd;
 mod keys_cmd;
 mod logging;
 mod logsearch_cmd;
+mod mcp_cmd;
 mod metrics_cmd;
 mod netperf_cmd;
 mod netwatch_cmd;
@@ -408,6 +409,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         status_cmd::status_page_set,
         status_cmd::status_page_new_token,
         status_cmd::dashboard_export,
+        mcp_cmd::mcp_status,
+        mcp_cmd::mcp_set,
+        mcp_cmd::mcp_new_token,
+        mcp_cmd::mcp_answer,
         update_cmd::update_check,
         update_cmd::update_install,
     ])
@@ -423,6 +428,12 @@ pub fn export_bindings(builder: &Builder<tauri::Wry>) {
             &path,
         )
         .expect("failed to export TypeScript bindings");
+}
+
+/// `nightgrid --mcp`: an MCP stdio server that forwards to the running
+/// app. Returns the process exit code.
+pub fn mcp_stdio() -> i32 {
+    mcp_cmd::stdio_bridge()
 }
 
 pub fn run() {
@@ -478,6 +489,7 @@ pub fn run() {
             tray::apply(app.handle());
             alerts_cmd::start(app.handle());
             status_cmd::apply(app.handle());
+            mcp_cmd::apply(app.handle());
             tailnet_cmd::start_if_enabled(app.handle());
             Ok(())
         })

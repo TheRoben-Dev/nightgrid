@@ -305,6 +305,13 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 - **Settings → Status page · Snapshot → Serve the phone status page** (off by default) shows a read-only page with your hosts, alerts and service checks at a secret link while Nightgrid runs. Pick where it listens: this computer's **LAN address**, **Tailscale only**, or **every interface** (avoid that one on a machine with a public address). **Copy** the link, open it on your phone and add it to the home screen; it refreshes every 30 seconds. **New link** makes the old one stop working.
 - **Save snapshot…** writes the same page as one HTML file you can attach or archive. Host addresses are only included if you tick them.
 
+## AI clients (MCP server)
+
+- **Settings → Connections → MCP server → Run the MCP server** (off by default) lets an AI client on this computer, such as Claude Desktop or Claude Code, read your homelab through Nightgrid: hosts and their state, live metrics and history, alerts, a host's timeline, service checks, the journal, disk forecasts and containers. It listens only on 127.0.0.1, needs a token, and works while Nightgrid runs.
+- **Connect a client**: pick **HTTP (JSON)**, **Command (stdio)** or **Claude Code** and **Copy**. The command form runs `nightgrid --mcp`, which reads the token from Nightgrid's data folder, so the client's config holds no secret. **New token** makes old configs stop working.
+- **Allow changes** (off by default) adds container start/stop/restart and adding a journal note. Each change shows an **MCP · APPROVAL** card: **Allow once** or **Deny**. Nothing runs without your answer; after two minutes the request is denied.
+- **Recent calls** lists what clients asked for, with denied and failed calls marked.
+
 ## Handhelds (ROG Ally, Steam Deck) and controllers
 
 - **Settings → Display → Handheld layout** turns on finger-sized buttons, 130 % scale and an icon-only sidebar. Turn it off to go back to the desktop sizes.

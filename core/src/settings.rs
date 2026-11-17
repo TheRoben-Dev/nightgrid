@@ -111,6 +111,8 @@ pub struct AppSettings {
     pub status_page: StatusPageSettings,
     /// Electricity price for Fleet → POWER.
     pub power: PowerSettings,
+    /// The MCP server (M12g). Machine-specific, like the status page.
+    pub mcp: McpSettings,
     /// Background network scans with alerts (D-145).
     pub net_watch: NetWatchSettings,
     /// Overview dashboards (M10o). Empty means the built-in default.
@@ -171,6 +173,24 @@ pub struct PowerSettings {
     pub price_per_kwh: f64,
     /// Shown with prices: `€`, `$`, `kr`, `£` … (up to 8 characters).
     pub currency: String,
+}
+
+/// The MCP server (M12g, D-166): off by default, only on 127.0.0.1, with a
+/// token kept in the app's data folder. Read-only unless `allow_writes`,
+/// and even then each change waits for approval in the app.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(default, rename_all = "camelCase")]
+pub struct McpSettings {
+    pub enabled: bool,
+    pub port: u16,
+    pub allow_writes: bool,
+}
+
+impl Default for McpSettings {
+    fn default() -> Self {
+        Self { enabled: false, port: crate::mcp::DEFAULT_PORT, allow_writes: false }
+    }
 }
 
 /// The phone status page (off by default; the token lives in the keychain).
@@ -359,6 +379,7 @@ impl Default for AppSettings {
             profile_reminder_snooze: None,
             status_page: StatusPageSettings::default(),
             power: PowerSettings::default(),
+            mcp: McpSettings::default(),
             net_watch: NetWatchSettings::default(),
             handheld: false,
             controller_nav: true,
@@ -501,6 +522,7 @@ impl AppSettings {
         range("servicesIntervalSecs", self.services_interval_secs, 15, 3600)?;
         range("profileReminderDays", self.profile_reminder_days, 0, 90)?;
         range("statusPage.port", self.status_page.port, 1024, 65535)?;
+        range("mcp.port", self.mcp.port, 1024, 65535)?;
         if !self.power.price_per_kwh.is_finite() || !(0.0..=100.0).contains(&self.power.price_per_kwh) {
             return Err(Error::Invalid { field: "power.pricePerKwh", reason: "a price from 0 to 100 per kWh".into() });
         }
