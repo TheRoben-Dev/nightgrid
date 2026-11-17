@@ -2275,6 +2275,12 @@ export type Device_Deserialize = {
 	isNew: boolean,
 	/**  Marked as known and expected. */
 	trusted: boolean,
+	/**
+	 *  Tailscale peers: `direct` (peer-to-peer) or `relay <region>` (through
+	 *  a Tailscale relay; also shown for idle peers, since a direct path is
+	 *  only set up when there's traffic).
+	 */
+	link?: string | null,
 };
 
 export type Device_Serialize = {
@@ -2313,6 +2319,12 @@ export type Device_Serialize = {
 	isNew: boolean,
 	/**  Marked as known and expected. */
 	trusted: boolean,
+	/**
+	 *  Tailscale peers: `direct` (peer-to-peer) or `relay <region>` (through
+	 *  a Tailscale relay; also shown for idle peers, since a direct path is
+	 *  only set up when there's traffic).
+	 */
+	link: string | null,
 };
 
 export type DiffLine = DiffLine_Serialize | DiffLine_Deserialize;
@@ -2346,6 +2358,10 @@ export type Discovery_Deserialize = {
 	ranges: string[],
 	/**  Inventory devices in the swept subnets that didn't answer this time. */
 	missing: MissingDevice_Deserialize[],
+	/**  What the scanning host is plugged into (LLDP), when it can tell. */
+	lldp: LldpNeighbour_Deserialize[],
+	/**  How each swept range is reached (traceroute). */
+	paths: RangePath[],
 	/**  Tools that were missing or failed, in words. */
 	notes: string[],
 };
@@ -2361,6 +2377,10 @@ export type Discovery_Serialize = {
 	ranges: string[],
 	/**  Inventory devices in the swept subnets that didn't answer this time. */
 	missing: MissingDevice_Serialize[],
+	/**  What the scanning host is plugged into (LLDP), when it can tell. */
+	lldp: LldpNeighbour_Serialize[],
+	/**  How each swept range is reached (traceroute). */
+	paths: RangePath[],
 	/**  Tools that were missing or failed, in words. */
 	notes: string[],
 };
@@ -4141,6 +4161,33 @@ export type Listing_Serialize = {
 	path: string,
 	parent: string | null,
 	entries: Entry_Serialize[],
+};
+
+/**  A switch or other device the scanning host's port is plugged into, from LLDP. */
+export type LldpNeighbour = LldpNeighbour_Serialize | LldpNeighbour_Deserialize;
+
+/**  A switch or other device the scanning host's port is plugged into, from LLDP. */
+export type LldpNeighbour_Deserialize = {
+	/**  The scanning host's interface. */
+	iface: string,
+	name?: string | null,
+	mac?: string | null,
+	mgmtIp?: string | null,
+	/**  The neighbour's port ("gi1/0/5", "Port 5"). */
+	port?: string | null,
+	descr?: string | null,
+};
+
+/**  A switch or other device the scanning host's port is plugged into, from LLDP. */
+export type LldpNeighbour_Serialize = {
+	/**  The scanning host's interface. */
+	iface: string,
+	name: string | null,
+	mac: string | null,
+	mgmtIp: string | null,
+	/**  The neighbour's port ("gi1/0/5", "Port 5"). */
+	port: string | null,
+	descr: string | null,
 };
 
 /**  What the log channel carries. */
@@ -6002,6 +6049,12 @@ export type PveVolume = {
 	size: number | null,
 	/**  The file name part of the volume id. */
 	name: string,
+};
+
+/**  The routers between the scanner and a routed range (first hop first). */
+export type RangePath = {
+	range: string,
+	hops: string[],
 };
 
 /**  Throughput of one network interface or block device, in bytes/s. */

@@ -283,6 +283,8 @@ import {
   type MissingDevice_Serialize as MissingDevice,
   type NetDevice_Serialize as NetDevice,
   type LayoutEntry_Serialize as LayoutEntry,
+  type LldpNeighbour_Serialize as LldpNeighbour,
+  type RangePath,
   type ToolResult_Serialize as ToolResult,
   type ToolRequest,
   type Tool as NetToolId,
@@ -620,6 +622,8 @@ export type {
   MissingDevice,
   NetDevice,
   LayoutEntry,
+  LldpNeighbour,
+  RangePath,
   ToolResult,
   ToolRequest,
   NetToolId,
@@ -737,7 +741,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.59-web",
+      version: "0.10.60-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",

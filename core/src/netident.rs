@@ -248,6 +248,7 @@ mod tests {
             first_seen: None,
             is_new: false,
             trusted: false,
+            link: None,
         }
     }
 

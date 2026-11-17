@@ -62,7 +62,7 @@ let guests: Vm[] = [
   { kind: "lxc", id: "200", name: "pihole", state: "running", vcpus: 1, memoryMb: 512, autostart: true },
   { kind: "libvirt", id: "debian-lab", name: "debian-lab", state: "paused", vcpus: 2, memoryMb: 2048, autostart: false },
 ];
-const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false, ...d });
+const dev = (ip: string, d: Partial<Device> = {}): Device => ({ ip, mac: null, names: [], services: [], seen: ["neighbour"], os: null, online: null, vendor: null, also: [], kind: "other", model: null, routed: false, firstSeen: null, isNew: false, trusted: false, link: null, ...d });
 
 /** A made-up home LAN for the network map. Addresses are documentation-style examples. */
 function discovery(sweep: boolean, ranges: string[] = []): Discovery {
@@ -76,7 +76,7 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
     dev("192.168.1.48", { mac: "24:0a:c4:aa:00:48", vendor: "Espressif Inc.", names: ["kitchen-lamp.lan"], seen: ["neighbour"], kind: "iot", firstSeen: now - 12 * day }),
     dev("192.168.1.52", { mac: "3c:22:fb:00:00:52", vendor: "Apple", seen: ["neighbour"], firstSeen: now - 5 * day }),
     dev("192.168.1.61", { mac: "5c:aa:fd:00:00:61", vendor: "Sonos, Inc.", names: ["Kitchen"], model: "Sonos One", seen: ["neighbour", "ssdp"], kind: "speaker", firstSeen: now, isNew: true }),
-    dev("100.101.7.12", { names: ["macbook"], seen: ["tailscale"], os: "macOS", online: true, kind: "laptop", firstSeen: now - 60 * day }),
+    dev("100.101.7.12", { names: ["macbook"], seen: ["tailscale"], os: "macOS", online: true, kind: "laptop", firstSeen: now - 60 * day, link: "direct" }),
     dev("100.88.1.9", { names: ["phone"], seen: ["tailscale"], os: "iOS", online: false, kind: "phone", firstSeen: now - 60 * day }),
   ];
   if (sweep) devices.push(dev("192.168.1.77", { seen: ["ping"], firstSeen: now, isNew: true }), dev("192.168.1.78", { seen: ["ping"], firstSeen: now - 3 * day }));
@@ -100,6 +100,8 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
     ],
     swept: sweep ? "192.168.1.0/24" : (ranges[0] ?? null),
     ranges: [...(sweep ? ["192.168.1.0/24"] : []), ...ranges],
+    lldp: [{ iface: "eth0", name: "office-switch", mac: "aa:bb:cc:00:00:02", mgmtIp: null, port: "gi1/0/5", descr: "8-port managed switch" }],
+    paths: ranges.map((r) => ({ range: r, hops: ["192.168.1.1", "192.168.1.2", `${r.split("/")[0].split(".").slice(0, 3).join(".")}.1`] })),
     missing: sweep
       ? [{ key: "aa:bb:cc:00:00:90", ip: "192.168.1.90", name: "garage-camera", vendor: "Reolink", kind: "camera", lastSeen: now - 2 * day, trusted: true }]
       : [],
