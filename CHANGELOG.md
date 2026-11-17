@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.66] - 2026-11-17
+
+### Added: 12 more Library articles
+- **Linux skills**: free disk space Docker is using (safely, volumes last), debug DNS on a server, mount Windows or NAS shares with credentials kept out of fstab, VLANs and bonded NICs, cut a home server's power draw, NVIDIA drivers for containers, organise `~/.ssh/config`, and admin scripts that fail loudly and never run twice.
+- **Guide**: upgrade the homelab to 10 GbE, from measuring first to SFP+ vs RJ45, jumbo frames and SMB multichannel.
+- **Apps**: Duplicati, SABnzbd and Jellystat.
+- The library now holds 267 articles.
+
 ## [0.10.65] - 2026-11-17
 
 ### Added: 54 more Library articles

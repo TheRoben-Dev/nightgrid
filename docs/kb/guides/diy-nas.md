@@ -64,4 +64,4 @@ Turn a Debian box with a few drives into a NAS: a ZFS mirror, SMB shares for eve
 - [ZFS pools, datasets and snapshots](kb:apps/zfs)
 - [Samba file shares](kb:apps/samba)
 - [First homelab weekend](kb:guides/starter-homelab)
-- [Proxmox media server](kb:guides/proxmox-media-server)
+- [Proxmox media server, run from Nightgrid](kb:guides/proxmox-media-server)
