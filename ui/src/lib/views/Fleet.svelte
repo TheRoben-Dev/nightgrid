@@ -10,6 +10,7 @@
   import LogSearchPanel from "../components/fleet/LogSearchPanel.svelte";
   import AccessPanel from "../components/fleet/AccessPanel.svelte";
   import SpeedPanel from "../components/fleet/SpeedPanel.svelte";
+  import JournalPanel from "../components/fleet/JournalPanel.svelte";
   import { alerts } from "../stores/alerts.svelte";
   import { diskTone, type FleetTab } from "../fleet";
   import { settings } from "../stores/settings.svelte";
@@ -26,6 +27,7 @@
     { id: "logs", label: "LOGS" },
     { id: "access", label: "ACCESS" },
     { id: "speed", label: "SPEED" },
+    { id: "journal", label: "JOURNAL" },
   ];
   // Tabs turned off in Settings → Features are hidden.
   const tabs = $derived(TABS.filter((t) => settings.on(`fleet.${t.id}`)));
@@ -63,7 +65,7 @@
     <span class="muted small">{hosts.hosts.length} host{hosts.hosts.length === 1 ? "" : "s"}</span>
   </div>
   <div class="pane">
-    {#if !hosts.hosts.length}
+    {#if !hosts.hosts.length && fleet.tab !== "journal"}
       <div class="empty">
         <p class="label">NO HOSTS</p>
         <p class="muted">Add a host first; pending updates, disk health, backups, UPSes and uptime across all of them show up here.</p>
@@ -91,6 +93,8 @@
       <AccessPanel />
     {:else if fleet.tab === "speed"}
       <SpeedPanel />
+    {:else if fleet.tab === "journal"}
+      <JournalPanel />
     {/if}
   </div>
 </div>

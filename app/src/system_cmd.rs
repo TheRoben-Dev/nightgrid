@@ -499,7 +499,6 @@ pub async fn system_journal_start(
             tx.send(ev).is_ok()
         };
         let r = sudo::stream(&conn, &auth, &cmd, Some(cancel), &mut on_line).await;
-        drop(on_line);
         drop(tx);
         let _ = forward.await;
         let error = match r {

@@ -47,6 +47,10 @@ import {
   type Dependency as AlertDependency,
   type Node as DepNode,
   type UpsCountdown,
+  type ChangeArea,
+  type ChangeEntry_Serialize as ChangeEntry,
+  type ChangeQuery_Deserialize as ChangeQuery,
+  type ChangeStats_Serialize as ChangeStats,
   type Outage as UptimeOutage,
   type UptimeDay,
   type UptimeSeries,
@@ -326,6 +330,7 @@ import {
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
+import { mockJournal } from "./mockJournal";
 import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
 import { mockAccess } from "./mockAccess";
@@ -437,6 +442,10 @@ export type {
   AlertDependency,
   DepNode,
   UpsCountdown,
+  ChangeArea,
+  ChangeEntry,
+  ChangeQuery,
+  ChangeStats,
   UptimeOutage,
   UptimeDay,
   UptimeSeries,
@@ -1209,6 +1218,17 @@ export const api = {
   upsStatus: (): Promise<UpsStatus[]> => (T() ? commands.upsStatus() : mockUps.status()),
   upsReadNow: (hostId: number, target: string): Promise<UpsReading> => (T() ? commands.upsReadNow(hostId, target) : mockUps.readNow(hostId, target)),
   upsCancel: (): Promise<null> => (T() ? commands.upsCancel() : mockUps.cancel()),
+  journalQuery: (query: ChangeQuery): Promise<ChangeEntry[]> => (T() ? commands.journalQuery(query) : mockJournal.query(query)),
+  journalStats: (): Promise<ChangeStats> => (T() ? commands.journalStats() : mockJournal.stats()),
+  journalNote: (hostId: number | null, title: string, detail: string, at: number | null): Promise<ChangeEntry> =>
+    T() ? commands.journalNote(hostId, title, detail, at) : mockJournal.note(hostId, title, detail, at),
+  journalEdit: (id: number, title: string, detail: string): Promise<null> => (T() ? commands.journalEdit(id, title, detail) : mockJournal.edit(id, title, detail)),
+  journalDelete: (id: number): Promise<null> => (T() ? commands.journalDelete(id) : mockJournal.delete(id)),
+  journalClear: (): Promise<number> => (T() ? commands.journalClear() : mockJournal.clear()),
+  journalForDrift: (hostIds: number[], since: number, max: number): Promise<string> =>
+    T() ? commands.journalForDrift(hostIds, since, max) : mockJournal.forDrift(hostIds, since, max),
+  journalExport: (query: ChangeQuery): Promise<string | null> =>
+    T() ? commands.journalExport(query) : Promise.resolve("/Users/you/Downloads/nightgrid-journal.md"),
   uptimeDays: (days: number, utcOffsetMin: number): Promise<UptimeSeries[]> => (T() ? commands.uptimeDays(days, utcOffsetMin) : mockUptime.days(days, utcOffsetMin)),
   uptimeOutages: (node: DepNode | null, from: number, to: number): Promise<UptimeOutage[]> =>
     T() ? commands.uptimeOutages(node, from, to) : mockUptime.outages(node, from, to),

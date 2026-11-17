@@ -12,6 +12,7 @@ import { settingsTabFor } from "../settingsTabs";
 import { labelLines } from "../netmap/graph";
 import { keymap } from "../term/keyhints";
 import { historyTerms, hostFacts, mentionedHosts } from "../helper/hostFacts";
+import { asksAboutChanges } from "../journal";
 import { checksText, runSkills, summaryCheck, type Check } from "../helper/skills";
 import { wantsSummary, type SummaryInput } from "../helper/skills/summary";
 import { diskRows, totals, updateRows } from "../fleet";
@@ -285,8 +286,13 @@ class HelperStore {
         if (found.length) break;
       }
     }
-    if (!found.length) return [];
     const now = Math.floor(Date.now() / 1000);
+    if (!found.length) {
+      // "What changed before it broke?" without a host: the whole journal.
+      if (!asksAboutChanges(q) || !settings.on("fleet.journal")) return [];
+      const changes = await api.journalForDrift([], now - 14 * 86_400, 25).catch(() => "");
+      return [`### Changes made from Nightgrid across all hosts, last 14 days (journal, newest first)\n${changes || "None recorded."}`];
+    }
     const all = [...(alerts.snap?.active ?? []), ...(alerts.snap?.history ?? [])];
     return Promise.all(
       found.map(async (h) => {
@@ -303,7 +309,8 @@ class HelperStore {
           }
         }
         const mine = all.filter((a, i) => a.hostId === h.id && all.findIndex((b) => b.id === a.id) === i);
-        return hostFacts({ host: h, ping: hosts.pings[h.id], metrics: metrics.byHost[h.id], alerts: mine, history, historyMatches, historyError, now });
+        const changes = settings.on("fleet.journal") ? await api.journalForDrift([h.id], now - 14 * 86_400, 12).catch(() => null) : null;
+        return hostFacts({ host: h, ping: hosts.pings[h.id], metrics: metrics.byHost[h.id], alerts: mine, history, historyMatches, historyError, changes, now });
       }),
     );
   }

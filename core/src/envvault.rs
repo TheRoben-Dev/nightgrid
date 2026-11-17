@@ -461,6 +461,16 @@ impl Store {
         self.conn().query_row(&format!("SELECT {COLS} FROM env_vars WHERE id = ?1"), [id], from_row).map_err(Into::into)
     }
 
+    /// The host, stack and name of a variable, for the journal.
+    pub fn env_var_by_id(&self, id: EnvVarId) -> Result<Option<(HostId, String, String)>> {
+        Ok(self
+            .conn()
+            .query_row("SELECT host_id, stack, name FROM env_vars WHERE id = ?1", [id], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .optional()?)
+    }
+
     pub fn delete_env_var(&mut self, id: EnvVarId) -> Result<()> {
         if self.conn().execute("DELETE FROM env_vars WHERE id = ?1", [id])? == 0 {
             return Err(Error::NotFound("variable"));

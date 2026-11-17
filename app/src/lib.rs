@@ -20,6 +20,7 @@ mod helper_cmd;
 mod hosts_cmd;
 mod integrations_cmd;
 mod jobs_cmd;
+mod journal_cmd;
 mod keys_cmd;
 mod logging;
 mod logsearch_cmd;
@@ -176,6 +177,14 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         keys_cmd::keys_verify,
         timeline_cmd::timeline_get,
         timeline_cmd::timeline_clear,
+        journal_cmd::journal_query,
+        journal_cmd::journal_stats,
+        journal_cmd::journal_note,
+        journal_cmd::journal_edit,
+        journal_cmd::journal_delete,
+        journal_cmd::journal_clear,
+        journal_cmd::journal_for_drift,
+        journal_cmd::journal_export,
         expiry_cmd::watch_list,
         expiry_cmd::watch_save,
         expiry_cmd::watch_delete,
