@@ -19,7 +19,7 @@ zram-size = ram / 2
 compression-algorithm = zstd
 ```
 
-- [ ] `sudo systemctl daemon-reload && sudo systemctl start systemd-zram-setup@zram0`, then `swapon --show`.
+- [ ] `sudo systemctl daemon-reload && sudo systemctl start systemd-zram-setup@zram0`, then `swapon --show`. {check: swap}
 
 ## Part 2 · A swap file
 
@@ -49,7 +49,7 @@ echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-swap.conf && sudo sysctl --s
 
 #### Check
 
-- [ ] `free -h` shows swap, and `cat /proc/swaps` lists it with priorities.
+- [ ] `free -h` shows swap, and `cat /proc/swaps` lists it with priorities. {check: swap}
 
 ## Limits and gotchas
 

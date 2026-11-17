@@ -24,7 +24,7 @@ Turn a fresh Debian or Ubuntu server into a tidy Docker host: the official engin
 for p in docker.io docker-compose podman-docker containerd runc; do sudo apt-get remove -y $p; done
 ```
 
-- [ ] Add Docker's repository and install (Debian shown; for Ubuntu replace `debian` with `ubuntu` in both URLs):
+- [ ] Add Docker's repository and install (Debian shown; for Ubuntu replace `debian` with `ubuntu` in both URLs): {check: docker}
 
 ```sh
 sudo apt-get update && sudo apt-get install -y ca-certificates curl
@@ -34,7 +34,7 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.
 sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 ```
 
-- [ ] Let your user run Docker without sudo, then log out and back in (read [The docker group](kb:basics/docker-group) first: it's root-equivalent):
+- [ ] Let your user run Docker without sudo, then log out and back in (read [The docker group](kb:basics/docker-group) first: it's root-equivalent): {check: docker-group}
 
 ```sh
 sudo usermod -aG docker $USER
@@ -62,7 +62,7 @@ sudo usermod -aG docker $USER
 
 #### Check
 
-- [ ] `docker run --rm hello-world` works without sudo.
+- [ ] `docker run --rm hello-world` works without sudo. {check: docker}
 - [ ] [Docker](view:docker) in Nightgrid lists the host's containers, and [System](view:system) → **security** shows no Docker API on all interfaces.
 
 ## Part 4 · Keep it healthy

@@ -34,6 +34,7 @@ mod platform;
 mod powercost_cmd;
 mod proxmox_cmd;
 mod proxy_cmd;
+mod quest_cmd;
 mod services_cmd;
 mod state;
 mod status_cmd;
@@ -318,6 +319,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_deps_delete,
         ups_cmd::ups_list,
         powercost_cmd::power_overview,
+        quest_cmd::quest_check,
         powercost_cmd::power_profile_set,
         powercost_cmd::power_profile_clear,
         ups_cmd::ups_save,

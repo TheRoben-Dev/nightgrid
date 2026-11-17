@@ -146,6 +146,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "fleet-tab-ups", view: "fleet", what: "Fleet UPS tab: UPSes read with NUT (upsc), on-battery alerts and an optional group shutdown with a countdown" },
   { id: "fleet-tab-speed", view: "fleet", what: "Fleet SPEED tab: network tests between your hosts (iperf3 both ways, ping), with history" },
   { id: "fleet-tab-journal", view: "fleet", what: "Fleet JOURNAL tab: what changed, where and when, across all hosts" },
+  { id: "library-verify", view: "library", what: "VERIFY ON: runs the guide's checkable steps read-only on a host (no sudo, nothing changed) and marks each step verified, not yet, or can't tell; Tick verified ticks the ones that passed" },
   { id: "fleet-tab-power", view: "fleet", what: "Fleet POWER tab: estimated watts, kWh and cost per host from a power profile (idle and full-load watts) and CPU history; idle hours worth a power schedule; UPS output compared with the estimates" },
   { id: "fleet-power", view: "fleet", what: "Power & cost: set each host's watts (Set watts… or a preset), the price per kWh at the top right" },
   { id: "power-price", view: "fleet", what: "the electricity price per kWh and currency used for cost estimates" },

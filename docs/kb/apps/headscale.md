@@ -46,7 +46,7 @@ docker exec headscale-headscale-1 headscale preauthkeys create --user <user-id> 
 ```
 
 - [ ] Older Headscale versions take the user name instead of the id; `headscale preauthkeys create --help` shows which.
-- [ ] On each Linux machine: `sudo tailscale up --login-server https://hs.example.com --authkey <key>`.
+- [ ] On each Linux machine: `sudo tailscale up --login-server https://hs.example.com --authkey <key>`. {check: tailscale}
 
 ## Part 3 · Nightgrid
 

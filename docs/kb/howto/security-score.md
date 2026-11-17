@@ -20,7 +20,7 @@ Use System → security to go from a D to an A: each finding says what's wrong a
 - [ ] Key-only SSH, no root login: [Hardening sshd](kb:basics/sshd-hardening).
 - [ ] Turn on a firewall: [Change a firewall safely](kb:howto/firewall).
 - [ ] Databases and admin panels on `127.0.0.1` only: change `5432:5432` to `127.0.0.1:5432:5432` in compose.
-- [ ] Ban brute-forcers: [fail2ban and CrowdSec](kb:apps/fail2ban-crowdsec).
+- [ ] Ban brute-forcers: [fail2ban and CrowdSec](kb:apps/fail2ban-crowdsec). {check: fail2ban}
 - [ ] Automatic security updates: [Automatic security updates](kb:apps/unattended-upgrades).
 - [ ] Reboot if one is pending.
 

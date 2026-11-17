@@ -18,7 +18,7 @@ Put all your web apps behind one Caddy container with automatic HTTPS, then add 
 
 ## Part 1 · The stack
 
-- [ ] [Docker](view:docker) → **+ New stack** named `caddy`, paste:
+- [ ] [Docker](view:docker) → **+ New stack** named `caddy`, paste: {check: container:caddy}
 
 ```yaml
 services:
@@ -75,7 +75,7 @@ admin.example.com {
 
 #### Check
 
-- [ ] The site loads with a valid certificate, and Docker → Routes shows its certificate days.
+- [ ] The site loads with a valid certificate, and Docker → Routes shows its certificate days. {check: port:443}
 - [ ] Add it to [Services](view:services) for up/down checks.
 
 ## Limits and gotchas

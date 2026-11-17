@@ -17,7 +17,7 @@ Ban addresses that keep failing to log in. fail2ban is simple and local; CrowdSe
 
 ## Part 1 · fail2ban
 
-- [ ] Install: `sudo apt install -y fail2ban` (Debian 12+ reads the journal; the package sets that up).
+- [ ] Install: `sudo apt install -y fail2ban` (Debian 12+ reads the journal; the package sets that up). {check: command:fail2ban-client}
 - [ ] Create `/etc/fail2ban/jail.local`:
 
 ```ini
@@ -33,7 +33,7 @@ backend = systemd
 enabled = true
 ```
 
-- [ ] `sudo systemctl restart fail2ban`, then `sudo fail2ban-client status sshd`.
+- [ ] `sudo systemctl restart fail2ban`, then `sudo fail2ban-client status sshd`. {check: fail2ban}
 
 ## Part 2 · Or CrowdSec
 

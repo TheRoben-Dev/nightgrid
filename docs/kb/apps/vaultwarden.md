@@ -17,7 +17,7 @@ A lightweight server compatible with the Bitwarden apps and browser extensions. 
 
 ## Part 1 · The stack
 
-- [ ] [Docker](view:docker) → **+ New stack** named `vaultwarden`:
+- [ ] [Docker](view:docker) → **+ New stack** named `vaultwarden`: {check: container:vaultwarden}
 
 ```yaml
 services:
