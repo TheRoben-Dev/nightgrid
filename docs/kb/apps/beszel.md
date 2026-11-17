@@ -2,6 +2,8 @@
 
 A small hub-and-agent monitor with history for CPU, memory, disk, network, temperatures and Docker containers, plus alerts. An option when you want server-side history that runs 24/7 without Prometheus.
 
+![Beszel agents reporting to the hub.](fig:app-hub-agent)
+
 ## What you end up with
 
 - A hub web UI with history for every host

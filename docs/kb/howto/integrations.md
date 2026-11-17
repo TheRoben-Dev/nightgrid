@@ -2,6 +2,8 @@
 
 Bring other tools' live status into Nightgrid's Services board: what's playing on Plex, game servers in AMP, monitors from Uptime Kuma, and links into Portainer. Tokens stay in the OS keychain.
 
+![Integrations feeding the Services board.](fig:ng-integrations)
+
 ## Part 1 · Plex
 
 - [ ] [Services](view:services) → **Add integration** → **Plex**: the server address (port 32400) and a Plex token.

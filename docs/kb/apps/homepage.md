@@ -2,6 +2,8 @@
 
 A fast start page for your homelab with tiles for every app, live widgets, and a `services.yaml` that Nightgrid can import as service checks.
 
+![One services.yaml feeds Homepage and Nightgrid.](fig:app-homepage)
+
 ## What you end up with
 
 - One page with all your apps, grouped, with status and widgets

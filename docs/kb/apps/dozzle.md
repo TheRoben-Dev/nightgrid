@@ -2,6 +2,8 @@
 
 A tiny web UI for live Docker logs across hosts, for people who want to watch logs from a phone or share read-only access.
 
+![Dozzle agents on each host, one web UI.](fig:app-hub-agent)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `dozzle`:

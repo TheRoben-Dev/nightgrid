@@ -2,6 +2,8 @@
 
 Single sign-on with OpenID Connect and SAML for every app that supports it: one login, one place to add or remove users, optional two-factor for everyone. Keycloak is the enterprise-grade choice; Authentik and Authelia are lighter. Pick Keycloak if you want realms, fine-grained clients, LDAP federation or SAML.
 
+![Apps signing in through one identity provider (authentik shown; Keycloak works the same).](fig:app-oidc)
+
 ## What you end up with
 
 - Keycloak 26 with PostgreSQL behind your reverse proxy

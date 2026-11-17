@@ -2,6 +2,8 @@
 
 Edit Word, Excel and PowerPoint files in the browser inside Nextcloud, with several people at once, on your own server.
 
+![Nextcloud and Collabora working together.](fig:app-collabora)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `collabora`:

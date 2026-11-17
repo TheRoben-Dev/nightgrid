@@ -2,6 +2,8 @@
 
 A metasearch engine that queries many search engines for you without profiling, usable as your browser's default search.
 
+![SearXNG querying engines on your behalf.](fig:app-searxng)
+
 ## What you end up with
 
 - Search at `search.example.com` with results from several engines

@@ -2,6 +2,8 @@
 
 Add your DNS filter as an integration to see its stats on a card, pause blocking for a few minutes, and manage local DNS records and block lists without opening its web UI.
 
+![What the DNS integration reads and controls.](fig:ng-dns-integration)
+
 ## What you end up with
 
 - Queries, blocked percentage and top blocked domains on the Services board

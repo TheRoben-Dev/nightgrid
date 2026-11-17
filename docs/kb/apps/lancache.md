@@ -2,6 +2,8 @@
 
 Cache Steam, Epic, Battle.net, Xbox and other game downloads on a server, so the second PC (or a reinstall) downloads at LAN speed instead of pulling 100 GB from the internet again. Worth it with several gaming PCs or handhelds, or a slow or capped connection.
 
+![Game downloads redirected to the cache.](fig:app-lancache)
+
 ## What you end up with
 
 - The LanCache monolithic cache and its DNS service in Docker

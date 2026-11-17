@@ -2,6 +2,8 @@
 
 Copy, upload, edit and clean up files on any host over SFTP, with a transfer queue and no extra server software.
 
+![Two panes over SFTP.](fig:ng-files)
+
 ## What you end up with
 
 - A two-pane browser: this computer and a host, or two hosts

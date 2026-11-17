@@ -2,6 +2,8 @@
 
 Collect syslog and app logs from every host, network device and container into one searchable place, with streams that sort messages, extractors that pull fields out, and alerts on patterns. Use it when you need to keep logs for months or take in logs from devices Nightgrid can't SSH into (routers, switches, NAS appliances).
 
+![Logs from hosts and network gear into Graylog.](fig:app-syslog)
+
 ## What you end up with
 
 - Graylog, MongoDB and OpenSearch in one stack

@@ -2,6 +2,8 @@
 
 Use System → security to go from a D to an A: each finding says what's wrong and gives the command to fix it. Nightgrid never changes anything itself.
 
+![How the security view labels listening ports.](fig:ng-ports)
+
 ## What you end up with
 
 - An A–F score per host from checks that need no root

@@ -2,6 +2,8 @@
 
 A dedicated Valheim world that runs whether or not anyone is online, with automatic updates, scheduled world backups and optional BepInEx mods, all from one container.
 
+![Two ways for friends to reach your game server.](fig:app-game-server)
+
 ## What you end up with
 
 - A password-protected Valheim server reachable from the internet

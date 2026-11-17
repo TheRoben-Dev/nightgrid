@@ -2,6 +2,8 @@
 
 Keep a growing host list readable, and make groups do work for you: group power, fleet upgrades, Automation targets and UPS shutdowns all use them.
 
+![Everything that acts on a group.](fig:ng-groups)
+
 ## What you end up with
 
 - Groups that match how you act on machines (`media`, `infra`, `lab`, `family`)

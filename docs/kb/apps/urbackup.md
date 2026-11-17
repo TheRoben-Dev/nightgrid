@@ -2,6 +2,8 @@
 
 A backup server for the PCs and laptops in the house: file backups and full image backups of Windows machines, incremental and deduplicated, with a web UI and a client that runs in the tray.
 
+![UrBackup clients and server.](fig:app-urbackup)
+
 ## What you end up with
 
 - Nightly file backups of chosen folders from every PC

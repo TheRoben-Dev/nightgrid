@@ -2,6 +2,8 @@
 
 Measure throughput and latency between two of your hosts, keep a history per pair, and catch a link that quietly dropped to 100 Mbit/s.
 
+![An iperf3 test between two of your hosts.](fig:ng-iperf)
+
 ## What you end up with
 
 - Speed both ways and ping latency between any two hosts

@@ -2,6 +2,8 @@
 
 Use lightweight Proxmox containers (LXC) for Linux services: privileged vs unprivileged, bind mounts, Docker inside, and device access.
 
+![Bind mounts in an unprivileged container.](fig:app-lxc-bind)
+
 ## What you end up with
 
 - Unprivileged containers created from Nightgrid with SSH key login

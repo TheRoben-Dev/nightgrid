@@ -2,6 +2,8 @@
 
 Play games running on your gaming PC or a GPU server from a laptop, TV, phone or handheld anywhere in the house, at low latency and up to 4K/120. Sunshine is the host (it captures the screen and encodes on the GPU); Moonlight is the free client for almost every device.
 
+![Streaming from the gaming PC at home and away.](fig:app-game-stream)
+
 ## What you end up with
 
 - Sunshine on the gaming machine, paired with your devices by PIN

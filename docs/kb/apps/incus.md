@@ -2,6 +2,8 @@
 
 System containers (a whole distro in a container, like LXC on Proxmox) and VMs on any Linux host, driven by one command. A lightweight alternative to a full hypervisor install, and a good fit for a lab on a single box.
 
+![Instances on a bridge, with LAN addresses.](fig:app-bridge)
+
 ## What you end up with
 
 - `incus launch images:debian/13 web1` gives you a running Debian container in seconds

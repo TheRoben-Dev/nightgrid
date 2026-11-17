@@ -2,6 +2,8 @@
 
 Run VMs on a plain Debian, Ubuntu or Fedora server without Proxmox, using KVM and libvirt, and manage them from Nightgrid's System → VMs and Desktops.
 
+![VMs on a bridge, with LAN addresses.](fig:app-bridge)
+
 ## What you end up with
 
 - libvirt with a bridged network so VMs get LAN addresses

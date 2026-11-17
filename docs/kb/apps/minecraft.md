@@ -2,6 +2,8 @@
 
 A Java Edition server in Docker with Paper, automatic backups, RCON kept private and only the game port open.
 
+![Two ways for friends to reach your game server.](fig:app-game-server)
+
 ## What you end up with
 
 - A Paper server with world data in a folder you control

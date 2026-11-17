@@ -2,6 +2,8 @@
 
 Read 30- and 90-day uptime for every host and service, see each outage with its cause, and export a monthly availability report.
 
+![From uptime bars to a monthly report.](fig:ng-uptime-report)
+
 ## What you end up with
 
 - Daily bars per host and service (green, yellow, red, grey for unknown)

@@ -2,6 +2,8 @@
 
 Graphs latency and packet loss to a list of targets over weeks, with the "smoke" showing jitter. The tool for proving your ISP drops packets every evening, or that a Wi-Fi bridge is flaky.
 
+![SmokePing targets from near to far.](fig:app-smokeping)
+
 ## What you end up with
 
 - Latency and loss to your router, ISP gateway, DNS servers and a few internet hosts

@@ -2,6 +2,8 @@
 
 A lightweight server compatible with the Bitwarden apps and browser extensions. Your vault, on your hardware.
 
+![Vaultwarden behind HTTPS, with backups.](fig:app-vaultwarden)
+
 ## What you end up with
 
 - Bitwarden apps on every device syncing to your server

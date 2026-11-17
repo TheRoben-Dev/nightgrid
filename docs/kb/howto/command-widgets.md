@@ -2,6 +2,8 @@
 
 Turn any read-only command into an Overview tile with thresholds, and arrange several dashboards for different jobs.
 
+![From a command to an Overview tile.](fig:ng-command-widget)
+
 ## What you end up with
 
 - Tiles for numbers Nightgrid doesn't track by itself: queue lengths, active streams, certificate counts, pod counts

@@ -2,6 +2,8 @@
 
 A Palworld world that stays up for your group, with settings you control and saves you back up. Palworld servers are memory hungry, so size the host first.
 
+![Two ways for friends to reach your game server.](fig:app-game-server)
+
 ## What you end up with
 
 - A server on UDP 8211 your friends join by IP

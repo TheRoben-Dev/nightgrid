@@ -2,6 +2,8 @@
 
 Your own video meeting server: open a link in a browser or the Jitsi apps, no accounts needed for guests, with screen sharing, chat and lobby. Good for family calls and small teams that don't want a cloud service.
 
+![Jitsi's signalling and media paths.](fig:app-jitsi)
+
 ## What you end up with
 
 - The official Jitsi Meet Docker setup (web, Prosody, Jicofo, JVB)

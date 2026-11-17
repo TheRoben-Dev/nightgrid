@@ -2,6 +2,8 @@
 
 Control a server's keyboard, video and mouse over the network, from power-on: change BIOS settings, watch a boot hang, reinstall the OS from an ISO, press the power button. PiKVM does on any PC what IPMI does on server boards, with a Raspberry Pi and an HDMI capture.
 
+![PiKVM between your browser and the server's ports.](fig:app-pikvm)
+
 ## What you end up with
 
 - A PiKVM (ready-made V3/V4 or a DIY Pi 4 build) attached to one server, or to several through a KVM switch
