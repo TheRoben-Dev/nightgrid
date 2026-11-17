@@ -17,7 +17,7 @@ use crate::netmap::{Discovery, ExposureKind};
 use crate::nettools::{port_name, Tone};
 use crate::ssh::client::Connection;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct NetFinding {

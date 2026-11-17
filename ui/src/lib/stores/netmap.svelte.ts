@@ -3,8 +3,9 @@
  * from the node selected on the map (a host or this computer), port audits
  * reuse System → Security.
  */
-import { api, errorText, systemError, type DeviceLabel, type Discovery, type LayoutEntry, type NetDevice, type NetFinding, type NetWatchRun, type ToolResult } from "../api";
+import { api, errorText, systemError, type DeviceLabel, type Discovery, type LayoutEntry, type NetDevice, type NetFinding, type NetWatchRun, type SavedNetwork, type ToolResult } from "../api";
 import { buildGraph, type NetGraph } from "../netmap/graph";
+import { overlayGraph, type Overlay } from "../netmap/networks";
 import { buildTopology, canAttach, entryFor, expectedEntries, type Topology } from "../netmap/layout";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
@@ -30,7 +31,34 @@ class NetmapStore {
   labelError = $state<string | null>(null);
 
   readonly labelMap: ReadonlyMap<string, DeviceLabel> = $derived(new Map(this.labels.map((l) => [l.key, l])));
-  readonly graph: NetGraph = $derived(buildGraph(hosts.hosts, system.portMap, this.result, this.resultHost, this.labelMap));
+
+  /** Saved networks (D-153), most recently seen first. */
+  networks = $state<SavedNetwork[]>([]);
+  networksError = $state<string | null>(null);
+  /** Saved networks drawn on the map beside the scan on show (ids; kept across restarts). */
+  overlay = $state<number[]>(readOverlay());
+  /** Their last scans, by network id. */
+  overlayScans = $state<Record<number, Discovery>>({});
+  /** The result on show is a saved network's last scan, not a scan run now. */
+  fromSaved = $state(false);
+
+  readonly overlays: Overlay[] = $derived(
+    this.overlay.flatMap((id) => {
+      const net = this.networks.find((n) => n.id === id);
+      const disc = this.overlayScans[id];
+      return net && disc ? [{ net, disc }] : [];
+    }),
+  );
+  readonly graph: NetGraph = $derived(
+    overlayGraph(
+      buildGraph(hosts.hosts, system.portMap, this.result, this.resultHost, this.labelMap),
+      this.result,
+      hosts.hosts,
+      system.portMap,
+      this.overlays,
+      this.labelMap,
+    ),
+  );
   /** The map as the user arranged it (positions, hand-set parents, expected picture). */
   layout = $state<LayoutEntry[]>([]);
   layoutLoaded = false;
@@ -72,7 +100,9 @@ class NetmapStore {
       this.result = id === "local" ? await api.netmapDiscoverLocal(this.sweep, ranges) : await api.netmapDiscover(id, this.sweep, ranges);
       this.resultHost = id;
       this.scannedAt = Date.now();
+      this.fromSaved = false;
       void this.loadInventory();
+      void this.loadNetworks();
     } catch (e) {
       const { connect } = systemError(e);
       this.error =
@@ -81,6 +111,111 @@ class NetmapStore {
           : errorText(e);
     } finally {
       this.loading = false;
+    }
+  }
+
+  async loadNetworks() {
+    try {
+      this.networks = await api.netmapNetworks();
+      this.networksError = null;
+      const ids = new Set(this.networks.map((n) => n.id));
+      if (this.overlay.some((id) => !ids.has(id))) this.setOverlay(this.overlay.filter((id) => ids.has(id)));
+      // A network's kept scan changes when it is scanned again: reload the overlaid ones.
+      for (const id of this.overlay) void this.loadOverlayScan(id);
+    } catch (e) {
+      this.networksError = errorText(e);
+    }
+  }
+
+  private async loadOverlayScan(id: number) {
+    try {
+      const d = await api.netmapNetworkScan(id);
+      const next = { ...this.overlayScans };
+      if (d) next[id] = d;
+      else delete next[id];
+      this.overlayScans = next;
+    } catch (e) {
+      this.networksError = errorText(e);
+    }
+  }
+
+  private setOverlay(ids: number[]) {
+    this.overlay = ids;
+    try {
+      localStorage.setItem("nightgrid.netmap.overlay", JSON.stringify(ids));
+    } catch {
+      /* private mode: just this session */
+    }
+  }
+
+  /** Draws a saved network on the map beside the scan on show, or takes it off. */
+  async toggleOverlay(id: number, on: boolean) {
+    if (on && !this.overlay.includes(id)) {
+      this.setOverlay([...this.overlay, id]);
+      await this.loadOverlayScan(id);
+    } else if (!on) this.setOverlay(this.overlay.filter((x) => x !== id));
+  }
+
+  /** Shows a saved network's last scan as the main map (no scan runs). */
+  async showNetwork(id: number) {
+    const net = this.networks.find((n) => n.id === id);
+    if (!net || this.loading) return;
+    try {
+      const d = await api.netmapNetworkScan(id);
+      if (!d) {
+        this.networksError = `No scan of ${net.name} is kept yet: scan it once from a machine on it.`;
+        return;
+      }
+      this.result = d;
+      this.resultHost = net.origin === "local" ? "local" : hosts.byId(Number(net.origin)) ? Number(net.origin) : null;
+      this.scannedAt = (net.snapshotAt ?? net.lastSeen ?? 0) * 1000;
+      this.fromSaved = true;
+      this.networksError = null;
+      this.security = { running: false, findings: null, error: null, at: 0 };
+      if (this.overlay.includes(id)) this.setOverlay(this.overlay.filter((x) => x !== id));
+    } catch (e) {
+      this.networksError = errorText(e);
+    }
+  }
+
+  async renameNetwork(id: number, name: string): Promise<boolean> {
+    try {
+      const n = await api.netmapNetworkRename(id, name);
+      this.networks = this.networks.map((x) => (x.id === id ? n : x));
+      if (this.result?.network?.id === id) this.result = { ...this.result, network: { ...this.result.network, name: n.name } };
+      if (this.overlayScans[id]) this.overlayScans = { ...this.overlayScans, [id]: { ...this.overlayScans[id], network: { id, name: n.name, isNew: false } } };
+      this.networksError = null;
+      return true;
+    } catch (e) {
+      this.networksError = errorText(e);
+      return false;
+    }
+  }
+
+  async forgetNetwork(id: number) {
+    try {
+      await api.netmapNetworkForget(id);
+      this.setOverlay(this.overlay.filter((x) => x !== id));
+      this.networks = this.networks.filter((x) => x.id !== id);
+      void this.loadInventory();
+    } catch (e) {
+      this.networksError = errorText(e);
+    }
+  }
+
+  /** Folds one saved network into another (its router was replaced). */
+  async mergeNetwork(from: number, into: number) {
+    try {
+      await api.netmapNetworkMerge(from, into);
+      this.setOverlay(this.overlay.filter((x) => x !== from));
+      if (this.result?.network?.id === from) {
+        const n = this.networks.find((x) => x.id === into);
+        if (n) this.result = { ...this.result, network: { id: into, name: n.name, isNew: false } };
+      }
+      await this.loadNetworks();
+      void this.loadInventory();
+    } catch (e) {
+      this.networksError = errorText(e);
     }
   }
 
@@ -320,6 +455,15 @@ class NetmapStore {
 }
 
 const TONE_RANK = { info: 0, ok: 1, warn: 2, bad: 3 } as const;
+
+function readOverlay(): number[] {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem("nightgrid.netmap.overlay") ?? "[]");
+    return Array.isArray(v) ? v.filter((x): x is number => Number.isInteger(x)) : [];
+  } catch {
+    return [];
+  }
+}
 
 function readMode(): "graph" | "list" {
   try {

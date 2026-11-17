@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.81] - 2026-11-17
+
+### Added: saved networks on the network map
+- **Scans know which network they're on**: each scan is matched to a saved network by its subnet and its router's MAC address. A laptop on home Wi-Fi and servers on another LAN are separate networks, and so are two places that both use `192.168.1.x`.
+- **Nothing is "missing" just for being elsewhere**: devices remember the network they were last seen on, so a scan of one network (and the network watch's DEVICE MISSING alerts, and the expected map) never counts another network's devices as gone.
+- **NETWORKS bar** on the Network view: rename networks, show a network's last scan without scanning, **merge** a network back after a router swap, or forget one.
+- **Several networks on one map**: tick **on map** to draw another network's last scan behind its own router, in its own region. One **Internet** node sits above every router and the **tailnet** links its devices across networks, showing how the networks reach each other.
+
 ## [0.10.80] - 2026-11-17
 
 ### Added: DRIFT reads your servers, an error reference and Nightgrid Node guides

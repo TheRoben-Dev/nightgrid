@@ -87,7 +87,26 @@
   const ago = (t: number | null) => (t ? new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "");
   const tsPeers = $derived(netmap.result?.devices.filter((d) => d.seen.includes("tailscale")) ?? []);
 
+  // Saved networks (D-153).
+  const curNet = $derived(netmap.result?.network ?? null);
+  let editNet = $state<number | null>(null);
+  let netName = $state("");
+  let mergeInto = $state("");
+  let forgetArmed = $state(false);
+  function startEdit(id: number) {
+    const n = netmap.networks.find((x) => x.id === id);
+    editNet = editNet === id ? null : id;
+    netName = n?.name ?? "";
+    mergeInto = "";
+    forgetArmed = false;
+  }
+  async function saveNet() {
+    if (editNet !== null && (await netmap.renameNetwork(editNet, netName))) editNet = null;
+  }
+  const subnetOf = (n: { subnet: string | null; gateway: string | null }) => n.subnet ?? n.gateway ?? "no LAN";
+
   onMount(() => {
+    void netmap.loadNetworks();
     if (!netmap.labelsLoaded) void netmap.loadLabels();
     if (!netmap.layoutLoaded) void netmap.loadLayout();
     void netmap.loadInventory();
@@ -259,7 +278,12 @@
   {#if netmap.error}<p class="err" role="alert">{netmap.error}</p>{/if}
   {#if netmap.result}
     <p class="meta muted">
-      Scanned from <strong>{netmap.resultHost === "local" ? "this computer" : (hosts.byId(netmap.resultHost ?? -1)?.name ?? "?")}</strong> at {ago(netmap.scannedAt)}
+      {#if netmap.fromSaved}
+        Last scan of <strong>{curNet?.name ?? "this network"}</strong>, from <strong>{netmap.resultHost === "local" ? "this computer" : (hosts.byId(netmap.resultHost ?? -1)?.name ?? "a removed host")}</strong> on {new Date(netmap.scannedAt ?? 0).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })} (kept: scan from a machine on it for a fresh look)
+      {:else}
+        Scanned from <strong>{netmap.resultHost === "local" ? "this computer" : (hosts.byId(netmap.resultHost ?? -1)?.name ?? "?")}</strong> at {ago(netmap.scannedAt)}{#if curNet} on <strong>{curNet.name}</strong>{/if}
+      {/if}
+      {#if curNet && !netmap.fromSaved}{#if curNet.isNew}<span class="newc"> (a network not seen before: name it under Networks)</span>{/if}{/if}
       · {netmap.result.devices.length} devices{#if netmap.result.ranges.length} · swept {netmap.result.ranges.join(", ")}{/if}
       {#if netmap.newDevices.length}<span class="newc"> · {netmap.newDevices.length} new</span>{/if}
       {#if netmap.result.missing.length}<span class="miss"> · {netmap.result.missing.length} missing</span>{/if}
@@ -272,6 +296,48 @@
     </p>
   {:else}
     <p class="meta muted">Nothing is scanned until you click <strong>Scan</strong>. Select a node marked ◉ (a host that answers, or this computer) and the scan runs from there: it reads that machine's neighbour table, mDNS, Tailscale peers and router port forwards; it doesn't probe anything outside your network.</p>
+  {/if}
+
+  {#if netmap.networks.length}
+    <section class="sec nets" data-guide="netmap-networks" aria-label="Saved networks">
+      <div class="sec-row">
+        <span class="lbl" title="Each scan belongs to the network it ran on, told apart by its subnet and its router's MAC address. Devices of another network are never missing from this one: they're on that one.">NETWORKS</span>
+        {#each netmap.networks as n (n.id)}
+          {@const cur = curNet?.id === n.id}
+          <span class="netchip" class:cur class:on={netmap.overlay.includes(n.id)}>
+            <button type="button" class="linkish name" title={cur ? "The network on show" : `Show the last scan of ${n.name} (no scan runs)`} onclick={() => netmap.showNetwork(n.id)} disabled={cur}>{n.name}</button>
+            <span class="muted small">{n.subnet && !n.name.includes(n.subnet) ? `${n.subnet} · ` : ""}{n.devices} devices · {since(n.lastSeen)}</span>
+            {#if cur}<span class="tag small">ON SHOW</span>
+            {:else}
+              <label class="small" title="Draw this network's last scan on the map too, linked through the Internet and the tailnet">
+                <input type="checkbox" checked={netmap.overlay.includes(n.id)} disabled={!n.snapshotAt} onchange={(e) => netmap.toggleOverlay(n.id, e.currentTarget.checked)} /> on map
+              </label>
+            {/if}
+            <button type="button" class="btn ghost tiny" aria-expanded={editNet === n.id} aria-label={`Edit ${n.name}`} onclick={() => startEdit(n.id)}>✎</button>
+          </span>
+        {/each}
+      </div>
+      {#if editNet !== null}
+        {@const n = netmap.networks.find((x) => x.id === editNet)}
+        {#if n}
+          <form class="sec-row" onsubmit={(e) => { e.preventDefault(); void saveNet(); }}>
+            <label class="small"><span class="lbl">NAME</span> <input class="input" maxlength="60" bind:value={netName} /></label>
+            <button type="submit" class="btn tiny">SAVE</button>
+            <span class="small muted mono">{subnetOf(n)} · router {n.gateway ?? "?"}{n.gatewayMac ? ` (${n.gatewayMac})` : ""} · first seen {since(n.firstSeen)}</span>
+            <span class="grow"></span>
+            {#if netmap.networks.length > 1}
+              <select class="input tiny" aria-label="Merge into" bind:value={mergeInto} title="Same network, new router: fold this one into the other (its devices move over)">
+                <option value="">Merge into…</option>
+                {#each netmap.networks.filter((x) => x.id !== n.id) as o (o.id)}<option value={String(o.id)}>{o.name}</option>{/each}
+              </select>
+              {#if mergeInto}<button type="button" class="btn ghost tiny" onclick={() => { void netmap.mergeNetwork(n.id, Number(mergeInto)); editNet = null; }}>MERGE</button>{/if}
+            {/if}
+            <button type="button" class="btn ghost tiny danger" title="Its devices stay in the inventory, on no network, until a scan sees them again" onclick={() => { if (forgetArmed) { void netmap.forgetNetwork(n.id); editNet = null; } else forgetArmed = true; }}>{forgetArmed ? `FORGET ${n.name.toUpperCase()}?` : "FORGET"}</button>
+          </form>
+        {/if}
+      {/if}
+      {#if netmap.networksError}<p class="err small">{netmap.networksError}</p>{/if}
+    </section>
   {/if}
 
   <section class="sec" data-guide="netmap-security" aria-label="Network security and watch">
@@ -347,7 +413,7 @@
         {/if}
         {#if netmap.layoutError}<span class="err small">{netmap.layoutError}</span>{/if}
       </div>
-      {#if !hosts.hosts.length && !netmap.result}
+      {#if !hosts.hosts.length && !netmap.result && !netmap.overlays.length}
         <p class="empty muted">Scan from this computer, or add hosts to see them on the map and scan from them.</p>
       {:else if netmap.mode === "graph"}
         <TopoMap onpick={(id) => pick(id)} />
@@ -422,7 +488,7 @@
         {/if}
         {#if netmap.result?.missing.length}
           <h4 class="miss-h" data-guide="netmap-missing">MISSING</h4>
-          <p class="muted small">Seen before in the swept range, didn't answer this time. Off, asleep, or gone.</p>
+          <p class="muted small">Seen before on this network in the swept range, didn't answer this time. Off, asleep, or gone. Devices of your other networks never show here.</p>
           <ul class="plain labelled">
             {#each netmap.result.missing as m (m.key)}
               <li>
@@ -496,7 +562,8 @@
         {/if}
 
         {#if n.kind === "internet"}
-          <p>Ways in found by the last scan. Nothing outside your network was contacted to find these.</p>
+          {#if n.note}<p>{n.note}</p>{/if}
+          <p>Ways in found by the last scan{netmap.overlays.length ? "s" : ""}. Nothing outside your network was contacted to find these.</p>
           <ul class="exp">
             {#each n.exposures as e, i (i)}
               <li><strong>{EXPOSURE[e.kind]}</strong><span class="mono">{e.public}</span><span class="muted">→ {e.target} ({whereTo(e)})</span>{#if e.detail}<span class="muted">{e.detail}</span>{/if}</li>
@@ -506,8 +573,10 @@
           {#if n.device?.mac}<p class="mono muted">MAC {n.device.mac}{n.device.vendor ? ` · ${n.device.vendor}` : ""}</p>{/if}
           {#if n.ip}{@render toolRow(n.ip, n.device?.mac)}{/if}
           {#if n.device}{@render labelForm()}{/if}
-          <p>The default route of the scanned host. Router port forwards (UPnP) are listed under <strong>Internet</strong> and on the host they land on.</p>
+          {#if n.network !== undefined}<p>{n.note}</p>
+          {:else}<p>The default route of the scanned host{curNet ? ` on ${curNet.name}` : ""}. Router port forwards (UPnP) are listed under <strong>Internet</strong> and on the host they land on.</p>{/if}
         {:else if n.kind === "tailnet"}
+          {#if n.note}<p class="small">{n.note}</p>{/if}
           <ul class="plain">
             {#each tsPeers as d (d.ip)}
               <li><span class:ok={d.online} class:off={d.online === false}>●</span> {d.names[0] ?? d.ip} <span class="muted mono">{d.ip}{d.os ? ` · ${d.os}` : ""}{d.link ? ` · ${d.link}` : ""}</span></li>
@@ -885,6 +954,31 @@
     gap: 6px;
     align-items: center;
     flex-wrap: wrap;
+  }
+  .nets .netchip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+  }
+  .nets .netchip.cur {
+    border-color: var(--cyan);
+  }
+  .nets .netchip.on {
+    border-color: var(--mint);
+    border-style: dashed;
+  }
+  .nets .name:disabled {
+    color: var(--cyan);
+    cursor: default;
+  }
+  .nets .tag {
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+  }
+  .danger {
+    color: var(--danger);
   }
   .meta {
     margin: 0;

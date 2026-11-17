@@ -29,19 +29,26 @@ Scan your LAN from one of your hosts, see every device with its maker and servic
 - [ ] **Trust** devices you expect and **Forget** ones that are gone. An unknown NEW device on your LAN is worth identifying.
 - [ ] Networks behind a router, VPN or subnet route: type the range (for example `10.20.0.0/24`) and scan. Devices there show less detail, because MACs and local names don't cross a router.
 
-## Part 4 · Arrange the map
+## Part 4 · More than one network
+
+- [ ] Scan from a machine on each network you have: home Wi-Fi from **This computer**, the server LAN from one of its hosts. Each scan lands in its own saved network (subnet plus the router's MAC), listed in the **NETWORKS** bar.
+- [ ] **✎** gives each a name ("Home", "Servers"). Devices of one network never show as missing from another.
+- [ ] Tick **on map** on the other network. It appears behind its own router; the **Internet** node above both routers, and the **tailnet** beside them, show how the two reach each other.
+- [ ] Replaced a router? The network comes back as a new one: **✎ → Merge into** the old one.
+
+## Part 5 · Arrange the map
 
 - [ ] Drag nodes to place them; drop a device onto an access point, switch or host to say it connects through it (or use **Connected through** in its details). **Auto layout** forgets positions; **LIST** gives a compact view.
 - [ ] **Save as expected** remembers the map. Later scans show missing devices as dashed **MISSING** boxes and unexpected ones with **+**.
 - [ ] Want switches on the map? Install `lldpd` on the scanning host (`sudo apt install lldpd`). The next scan puts the switch and port it's plugged into between it and the router.
 
-## Part 5 · Security checks and a watch
+## Part 6 · Security checks and a watch
 
 - [ ] The **SECURITY** bar above the map counts what the scan found: risky router port forwards, UPnP on, a second DHCP server, a public address on an interface.
 - [ ] **Check web security** reads each device's web pages and certificates: expired or self-signed certificates, admin pages of gear that ships with default passwords, and logins over plain HTTP. It never tries a password.
 - [ ] **Watch the network** repeats the scan from the selected scanner on a schedule and raises **NEW DEVICE**, **DEVICE MISSING** and **NETWORK RISK** alerts. Trust a device to silence its NEW alert.
 
-## Part 6 · Label devices
+## Part 7 · Label devices
 
 - [ ] Select a device for its address, MAC, maker (looked up offline), names and services.
 - [ ] **Label** it: a name, a type, `#tags` and a note. Labels follow the MAC and travel in profile exports.

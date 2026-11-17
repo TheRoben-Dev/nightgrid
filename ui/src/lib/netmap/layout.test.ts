@@ -75,7 +75,8 @@ describe("network topology", () => {
       }
     const gw = node(t, "gw");
     const lamp = node(t, "d192.168.1.48");
-    const { t: moved } = await topo([e("gw", { x: gw.x + 500, y: gw.y + 100 })]);
+    const { t: moved } = await topo([e(gw.key, { x: gw.x + 500, y: gw.y + 100 })]);
+    expect(gw.key).toBe("gw:a4:2b:b0:11:22:33");
     expect(node(moved, "gw").pinned).toBe(true);
     expect(node(moved, "d192.168.1.48").x).toBe(lamp.x + 500);
     expect(node(moved, "d192.168.1.48").y).toBe(lamp.y + 100);
