@@ -49,6 +49,7 @@ pub struct AppState {
     pub ups: Arc<crate::ups_cmd::UpsHub>,
     pub uptime: Arc<crate::uptime_cmd::UptimeHub>,
     pub logsearch: Arc<crate::logsearch_cmd::LogSearchHub>,
+    pub netwatch: Arc<crate::netwatch_cmd::NetWatchHub>,
     pub firewall: Arc<crate::firewall_cmd::FirewallHub>,
     /// Journal follows and package runs: stop switch by id.
     pub system_runs: crate::system_cmd::SystemRuns,
@@ -95,6 +96,7 @@ impl AppState {
             ups: Arc::default(),
             uptime: Arc::default(),
             logsearch: Arc::default(),
+            netwatch: Arc::default(),
             firewall: Arc::default(),
             status_server: Arc::default(),
             auth_notices: Mutex::default(),

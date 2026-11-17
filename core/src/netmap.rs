@@ -199,6 +199,10 @@ pub struct Discovery {
     pub lldp: Vec<LldpNeighbour>,
     /// How each swept range is reached (traceroute).
     pub paths: Vec<RangePath>,
+    /// DHCP servers the scanning host got leases from.
+    pub dhcp: Vec<String>,
+    /// Security findings from what the scan saw (UPnP, public address, DHCP).
+    pub findings: Vec<crate::netsec::NetFinding>,
     /// Tools that were missing or failed, in words.
     pub notes: Vec<String>,
 }
@@ -334,6 +338,14 @@ pub fn discover_command(sweeps: &[(Ipv4Addr, u32)]) -> String {
         "if command -v lldpctl >/dev/null 2>&1; then t 5 lldpctl -f keyvalue 2>/dev/null | head -n 300; \
          elif command -v networkctl >/dev/null 2>&1; then t 5 networkctl lldp --no-legend 2>/dev/null | head -n 50 | sed 's/^/nctl /'; \
          else echo missing; fi",
+    );
+    sec(
+        &mut s,
+        "dhcp",
+        "{ cat /var/lib/dhcp/*.leases /var/lib/dhclient/*.lease* 2>/dev/null | grep dhcp-server-identifier; \
+         cat /run/systemd/netif/leases/* 2>/dev/null | grep '^SERVER_ADDRESS='; \
+         command -v nmcli >/dev/null 2>&1 && t 3 nmcli -t -f DHCP4.OPTION device show 2>/dev/null | grep -i server_identifier; \
+         if command -v ipconfig >/dev/null 2>&1; then for i in en0 en1; do ipconfig getpacket $i 2>/dev/null | grep server_identifier; done; fi; } | head -n 20",
     );
     sec(&mut s, "neigh", "ip neigh show 2>/dev/null || arp -an 2>/dev/null");
     s.push_str(IDENT_SCRIPT);
@@ -882,6 +894,8 @@ pub fn parse_discovery(out: &str) -> Discovery {
         missing: Vec::new(),
         lldp: Vec::new(),
         paths: Vec::new(),
+        dhcp: Vec::new(),
+        findings: Vec::new(),
         notes: Vec::new(),
     };
     let mut ssdp_missing = false;
@@ -904,6 +918,17 @@ pub fn parse_discovery(out: &str) -> Discovery {
                 }
             }
             "lldp" => d.lldp = parse_lldp(&body),
+            "dhcp" => {
+                for l in &body {
+                    let ip =
+                        l.split(|c: char| !(c.is_ascii_digit() || c == '.')).find(|w| w.parse::<Ipv4Addr>().is_ok());
+                    if let Some(ip) = ip {
+                        if !d.dhcp.iter().any(|x| x == ip) {
+                            d.dhcp.push(ip.to_owned());
+                        }
+                    }
+                }
+            }
             "route" => d.gateway = parse_gateway(&body),
             "sweep" => {
                 if let Some(r) = name.split_whitespace().nth(1) {
@@ -1183,6 +1208,7 @@ pub fn parse_discovery(out: &str) -> Discovery {
     let own: Vec<&str> = d.ifaces.iter().map(|i| i.addr.as_str()).collect();
     d.devices = devs.into_values().filter(|x| !own.contains(&x.ip.as_str())).collect();
     d.devices.sort_by_key(|x| ip_sort_key(&x.ip));
+    d.findings = crate::netsec::discovery_findings(&d);
     d
 }
 

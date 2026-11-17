@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.61] - 2026-11-16
+
+### Added: security checks and a network watch (network map, part 5)
+- **SECURITY** above the map lists what the scan shows: router port forwards (UPnP) to risky services such as RDP, SSH, SMB, databases or a Docker API (red), UPnP being on at all, a public address on an interface, and a second DHCP server on the LAN (a rogue or forgotten one).
+- **Check web security** reads one page or certificate on the common web ports of every device found (up to 64): expired, nearly expired or self-signed certificates, admin pages of gear that ships with default passwords (routers, printers, cameras, NAS), and login forms or basic auth over plain HTTP. It never tries a password. Devices with findings get a ⚠ on the map; each finding opens in Tools.
+- **Watch the network**: a scheduled scan (every 15 minutes to once a day) from the chosen scanner keeps the device list current and raises alerts: **NEW DEVICE** (an untrusted device first seen in the last day), **DEVICE MISSING** (on the expected map but silent in a subnet that was scanned) and **NETWORK RISK** (the findings above). Each has its own switch; DRIFT's triage knows all three.
+
 ## [0.10.60] - 2026-11-16
 
 ### Added: more of the real topology (network map, part 4)
