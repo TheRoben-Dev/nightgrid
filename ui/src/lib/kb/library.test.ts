@@ -7,7 +7,7 @@ import { ARTICLES, article, fromFile, fromGuide, parts, plain, search } from "./
 
 describe("library", () => {
   it("has every shelf and a catalog in step with them", () => {
-    for (const s of ["nightgrid", "howto", "basics", "linux", "apps", "guides"]) expect(ARTICLES.some((a) => a.shelf === s), s).toBe(true);
+    for (const s of ["nightgrid", "howto", "basics", "linux", "apps", "guides", "errors"]) expect(ARTICLES.some((a) => a.shelf === s), s).toBe(true);
     const ids = (xs: { id: string; title: string }[]) => xs.map((x) => `${x.id}|${x.title}`).sort();
     expect(ids(CATALOG)).toEqual(ids(ARTICLES));
     expect(new Set(ARTICLES.map((a) => a.id)).size).toBe(ARTICLES.length);
