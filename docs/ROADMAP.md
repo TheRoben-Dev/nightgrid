@@ -32,7 +32,7 @@ Approved by Roben on 2026-11-17. One release each, in this order; the last one i
 | ~~**M12c** · Sandbox clones~~ | Done in 0.10.85: Proxmox → SANDBOX copies a guest (now or from a snapshot) cut off from the network, without passthrough or bind mounts, and the node destroys it when it expires; keep or destroy it any time. |
 | ~~**M12d** · Power & cost~~ | Done in 0.10.86: Fleet → POWER estimates watts, kWh and cost per host from power profiles and CPU history, finds reliable idle hours for scheduled power, and checks the estimates against UPS output. |
 | ~~**M12e** · Library quests~~ | Done in 0.10.87: guides carry `{check: id}` steps that Nightgrid verifies read-only on a picked host (✓/✗/?), with **Tick verified** and DRIFT knowing the result. |
-| **M12f** · Nightgrid Node pairing | The Nightgrid side of hosts pushing data through Nightgrid Node instead of being polled over SSH; what Node needs is written up for its own project. |
+| ~~**M12f** · Nightgrid Node pairing~~ | Done in 0.10.88: Fleet → NODE finds, installs, updates and removes the node per host; its history, uptime, disk usage, timeline and alerts fill the app after a reconnect, events and samples arrive live; gaps for the node project are in `docs/NODE_PAIRING.md`. |
 | **M12g** · MCP server → 1.0.0 | An opt-in MCP server so Claude (or any MCP client) can ask about the fleet: read-only by default, any write action needs its own opt-in and a confirmation in the app. |
 
 ## Later: after the standalone app is finished

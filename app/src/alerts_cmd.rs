@@ -843,6 +843,36 @@ fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], released: Vec
     });
 }
 
+/// Alerts Nightgrid Node recorded (D-165). Resolved ones go to the history;
+/// ones still active become active here. After a reconnect (`away`) the
+/// person gets one notification per host for what is still active, never
+/// one for alerts that fired and cleared while the app was closed.
+pub(crate) fn import_from_node(app: &AppHandle, host_name: &str, list: Vec<Alert>, away: bool) {
+    let cfg = settings(app).effective();
+    if !cfg.alerts.enabled || list.is_empty() {
+        return;
+    }
+    let hub = app.state::<AppState>().alerts.clone();
+    let fired = hub.tracker.lock().expect("poisoned").import(list);
+    hub.push(&cfg);
+    if fired.is_empty() || is_quiet(&cfg) || !cfg.alerts.native {
+        return;
+    }
+    if away {
+        let n = fired.len();
+        let body = fired.iter().take(4).map(alerts::headline).collect::<Vec<_>>().join("\n");
+        notify(
+            app,
+            &format!("NIGHTGRID · {n} alert{} while you were away on {host_name}", if n == 1 { "" } else { "s" }),
+            &body,
+        );
+    } else {
+        for a in &fired {
+            notify(app, &format!("NIGHTGRID · {}", a.kind.label()), &format!("{}: {}", a.title, a.detail));
+        }
+    }
+}
+
 fn notify(app: &AppHandle, title: &str, body: &str) {
     if let Err(e) = app.notification().builder().title(title).body(body).show() {
         tracing::warn!("notification failed: {e}");

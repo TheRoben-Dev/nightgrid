@@ -104,6 +104,13 @@ import {
   type IdleWindow,
   type QuestResult,
   type QuestState,
+  type NodeView_Serialize as NodeView,
+  type NodeState,
+  type NodeInfoView_Serialize as NodeInfoView,
+  type NodeInstallResult_Serialize as NodeInstallResult,
+  type InstallReport_Serialize as InstallReport,
+  type SyncReport,
+  type Release,
   type UpsPower_Serialize as UpsPower,
   type PowerProfile,
   type PveSandboxSpec_Deserialize as PveSandboxSpec,
@@ -353,6 +360,7 @@ import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockJournal } from "./mockJournal";
 import { mockPower } from "./mockPower";
+import { mockNode } from "./mockNode";
 import { mockQuest } from "./mockQuest";
 import { mockBlueprint } from "./mockBlueprint";
 import { mockUptime } from "./mockUptime";
@@ -449,6 +457,13 @@ export type {
   IdleWindow,
   QuestResult,
   QuestState,
+  NodeView,
+  NodeState,
+  NodeInfoView,
+  NodeInstallResult,
+  InstallReport,
+  SyncReport,
+  Release,
   UpsPower,
   PowerProfile,
   PveSandboxSpec,
@@ -1369,6 +1384,15 @@ export const api = {
   pveCtCreate: (hostId: number, spec: PveCtSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveCtCreate(hostId, spec, sudo) : mockProxmox.ctCreate(spec)),
   pveClone: (hostId: number, spec: PveCloneSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveClone(hostId, spec, sudo) : mockProxmox.clone(spec)),
   questCheck: (hostId: number, checks: string[]): Promise<QuestResult[]> => (T() ? commands.questCheck(hostId, checks) : mockQuest.check(checks)),
+  nodeList: (): Promise<NodeView[]> => (T() ? commands.nodeList() : mockNode.list()),
+  nodeCheck: (hostId: number): Promise<NodeView> => (T() ? commands.nodeCheck(hostId) : mockNode.check(hostId)),
+  nodeSyncNow: (hostId: number): Promise<SyncReport> => (T() ? commands.nodeSyncNow(hostId) : mockNode.syncNow(hostId)),
+  nodeSetUse: (hostId: number, on: boolean): Promise<NodeView> => (T() ? commands.nodeSetUse(hostId, on) : mockNode.setUse(hostId, on)),
+  nodeRelease: (): Promise<Release> => (T() ? commands.nodeRelease() : mockNode.release()),
+  nodeInstall: (hostId: number, fromFile: boolean, sudo: SudoInput | null): Promise<NodeInstallResult | null> =>
+    T() ? commands.nodeInstall(hostId, fromFile, sudo) : mockNode.install(hostId),
+  nodeUninstall: (hostId: number, purge: boolean, sudo: SudoInput | null): Promise<NodeInstallResult> =>
+    T() ? commands.nodeUninstall(hostId, purge, sudo) : mockNode.uninstall(hostId),
   powerOverview: (days: number, utcOffsetMins: number): Promise<PowerOverview> => (T() ? commands.powerOverview(days, utcOffsetMins) : mockPower.overview(days)),
   powerProfileSet: (hostId: number, idleW: number, maxW: number): Promise<null> => (T() ? commands.powerProfileSet(hostId, idleW, maxW) : mockPower.set(hostId, idleW, maxW)),
   powerProfileClear: (hostId: number): Promise<null> => (T() ? commands.powerProfileClear(hostId) : mockPower.clear(hostId)),

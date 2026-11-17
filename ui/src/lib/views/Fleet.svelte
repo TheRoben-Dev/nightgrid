@@ -13,6 +13,7 @@
   import JournalPanel from "../components/fleet/JournalPanel.svelte";
   import BlueprintPanel from "../components/fleet/BlueprintPanel.svelte";
   import PowerPanel from "../components/fleet/PowerPanel.svelte";
+  import NodePanel from "../components/fleet/NodePanel.svelte";
   import { alerts } from "../stores/alerts.svelte";
   import { diskTone, type FleetTab } from "../fleet";
   import { settings } from "../stores/settings.svelte";
@@ -32,6 +33,7 @@
     { id: "journal", label: "JOURNAL" },
     { id: "blueprints", label: "BLUEPRINTS" },
     { id: "power", label: "POWER" },
+    { id: "node", label: "NODE" },
   ];
   // Tabs turned off in Settings → Features are hidden.
   const tabs = $derived(TABS.filter((t) => settings.on(`fleet.${t.id}`)));
@@ -103,6 +105,8 @@
       <BlueprintPanel />
     {:else if fleet.tab === "power"}
       <PowerPanel />
+    {:else if fleet.tab === "node"}
+      <NodePanel />
     {/if}
   </div>
 </div>

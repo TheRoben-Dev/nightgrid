@@ -29,6 +29,7 @@ mod logsearch_cmd;
 mod metrics_cmd;
 mod netperf_cmd;
 mod netwatch_cmd;
+mod node_cmd;
 mod notes_cmd;
 mod platform;
 mod powercost_cmd;
@@ -320,6 +321,13 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         ups_cmd::ups_list,
         powercost_cmd::power_overview,
         quest_cmd::quest_check,
+        node_cmd::node_list,
+        node_cmd::node_check,
+        node_cmd::node_sync_now,
+        node_cmd::node_set_use,
+        node_cmd::node_release,
+        node_cmd::node_install,
+        node_cmd::node_uninstall,
         powercost_cmd::power_profile_set,
         powercost_cmd::power_profile_clear,
         ups_cmd::ups_save,
