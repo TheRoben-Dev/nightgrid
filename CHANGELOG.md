@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.69] - 2026-11-17
+
+### Added: 11 more Library articles
+- **Apps**: game streaming with Sunshine and Moonlight, PiKVM, UpSnap, MeTube, LibreNMS, evcc solar charging, TeslaMate, Trilium notes and WordPress.
+- **Linux skills**: a floating IP with keepalived (two DNS servers behind one address), and lightweight containers with systemd-nspawn.
+- The library now holds 307 articles.
+
 ## [0.10.68] - 2026-11-17
 
 ### Added: 12 more Library articles
