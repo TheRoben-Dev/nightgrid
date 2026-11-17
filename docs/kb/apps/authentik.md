@@ -2,6 +2,8 @@
 
 A full identity provider: OIDC and SAML logins for apps that support them, a forward-auth proxy for those that don't, MFA, and a user portal. Heavier than Authelia, more capable.
 
+![One authentik account signs you into OIDC apps and proxied ones.](fig:app-oidc)
+
 ## What you end up with
 
 - One account per person across Nextcloud, Grafana, Forgejo, Immich and more via OIDC

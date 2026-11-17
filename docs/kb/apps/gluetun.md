@@ -2,6 +2,8 @@
 
 Send one container's traffic (a download client, a scraper) through a commercial VPN, with a kill switch so it never leaks over your normal connection.
 
+![Containers sending all traffic through Gluetun's VPN.](fig:app-gluetun)
+
 ## What you end up with
 
 - A Gluetun container connected to your VPN provider

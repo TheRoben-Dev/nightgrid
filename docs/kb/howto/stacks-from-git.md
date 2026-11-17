@@ -2,6 +2,8 @@
 
 Keep compose files in a git repository and deploy a reviewed commit to a host, with a snapshot before each deploy and one-click rollback.
 
+![Check, review, snapshot, deploy: the host does the git work itself.](fig:ng-stacks-git)
+
 ## What you end up with
 
 - Each stack's compose file versioned in git, with history and review

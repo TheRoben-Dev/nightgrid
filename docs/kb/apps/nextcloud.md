@@ -2,6 +2,8 @@
 
 Files, calendars, contacts and office documents on your own server. This guide uses the official image with PostgreSQL and Redis behind your reverse proxy.
 
+![What a healthy Nextcloud install is made of.](fig:app-nextcloud)
+
 ## What you end up with
 
 - Nextcloud at `cloud.example.com` with desktop and phone sync

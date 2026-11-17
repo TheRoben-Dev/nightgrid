@@ -2,6 +2,8 @@
 
 Check your hosts, alerts and services from your phone through a read-only page served by Nightgrid, or save the same page as one HTML file.
 
+![The phone status page over Tailscale or the LAN.](fig:ng-status-page)
+
 ## What you end up with
 
 - A secret link that shows hosts, alerts, service checks and 90-day uptime bars

@@ -2,6 +2,8 @@
 
 Make one always-on Linux machine share your home LAN with your tailnet, so everything at home is reachable from your devices (and from Nightgrid) without installing Tailscale on each server.
 
+![A subnet router lets tailnet devices reach the whole LAN.](fig:tailnet-subnet)
+
 ## What you end up with
 
 - LAN addresses like `192.168.1.20` reachable from anywhere on your tailnet

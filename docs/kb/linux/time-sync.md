@@ -2,6 +2,8 @@
 
 Wrong clocks break TLS, TOTP codes, log ordering, backups and cluster quorum. Make sure every server syncs time and uses the right time zone.
 
+![One chrony server keeps the whole LAN on time.](fig:lx-time-sync)
+
 ## Part 1 · Check
 
 ```sh

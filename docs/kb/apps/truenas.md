@@ -2,6 +2,8 @@
 
 TrueNAS SCALE (now "TrueNAS Community Edition") is a full NAS operating system built on ZFS. It wants to own its config, so treat it as an appliance: manage it from its web UI and let Nightgrid watch it over SSH.
 
+![The ZFS layout TrueNAS builds for you.](fig:zfs-layout)
+
 ## What you end up with
 
 - ZFS pools, datasets, snapshots and replication from TrueNAS's web UI

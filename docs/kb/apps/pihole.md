@@ -2,6 +2,8 @@
 
 Run Pi-hole v6 as your network's DNS server to block ads and trackers for every device, give your servers local names, and control it from Nightgrid.
 
+![Where Pi-hole sits in the DNS chain.](fig:dns-chain)
+
 ## What you end up with
 
 - Network-wide ad blocking, handed out by your router's DHCP

@@ -1,0 +1,510 @@
+"""Data for the Library's layout-drawn figures (see kb_figures.py: flow, stack, steps).
+
+SPECS maps a figure name to (layout, arguments). PLACE maps an article (path under
+docs/kb, no .md) to the figure it shows and that figure's caption there;
+`python3 scripts/kb_figplace.py` inserts missing figure lines before the
+article's first `## ` heading. Colours: c cyan, m magenta, a amber, t mint, d dim.
+"""
+
+SPECS = {
+    # --- Nightgrid how-tos -------------------------------------------------------
+    "ng-firewall-rollback": ("steps", dict(
+        code="DX-30",
+        caption="A firewall change undoes itself unless you press Keep before the timer runs out.",
+        items=[
+            ("Look", "Read the current ufw or firewalld rules"),
+            ("Change", "Add or remove a rule; Nightgrid arms a 1, 2 or 5 min timer on the host"),
+            ("Test", "A fresh SSH connection proves you still get in"),
+            ("Keep", "Confirm, or the host restores the old rules by itself"),
+        ],
+        warn_at=1,
+    )),
+    "ng-tunnels": ("flow", dict(
+        code="DX-31",
+        caption="The admin panel stays on 127.0.0.1; Nightgrid carries it inside the SSH connection.",
+        cols=[
+            [("you", "Nightgrid", "localhost:18080", "t", "laptop")],
+            [("ssh", "SSH connection", "port 22, already open", "a", "lock")],
+            [("ui", "Admin panel", "127.0.0.1:9000", "c", "cube"), ("lan", "Router UI", "192.168.1.1:80", "c", "router")],
+        ],
+        edges=[("you", "ssh", "forward", "m"), ("ssh", "ui", None, "c"), ("ssh", "lan", None, "c")],
+        zones=[("THE HOST'S SIDE", ["ssh", "ui", "lan"])],
+    )),
+    "ng-web-ui-window": ("flow", dict(
+        code="DX-32",
+        caption="Nightgrid dials the web UI directly when it can, otherwise through a temporary SSH tunnel.",
+        cols=[
+            [("win", "Web UI window", "its own window", "t", "laptop")],
+            [("direct", "Direct", "LAN or tailnet", "c", "router"), ("tun", "SSH tunnel", "when direct fails", "a", "lock")],
+            [("app", "Container", "e.g. :8123", "c", "cube")],
+        ],
+        edges=[("win", "direct", None, "c"), ("win", "tun", None, "a", True), ("direct", "app", None, "c"), ("tun", "app", None, "a", True)],
+    )),
+    "ng-vm-console": ("flow", dict(
+        code="DX-33",
+        caption="The VM's screen is served on the host's localhost and reaches Nightgrid inside SSH.",
+        cols=[
+            [("ng", "Nightgrid", "built-in VNC client", "t", "laptop")],
+            [("ssh", "SSH", "existing connection", "a", "lock")],
+            [("vnc", "VNC on localhost", "qm vncproxy / libvirt", "c", "terminal"), ("vm", "VM", "graphical console", "c", "server")],
+        ],
+        edges=[("ng", "ssh", None, "m"), ("ssh", "vnc", None, "c"), ("vnc", "vm", None, "c")],
+        zones=[("HYPERVISOR", ["vnc", "vm"])],
+    )),
+    "ng-stacks-git": ("flow", dict(
+        code="DX-34",
+        caption="The host pulls the repository with its own credentials; Nightgrid snapshots before each deploy.",
+        cols=[
+            [("repo", "Git repository", "compose files", "a", "doc")],
+            [("check", "Check", "new commits + diff", "t", "terminal"), ("snap", "Snapshot", "before every deploy", "m", "tape")],
+            [("host", "Host checkout", "moved to the commit", "c", "server"), ("stack", "Stack up", "docker compose", "c", "cube")],
+        ],
+        edges=[("repo", "check", "fetch", "a"), ("check", "snap", None, "d"), ("snap", "host", None, "m"), ("host", "stack", None, "c")],
+    )),
+    "ng-alert-path": ("flow", dict(
+        code="DX-35",
+        caption="Alerts that share a cause fold into one; quiet hours hold notifications, not alerts.",
+        cols=[
+            [("chk", "Checks", "hosts, services, logs", "c", "terminal"), ("fold", "Dependencies", "fold follow-on alerts", "a", "switch")],
+            [("app", "Nightgrid", "alert list + timeline", "t", "laptop"), ("quiet", "Quiet hours", "hold until morning", "d", "calendar")],
+            [("hook", "Webhook", "ntfy / Discord / JSON", "m", "phone")],
+        ],
+        edges=[("chk", "fold", None, "c"), ("fold", "app", None, "a"), ("fold", "quiet", None, "a"), ("quiet", "hook", None, "m")],
+    )),
+    "ng-status-page": ("flow", dict(
+        code="DX-36",
+        caption="A read-only page behind a secret link; pick Tailscale only and it works wherever your phone is.",
+        cols=[
+            [("ng", "Nightgrid", "serves the page", "t", "laptop")],
+            [("ts", "Tailscale only", "best choice", "c", "lock"), ("lan", "LAN address", "home Wi-Fi only", "d", "router")],
+            [("ph", "Phone", "secret link · 30 s", "a", "phone")],
+        ],
+        edges=[("ng", "ts", None, "c"), ("ng", "lan", None, "d", True), ("ts", "ph", None, "c"), ("lan", "ph", None, "d", True)],
+    )),
+    "ng-update-rollback": ("steps", dict(
+        code="DX-37",
+        caption="Every update records exact image ids and files first, so a rollback is exact too.",
+        items=[
+            ("Check", "Ask which stacks have newer images"),
+            ("Read", "See what changed before you pull"),
+            ("Snapshot", "Image ids, compose and .env saved on the host"),
+            ("Update", "Pull and recreate the stack"),
+            ("Roll back", "If it misbehaves, restore the snapshot"),
+        ],
+        warn_at=3,
+    )),
+    "ng-ups-shutdown": ("steps", dict(
+        code="DX-38",
+        caption="When the power stays out, Nightgrid counts down and shuts the group down cleanly.",
+        items=[
+            ("On battery", "The UPS reports it; ON BATTERY alert fires"),
+            ("Trigger", "Minutes on battery, low runtime or low battery"),
+            ("Countdown", "Red banner, 2 min by default; Cancel or power back stops it"),
+            ("Shutdown", "Hosts power off one by one, the UPS's own host last"),
+        ],
+        warn_at=2,
+    )),
+    # --- Linux skills ------------------------------------------------------------
+    "lx-ssh-tunnels": ("flow", dict(
+        code="DX-40",
+        caption="-L brings a remote port to you, -R sends yours out, -D makes a SOCKS proxy.",
+        cols=[
+            [("l1", "-L 8080:db:5432", "your 8080 → their db", "c", "laptop"), ("r1", "-R 9000:localhost:3000", "their 9000 → your 3000", "a", "laptop"), ("d1", "-D 1080", "SOCKS on your 1080", "m", "laptop")],
+            [("l2", "SSH server", "forwards to db:5432", "c", "server"), ("r2", "SSH server", "listens on 9000", "a", "server"), ("d2", "SSH server", "any host it can reach", "m", "server")],
+        ],
+        edges=[("l1", "l2", "ssh", "c"), ("r2", "r1", "back", "a"), ("d1", "d2", "ssh", "m")],
+        gap=160,
+    )),
+    "lx-boot-chain": ("stack", dict(
+        code="DX-41",
+        caption="Find the last stage that worked; the fix lives in the stage after it.",
+        layers=[
+            ("Firmware", "UEFI or BIOS, finds a boot disk", "d", "chip"),
+            ("Bootloader", "GRUB or systemd-boot, picks a kernel", "a", "terminal"),
+            ("Kernel + initramfs", "drivers, unlock, find root", "c", "chip"),
+            ("Root filesystem", "mounted from fstab", "c", "disk"),
+            ("systemd", "starts units up to the target", "t", "server"),
+        ],
+        note="BOOT ORDER",
+    )),
+    "lx-luks-stack": ("stack", dict(
+        code="DX-42",
+        caption="LUKS sits between the disk and the filesystem; the key slots unlock one master key.",
+        layers=[
+            ("Filesystem", "ext4 / xfs / btrfs, mounted at /data", "c", "doc"),
+            ("/dev/mapper/data", "the unlocked view", "t", "lock"),
+            ("LUKS header", "key slots: passphrase, keyfile, TPM", "a", "key"),
+            ("/dev/sdb1", "encrypted bytes on disk", "d", "disk"),
+        ],
+        note="WRITES",
+    )),
+    "lx-mdadm": ("flow", dict(
+        code="DX-43",
+        caption="mdadm joins partitions into one block device; the filesystem never sees the disks.",
+        cols=[
+            [("a", "/dev/sda1", "member", "d", "disk"), ("b", "/dev/sdb1", "member", "d", "disk"), ("c", "/dev/sdc1", "spare", "d", "disk")],
+            [("md", "/dev/md0", "RAID 1 / 5 / 6 / 10", "a", "chip")],
+            [("fs", "Filesystem", "mounted at /srv", "c", "doc")],
+        ],
+        edges=[("a", "md", None, "c"), ("b", "md", None, "c"), ("c", "md", None, "d", True), ("md", "fs", None, "c")],
+    )),
+    "lx-keepalived": ("flow", dict(
+        code="DX-44",
+        caption="Both nodes run the service; the virtual IP moves to the backup when the master stops answering.",
+        cols=[
+            [("cl", "Clients", "use 192.168.1.50", "t", "laptop")],
+            [("vip", "Virtual IP", "192.168.1.50", "m", "router")],
+            [("m", "Master", "priority 150, holds VIP", "c", "server"), ("b", "Backup", "priority 100, waits", "d", "server")],
+        ],
+        edges=[("cl", "vip", None, "t"), ("vip", "m", None, "c"), ("vip", "b", None, "d", True), ("m", "b", "VRRP adverts", "a", True)],
+    )),
+    "lx-iscsi": ("flow", dict(
+        code="DX-45",
+        caption="The target lends a raw block device; the initiator formats and mounts it like a local disk.",
+        cols=[
+            [("st", "Storage", "zvol / LV / file", "d", "disk")],
+            [("tg", "iSCSI target", "LUN 0, port 3260", "a", "nas")],
+            [("in", "Initiator", "sees /dev/sdX", "c", "server"), ("fs", "Filesystem", "only one writer", "m", "doc")],
+        ],
+        edges=[("st", "tg", None, "d"), ("tg", "in", "LAN", "a"), ("in", "fs", None, "c")],
+    )),
+    "lx-nftables-path": ("flow", dict(
+        code="DX-46",
+        caption="Packets for this host pass input; packets it routes pass forward, then postrouting.",
+        cols=[
+            [("in", "Packet in", "from a NIC", "t", "router"), ("pre", "prerouting", "DNAT happens here", "d", "switch")],
+            [("inp", "input", "to this host", "c", "shield"), ("fw", "forward", "routed through", "a", "shield")],
+            [("proc", "Local process", "sshd, nginx…", "c", "server"), ("post", "postrouting", "masquerade / SNAT", "d", "switch")],
+        ],
+        edges=[("in", "pre", None, "t"), ("pre", "inp", None, "c"), ("pre", "fw", None, "a"), ("inp", "proc", None, "c"), ("fw", "post", None, "a")],
+    )),
+    "lx-zram": ("stack", dict(
+        code="DX-47",
+        caption="Cold pages go to compressed RAM first and only spill to disk swap when that fills.",
+        layers=[
+            ("Programs", "working set in RAM", "c", "chip"),
+            ("Page cache", "dropped first, re-read from disk", "d", "doc"),
+            ("zram", "compressed in RAM, fast", "t", "chip"),
+            ("Swap file", "on disk, slow, last resort", "a", "disk"),
+        ],
+        note="PRESSURE",
+    )),
+    "lx-quadlet": ("flow", dict(
+        code="DX-48",
+        caption="systemd turns a .container file into a service at daemon-reload, so systemctl manages the container.",
+        cols=[
+            [("q", "app.container", "in containers/systemd/", "a", "doc"), ("gen", "Generator", "systemctl daemon-reload", "d", "wrench")],
+            [("svc", "app.service", "start, restart, logs", "c", "terminal")],
+            [("ct", "Podman container", "rootless", "t", "cube")],
+        ],
+        edges=[("q", "gen", None, "a"), ("gen", "svc", None, "c"), ("svc", "ct", None, "c")],
+    )),
+    "lx-acme": ("steps", dict(
+        code="DX-49",
+        caption="The CA checks you control the name, signs a 90-day certificate, and the client renews it early.",
+        items=[
+            ("Order", "Client asks the CA for a name"),
+            ("Challenge", "HTTP-01 file on :80 or DNS-01 TXT record"),
+            ("Validate", "CA checks it from the internet"),
+            ("Certificate", "Signed, valid about 90 days"),
+            ("Renew", "Timer renews about 30 days before"),
+        ],
+    )),
+    "lx-fstab": ("flow", dict(
+        code="DX-50",
+        caption="Mount by UUID so a disk that changes its /dev name still lands in the right place.",
+        cols=[
+            [("dev", "/dev/sdb1", "name can change", "d", "disk"), ("uuid", "UUID=8c1f…", "stays with the fs", "a", "key")],
+            [("fstab", "/etc/fstab", "UUID → /mnt/data", "c", "doc")],
+            [("mnt", "/mnt/data", "nofail if optional", "t", "nas")],
+        ],
+        edges=[("dev", "uuid", "blkid", "d"), ("uuid", "fstab", None, "a"), ("fstab", "mnt", None, "c")],
+    )),
+    "lx-time-sync": ("flow", dict(
+        code="DX-51",
+        caption="One server syncs from public pools and serves the LAN, so every clock agrees for logs and TLS.",
+        cols=[
+            [("pool", "pool.ntp.org", "several servers", "d", "cloud")],
+            [("srv", "chrony server", "allow 192.168.1.0/24", "a", "server")],
+            [("h1", "Hosts", "chrony client", "c", "minipc"), ("h2", "Router, NAS", "point NTP here", "c", "nas")],
+        ],
+        edges=[("pool", "srv", None, "d"), ("srv", "h1", None, "c"), ("srv", "h2", None, "c")],
+    )),
+    "lx-ipmi": ("flow", dict(
+        code="DX-52",
+        caption="The BMC is a computer of its own: it works with the server off. Keep its port on a management network.",
+        cols=[
+            [("you", "Admin", "browser / ipmitool", "t", "laptop")],
+            [("mgmt", "Management LAN", "never the internet", "m", "switch")],
+            [("bmc", "BMC", "power, console, sensors", "a", "chip"), ("os", "Server OS", "data NIC", "c", "server")],
+        ],
+        edges=[("you", "mgmt", None, "t"), ("mgmt", "bmc", None, "m"), ("bmc", "os", "controls", "a")],
+    )),
+    "lx-btrfs-snapper": ("flow", dict(
+        code="DX-53",
+        caption="Snapshots are subvolumes that share unchanged blocks; they cost only what changes later.",
+        cols=[
+            [("top", "Btrfs volume", "one filesystem", "a", "disk")],
+            [("root", "@", "mounted at /", "c", "doc"), ("home", "@home", "mounted at /home", "c", "doc")],
+            [("s1", ".snapshots/41", "before apt upgrade", "t", "tape"), ("s2", ".snapshots/42", "hourly timeline", "t", "tape")],
+        ],
+        edges=[("top", "root", None, "d"), ("top", "home", None, "d"), ("root", "s1", "snapper", "t", True), ("root", "s2", None, "t", True)],
+        gap=90,
+    )),
+    # --- Self-hosted apps --------------------------------------------------------
+    "app-forward-auth": ("flow", dict(
+        code="DX-60",
+        caption="The proxy asks the auth server about every request; only signed-in users reach the app.",
+        cols=[
+            [("u", "Browser", "admin.example.com", "t", "laptop")],
+            [("px", "Reverse proxy", "forward_auth", "a", "shield"), ("auth", "Authelia", "login + 2FA", "m", "lock")],
+            [("app", "Admin app", "no login of its own", "c", "cube")],
+        ],
+        edges=[("u", "px", None, "t"), ("px", "auth", "allowed?", "m"), ("px", "app", "yes", "c")],
+    )),
+    "app-oidc": ("flow", dict(
+        code="DX-61",
+        caption="Apps that speak OIDC send users to authentik to sign in; the rest sit behind its proxy outpost.",
+        cols=[
+            [("u", "User", "one account", "t", "person")],
+            [("ak", "authentik", "OIDC provider", "m", "key")],
+            [("a1", "Nextcloud", "OIDC login", "c", "cube"), ("a2", "Grafana", "OIDC login", "c", "cube"), ("a3", "Old app", "via proxy outpost", "a", "shield")],
+        ],
+        edges=[("u", "ak", "sign in", "t"), ("ak", "a1", None, "c"), ("ak", "a2", None, "c"), ("ak", "a3", None, "a", True)],
+    )),
+    "app-ha-zigbee": ("flow", dict(
+        code="DX-62",
+        caption="Zigbee2MQTT talks to the radio and publishes to MQTT; Home Assistant discovers the devices there.",
+        cols=[
+            [("dev", "Zigbee devices", "sensors, bulbs", "t", "bulb"), ("stick", "USB coordinator", "/dev/serial/by-id/…", "a", "chip")],
+            [("z2m", "Zigbee2MQTT", "pairing frontend", "c", "cube"), ("mq", "MQTT broker", "Mosquitto + password", "m", "switch")],
+            [("ha", "Home Assistant", "MQTT discovery", "c", "house")],
+        ],
+        edges=[("dev", "stick", "radio", "t", True), ("stick", "z2m", None, "a"), ("z2m", "mq", None, "c"), ("mq", "ha", None, "m")],
+    )),
+    "app-frigate": ("flow", dict(
+        code="DX-63",
+        caption="Frigate records the camera streams locally and sends events to Home Assistant through MQTT.",
+        cols=[
+            [("cam", "IP cameras", "RTSP streams", "t", "photo")],
+            [("fr", "Frigate", "detect + record", "c", "cube"), ("acc", "Detector", "Coral / GPU / CPU", "a", "chip")],
+            [("disk", "Recordings", "your own disk", "d", "disk"), ("ha", "Home Assistant", "events via MQTT", "c", "house")],
+        ],
+        edges=[("cam", "fr", None, "t"), ("fr", "acc", None, "a"), ("fr", "disk", None, "d"), ("fr", "ha", None, "c")],
+    )),
+    "app-immich": ("flow", dict(
+        code="DX-64",
+        caption="Phones upload to the server; machine learning runs next to it; back up the library and the database.",
+        cols=[
+            [("ph", "Immich app", "background upload", "t", "phone")],
+            [("srv", "immich-server", "API + web", "c", "cube"), ("ml", "machine-learning", "local search, faces", "a", "chip")],
+            [("lib", "Library folder", "originals", "m", "photo"), ("db", "PostgreSQL", "metadata", "m", "disk")],
+        ],
+        edges=[("ph", "srv", None, "t"), ("srv", "ml", None, "a"), ("srv", "lib", None, "m"), ("srv", "db", None, "m")],
+    )),
+    "app-nextcloud": ("flow", dict(
+        code="DX-65",
+        caption="Nextcloud is PHP plus a database, Redis for locking and cache, and cron for background jobs.",
+        cols=[
+            [("cl", "Sync clients", "desktop + phone", "t", "laptop")],
+            [("px", "Reverse proxy", "cloud.example.com", "a", "shield")],
+            [("db", "MariaDB / Postgres", "database", "m", "disk"), ("nc", "Nextcloud", "app + data folder", "c", "cube"), ("rd", "Redis + cron", "locks, jobs", "d", "chip")],
+        ],
+        edges=[("cl", "px", None, "t"), ("px", "nc", None, "c"), ("nc", "db", None, "m"), ("nc", "rd", None, "d", True)],
+    )),
+    "app-jellyfin": ("flow", dict(
+        code="DX-66",
+        caption="Jellyfin reads the media read-only and transcodes on the GPU through /dev/dri when a client needs it.",
+        cols=[
+            [("media", "Media folders", "mounted read-only", "d", "film")],
+            [("jf", "Jellyfin", "port 8096", "c", "cube"), ("gpu", "/dev/dri", "VA-API / QSV", "a", "gpu")],
+            [("tv", "TV, phone", "on the LAN", "t", "phone"), ("away", "Away", "over the tailnet", "t", "laptop")],
+        ],
+        edges=[("media", "jf", None, "d"), ("jf", "gpu", "transcode", "a"), ("jf", "tv", None, "c"), ("jf", "away", None, "c", True)],
+    )),
+    "app-paperless": ("flow", dict(
+        code="DX-67",
+        caption="Drop a scan in the consume folder; Paperless OCRs, files and tags it, and you search it later.",
+        cols=[
+            [("sc", "Scanner", "scan to SMB", "t", "doc"), ("mail", "Mail / upload", "other inputs", "d", "doc")],
+            [("cons", "consume/", "watched folder", "a", "nas")],
+            [("pl", "Paperless-ngx", "OCR, tags, search", "c", "cube"), ("exp", "Exporter", "back this up", "m", "tape")],
+        ],
+        edges=[("sc", "cons", None, "t"), ("mail", "cons", None, "d", True), ("cons", "pl", None, "a"), ("pl", "exp", None, "m")],
+    )),
+    "app-syncthing": ("flow", dict(
+        code="DX-68",
+        caption="An always-on server joins the cluster, so devices that are never online together still sync.",
+        cols=[
+            [("lap", "Laptop", "online by day", "t", "laptop"), ("ph", "Phone", "online sometimes", "t", "phone")],
+            [("srv", "Server", "always on, versions", "a", "server")],
+            [("desk", "Desktop", "online at night", "t", "laptop")],
+        ],
+        edges=[("lap", "srv", None, "c", False, False), ("ph", "srv", None, "c", False, False), ("srv", "desk", None, "c", False, False)],
+    )),
+    "app-backup-repo": ("flow", dict(
+        code="DX-69",
+        caption="A timer runs the backup; data is chunked, deduplicated and encrypted before it leaves the host.",
+        cols=[
+            [("src", "/etc, /opt/stacks", "and your data", "d", "doc"), ("tm", "systemd timer", "nightly", "a", "calendar")],
+            [("rs", "Backup tool", "chunk, dedupe, encrypt", "c", "lock")],
+            [("loc", "Local repo", "second disk / NAS", "c", "nas"), ("off", "Offsite repo", "S3 / B2 / SFTP", "m", "cloud")],
+        ],
+        edges=[("src", "rs", None, "d"), ("tm", "rs", None, "a", True), ("rs", "loc", None, "c"), ("rs", "off", None, "m")],
+    )),
+    "app-pbs": ("flow", dict(
+        code="DX-70",
+        caption="Proxmox sends only changed blocks to PBS, which deduplicates, verifies and prunes on its own schedule.",
+        cols=[
+            [("pve", "Proxmox VE", "backup job", "c", "server")],
+            [("pbs", "Backup Server", "other hardware", "a", "nas")],
+            [("ds", "Datastore", "dedup chunks", "d", "disk"), ("job", "Verify + prune", "scheduled", "t", "calendar")],
+        ],
+        edges=[("pve", "pbs", "changed blocks", "c"), ("pbs", "ds", None, "d"), ("pbs", "job", None, "t")],
+        gap=120,
+    )),
+    "app-rclone-crypt": ("flow", dict(
+        code="DX-71",
+        caption="rclone encrypts names and contents before upload, so the provider stores only noise.",
+        cols=[
+            [("data", "Your files", "on the server", "t", "doc")],
+            [("crypt", "crypt remote", "your password", "m", "lock")],
+            [("cloud", "Cloud storage", "sees ciphertext", "d", "cloud")],
+        ],
+        edges=[("data", "crypt", "rclone sync", "t"), ("crypt", "cloud", None, "m")],
+        gap=110,
+    )),
+    "app-k3s": ("flow", dict(
+        code="DX-72",
+        caption="One server runs the control plane and Traefik ingress; agents join with the node token.",
+        cols=[
+            [("you", "kubectl / Helm", "kubeconfig", "t", "laptop")],
+            [("srv", "k3s server", "control plane :6443", "a", "server")],
+            [("a1", "Agent", "runs pods", "c", "minipc"), ("a2", "Agent", "runs pods", "c", "minipc")],
+        ],
+        edges=[("you", "srv", None, "t"), ("srv", "a1", None, "c"), ("srv", "a2", None, "c")],
+    )),
+    "app-gluetun": ("flow", dict(
+        code="DX-73",
+        caption="Containers share Gluetun's network: if the VPN drops, their traffic stops instead of leaking.",
+        cols=[
+            [("q", "Download client", "network_mode: service", "c", "cube"), ("o", "Other app", "same network", "c", "cube")],
+            [("gl", "Gluetun", "VPN + kill switch", "m", "shield")],
+            [("vpn", "VPN provider", "WireGuard / OpenVPN", "d", "cloud")],
+        ],
+        edges=[("q", "gl", None, "c"), ("o", "gl", None, "c"), ("gl", "vpn", "tunnel", "m")],
+    )),
+    "app-headscale": ("flow", dict(
+        code="DX-74",
+        caption="Headscale only coordinates keys and routes; devices still connect to each other directly.",
+        cols=[
+            [("hs", "Headscale", "public HTTPS name", "a", "server")],
+            [("d1", "Laptop", "pre-auth key", "t", "laptop"), ("d2", "Server", "pre-auth key", "c", "server")],
+        ],
+        edges=[("hs", "d1", "keys, routes", "a", True), ("hs", "d2", None, "a", True), ("d1", "d2", "direct", "m")],
+        gap=160,
+    )),
+    "app-loki": ("flow", dict(
+        code="DX-75",
+        caption="Alloy on each host ships the journal and Docker logs to Loki; Grafana searches them.",
+        cols=[
+            [("h1", "Host A", "Alloy agent", "c", "server"), ("h2", "Host B", "Alloy agent", "c", "server")],
+            [("loki", "Loki", "retention you set", "a", "disk")],
+            [("gr", "Grafana", "Explore + panels", "t", "laptop")],
+        ],
+        edges=[("h1", "loki", None, "c"), ("h2", "loki", None, "c"), ("gr", "loki", "LogQL", "t")],
+    )),
+    "app-healthchecks": ("flow", dict(
+        code="DX-76",
+        caption="Each job pings its URL when it finishes; silence past the grace time is what raises the alert.",
+        cols=[
+            [("job", "Backup job", "curl on success", "c", "terminal")],
+            [("hc", "Healthchecks", "expects a ping", "a", "calendar")],
+            [("al", "Alert", "late, failed, hung", "m", "phone")],
+        ],
+        edges=[("job", "hc", "ping", "c"), ("hc", "al", "no ping", "m")],
+        gap=110,
+    )),
+    "app-mergerfs": ("flow", dict(
+        code="DX-77",
+        caption="mergerfs shows the data disks as one mount; SnapRAID parity can rebuild any one failed disk.",
+        cols=[
+            [("pool", "/mnt/storage", "one mergerfs mount", "t", "nas")],
+            [("d1", "Data disk 1", "any size", "c", "disk"), ("d2", "Data disk 2", "any size", "c", "disk"), ("d3", "Data disk 3", "any size", "c", "disk")],
+            [("par", "Parity disk", "≥ largest data disk", "a", "disk")],
+        ],
+        edges=[("pool", "d1", None, "t"), ("pool", "d2", None, "t"), ("pool", "d3", None, "t"), ("d1", "par", None, "a", True), ("d2", "par", None, "a", True), ("d3", "par", None, "a", True)],
+    )),
+    "app-nfs": ("flow", dict(
+        code="DX-78",
+        caption="The server exports a path to your LAN; clients automount it on first access.",
+        cols=[
+            [("srv", "NFS server", "/etc/exports", "a", "nas")],
+            [("c1", "Client", "x-systemd.automount", "c", "server"), ("c2", "Client", "x-systemd.automount", "c", "minipc")],
+        ],
+        edges=[("srv", "c1", "NFSv4 :2049", "a"), ("srv", "c2", None, "a")],
+        gap=160,
+    )),
+}
+
+PLACE = {
+    "howto/firewall": ("ng-firewall-rollback", "Look, change, test, keep: the host undoes a change you don't confirm."),
+    "howto/tunnels": ("ng-tunnels", "A tunnel carries a localhost-only admin panel inside the host's SSH connection."),
+    "howto/web-uis": ("ng-web-ui-window", "A web UI window dials the app directly, or through a temporary SSH tunnel."),
+    "howto/vm-desktops": ("ng-vm-console", "The VM's console reaches Nightgrid's VNC client through SSH, never an open port."),
+    "howto/stacks-from-git": ("ng-stacks-git", "Check, review, snapshot, deploy: the host does the git work itself."),
+    "howto/alerts": ("ng-alert-path", "From check to phone: folding, quiet hours and the webhook."),
+    "howto/status-page": ("ng-status-page", "The phone status page over Tailscale or the LAN."),
+    "howto/container-updates": ("ng-update-rollback", "Check, read, snapshot, update, and roll back if needed."),
+    "howto/ups": ("ng-ups-shutdown", "What happens from a power cut to a clean group shutdown."),
+    "linux/ssh-tunnels": ("lx-ssh-tunnels", "Local, remote and dynamic forwards side by side."),
+    "linux/boot-rescue": ("lx-boot-chain", "The boot chain, stage by stage."),
+    "linux/luks": ("lx-luks-stack", "Where LUKS sits between the disk and the filesystem."),
+    "linux/mdadm-raid": ("lx-mdadm", "Partitions become one md device, which carries the filesystem."),
+    "linux/keepalived": ("lx-keepalived", "A virtual IP that moves between two nodes with VRRP."),
+    "linux/iscsi": ("lx-iscsi", "An iSCSI target lends a block device to one initiator."),
+    "linux/nftables": ("lx-nftables-path", "The netfilter hooks a packet passes through."),
+    "linux/swap-zram": ("lx-zram", "Memory pressure, from page cache to zram to disk swap."),
+    "linux/podman-quadlets": ("lx-quadlet", "From a .container file to a systemd service."),
+    "linux/acme-certs": ("lx-acme", "How an ACME certificate is issued and renewed."),
+    "linux/disks-fstab": ("lx-fstab", "From a device name to a mount point that survives reboots."),
+    "linux/time-sync": ("lx-time-sync", "One chrony server keeps the whole LAN on time."),
+    "linux/ipmi": ("lx-ipmi", "The BMC on its own management network."),
+    "linux/btrfs-snapper": ("lx-btrfs-snapper", "Subvolumes and Snapper snapshots on one Btrfs volume."),
+    "apps/authelia": ("app-forward-auth", "Forward auth: the proxy checks every request with Authelia first."),
+    "apps/authentik": ("app-oidc", "One authentik account signs you into OIDC apps and proxied ones."),
+    "apps/zigbee2mqtt": ("app-ha-zigbee", "From a Zigbee device to Home Assistant through Zigbee2MQTT and MQTT."),
+    "apps/home-assistant": ("app-ha-zigbee", "How Zigbee devices reach Home Assistant through MQTT."),
+    "apps/frigate": ("app-frigate", "Cameras into Frigate, recordings on disk, events into Home Assistant."),
+    "apps/immich": ("app-immich", "The parts of an Immich install and what to back up."),
+    "apps/nextcloud": ("app-nextcloud", "What a healthy Nextcloud install is made of."),
+    "apps/jellyfin": ("app-jellyfin", "Media in, GPU transcoding, viewing at home and away."),
+    "apps/paperless-ngx": ("app-paperless", "Scans land in the consume folder and come out searchable."),
+    "apps/syncthing": ("app-syncthing", "An always-on server keeps every device in sync."),
+    "apps/restic": ("app-backup-repo", "A nightly restic run to a local and an offsite repository."),
+    "apps/borgmatic": ("app-backup-repo", "A nightly borgmatic run to a local and a remote repository."),
+    "apps/kopia": ("app-backup-repo", "A scheduled Kopia snapshot to a local and an offsite repository."),
+    "apps/proxmox-backup-server": ("app-pbs", "Proxmox VE backing up to a separate Backup Server."),
+    "apps/rclone": ("app-rclone-crypt", "An rclone crypt remote in front of cloud storage."),
+    "apps/k3s": ("app-k3s", "A k3s server with two agents."),
+    "apps/gluetun": ("app-gluetun", "Containers sending all traffic through Gluetun's VPN."),
+    "apps/headscale": ("app-headscale", "Headscale coordinates; devices talk to each other directly."),
+    "apps/loki": ("app-loki", "Logs from every host into Loki, searched from Grafana."),
+    "apps/healthchecks": ("app-healthchecks", "Dead man's switch: jobs ping, silence alerts."),
+    "apps/mergerfs-snapraid": ("app-mergerfs", "Data disks pooled by mergerfs and protected by SnapRAID parity."),
+    "apps/nfs": ("app-nfs", "One NFS export, automounted on two clients."),
+    # existing diagrams that fit more articles
+    "apps/tailscale-subnet-router": ("tailnet-subnet", "A subnet router lets tailnet devices reach the whole LAN."),
+    "howto/remote-access": ("tailnet-subnet", "Away from home: the tailnet plus a subnet router reach the LAN."),
+    "apps/pihole": ("dns-chain", "Where Pi-hole sits in the DNS chain."),
+    "apps/adguard-home": ("dns-chain", "Where a filtering DNS server sits in the chain (Pi-hole shown, AdGuard Home works the same)."),
+    "apps/traefik": ("reverse-proxy", "One proxy in front, apps on internal ports behind it."),
+    "apps/caddy": ("reverse-proxy", "One proxy in front, apps on internal ports behind it."),
+    "apps/nginx-proxy-manager": ("reverse-proxy", "One proxy in front, apps on internal ports behind it."),
+    "linux/nginx": ("reverse-proxy", "nginx as a reverse proxy in front of several apps."),
+    "howto/proxy-routes": ("reverse-proxy", "What a proxy route is: a host name forwarded to an internal port."),
+    "howto/ssh-keys": ("ssh-keys", "Your private key stays home; hosts hold only the public half."),
+    "howto/backups": ("backups-321", "The 3-2-1 rule the backup board helps you keep."),
+    "howto/deploy-stack": ("compose-anatomy", "What a compose file turns into on the host."),
+    "apps/truenas": ("zfs-layout", "The ZFS layout TrueNAS builds for you."),
+}

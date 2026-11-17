@@ -2,6 +2,8 @@
 
 Copy backups or important folders to cloud storage (S3, Backblaze B2, Google Drive, OneDrive, another SFTP server) with rclone, encrypted on the way, on a timer.
 
+![An rclone crypt remote in front of cloud storage.](fig:app-rclone-crypt)
+
 ## What you end up with
 
 - An encrypted offsite copy that the provider can't read

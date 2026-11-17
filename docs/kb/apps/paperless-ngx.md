@@ -2,6 +2,8 @@
 
 Scan or drop paper documents into a folder and get them OCR'd, tagged and searchable. Receipts, letters, warranties and contracts, all in one archive.
 
+![Scans land in the consume folder and come out searchable.](fig:app-paperless)
+
 ## What you end up with
 
 - A consume folder (also reachable over SMB from your scanner) that imports automatically

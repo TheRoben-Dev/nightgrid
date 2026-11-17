@@ -2,6 +2,8 @@
 
 Use Nightgrid's built-in Tailscale client so your hosts work from a café or a phone hotspot, without installing the Tailscale app on this computer and without opening ports at home.
 
+![Away from home: the tailnet plus a subnet router reach the LAN.](fig:tailnet-subnet)
+
 ## What you end up with
 
 - Nightgrid joined to your tailnet as its own device

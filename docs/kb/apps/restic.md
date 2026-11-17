@@ -2,6 +2,8 @@
 
 Back up a server's important folders with restic to a local disk, another server or S3-compatible storage, on a nightly timer, with pruning and checks, and watch it from Nightgrid.
 
+![A nightly restic run to a local and an offsite repository.](fig:app-backup-repo)
+
 ## What you end up with
 
 - Encrypted, deduplicated snapshots of `/etc`, `/opt/stacks` and your data

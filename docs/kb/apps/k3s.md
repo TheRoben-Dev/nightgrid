@@ -2,6 +2,8 @@
 
 Run a small Kubernetes cluster on one or a few machines with k3s: a single binary with storage, ingress and load balancing built in. Useful for learning Kubernetes or running Helm charts.
 
+![A k3s server with two agents.](fig:app-k3s)
+
 ## What you end up with
 
 - A k3s server (and optional agents) with Traefik ingress and local-path storage

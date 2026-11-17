@@ -2,6 +2,8 @@
 
 Find out which images have new versions, read what changed, update with a snapshot taken first, and roll back if the new version misbehaves.
 
+![Check, read, snapshot, update, and roll back if needed.](fig:ng-update-rollback)
+
 ## What you end up with
 
 - A list of stacks with newer images, checked only when you ask

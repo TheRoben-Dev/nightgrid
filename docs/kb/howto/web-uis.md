@@ -2,6 +2,8 @@
 
 Open Portainer, qBittorrent, Home Assistant or any container's web page in its own Nightgrid window, from home or away, without publishing ports or adding proxy routes.
 
+![A web UI window dials the app directly, or through a temporary SSH tunnel.](fig:ng-web-ui-window)
+
 ## What you end up with
 
 - **⧉** on a container's row that opens its web page in a window

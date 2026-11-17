@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.78] - 2026-11-17
+
+### Added: diagrams across the Library
+- **42 new diagrams**: Nightgrid how-tos (firewall rollback, tunnels, web UI windows, VM consoles, stacks from git, the alert path, the phone status page, update and rollback, UPS shutdown), Linux skills (SSH forwards, the boot chain, LUKS, mdadm, keepalived, iSCSI, nftables hooks, zram, Quadlets, ACME, fstab, chrony, IPMI, Btrfs snapshots) and apps (Authelia, authentik, Zigbee2MQTT and Home Assistant, Frigate, Immich, Nextcloud, Jellyfin, Paperless-ngx, Syncthing, restic/borgmatic/Kopia, PBS, rclone crypt, k3s, Gluetun, Headscale, Loki, Healthchecks, mergerfs + SnapRAID, NFS).
+- Existing diagrams now also appear where they fit: reverse proxies (Traefik, Caddy, NPM, nginx, proxy routes), the DNS chain (Pi-hole, AdGuard Home), the tailnet (subnet router, remote access) and more.
+- 89 articles now have a picture; 72 figures, about 465 KB in all.
+
 ## [0.10.77] - 2026-11-17
 
 ### Added: more Library diagrams

@@ -2,6 +2,8 @@
 
 Run Traefik v3 with Docker labels for automatic routes and a file provider folder that Nightgrid's route editor can write to.
 
+![One proxy in front, apps on internal ports behind it.](fig:reverse-proxy)
+
 ## What you end up with
 
 - Routes from container labels, picked up as containers start

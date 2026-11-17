@@ -2,6 +2,8 @@
 
 Watch a UPS's charge, runtime and load in Nightgrid, get alerted on battery, and shut a group of hosts down cleanly when the power stays out.
 
+![What happens from a power cut to a clean group shutdown.](fig:ng-ups-shutdown)
+
 ## What you end up with
 
 - Every UPS with state, charge, runtime, load and input voltage, read every 30 seconds

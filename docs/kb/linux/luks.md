@@ -2,6 +2,8 @@
 
 Encrypt a data disk or a whole server so a stolen drive, a returned RMA disk or a sold machine gives nothing away. Unlock it at boot with a passphrase, a key file, or the TPM.
 
+![Where LUKS sits between the disk and the filesystem.](fig:lx-luks-stack)
+
 ## What you end up with
 
 - An encrypted data disk mounted at boot

@@ -2,6 +2,8 @@
 
 Run containers with Podman, rootless if you like, managed by systemd through Quadlet files: they start at boot, restart on failure, log to the journal and auto-update if you want.
 
+![From a .container file to a systemd service.](fig:lx-quadlet)
+
 ## What you end up with
 
 - A `.container` file per app that systemd turns into a service

@@ -2,6 +2,8 @@
 
 Put all your web apps behind one Caddy container with automatic HTTPS, then add and change sites from Nightgrid's route editor.
 
+![One proxy in front, apps on internal ports behind it.](fig:reverse-proxy)
+
 ## What you end up with
 
 - Caddy on ports 80 and 443 with Let's Encrypt certificates renewed by itself

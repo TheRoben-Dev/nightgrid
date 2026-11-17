@@ -642,6 +642,162 @@ def fig_prometheus():
     return finish(p)
 
 
+# --- layouts for many small diagrams ---------------------------------------------
+# Most articles need one of three shapes, so they are described as data:
+#   flow(...)      boxes in columns with arrows between them
+#   stack(...)     layers from top to bottom (boot chains, storage stacks)
+#   steps(...)     a numbered procedure from left to right
+# Each layout warns on stderr when a label would spill out of its box.
+
+COLORS = {"c": CYAN, "m": MAGENTA, "a": AMBER, "t": MINT, "d": DIM}
+W = 960
+
+
+def _warn(name, msg):
+    print(f"  ! {name}: {msg}", file=sys.stderr)
+
+
+def _fits(name, s, size, room):
+    width = len(s) * (0.62 * size if size >= 15 else 0.61 * size)
+    if width > room:
+        _warn(name, f"{s!r} needs {width:.0f}px, has {room:.0f}px")
+
+
+def flow(code, caption, cols, edges=(), zones=(), gap=80, nh=60, row=88, name=""):
+    """cols: [[(id, title, sub, color, icon), ...], ...]; edges: (a, b[, label[, color[, dash[, arrow]]]]);
+    zones: (label, [ids]) draws a dashed box around those nodes."""
+    n = len(cols)
+    nw = min(270, (W - 60 - (n - 1) * gap) / n)
+    total = n * nw + (n - 1) * gap
+    x0 = (W - total) / 2
+    rows = max(len(c) for c in cols)
+    top = 62 + (24 if zones else 0)
+    h = max(250, top + rows * row + 58)
+    mid = (top + h - 50) / 2
+    pos = {}
+    for ci, col in enumerate(cols):
+        y0 = mid - (len(col) * row - (row - nh)) / 2
+        for ri, nd in enumerate(col):
+            pos[nd[0]] = (x0 + ci * (nw + gap), y0 + ri * row, ci)
+    p = frame(W, h, code)
+    for label, ids in zones:
+        xs = [pos[i][0] for i in ids]
+        ys = [pos[i][1] for i in ids]
+        p.append(zone(min(xs) - 14, min(ys) - 30, max(xs) - min(xs) + nw + 28, max(ys) - min(ys) + nh + 44, label))
+    for e in edges:
+        a, b = e[0], e[1]
+        label = e[2] if len(e) > 2 else None
+        color = COLORS.get(e[3], e[3]) if len(e) > 3 else DIM
+        dash = e[4] if len(e) > 4 else False
+        arrow = e[5] if len(e) > 5 else True
+        xa, ya, ca = pos[a]
+        xb, yb, cb = pos[b]
+        if cb > ca:
+            sx, sy, tx, ty = xa + nw, ya + nh / 2, xb, yb + nh / 2
+            mx = tx - gap / 2
+            pts = [(sx, sy), (tx, ty)] if abs(sy - ty) < 1 else [(sx, sy), (mx, sy), (mx, ty), (tx, ty)]
+            lpos = (mx, min(sy, ty) - 8) if len(pts) == 4 else ((sx + tx) / 2, ty - 8)
+            room = gap
+        elif cb < ca:
+            sx, sy, tx, ty = xa, ya + nh / 2, xb + nw, yb + nh / 2
+            mx = tx + gap / 2
+            pts = [(sx, sy), (tx, ty)] if abs(sy - ty) < 1 else [(sx, sy), (mx, sy), (mx, ty), (tx, ty)]
+            lpos = (mx, min(sy, ty) - 8) if len(pts) == 4 else ((sx + tx) / 2, ty - 8)
+            room = gap
+        else:
+            cx = xa + nw / 2
+            pts = [(cx, ya + nh), (cx, yb)] if yb > ya else [(cx, ya), (cx, yb + nh)]
+            lpos = (cx + 10, (pts[0][1] + pts[1][1]) / 2 + 4)
+            room = 400
+        if label and cb == ca:
+            p.append(wire(pts, color, dash, arrow))
+            p.append(t(lpos[0], lpos[1], label, 12, color))
+        else:
+            if label:
+                _fits(name, label, 13, room * 2 - 6)
+            p.append(wire(pts, color, dash, arrow, label=label, lpos=lpos))
+    for col in cols:
+        for nd in col:
+            i, title, sub, color, icon = (list(nd) + [None] * 5)[:5]
+            x, y, _ = pos[i]
+            def need(size, txt):
+                return len(txt or "") * 0.62 * size
+            if icon and max(need(17, title), need(13, sub)) > nw - 62 and max(need(17, title), need(13, sub)) <= nw - 22:
+                icon = None  # narrow box: the words matter more than the icon
+            room = nw - (54 if icon else 14) - 8
+            _fits(name, title, 17, room)
+            _fits(name, sub or "", 13, room)
+            p.append(node(x, y, nw, nh, title, sub or "", COLORS.get(color, color or CYAN), icon))
+    _fits(name, caption, 14, W - 40)
+    p.append(caption_bar(W, h, caption))
+    return finish(p)
+
+
+def stack(code, caption, layers, note=None, name=""):
+    """layers: [(title, sub, color, icon), ...] from top to bottom; note: text beside the arrow."""
+    lh, gapy = 52, 16
+    h = 60 + len(layers) * (lh + gapy) + 50
+    p = frame(W, h, code)
+    x, w = 150, 660
+    for i, (title, sub, color, icon) in enumerate(layers):
+        y = 50 + i * (lh + gapy)
+        col = COLORS.get(color, color)
+        p.append(f'<path d="{chamfer(x, y, w, lh)}" fill="{PANEL}" stroke="{col}" stroke-width="1.5"/>')
+        p.append(f'<rect x="{x}" y="{y}" width="4" height="{lh}" fill="{col}"/>')
+        if icon:
+            p.append(ICONS[icon](x + 30, y + lh / 2, 18, col))
+        p.append(t(x + 58, y + lh / 2 + 6, title, 17, TEXT, weight=700))
+        p.append(t(x + w - 16, y + lh / 2 + 5, sub, 13, DIM, anchor="end"))
+        _fits(name, title + "  " + sub, 15, w - 80)
+        p.append(t(x - 18, y + lh / 2 + 5, f"{i + 1:02d}", 13, col, anchor="end", weight=700))
+        if i:
+            p.append(f'<path d="M{x + w / 2},{y - gapy + 2} V{y - 2}" stroke="{LINE}" stroke-width="2"/>')
+    y1, y2 = 50 + lh / 2, 50 + (len(layers) - 1) * (lh + gapy) + lh / 2
+    p.append(wire([(x + w + 40, y1), (x + w + 40, y2)], AMBER))
+    if note:
+        p.append(f'<text x="{x + w + 64}" y="{(y1 + y2) / 2}" font-family="{MONO}" font-size="12" fill="{AMBER}" text-anchor="middle" transform="rotate(90 {x + w + 64} {(y1 + y2) / 2})">{escape(note)}</text>')
+    _fits(name, caption, 14, W - 40)
+    p.append(caption_bar(W, h, caption))
+    return finish(p)
+
+
+def _wrap(s, width):
+    words, lines, cur = s.split(), [], ""
+    for wd in words:
+        if cur and len(cur) + 1 + len(wd) > width:
+            lines.append(cur)
+            cur = wd
+        else:
+            cur = f"{cur} {wd}".strip()
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def steps(code, caption, items, warn_at=None, name=""):
+    """items: [(title, detail), ...] left to right; warn_at: index drawn in magenta (the risky step)."""
+    n = len(items)
+    sw = (W - 60) / n
+    chars = int((sw - 20) / 7.9)
+    details = [_wrap(d, chars) for _, d in items]
+    h = 150 + max(len(d) for d in details) * 17 + 50
+    p = frame(W, h, code)
+    p.append(f'<rect x="{30 + sw / 2}" y="69" width="{sw * (n - 1)}" height="2" fill="{LINE}"/>')
+    for i, (title, _) in enumerate(items):
+        cx = 30 + sw * i + sw / 2
+        col = MAGENTA if warn_at == i else (AMBER if i == n - 1 else CYAN)
+        p.append(f'<path d="M{cx},{52} L{cx + 18},{70} L{cx},{88} L{cx - 18},{70} Z" fill="{BG}" stroke="{col}" stroke-width="2"/>')
+        p.append(t(cx, 75, f"{i + 1:02d}", 13, col, anchor="middle", weight=700))
+        _fits(name, title, 16, sw - 10)
+        p.append(t(cx, 116, title, 16, TEXT, anchor="middle", weight=700))
+        for li, line in enumerate(details[i]):
+            p.append(t(cx, 140 + li * 17, line, 13, DIM, anchor="middle"))
+    _fits(name, caption, 14, W - 40)
+    p.append(caption_bar(W, h, caption))
+    return finish(p)
+
+
+
 FIGURES = {
     **{name: (lambda v=v: banner(*v)) for name, v in GUIDES.items()},
     "reverse-proxy": fig_reverse_proxy,
@@ -662,6 +818,14 @@ FIGURES = {
     "nut-network": fig_nut,
     "prometheus-pull": fig_prometheus,
 }
+
+# Data-driven figures; see kb_figspecs.py.
+from kb_figspecs import SPECS  # noqa: E402
+
+LAYOUTS = {"flow": flow, "stack": stack, "steps": steps}
+for _name, (_kind, _kw) in SPECS.items():
+    FIGURES[_name] = lambda k=_kind, kw=_kw, n=_name: LAYOUTS[k](**kw, name=n)
+
 
 
 def main(argv):

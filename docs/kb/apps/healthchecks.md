@@ -2,6 +2,8 @@
 
 Get alerted when a scheduled job does *not* run: backups, scrubs, certificate renewals. Each job pings a URL when it finishes; Healthchecks alerts when a ping is late.
 
+![Dead man's switch: jobs ping, silence alerts.](fig:app-healthchecks)
+
 ## What you end up with
 
 - A self-hosted Healthchecks instance with a check per job

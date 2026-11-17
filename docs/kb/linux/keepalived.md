@@ -2,6 +2,8 @@
 
 Give a service one address that moves between two servers: if the main one dies, the backup takes over the IP within seconds and clients never notice. The classic homelab use is two DNS servers (Pi-hole, AdGuard, Technitium) behind one DNS address handed out by DHCP.
 
+![A virtual IP that moves between two nodes with VRRP.](fig:lx-keepalived)
+
 ## What you end up with
 
 - A virtual IP (VIP) such as `192.168.1.53` owned by one of two hosts

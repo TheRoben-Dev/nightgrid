@@ -2,6 +2,8 @@
 
 Back up Proxmox VMs and containers incrementally with deduplication, verify them, and restore single files, using a separate Proxmox Backup Server (PBS).
 
+![Proxmox VE backing up to a separate Backup Server.](fig:app-pbs)
+
 ## What you end up with
 
 - PBS on its own machine (or a VM on different hardware) with a datastore

@@ -2,6 +2,8 @@
 
 Fast, encrypted, deduplicated backups with snapshot policies, compression and a built-in UI, to local disks, SFTP, S3 or a Kopia repository server.
 
+![A scheduled Kopia snapshot to a local and an offsite repository.](fig:app-backup-repo)
+
 ## Part 1 · Install on a host
 
 - [ ] Install from Kopia's apt repository (see its docs) or the release binary.

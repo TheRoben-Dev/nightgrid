@@ -2,6 +2,8 @@
 
 A reverse proxy you click together in a web UI, with Let's Encrypt built in. Good if you prefer forms to config files.
 
+![One proxy in front, apps on internal ports behind it.](fig:reverse-proxy)
+
 ## What you end up with
 
 - Proxy hosts, redirects and certificates managed in NPM's UI

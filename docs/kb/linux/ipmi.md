@@ -2,6 +2,8 @@
 
 Server boards from Supermicro, Dell (iDRAC), HPE (iLO), Lenovo (XCC) and ASRock Rack have a small management controller (BMC) on its own network port. It gives you power control, sensors and a console even when the OS is off or hung.
 
+![The BMC on its own management network.](fig:lx-ipmi)
+
 ## What you end up with
 
 - Power on, off and reset from the command line

@@ -2,6 +2,8 @@
 
 See every domain your reverse proxy serves, where it forwards and how long its certificate has left, and add or change Caddy and Traefik routes with a diff and a safe reload.
 
+![What a proxy route is: a host name forwarded to an internal port.](fig:reverse-proxy)
+
 ## What you end up with
 
 - One list of domains, upstreams, containers and certificate days per host
