@@ -20,6 +20,8 @@ const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   sshAlias: null,
   tailnetAddress: null,
   driftHistory: false,
+  driftLookups: false,
+  driftPaths: null,
   macAddress: null,
   wakeRelayId: null,
   sleepWindow: null,

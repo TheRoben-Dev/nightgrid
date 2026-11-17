@@ -128,6 +128,8 @@ export interface HostFactsInput {
   /** Older history lines that mention the question's words (M10p). */
   historyMatches?: HistoryEntry[] | null;
   historyError?: string | null;
+  /** What other views know about this host (services, updates, disks, backups, containers), one line each. */
+  known?: string[] | null;
   /** Unix seconds. */
   now: number;
 }
@@ -181,6 +183,7 @@ export function hostFacts(i: HostFactsInput): string {
         past.map((a) => `- ${a.title}: ${when(a.since)} → ${when(a.resolved ?? a.since)} UTC (${since(a.resolved ?? a.since, now)})${a.detail ? `. ${a.detail}` : ""}`).join("\n"),
     );
   if (!active.length && !past.length) lines.push("Alerts: none recorded.");
+  if (i.known?.length) lines.push(i.known.join("\n"));
   if (i.history?.length) {
     lines.push(
       `Recent shell history (oldest first, the user allowed this; secret-looking lines removed):\n` +

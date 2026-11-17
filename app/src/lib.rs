@@ -11,6 +11,7 @@ mod commands;
 mod confdiff_cmd;
 mod desktop_cmd;
 mod docker_cmd;
+mod drift_cmd;
 mod envvault_cmd;
 mod expiry_cmd;
 mod files_cmd;
@@ -286,6 +287,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         helper_cmd::helper_ask,
         helper_cmd::helper_stop,
         helper_cmd::helper_host_history,
+        drift_cmd::helper_host_lookups,
         alerts_cmd::alerts_subscribe,
         alerts_cmd::alerts_refresh,
         alerts_cmd::alerts_clear_history,

@@ -179,6 +179,8 @@ pub fn ssh_config_import(state: State<'_, AppState>, aliases: Vec<String>) -> Cm
                 tags: h.tags.clone(),
                 tailnet_address: h.tailnet_address.clone(),
                 drift_history: h.drift_history,
+                drift_lookups: h.drift_lookups,
+                drift_paths: h.drift_paths.clone(),
                 mac_address: h.mac_address.clone(),
                 wake_relay_id: h.wake_relay_id,
                 sleep_window: h.sleep_window.clone(),
