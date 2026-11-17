@@ -626,6 +626,13 @@ export const commands = {
 	alertsDepsAdd: (child: Node, parent: Node, options?: InvokeOptions) => __TAURI_INVOKE<Dependency>("alerts_deps_add", { child, parent }, options),
 	alertsDepsDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_deps_delete", { id }, options),
 	upsList: (options?: InvokeOptions) => __TAURI_INVOKE<UpsWatch_Serialize[]>("ups_list", undefined, options),
+	/**
+	 *  Every host's estimate over the last `days` (1–90), with idle windows in
+	 *  local time (`utc_offset_mins` east of UTC), and the UPSes' output.
+	 */
+	powerOverview: (days: number, utcOffsetMins: number, options?: InvokeOptions) => __TAURI_INVOKE<PowerOverview_Serialize>("power_overview", { days, utcOffsetMins }, options),
+	powerProfileSet: (hostId: number, idleW: number | null, maxW: number | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_profile_set", { hostId, idleW, maxW }, options),
+	powerProfileClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_profile_clear", { hostId }, options),
 	upsSave: (input: UpsInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<UpsWatch_Serialize>("ups_save", { input }, options),
 	upsDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("ups_delete", { id }, options),
 	/**  Every watch with its latest reading. */
@@ -1382,6 +1389,8 @@ export type AppSettings_Deserialize = {
 	profileReminderSnooze?: number | null,
 	/**  Read-only phone status page served by the app. Machine-specific. */
 	statusPage?: StatusPageSettings_Deserialize,
+	/**  Electricity price for Fleet → POWER. */
+	power?: PowerSettings_Deserialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch?: NetWatchSettings_Deserialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -1502,6 +1511,8 @@ export type AppSettings_Serialize = {
 	profileReminderSnooze: number | null,
 	/**  Read-only phone status page served by the app. Machine-specific. */
 	statusPage: StatusPageSettings_Serialize,
+	/**  Electricity price for Fleet → POWER. */
+	power: PowerSettings_Serialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch: NetWatchSettings_Serialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -3856,6 +3867,38 @@ export type HostPing_Serialize = {
 	connected: boolean,
 };
 
+export type HostPower = HostPower_Serialize | HostPower_Deserialize;
+
+export type HostPower_Deserialize = {
+	hostId: number,
+	name: string,
+	profile?: PowerProfile | null,
+	/**  Hours of history the numbers come from. */
+	hours: number,
+	avgCpu?: number | null,
+	/**  Average GPU draw the metrics measured (watts), on top of the profile. */
+	gpuW?: number | null,
+	avgW?: number | null,
+	peakW?: number | null,
+	kwhMonth?: number | null,
+	idle: IdleWindow[],
+};
+
+export type HostPower_Serialize = {
+	hostId: number,
+	name: string,
+	profile: PowerProfile | null,
+	/**  Hours of history the numbers come from. */
+	hours: number,
+	avgCpu: number | null,
+	/**  Average GPU draw the metrics measured (watts), on top of the profile. */
+	gpuW: number | null,
+	avgW: number | null,
+	peakW: number | null,
+	kwhMonth: number | null,
+	idle: IdleWindow[],
+};
+
 /**
  *  A Nightgrid power schedule and the host it is installed on (the host
  *  itself, or its wake relay for wake-ups).
@@ -3952,6 +3995,19 @@ export type Host_Serialize = {
 	sleepWindow: string | null,
 	/**  `server` or `client` (a laptop, handheld or desktop: never picked by default). */
 	role: string,
+};
+
+/**  Hours of the day (local time) a host is reliably idle. */
+export type IdleWindow = {
+	/**  First idle hour, 0–23. */
+	from: number,
+	/**  The hour after the last idle one, 0–23 (wraps past midnight). */
+	to: number,
+	hours: number,
+	/**  Share of days these hours were idle, 0–1 (the weakest hour's). */
+	share: number,
+	/**  What switching it off for these hours would save a month. */
+	kwhMonth: number,
 };
 
 export type Iface = {
@@ -5643,6 +5699,47 @@ export type PortainerStatus_Serialize = {
 
 /**  A power action the user starts from Nightgrid. */
 export type PowerAction = "reboot" | "shutdown" | "suspend";
+
+export type PowerOverview = PowerOverview_Serialize | PowerOverview_Deserialize;
+
+export type PowerOverview_Deserialize = {
+	days: number,
+	hosts: HostPower_Deserialize[],
+	ups: UpsPower_Deserialize[],
+};
+
+export type PowerOverview_Serialize = {
+	days: number,
+	hosts: HostPower_Serialize[],
+	ups: UpsPower_Serialize[],
+};
+
+export type PowerProfile = {
+	hostId: number,
+	/**  Watts with the CPU idle. */
+	idleW: number,
+	/**  Watts with the CPU fully busy. */
+	maxW: number,
+};
+
+/**  Power & cost (M12d): the electricity price for cost estimates. */
+export type PowerSettings = PowerSettings_Serialize | PowerSettings_Deserialize;
+
+/**  Power & cost (M12d): the electricity price for cost estimates. */
+export type PowerSettings_Deserialize = {
+	/**  Price of one kWh; 0 shows energy only. */
+	pricePerKwh?: number | null,
+	/**  Shown with prices: `€`, `$`, `kr`, `£` … (up to 8 characters). */
+	currency?: string,
+};
+
+/**  Power & cost (M12d): the electricity price for cost estimates. */
+export type PowerSettings_Serialize = {
+	/**  Price of one kWh; 0 shows energy only. */
+	pricePerKwh: number | null,
+	/**  Shown with prices: `€`, `$`, `kr`, `£` … (up to 8 characters). */
+	currency: string,
+};
 
 export type PromptKind = "password" | "passphrase";
 
@@ -8242,6 +8339,38 @@ export type UpsInput_Serialize = {
 	enabled: boolean,
 };
 
+export type UpsPower = UpsPower_Serialize | UpsPower_Deserialize;
+
+export type UpsPower_Deserialize = {
+	id: number,
+	label: string,
+	/**  What it supplies now, in watts. */
+	watts?: number | null,
+	/**  From `ups.realpower`; otherwise load × nominal power (an estimate). */
+	measured: boolean,
+	/**  Seconds since the reading. */
+	age: number,
+	/**  Hosts in the watch's group (the ones it powers). */
+	hosts: number[],
+	/**  The estimates of those hosts added up (hosts without a profile left out). */
+	estimatedW?: number | null,
+};
+
+export type UpsPower_Serialize = {
+	id: number,
+	label: string,
+	/**  What it supplies now, in watts. */
+	watts: number | null,
+	/**  From `ups.realpower`; otherwise load × nominal power (an estimate). */
+	measured: boolean,
+	/**  Seconds since the reading. */
+	age: number,
+	/**  Hosts in the watch's group (the ones it powers). */
+	hosts: number[],
+	/**  The estimates of those hosts added up (hosts without a profile left out). */
+	estimatedW: number | null,
+};
+
 export type UpsReading = UpsReading_Serialize | UpsReading_Deserialize;
 
 export type UpsReading_Deserialize = {
@@ -8260,6 +8389,12 @@ export type UpsReading_Deserialize = {
 	/**  Percent. */
 	load?: number | null,
 	inputVoltage?: number | null,
+	/**  Watts it supplies, when the UPS measures them (`ups.realpower`). */
+	realpower?: number | null,
+	/**  Rated watts (`ups.realpower.nominal`). */
+	realpowerNominal?: number | null,
+	/**  Rated VA (`ups.power.nominal`). */
+	powerNominal?: number | null,
 	model?: string | null,
 	/**  Why there is no reading (no upsc, driver not connected, unknown UPS). */
 	error?: string | null,
@@ -8281,6 +8416,12 @@ export type UpsReading_Serialize = {
 	/**  Percent. */
 	load: number | null,
 	inputVoltage: number | null,
+	/**  Watts it supplies, when the UPS measures them (`ups.realpower`). */
+	realpower: number | null,
+	/**  Rated watts (`ups.realpower.nominal`). */
+	realpowerNominal: number | null,
+	/**  Rated VA (`ups.power.nominal`). */
+	powerNominal: number | null,
 	model: string | null,
 	/**  Why there is no reading (no upsc, driver not connected, unknown UPS). */
 	error: string | null,

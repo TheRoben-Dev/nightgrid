@@ -13,8 +13,8 @@ let watches: UpsWatch[] = [
 let nextId = 3;
 
 const readings: Record<number, UpsReading> = {
-  1: { status: ["OL", "CHRG"], onBattery: false, lowBattery: false, replaceBattery: false, charge: 100, runtime: 2460, load: 23, inputVoltage: 231, model: "Back-UPS 1500", error: null },
-  2: { status: ["OB", "DISCHRG"], onBattery: true, lowBattery: false, replaceBattery: true, charge: 64, runtime: 610, load: 41, inputVoltage: 0, model: "Eco 650", error: null },
+  1: { status: ["OL", "CHRG"], onBattery: false, lowBattery: false, replaceBattery: false, charge: 100, runtime: 2460, load: 23, inputVoltage: 231, model: "Back-UPS 1500", realpower: null, realpowerNominal: null, powerNominal: null, error: null },
+  2: { status: ["OB", "DISCHRG"], onBattery: true, lowBattery: false, replaceBattery: true, charge: 64, runtime: 610, load: 41, inputVoltage: 0, model: "Eco 650", realpower: null, realpowerNominal: null, powerNominal: null, error: null },
 };
 
 let countdown: UpsCountdown | null =
@@ -65,7 +65,7 @@ export const mockUps = {
   },
   async readNow(_hostId: number, target: string): Promise<UpsReading> {
     if (!/^[A-Za-z0-9_.-]+(@[A-Za-z0-9_.:-]+)?$/.test(target)) throw new Error("a NUT name like ups or ups@localhost");
-    if (target.startsWith("x")) return { status: [], onBattery: false, lowBattery: false, replaceBattery: false, charge: null, runtime: null, load: null, inputVoltage: null, model: null, error: "Unknown UPS" };
+    if (target.startsWith("x")) return { status: [], onBattery: false, lowBattery: false, replaceBattery: false, charge: null, runtime: null, load: null, inputVoltage: null, realpower: null, realpowerNominal: null, powerNominal: null, model: null, error: "Unknown UPS" };
     return { ...readings[1] };
   },
   async cancel(): Promise<null> {

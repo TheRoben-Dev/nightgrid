@@ -58,6 +58,11 @@ pub struct UpsHub {
 }
 
 impl UpsHub {
+    /// The last reading of a watch and when it was taken.
+    pub fn reading(&self, id: UpsId) -> Option<(UpsReading, i64)> {
+        self.readings.lock().expect("poisoned").get(&id).cloned()
+    }
+
     pub fn countdown(&self) -> Option<UpsCountdown> {
         self.countdown.lock().expect("poisoned").clone()
     }

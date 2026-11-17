@@ -251,7 +251,11 @@ impl Store {
     /// Points in `[from, to]` (unix seconds): minute points for short
     /// ranges, 15-minute rollups up to a month, hourly ones beyond.
     pub fn metric_history(&self, host_id: HostId, from: i64, to: i64) -> Result<Vec<Point>> {
-        let res = resolution(from, to);
+        self.metric_history_at(host_id, resolution(from, to), from, to)
+    }
+
+    /// Points of one resolution ([`MINUTE`], [`ROLLUP`] or [`HOURLY`]).
+    pub fn metric_history_at(&self, host_id: HostId, res: i64, from: i64, to: i64) -> Result<Vec<Point>> {
         let mut stmt = self.conn().prepare(&format!(
             "SELECT ts, {COLS} FROM metric_points WHERE host_id = ?1 AND res = ?2 AND ts >= ?3 AND ts <= ?4 ORDER BY ts"
         ))?;
