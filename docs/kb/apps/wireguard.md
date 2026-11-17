@@ -2,6 +2,8 @@
 
 Run a plain WireGuard server on a Linux host so phones and laptops can reach your LAN from anywhere, with one UDP port forwarded and nothing else exposed.
 
+![One hub with a public port; every peer dials in and gets its own tunnel address.](fig:wireguard-hub)
+
 ## What you end up with
 
 - `wg0` on the server with a private VPN subnet

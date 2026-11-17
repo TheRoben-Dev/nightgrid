@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.77] - 2026-11-17
+
+### Added: more Library diagrams
+- **Diagrams** for ZFS pools, a WireGuard hub, the Pi-hole → Unbound DNS chain, VLAN trunks, Cloudflare tunnels, GPU passthrough, LVM layers, NUT UPS shutdown and Prometheus scraping.
+- 30 bundled figures now, about 190 KB in all.
+
 ## [0.10.76] - 2026-11-17
 
 ### Added: pictures in the Library

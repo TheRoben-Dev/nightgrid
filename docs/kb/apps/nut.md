@@ -2,6 +2,8 @@
 
 Set up Network UPS Tools on the machine the UPS is plugged into, share it with your other servers, and have every server shut itself down cleanly on low battery, with or without Nightgrid running.
 
+![The UPS host runs the NUT server; other hosts watch it and shut down in time.](fig:nut-network)
+
 ## What you end up with
 
 - `upsd` reading the UPS over USB and serving it on the LAN

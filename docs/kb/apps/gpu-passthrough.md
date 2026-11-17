@@ -2,6 +2,8 @@
 
 Give a whole GPU to a virtual machine on Proxmox (or libvirt) for gaming, AI or transcoding, with IOMMU set up correctly.
 
+![The host hands the whole GPU to one VM through VFIO and the IOMMU.](fig:gpu-passthrough)
+
 ## Before you start
 
 - CPU and board with IOMMU (Intel VT-d or AMD-Vi) enabled in the firmware.

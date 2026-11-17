@@ -2,6 +2,8 @@
 
 Resolve DNS yourself, starting from the root servers, instead of trusting a public resolver. Pairs with Pi-hole or AdGuard Home as their only upstream.
 
+![Clients ask the filter, the filter asks Unbound, Unbound walks from the root servers itself.](fig:dns-chain)
+
 ## What you end up with
 
 - A validating, caching recursive resolver on `127.0.0.1:5335`

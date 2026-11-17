@@ -2,6 +2,8 @@
 
 Collect detailed metrics from every host and container with Prometheus and node_exporter, and build long-term dashboards in Grafana. Complements Nightgrid's built-in monitoring when you want custom queries or exporter metrics.
 
+![Prometheus pulls from exporters on each host; Grafana reads Prometheus.](fig:prometheus-pull)
+
 ## What you end up with
 
 - node_exporter on each host, cAdvisor for containers

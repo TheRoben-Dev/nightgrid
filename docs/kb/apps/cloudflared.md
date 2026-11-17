@@ -2,6 +2,8 @@
 
 Publish a web app to the internet through Cloudflare without opening any port on your router. The `cloudflared` connector dials out to Cloudflare and carries requests back.
 
+![cloudflared dials out to Cloudflare, so the router forwards nothing.](fig:cloudflared-tunnel)
+
 ## What you end up with
 
 - `app.example.com` reachable from anywhere, with no port forward
