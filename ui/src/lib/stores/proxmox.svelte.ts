@@ -3,12 +3,12 @@
  * root (the sudo prompt asks when needed). Power actions start Proxmox tasks;
  * the task's log is followed until it ends, then the view reloads.
  */
-import { api, errorText, type PveFirewall, type PveFwRun, type PveFwRuleSpec, type PveFwScope, type PveIfaceSpec, type PveNetwork, type PveAppliance, type PveCloneSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
+import { api, errorText, type PveFirewall, type PveFwRun, type PveFwRuleSpec, type PveFwScope, type PveIfaceSpec, type PveNetwork, type PveAppliance, type PveCloneSpec, type PveSandboxSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
 import { ACTION_WORD, backupTargets, type PveConfig, type PveHostDevices, type PveSetting, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
 
-export type PveTab = "summary" | "guests" | "backups" | "storage" | "network" | "firewall" | "tasks";
+export type PveTab = "summary" | "guests" | "sandbox" | "backups" | "storage" | "network" | "firewall" | "tasks";
 
 /** A destructive step waiting for a confirmation that names its target (rule 5). */
 export interface PveConfirm {
@@ -21,7 +21,7 @@ export interface PveConfirm {
 }
 
 /** Which "make something" dialog is open. */
-export type PveMake = { kind: "vm" } | { kind: "ct" } | { kind: "clone"; guest: PveGuest } | { kind: "iso" } | { kind: "appliance" };
+export type PveMake = { kind: "vm" } | { kind: "ct" } | { kind: "clone"; guest: PveGuest } | { kind: "sandbox"; guest: PveGuest | null } | { kind: "iso" } | { kind: "appliance" };
 
 export interface GuestDetail {
   guest: PveGuest;
@@ -49,7 +49,7 @@ export interface OpenTask {
   title: string;
   detail: PveTaskDetail | null;
   error: string | null;
-  onDone?: () => void;
+  onDone?: (d: PveTaskDetail) => void;
   /** Closed by the user while it still runs: followed quietly to the end. */
   hidden?: boolean;
 }
@@ -160,7 +160,7 @@ class ProxmoxStore {
   }
 
   /** Shows a task's log and follows it while it runs. */
-  async openTask(node: string, upid: string, title: string, onDone?: () => void) {
+  async openTask(node: string, upid: string, title: string, onDone?: (d: PveTaskDetail) => void) {
     this.stopFollowing();
     this.task = { node, upid, title, detail: null, error: null, onDone };
     await this.poll();
@@ -181,7 +181,7 @@ class ProxmoxStore {
       if (d.running) this.follow = setTimeout(() => void this.poll(), 1500);
       else {
         void this.load();
-        t.onDone?.();
+        t.onDone?.(d);
         if (this.task?.hidden) this.task = null;
       }
     } catch (e) {
@@ -192,7 +192,7 @@ class ProxmoxStore {
   // ---- part 2: snapshots and backups ----
 
   /** Runs a step that starts a Proxmox task, then follows it. */
-  private async startTask(what: string, node: string, f: (s: Parameters<typeof api.pveOverview>[1]) => Promise<string>, onDone?: () => void) {
+  private async startTask(what: string, node: string, f: (s: Parameters<typeof api.pveOverview>[1]) => Promise<string>, onDone?: (d: PveTaskDetail) => void) {
     const id = this.hostId;
     if (id === null) return;
     try {
@@ -378,6 +378,78 @@ class ProxmoxStore {
     if (id === null) return;
     await this.startTask(`Clone ${spec.vmid} to ${spec.newid}`, spec.node, (s) => api.pveClone(id, spec, s));
     this.make = null;
+  }
+
+  // ---- sandbox clones (M12c) ----
+
+  /** Notes from the last sandbox made, shown on the SANDBOX tab. */
+  sandboxNotes = $state<{ vmid: number; notes: string[] } | null>(null);
+
+  /** Clones, then cuts the copy off and marks it once the clone task ends. */
+  async makeSandbox(spec: PveSandboxSpec) {
+    const id = this.hostId;
+    if (id === null) return;
+    await this.startTask(`Sandbox ${spec.name}`, spec.node, (s) => api.pveSandboxCreate(id, spec, s), (d) => void this.isolateSandbox(id, spec, d));
+    this.make = null;
+    this.tab = "sandbox";
+  }
+
+  private async isolateSandbox(id: number, spec: PveSandboxSpec, d: PveTaskDetail) {
+    if (d.exitstatus && d.exitstatus !== "OK") {
+      this.notice = { text: `Sandbox ${spec.name}: the clone failed (${d.exitstatus}).`, tone: "err" };
+      return;
+    }
+    try {
+      const done = await this.sudo("cut the sandbox off", (s) => api.pveSandboxIsolate(id, spec, s));
+      this.sandboxNotes = { vmid: spec.newid, notes: done.notes };
+      this.notice = { text: `Sandbox ${spec.name} (${spec.newid}) is ready and cut off${done.upid ? ", starting" : ""}.`, tone: "ok" };
+      if (done.upid) void this.openTask(spec.node, done.upid, `Start ${spec.name}`);
+      else void this.load();
+    } catch (e) {
+      this.notice = { text: `Sandbox ${spec.newid} was cloned but not cut off: ${errorText(e)}. Don't start it; destroy it from GUESTS.`, tone: "err" };
+      void this.load();
+    }
+  }
+
+  async extendSandbox(g: PveGuest, hours: number) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.busy = [...this.busy, g.vmid];
+    try {
+      await this.sudo("change the sandbox expiry", (s) => api.pveSandboxExtend(id, g.node, g.kind, g.vmid, hours, s));
+      this.notice = { text: hours ? `${g.name} now expires in ${hours} h.` : `${g.name} no longer expires.`, tone: "ok" };
+      void this.load();
+    } catch (e) {
+      this.notice = { text: `${g.name}: ${errorText(e)}`, tone: "err" };
+    } finally {
+      this.busy = this.busy.filter((v) => v !== g.vmid);
+    }
+  }
+
+  askKeepSandbox(g: PveGuest) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.confirm = {
+      title: "KEEP SANDBOX",
+      body: `Keep ${g.name} (${g.vmid}) as an ordinary guest? Its expiry timer and sandbox tags go. Its network stays cut off; reconnect it under Hardware when you're sure it won't clash with the original (same IP, same hostname).`,
+      button: `Keep ${g.vmid}`,
+      run: async () => {
+        await this.sudo("keep the sandbox", (s) => api.pveSandboxKeep(id, g.node, g.kind, g.vmid, s));
+        this.notice = { text: `${g.name} is now an ordinary guest.`, tone: "ok" };
+        void this.load();
+      },
+    };
+  }
+
+  askDestroySandbox(g: PveGuest) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.confirm = {
+      title: "DESTROY SANDBOX",
+      body: `Stop and destroy sandbox ${g.name} (${g.vmid}) on ${g.node} now? Its disks are deleted. The guest it was copied from isn't touched.`,
+      button: `Destroy ${g.vmid}`,
+      run: () => this.startTask(`Destroy ${g.name || g.vmid}`, g.node, (s) => api.pveSandboxDestroy(id, g.node, g.kind, g.vmid, s)),
+    };
   }
 
   askTemplate(g: PveGuest) {

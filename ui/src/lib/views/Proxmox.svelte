@@ -9,6 +9,9 @@
   import PveBackupsTab from "../components/proxmox/PveBackupsTab.svelte";
   import PveGuestPanel from "../components/proxmox/PveGuestPanel.svelte";
   import PveMakeDialogs from "../components/proxmox/PveMakeDialogs.svelte";
+  import PveSandboxDialog from "../components/proxmox/PveSandboxDialog.svelte";
+  import PveSandboxTab from "../components/proxmox/PveSandboxTab.svelte";
+  import { settings } from "../stores/settings.svelte";
   import PveNetworkTab from "../components/proxmox/PveNetworkTab.svelte";
   import PveFirewall from "../components/proxmox/PveFirewall.svelte";
   import {
@@ -38,6 +41,7 @@
   const TABS: { id: PveTab; label: string }[] = [
     { id: "summary", label: "SUMMARY" },
     { id: "guests", label: "GUESTS" },
+    { id: "sandbox", label: "SANDBOX" },
     { id: "backups", label: "BACKUPS" },
     { id: "storage", label: "STORAGE" },
     { id: "network", label: "NETWORK" },
@@ -100,7 +104,7 @@
     <span class="spacer"></span>
     {#if o?.present}
       <div class="tabs" role="tablist" aria-label="Proxmox view">
-        {#each TABS as t (t.id)}
+        {#each TABS.filter((t) => t.id !== "sandbox" || settings.on("proxmox.sandbox")) as t (t.id)}
           <button type="button" role="tab" data-guide="proxmox-tab-{t.id}" class:on={proxmox.tab === t.id} aria-selected={proxmox.tab === t.id} onclick={() => (proxmox.tab = t.id)}>
             {t.label}{#if t.id === "guests"}<span class="badge">{c.running}/{c.vms + c.cts}</span>{/if}{#if t.id === "tasks" && (running || failed)}<span class="badge {failed ? 'bad' : 'warn'}">{running || failed}</span>{/if}
           </button>
@@ -216,6 +220,9 @@
                       {#if !g.lock && (g.kind === "qemu" || g.status === "stopped")}
                         <li><button type="button" role="menuitem" onclick={() => { menuFor = null; proxmox.open({ kind: "clone", guest: g }); }}>Clone…</button></li>
                       {/if}
+                      {#if !g.lock && settings.on("proxmox.sandbox") && !g.tags.includes("nightgrid-sandbox")}
+                        <li><button type="button" role="menuitem" onclick={() => { menuFor = null; proxmox.open({ kind: "sandbox", guest: g }); }}>Sandbox copy…</button></li>
+                      {/if}
                       {#if g.status === "stopped" && !g.template && !g.lock}
                         <li><button type="button" role="menuitem" onclick={() => { menuFor = null; proxmox.askTemplate(g); }}>Convert to template…</button></li>
                       {/if}
@@ -232,6 +239,8 @@
           <p class="muted small pad">{o.guests.length ? "No guest matches the filter." : "No VMs or containers yet."}</p>
         {/each}
       </div>
+    {:else if proxmox.tab === "sandbox"}
+      <PveSandboxTab {screen} {consoleOf} />
     {:else if proxmox.tab === "backups"}
       <PveBackupsTab />
     {:else if proxmox.tab === "storage"}
@@ -319,6 +328,7 @@
 
 <PveGuestPanel />
 <PveMakeDialogs />
+{#if settings.on("proxmox.sandbox")}<PveSandboxDialog />{/if}
 
 <Modal open={proxmox.confirm !== null} tone="danger" title={proxmox.confirm?.title ?? ""} width={500} onclose={() => (proxmox.confirm = null)}>
   {#if proxmox.confirm}

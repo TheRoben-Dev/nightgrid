@@ -117,6 +117,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "proxmox", view: "proxmox", what: "Proxmox view: a Proxmox VE cluster read through pvesh over SSH (no API token): nodes, VMs and containers, storage, tasks" },
   { id: "proxmox-host", view: "proxmox", what: "pick which host is the Proxmox VE node to read" },
   { id: "proxmox-tab-guests", view: "proxmox", what: "GUESTS: every VM and container with start, shut down, reboot, pause, force stop, screen and console" },
+  { id: "proxmox-tab-sandbox", view: "proxmox", what: "SANDBOX: throwaway copies of guests, cut off from the network, destroyed when they expire; extend, keep or destroy them" },
+  { id: "proxmox-sandbox-new", view: "proxmox", what: "+ Sandbox: copy a VM or container (now or from a snapshot) into a sandbox cut off from the network, with an expiry" },
   { id: "proxmox-tab-tasks", view: "proxmox", what: "TASKS: recent Proxmox tasks (backups, starts, clones…); click one for its log" },
   { id: "proxmox-tab-storage", view: "proxmox", what: "STORAGE: Proxmox storages with type, content and usage" },
   { id: "proxmox-new-vm", view: "proxmox", what: "create a VM on this node: cores, memory, disk, install ISO, bridge and VLAN, UEFI (GUESTS tab)" },

@@ -148,6 +148,7 @@ pub const FEATURES: &[&str] = &[
     "fleet.blueprints",
     "desktops",
     "proxmox",
+    "proxmox.sandbox",
     "network",
     "nettools",
     "automation",

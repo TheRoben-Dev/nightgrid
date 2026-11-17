@@ -10,6 +10,8 @@ import type {
   PveSnapshot_Serialize as PveSnapshot,
   PveAppliance,
   PveCloneSpec_Deserialize as PveCloneSpec,
+  PveSandboxSpec_Deserialize as PveSandboxSpec,
+  PveSandboxDone_Serialize as PveSandboxDone,
   PveCreateInfo_Serialize as PveCreateInfo,
   PveCtSpec_Deserialize as PveCtSpec,
   PveVmSpec_Deserialize as PveVmSpec,
@@ -64,6 +66,7 @@ let guests: PveGuest[] = [
   g(200, "lxc", "pve2", "pihole", "running", { maxcpu: 1, mem: 100 * 1024 ** 2, maxmem: 512 * 1024 ** 2, disk: 1.2 * GiB, maxdisk: 8 * GiB, tags: ["dns"], hastate: "started" }),
   g(201, "lxc", "pve2", "gitea", "stopped", { lock: "backup" }),
   g(9000, "qemu", "pve1", "debian12-cloud", "stopped", { template: true }),
+  g(9100, "qemu", "pve1", "media-sandbox", "running", { tags: ["media", "nightgrid-sandbox", "ng-sbx-of-100", `ng-sbx-until-${Math.floor(Date.now() / 1000) + 5 * 3600 + 1200}`] }),
 ];
 
 const UPID = (node: string, type: string, id: string, ts: number) =>
@@ -436,6 +439,37 @@ export const mockProxmox = {
     if (!src) throw new Error("source not found");
     const t = task(c.node, c.kind === "qemu" ? "qmclone" : "vzclone", String(c.vmid));
     finishLater(t, () => (guests = [...guests, { ...src, vmid: c.newid, name: c.name, template: false, status: "stopped", uptime: 0, cpu: 0, mem: 0, tags: [] }]), 2500);
+    return t.upid;
+  },
+  sandboxCreate: async (c: PveSandboxSpec): Promise<string> => {
+    const src = guests.find((x) => x.vmid === c.vmid);
+    if (!src) throw new Error("source not found");
+    if (guests.some((x) => x.vmid === c.newid)) throw new Error(`unable to create ${c.newid}: config file already exists`);
+    const t = task(c.node, c.kind === "qemu" ? "qmclone" : "vzclone", String(c.vmid));
+    finishLater(t, () => (guests = [...guests, { ...src, vmid: c.newid, name: c.name, template: false, status: "stopped", uptime: 0, cpu: 0, mem: 0 }]), 2500);
+    return t.upid;
+  },
+  sandboxIsolate: async (c: PveSandboxSpec): Promise<PveSandboxDone> => {
+    const until = c.hours ? Math.floor(Date.now() / 1000) + c.hours * 3600 : null;
+    const own = (guests.find((x) => x.vmid === c.newid)?.tags ?? []).filter((t) => !t.startsWith("ng-sbx-") && t !== "nightgrid-sandbox");
+    const tags = [...own, "nightgrid-sandbox", `ng-sbx-of-${c.vmid}`, ...(until ? [`ng-sbx-until-${until}`] : [])];
+    guests = guests.map((x) => (x.vmid === c.newid ? { ...x, tags, status: c.start ? "running" : "stopped" } : x));
+    const notes = [c.isolation === "cut" ? "net0: cable pulled (link down)" : `net0: moved from vmbr0 to ${c.bridge}`];
+    if (c.vmid === 100) notes.push("hostpci0: passthrough removed", "usb0: passthrough removed");
+    return { notes, until, upid: c.start ? task(c.node, "qmstart", String(c.newid)).upid : null };
+  },
+  sandboxExtend: async (vmid: number, hours: number): Promise<number | null> => {
+    const until = hours ? Math.floor(Date.now() / 1000) + hours * 3600 : null;
+    guests = guests.map((x) => (x.vmid === vmid ? { ...x, tags: [...x.tags.filter((t) => !t.startsWith("ng-sbx-until-")), ...(until ? [`ng-sbx-until-${until}`] : [])] } : x));
+    return until;
+  },
+  sandboxKeep: async (vmid: number): Promise<null> => {
+    guests = guests.map((x) => (x.vmid === vmid ? { ...x, tags: x.tags.filter((t) => !t.startsWith("ng-sbx-") && t !== "nightgrid-sandbox") } : x));
+    return null;
+  },
+  sandboxDestroy: async (node: string, vmid: number): Promise<string> => {
+    const t = task(node, "qmdestroy", String(vmid));
+    finishLater(t, () => (guests = guests.filter((y) => y.vmid !== vmid)));
     return t.upid;
   },
   template: async (node: string, vmid: number): Promise<string> => {
