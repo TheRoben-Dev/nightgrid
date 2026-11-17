@@ -92,6 +92,6 @@ syncoid --recursive tank/backups backup@backup-host:pool/backups
 ## Related
 
 - [Keep an eye on disks and pools](kb:howto/disks)
-- [Proxmox media server](kb:guides/proxmox-media-server)
+- [Proxmox media server, run from Nightgrid](kb:guides/proxmox-media-server)
 - [NFS shares](kb:apps/nfs)
 - [Samba file shares](kb:apps/samba)

@@ -86,5 +86,5 @@ docker compose -f /opt/stacks/paperless/compose.yaml exec -T webserver document_
 ## Related
 
 - [Samba file shares](kb:apps/samba)
-- [Stirling-PDF](kb:apps/stirling-pdf)
+- [Stirling-PDF toolkit](kb:apps/stirling-pdf)
 - [restic backups with systemd timers](kb:apps/restic)

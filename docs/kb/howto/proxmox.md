@@ -49,6 +49,6 @@ Run a Proxmox VE node or cluster from Nightgrid: guests, snapshots, backups, har
 
 ## Related
 
-- [Proxmox media server](kb:guides/proxmox-media-server)
+- [Proxmox media server, run from Nightgrid](kb:guides/proxmox-media-server)
 - [Open VM screens and RDP](kb:howto/vm-desktops)
 - [ZFS pools, datasets and snapshots](kb:apps/zfs)

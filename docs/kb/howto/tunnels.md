@@ -20,7 +20,7 @@ Keep admin panels (Portainer, qBittorrent, Zigbee2MQTT, Proxmox, router UIs) bou
   - **remote** (`-R`): expose a port on this computer to the host.
   - **SOCKS** (`-D`): a proxy that browses from the host's network. Point a browser profile at it to reach every LAN device's web UI.
 - [ ] Turn on auto-start (**AUTO**) for the ones you use daily; they start with Nightgrid and after reconnects.
-- [ ] **Browse** opens a local tunnel's address in your browser.
+- [ ] **Browse** opens a local tunnel's address in a Nightgrid window (see [Open app web UIs inside Nightgrid](kb:howto/web-uis)).
 
 ## Part 3 · Bind apps to localhost
 

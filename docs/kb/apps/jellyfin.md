@@ -64,4 +64,4 @@ services:
 
 - [Plex Media Server](kb:apps/plex)
 - [The *arr stack](kb:apps/arr-stack)
-- [Proxmox media server](kb:guides/proxmox-media-server)
+- [Proxmox media server, run from Nightgrid](kb:guides/proxmox-media-server)
