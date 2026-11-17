@@ -3,7 +3,7 @@
  * from the node selected on the map (a host or this computer), port audits
  * reuse System → Security.
  */
-import { api, errorText, systemError, type DeviceLabel, type Discovery, type LayoutEntry, type NetDevice } from "../api";
+import { api, errorText, systemError, type DeviceLabel, type Discovery, type LayoutEntry, type NetDevice, type ToolResult } from "../api";
 import { buildGraph, type NetGraph } from "../netmap/graph";
 import { buildTopology, canAttach, entryFor, expectedEntries, type Topology } from "../netmap/layout";
 import { hosts } from "./hosts.svelte";
@@ -238,6 +238,31 @@ class NetmapStore {
       this.layout.filter((e) => e.parent || e.x !== null).map((e) => ({ ...e, expected: false })),
       true,
     );
+  }
+
+  /** Service scans of devices this session, by device key. */
+  svc = $state<Record<string, { running: boolean; result: ToolResult | null; error: string | null; from: string }>>({});
+
+  /** The worst risk a service scan found on a device. */
+  svcRisk(key: string): "bad" | "warn" | null {
+    const f = this.svc[key]?.result?.facts.filter((x) => x.label.startsWith("Port ")) ?? [];
+    return f.some((x) => x.tone === "bad") ? "bad" : f.some((x) => x.tone === "warn") ? "warn" : null;
+  }
+
+  /** Scans a device's common ports from the machine that ran the map scan (or this computer). */
+  async scanServices(key: string, ip: string) {
+    if (this.svc[key]?.running) return;
+    const from = this.resultHost ?? "local";
+    const name = from === "local" ? "this computer" : (hosts.byId(from)?.name ?? "?");
+    this.svc = { ...this.svc, [key]: { running: true, result: null, error: null, from: name } };
+    let next: { running: boolean; result: ToolResult | null; error: string | null; from: string };
+    try {
+      const result = await api.netTool(from === "local" ? null : from, { tool: "services", target: ip, option: "", server: "" });
+      next = { running: false, result, error: null, from: name };
+    } catch (e) {
+      next = { running: false, result: null, error: errorText(e), from: name };
+    }
+    this.svc = { ...this.svc, [key]: next };
   }
 
   /** Port audit for one host (the same check as System → Security). */

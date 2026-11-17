@@ -128,6 +128,26 @@ function mockTool(r: ToolRequest): ToolResult {
     }
     case "http":
       return { ...base, ran: `GET ${t}`, output: "HTTP/1.1 200 OK\nServer: nginx", facts: [{ label: "Status", value: "200", tone: "ok" }, { label: "Server", value: "nginx", tone: "info" }, { label: "Certificate", value: "not trusted by this machine (check 18)", tone: "bad" }, { label: "Issued by", value: "CN = nas.lan (self-signed)", tone: "warn" }, { label: "Expires", value: "in 213 days", tone: "ok" }] };
+    case "services":
+      return {
+        ...base,
+        ran: `service scan of ${t} (46 ports)`,
+        output: "",
+        facts: [
+          { label: "Open", value: "4", tone: "info" },
+          { label: "Port 23", value: "Telnet sends passwords in clear text: use SSH", tone: "bad" },
+          { label: "Port 445", value: "File sharing (SMB): check guest access is off", tone: "info" },
+        ],
+        table: {
+          columns: ["Port", "Service", "Says", "TLS"],
+          rows: [
+            ["22", "SSH (OpenSSH_9.6p1)", "SSH-2.0-OpenSSH_9.6p1", ""],
+            ["23", "Telnet", "", ""],
+            ["445", "SMB", "", ""],
+            ["5001", "Web (HTTPS): nginx", "HTTP/1.1 200 OK | Server: nginx", "TLS"],
+          ],
+        },
+      };
     case "neighbours":
       return { ...base, ran: "ip neigh", output: "192.168.1.1 dev eth0 lladdr a4:2b:b0:11:22:33 REACHABLE\n192.168.1.20 dev eth0 lladdr 00:11:32:aa:bb:cc STALE", facts: [{ label: "Entries", value: "2", tone: "info" }], table: { columns: ["Address", "MAC", "Maker"], rows: [["192.168.1.1", "a4:2b:b0:11:22:33", ""], ["192.168.1.20", "00:11:32:aa:bb:cc", "Synology"]] } };
     default:

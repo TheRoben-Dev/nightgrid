@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { errorText, type ServiceInput } from "../../api";
   import { hosts } from "../../stores/hosts.svelte";
   import { emptyInput, services, toInput } from "../../stores/services.svelte";
@@ -16,7 +17,9 @@
   $effect(() => {
     if (services.editing === null) return;
     const s = services.editing ? services.byId(services.editing) : undefined;
-    form = s ? toInput(s) : emptyInput();
+    const draft = untrack(() => services.draft);
+    form = s ? toInput(s) : { ...emptyInput(), ...(draft ?? {}) };
+    untrack(() => (services.draft = null));
     error = null;
     confirmDelete = false;
   });

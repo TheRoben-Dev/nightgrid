@@ -24,6 +24,8 @@ pub enum Tool {
     Http,
     Neighbours,
     Connections,
+    /// Open ports with what answers on them, and which are risky (D-143).
+    Services,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -167,6 +169,7 @@ pub fn timeout_secs(t: Tool) -> u64 {
     match t {
         Tool::Path => 90,
         Tool::Ports => 150,
+        Tool::Services => 90,
         Tool::Ping => 30,
         _ => 30,
     }
@@ -176,6 +179,62 @@ const NOTE: &str = "@@NGNOTE@@";
 const PORT: &str = "@@NGP@@";
 const WEB: &str = "@@NGW@@";
 const CERT: &str = "@@NGCERT@@";
+const SVC: &str = "@@NGS@@";
+
+/// Ports the service scan tries by default.
+pub const SERVICE_PORTS: &[u16] = &[
+    21, 22, 23, 25, 53, 80, 81, 110, 111, 139, 143, 443, 445, 548, 554, 631, 873, 993, 1883, 2049, 2375, 2376, 3000,
+    3306, 3389, 5000, 5001, 5432, 5900, 5901, 6379, 8000, 8006, 8080, 8081, 8123, 8443, 8888, 9000, 9090, 9100, 9200,
+    9443, 11211, 27017, 32400,
+];
+
+/// One connection per port, at most 24 at once; reads what the service says
+/// first, or asks `HEAD /` (over TLS when plain gets nothing). Read-only.
+const SERVICE_PY: &str = r#"
+import socket, ssl, sys, concurrent.futures as cf
+h = sys.argv[1]
+ports = [int(p) for p in sys.argv[2:]]
+def clean(b):
+    t = b.decode("latin-1", "replace")
+    lines = [l.strip() for l in t.replace("\r", "").split("\n") if l.strip()]
+    keep = lines[:1] + [l for l in lines[1:] if l.lower().startswith("server:")][:1]
+    return " | ".join("".join(c if 32 <= ord(c) < 127 else "?" for c in l) for l in keep)[:160]
+def head(s):
+    s.sendall(b"HEAD / HTTP/1.0\r\nHost: " + h.encode() + b"\r\nUser-Agent: nightgrid\r\n\r\n")
+    return s.recv(512)
+def probe(p):
+    try:
+        s = socket.create_connection((h, p), 1.5)
+    except Exception:
+        return None
+    tls, b = 0, b""
+    s.settimeout(1.5)
+    try:
+        b = s.recv(256)
+    except Exception:
+        pass
+    if not b:
+        try:
+            b = head(s)
+        except Exception:
+            pass
+    s.close()
+    if not b or not b[:1].isascii() or b[:1] == b"\x15":
+        try:
+            c = ssl.create_default_context(); c.check_hostname = False; c.verify_mode = ssl.CERT_NONE
+            w = c.wrap_socket(socket.create_connection((h, p), 1.5), server_hostname=h)
+            w.settimeout(1.5)
+            b2 = head(w); w.close()
+            if b2:
+                tls, b = 1, b2
+        except Exception:
+            pass
+    return "%s\t%d\topen\t%d\t%s" % ("@@NGS@@", p, tls, clean(b))
+with cf.ThreadPoolExecutor(24) as ex:
+    for r in ex.map(probe, ports):
+        if r:
+            print(r, flush=True)
+"#;
 
 /// The `sh` script for a request, and a short description of what runs.
 pub fn script(r: &ToolRequest) -> Result<(String, String), String> {
@@ -297,6 +356,21 @@ pub fn script(r: &ToolRequest) -> Result<(String, String), String> {
             "if command -v ip >/dev/null 2>&1; then ip neigh 2>&1; else arp -an 2>&1; fi".into(),
             "ip neigh / arp -an".into(),
         ),
+        Tool::Services => {
+            let t = need_host()?;
+            let ports = if r.option.trim().is_empty() { SERVICE_PORTS.to_vec() } else { parse_ports(&r.option)? };
+            let list = ports.iter().map(u16::to_string).collect::<Vec<_>>().join(" ");
+            (
+                format!(
+                    "if command -v python3 >/dev/null 2>&1; then python3 -c {py} {t} {list} 2>/dev/null; \
+                     elif command -v nc >/dev/null 2>&1; then echo '{NOTE} no python3 here: open ports only, without what answers'; \
+                     for p in {list}; do nc -z -w 2 {t} $p >/dev/null 2>&1 && printf '{SVC}\t%s\topen\t0\t\n' $p; done; \
+                     else echo '{NOTE} needs python3 or nc on this machine'; fi",
+                    py = shell_quote(SERVICE_PY),
+                ),
+                format!("service scan of {target} ({} ports)", ports.len()),
+            )
+        }
         Tool::Connections => (
             "if command -v ss >/dev/null 2>&1; then ss -tunH 2>&1 | head -n 400; \
              else netstat -an 2>&1 | grep -Ei 'established|time_wait|close_wait|syn_sent' | head -n 400; fi"
@@ -348,6 +422,77 @@ pub fn port_name(p: u16) -> &'static str {
         51820 => "WireGuard (UDP)",
         _ => "",
     }
+}
+
+/// What answers on a port, from its banner first and the port number second.
+pub fn service_name(port: u16, banner: &str, tls: bool) -> String {
+    let b = banner.to_ascii_lowercase();
+    if let Some(v) = banner.strip_prefix("SSH-") {
+        return format!("SSH ({})", v.split_whitespace().next().unwrap_or(v).trim_start_matches("2.0-"));
+    }
+    if b.starts_with("http/") {
+        let server = banner
+            .split(" | ")
+            .find_map(|p| p.strip_prefix("Server:").or_else(|| p.strip_prefix("server:")))
+            .map(str::trim);
+        let web = if tls { "Web (HTTPS)" } else { "Web (HTTP)" };
+        return match server {
+            Some(s) if !s.is_empty() => format!("{web}: {s}"),
+            _ => web.to_owned(),
+        };
+    }
+    if b.starts_with("220") && (b.contains("ftp") || port == 21) {
+        return "FTP".into();
+    }
+    if b.starts_with("220") && (b.contains("smtp") || b.contains("esmtp")) {
+        return "Mail (SMTP)".into();
+    }
+    if b.starts_with("+ok") {
+        return "Mail (POP3)".into();
+    }
+    if b.starts_with("* ok") {
+        return "Mail (IMAP)".into();
+    }
+    if b.starts_with("rfb ") {
+        return "VNC".into();
+    }
+    if b.starts_with("-err") || b.starts_with("-noauth") {
+        return "Redis".into();
+    }
+    let n = port_name(port);
+    if n.is_empty() {
+        "?".into()
+    } else {
+        n.into()
+    }
+}
+
+/// Why an open port deserves a look, if it does.
+pub fn service_risk(port: u16, banner: &str, tls: bool) -> Option<(Tone, String)> {
+    let b = banner.to_ascii_lowercase();
+    if banner.starts_with("SSH-1.") {
+        return Some((Tone::Bad, "SSH protocol 1, broken since the 2000s: turn it off".into()));
+    }
+    Some(match port {
+        23 => (Tone::Bad, "Telnet sends passwords in clear text: use SSH".into()),
+        2375 => (Tone::Bad, "Docker API without TLS: anyone who reaches it controls the host".into()),
+        21 if !b.contains("tls") => (Tone::Warn, "FTP sends passwords in clear text".into()),
+        6379 if !b.contains("noauth") => (Tone::Warn, "Redis: check it requires a password".into()),
+        6379 => return None,
+        11211 => (Tone::Warn, "memcached has no login: keep it off shared networks".into()),
+        27017 => (Tone::Warn, "MongoDB: check authentication is on".into()),
+        9200 => (Tone::Warn, "Elasticsearch: check security is on (older versions have no login)".into()),
+        1883 => (Tone::Warn, "MQTT without TLS: check anonymous clients are refused".into()),
+        3389 => (Tone::Warn, "Remote Desktop: never forward it to the internet".into()),
+        5900 | 5901 if b.contains("rfb 003.003") => (Tone::Warn, "VNC (old protocol, weak or no password)".into()),
+        5900 | 5901 => (Tone::Warn, "VNC: make sure it asks for a password, and keep it on the LAN".into()),
+        111 => (Tone::Info, "rpcbind (NFS): only needed on file servers".into()),
+        139 | 445 => (Tone::Info, "File sharing (SMB): check guest access is off".into()),
+        _ if b.starts_with("http/") && !tls && b.contains("401") => {
+            (Tone::Info, "A login page over plain HTTP: passwords cross the network readable".into())
+        }
+        _ => return None,
+    })
 }
 
 fn compact_ports(ports: &[u16]) -> String {
@@ -459,6 +604,31 @@ pub fn parse(r: &ToolRequest, ran: String, raw: &str, now: i64) -> ToolResult {
                 .collect();
             facts.push(fact("Entries", rows.len().to_string(), Tone::Info));
             table = Some(ToolTable { columns: vec!["Address".into(), "MAC".into(), "Maker".into()], rows });
+        }
+        Tool::Services => {
+            let mut rows = Vec::new();
+            let mut risks = Vec::new();
+            for l in raw.lines() {
+                let Some(rest) = l.strip_prefix(SVC) else { continue };
+                let f: Vec<&str> = rest.trim_start_matches('\t').splitn(4, '\t').collect();
+                let Some(port) = f.first().and_then(|p| p.parse::<u16>().ok()) else { continue };
+                let tls = f.get(2) == Some(&"1");
+                let banner = f.get(3).copied().unwrap_or("").trim().to_owned();
+                let what = service_name(port, &banner, tls);
+                if let Some((tone, why)) = service_risk(port, &banner, tls) {
+                    risks.push(fact(&format!("Port {port}"), why, tone));
+                }
+                rows.push(vec![port.to_string(), what, banner, if tls { "TLS".into() } else { String::new() }]);
+            }
+            rows.sort_by_key(|r| r[0].parse::<u16>().unwrap_or(0));
+            facts.push(fact("Open", rows.len().to_string(), Tone::Info));
+            if risks.is_empty() && !rows.is_empty() {
+                facts.push(fact("Risky services", "none found", Tone::Ok));
+            }
+            facts.extend(risks);
+            table =
+                Some(ToolTable { columns: vec!["Port".into(), "Service".into(), "Says".into(), "TLS".into()], rows });
+            raw = raw.lines().filter(|l| !l.starts_with(SVC)).collect::<Vec<_>>().join("\n");
         }
         Tool::Connections => {
             let rows: Vec<Vec<String>> = raw.lines().filter_map(connection_row).collect();
@@ -692,6 +862,24 @@ mod tests {
         assert!(s.contains(r"'https://x.example/'\''$(id)'\'''"));
         let (s, ran) = script(&req(Tool::Dns, "192.168.1.1", "ptr")).unwrap();
         assert!(s.contains("-x '192.168.1.1'") && ran.starts_with("PTR"));
+    }
+
+    #[test]
+    fn reads_services() {
+        let out = "@@NGS@@\t22\topen\t0\tSSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13\n@@NGS@@\t23\topen\t0\t\n\
+                   @@NGS@@\t443\topen\t1\tHTTP/1.1 200 OK | Server: nginx\n@@NGS@@\t6379\topen\t0\t-NOAUTH Authentication required.\n";
+        let r = parse(&req(Tool::Services, "192.168.1.20", ""), "".into(), out, 0);
+        let t = r.table.unwrap();
+        assert_eq!(
+            t.rows.iter().map(|r| r[1].as_str()).collect::<Vec<_>>(),
+            ["SSH (OpenSSH_9.6p1)", "Telnet", "Web (HTTPS): nginx", "Redis"]
+        );
+        assert_eq!(r.facts[0].value, "4");
+        assert_eq!(r.facts.iter().filter(|f| f.label.starts_with("Port ")).count(), 1);
+        assert_eq!(r.facts[1].tone, Tone::Bad);
+        assert!(script(&req(Tool::Services, "x", "")).unwrap().0.contains("ThreadPoolExecutor"));
+        assert_eq!(service_risk(2375, "", false).unwrap().0, Tone::Bad);
+        assert!(service_risk(22, "SSH-2.0-OpenSSH_9.6", false).is_none());
     }
 
     #[test]

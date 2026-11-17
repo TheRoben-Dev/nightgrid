@@ -8,6 +8,7 @@
     { id: "path", label: "PATH", hint: "The routers between here and there (traceroute)" },
     { id: "dns", label: "DNS", hint: "Look up a name or an address" },
     { id: "ports", label: "PORTS", hint: "Which TCP ports accept a connection" },
+    { id: "services", label: "SERVICES", hint: "Open ports, what answers on them, and what's risky" },
     { id: "http", label: "HTTP / TLS", hint: "Status, server, redirects and the certificate" },
     { id: "wol", label: "WAKE", hint: "Send a Wake-on-LAN packet" },
     { id: "neighbours", label: "NEIGHBOURS", hint: "The machine's ARP / neighbour table" },
@@ -59,7 +60,7 @@
         </label>
       {/if}
 
-      {#if tool === "ping" || tool === "path" || tool === "dns" || tool === "ports"}
+      {#if tool === "ping" || tool === "path" || tool === "dns" || tool === "ports" || tool === "services"}
         <label class="grow"><span class="lbl">{tool === "dns" ? "NAME OR ADDRESS" : "HOST OR ADDRESS"}</span>
           <input class="input mono" bind:value={nettools.target} placeholder={tool === "dns" ? "nas.lan or 192.168.1.20" : "192.168.1.20"} spellcheck="false" autocomplete="off" />
         </label>
@@ -75,6 +76,8 @@
         <label><span class="lbl">SERVER</span><input class="input mono" bind:value={nettools.dnsServer} placeholder="the machine's own" spellcheck="false" /></label>
       {:else if tool === "ports"}
         <label class="grow"><span class="lbl">PORTS</span><input class="input mono" bind:value={nettools.ports} placeholder="22,80,443,8000-8010" spellcheck="false" /></label>
+      {:else if tool === "services"}
+        <label class="grow"><span class="lbl">PORTS</span><input class="input mono" bind:value={nettools.svcPorts} placeholder="blank: 46 common ports" spellcheck="false" /></label>
       {:else if tool === "http"}
         <label class="grow"><span class="lbl">ADDRESS</span><input class="input mono" bind:value={nettools.url} placeholder="https://nas.lan:5001" spellcheck="false" autocomplete="off" /></label>
       {:else if tool === "wol" || tool === "mac"}
@@ -96,6 +99,8 @@
       <p class="muted small">Sends the magic packet as a broadcast on {nettools.fromName}'s network. Pick a machine on the same network as the one to wake.</p>
     {:else if tool === "http"}
       <p class="muted small">Fetches the address once (no redirects followed) and reads the certificate with that machine's curl and openssl. "Not trusted" means that machine wouldn't accept the certificate.</p>
+    {:else if tool === "services"}
+      <p class="muted small">Connects to each port once and reads what the service says first (or asks a web server for its headers, over TLS when needed). Nothing is logged in to or changed. Needs python3 on that machine for the replies; with only nc it lists open ports.</p>
     {:else if tool === "ports"}
       <p class="muted small">Tries a TCP connection to each port (up to 64) with nc or python3 on that machine. Nothing is sent after the connection opens.</p>
     {/if}

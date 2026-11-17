@@ -95,6 +95,8 @@ class ServicesStore {
   groupBy = $state<GroupBy>(loadView().groupBy);
   /** Editor: null closed, 0 new, else the service id. */
   editing = $state<number | null>(null);
+  /** Fields to start a new service with (from the network map). */
+  draft = $state<Partial<ServiceInput> | null>(null);
   importOpen = $state(false);
   /** Services with a manual check in flight. */
   checking = $state<number[]>([]);
@@ -151,6 +153,12 @@ class ServicesStore {
     } catch {
       /* storage unavailable */
     }
+  }
+
+  /** Opens the editor for a new service with some fields filled in. */
+  addFrom(d: Partial<ServiceInput>) {
+    this.draft = d;
+    this.editing = 0;
   }
 
   byId(id: number): Service | undefined {

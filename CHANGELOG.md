@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.59] - 2026-11-16
+
+### Added: service scan (network map, part 4)
+- **Services** on a selected device or host on the map: **Scan services** connects to 46 common ports from the machine that scanned and reads what answers on each (SSH version, web server and status, mail, FTP, VNC, Redis and so on, over TLS when needed). Nothing is logged in to or changed.
+- **Risky services are flagged**: Telnet, a Docker API without TLS and SSH protocol 1 in red; FTP, unauthenticated-by-default databases and caches (Redis, MongoDB, Elasticsearch, memcached), MQTT, VNC and Remote Desktop in amber; SMB and rpcbind as a reminder. The device gets a ⚠ on the map.
+- **Add as service** on any web port opens the service editor with the name and address filled in (and "allow untrusted certificate" for HTTPS), so it's watched under Services.
+- **Network → Tools → Services** runs the same scan on any host and port list.
+
 ## [0.10.58] - 2026-11-16
 
 ### Added: network tools (network map, part 3)

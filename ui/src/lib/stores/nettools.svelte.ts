@@ -27,6 +27,8 @@ class NetToolsStore {
   dnsType = $state("A");
   dnsServer = $state("");
   ports = $state("22,80,443");
+  /** Service scan ports (blank: the common list). */
+  svcPorts = $state("");
   url = $state("");
   mac = $state("");
   cidr = $state("");
@@ -73,7 +75,7 @@ class NetToolsStore {
       rec.result = await api.netTool(from === "local" ? null : from, {
         tool: t,
         target: t === "http" ? this.url.trim() : this.target.trim(),
-        option: t === "ping" ? this.count : t === "dns" ? this.dnsType : t === "ports" ? this.ports : "",
+        option: t === "ping" ? this.count : t === "dns" ? this.dnsType : t === "ports" ? this.ports : t === "services" ? this.svcPorts : "",
         server: t === "dns" ? this.dnsServer.trim() : "",
       });
     } catch (e) {
