@@ -4,8 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.81] - 2026-11-17
+
 ### Changed: client devices are away, not offline
-- A host marked **Client, not a server** (laptop, desktop, handheld) that stops answering now shows as **away**: no HOST OFFLINE alert, and it doesn't count as down in uptime bars, SLA reports or the status page. Tick **Alert when it goes offline** in the host editor to watch a client anyway. D-152.
+- A host marked **Client, not a server** (laptop, desktop, handheld) that stops answering now shows as **away**: no HOST OFFLINE alert, and it doesn't count as down in uptime bars, SLA reports or the status page. Tick **Alert when it goes offline** in the host editor to watch a client anyway. D-153.
+
+## [0.10.80] - 2026-11-17
+
+### Added: DRIFT reads your servers, an error reference and Nightgrid Node guides
+- **DRIFT read-only server checks**: turn on "DRIFT may run read-only checks" per host and DRIFT looks around itself (disk, storage/RAID/ZFS, mounts, memory, processes, sensors, ports, network, services and their journals, error/kernel logs, timers, cron, logins, updates, containers and their logs, Docker stats/events/disk, allow-listed config files). Fixed read-only commands only: never sudo, secrets masked, every check is listed under "What I checked". DRIFT can ask for two more checks before answering. Host facts also include what other views know (service checks, updates, disks, backups, containers).
+- **Error reference**: a new Library shelf with 1,124 Linux server errors across 20 areas (shell, disks, kernel, systemd, apt, dnf, SSH, network, firewall, TLS, Docker, Compose, web servers, databases, git, storage, NFS/SMB, users, virtualization, runtimes), each with what it means and what to do. Paste an error into DRIFT and its exact entry comes up in the checks card.
+- **Nightgrid Node guides**: what Node is, installing it, choosing its grants and the CLI, plus six scenario guides (watching with the laptop closed, self-healing, UPS shutdown, guarding an internet-facing server, watching the LAN, linking several servers), each with a diagram.
+
+### Fixed
+- **DRIFT "too many tokens"** on the first question: the prompt now fits the loaded model's window (only the relevant point targets, long sections split, the conversation budgeted and trimmed in a fixed order), and the window is 12k or 16k where memory allows.
 
 ## [0.10.79] - 2026-11-17
 

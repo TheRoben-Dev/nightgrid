@@ -377,6 +377,9 @@ class HelperStore {
     const checks = [...this.pendingChecks, ...runSkills(q, ctx.selection)];
     this.pendingChecks = [];
     if (wantsSummary(q)) checks.unshift(summaryCheck(this.summaryInput()));
+    // The Library's error reference: entries whose message is in the question or the attached text.
+    const errRef = await import("../kb/errorref");
+    errRef.addErrorRefs(checks, errRef.matchErrors(`${q}\n${ctx.selection ?? ""}`, 3));
     ctx.checks = checks.length ? checksText(checks) : null;
     // Questions about the user's own hosts (or with exact checks) lean on those, not the guide.
     const guideN = ctx.hosts.length || checks.length || looked.length ? 2 : 4;

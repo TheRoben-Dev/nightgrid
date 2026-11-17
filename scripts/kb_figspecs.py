@@ -1990,6 +1990,103 @@ SPECS = {
         ],
         edges=[("dev", "vd", None, "c"), ("vd", "priv", None, "t"), ("vd", "npm", None, "d", True)],
     )),
+    # --- Nightgrid Node -------------------------------------------------------------
+    "ng-node-arch": ("flow", dict(
+        code="DX-241",
+        caption="The node lives on the server and keeps no ports open; clients reach its socket through SSH.",
+        cols=[
+            [("app", "Your computer", "Nightgrid or a shell", "t", "laptop")],
+            [("ssh", "SSH", "the connection you have", "a", "lock")],
+            [("node", "nightgrid-node", "own account, sandboxed", "c", "server"), ("db", "History", "SQLite, 400 days", "c", "disk")],
+        ],
+        edges=[("app", "ssh", None, "a"), ("ssh", "node", "socket", "c")],
+        zones=[("THE SERVER", ["ssh", "node", "db"])],
+    )),
+    "ng-node-grants": ("stack", dict(
+        code="DX-242",
+        caption="The base service reads only what any user can; each grant adds one narrow, separate piece.",
+        layers=[
+            ("Base service", "metrics, uptime, disks, timeline; no network", "t", "server"),
+            ("Read grants", "journal, docker, health, power", "c", "doc"),
+            ("Helpers", "netwatch, checks, peers, status page", "a", "switch"),
+            ("Root helper", "only actions root listed", "m", "key"),
+        ],
+        note="MORE TRUST",
+    )),
+    "ng-node-install": ("steps", dict(
+        code="DX-243",
+        caption="Five steps from a downloaded file to a node recording history.",
+        items=[
+            ("Get", "The release binary for x86_64 or aarch64"),
+            ("Verify", "sha256sum -c against SHA256SUMS"),
+            ("Install", "sudo ./nightgrid-node install"),
+            ("Check", "nightgrid-node status after a new login"),
+            ("Grant", "Only the allow commands you want"),
+        ],
+    )),
+    "ng-node-heal": ("steps", dict(
+        code="DX-244",
+        caption="A rule acts only after the problem has lasted, stays within its caps, and gives up loudly.",
+        items=[
+            ("Condition", "Unhealthy, down, or disk full"),
+            ("Holds", "For forMinutes without clearing"),
+            ("Act", "Dry run first; then the allowed action"),
+            ("Wait", "forMinutes again; hour and day caps"),
+            ("Give up", "After giveUpAfter tries: a warning"),
+        ],
+        warn_at=4,
+    )),
+    "ng-node-ups": ("steps", dict(
+        code="DX-245",
+        caption="Each host counts down on its own limits; hosts without a UPS reading follow a paired one.",
+        items=[
+            ("On battery", "NUT read every 10 s"),
+            ("Limit", "Minutes on battery, charge, or low battery"),
+            ("Countdown", "Announced; cancel, or power back stops it"),
+            ("Power off", "A minute later; followers too"),
+        ],
+        warn_at=2,
+    )),
+    "ng-node-link": ("flow", dict(
+        code="DX-246",
+        caption="Paired nodes check each other over mutual TLS; one runs service checks, a phone reads the page.",
+        cols=[
+            [("a", "Host A", "node + link", "c", "server"), ("phone", "Phone", "status page", "t", "phone")],
+            [("b", "Host B", "node + link", "c", "nas"), ("svc", "Services", "HTTP and TCP checks", "a", "cube")],
+        ],
+        edges=[("a", "b", None, "m", False, False), ("a", "svc", None, "a"), ("phone", "b", None, "t")],
+    )),
+    "ng-node-lan": ("flow", dict(
+        code="DX-247",
+        caption="The node only listens: the neighbour table and DHCP broadcasts tell it who is on the LAN.",
+        cols=[
+            [("dev", "LAN devices", "phones, plugs, PCs", "c", "router"), ("dhcp", "DHCP servers", "the router, maybe a rogue", "m", "switch")],
+            [("node", "nightgrid-node", "listens, never sends", "a", "server")],
+            [("tl", "Timeline", "new device, rogue DHCP", "t", "doc")],
+        ],
+        edges=[("dev", "node", None, "c"), ("dhcp", "node", None, "m"), ("node", "tl", None, "t")],
+    )),
+    "ng-node-guard": ("steps", dict(
+        code="DX-248",
+        caption="From failed logins to a block that ends by itself; your LAN and tailnet are never blocked.",
+        items=[
+            ("Failures", "Failed SSH logins, summed per minute"),
+            ("Burst", "Threshold in 5 min: a loginBurst alert"),
+            ("Block", "Its own nftables table, for minutes"),
+            ("Expire", "The kernel lifts it, even if the node stops"),
+        ],
+        warn_at=2,
+    )),
+    "ng-node-away": ("flow", dict(
+        code="DX-249",
+        caption="While you're away the node records; in the morning one command tells the story.",
+        cols=[
+            [("srv", "Server", "/proc, containers, journal", "c", "server")],
+            [("node", "nightgrid-node", "metrics, alerts, timeline", "a", "chip")],
+            [("sum", "summary.daily", "short facts", "t", "doc"), ("drift", "DRIFT", "what to look at first", "m", "person")],
+        ],
+        edges=[("srv", "node", None, "c"), ("node", "sum", None, "a"), ("sum", "drift", None, "m")],
+    )),
 }
 
 PLACE = {
@@ -2230,4 +2327,13 @@ PLACE = {
     "apps/victoriametrics": ("prometheus-pull", "The scrape model VictoriaMetrics shares with Prometheus."),
     "apps/semaphore": ("app-ansible", "Semaphore runs playbooks like a control host."),
     "apps/gatus": ("app-uptime-kuma", "An always-on checker with a status page (Uptime Kuma shown; Gatus works the same)."),
+    "basics/nightgrid-node": ("ng-node-arch", "Where Nightgrid Node runs and how clients reach it."),
+    "howto/node-install": ("ng-node-install", "From download to a running node."),
+    "howto/node-grants": ("ng-node-grants", "Grants stack on a base that needs none."),
+    "guides/node-always-watching": ("ng-node-away", "Recorded overnight, read in the morning."),
+    "guides/node-self-healing": ("ng-node-heal", "How a self-healing rule decides to act."),
+    "guides/node-ups-shutdown": ("ng-node-ups", "From a power cut to a clean power-off."),
+    "guides/node-security-watch": ("ng-node-guard", "Failed logins, a burst alert, and a block that expires."),
+    "guides/node-lan-watch": ("ng-node-lan", "What the node hears on the LAN."),
+    "guides/node-multi-host": ("ng-node-link", "Linked nodes, inside checks and a phone page."),
 }
