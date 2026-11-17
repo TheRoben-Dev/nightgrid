@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.81] - 2026-11-17
+
+### Added: the homelab journal
+- **Fleet → JOURNAL**: a changelog of everything changed from Nightgrid across all hosts, newest first and grouped by day: deploys, compose runs, snapshots and rollbacks, container actions, files saved in the editor, crontab and timer edits, firewall changes (and whether they were kept), Caddy and Traefik routes, `.env` vault changes (names only), package upgrades and unit actions, power actions, Proxmox changes, SSH keys pushed or removed, config baselines and integrations.
+- **Line diffs** for text edits (files, crontabs, Caddyfiles), with lines that look like they hold a secret hidden. Failed changes are marked.
+- **Search** across titles, details, hosts and diffs; filter by host, area, time (24 hours to everything) or failed only. **Export Markdown** saves what's shown as a changelog.
+- **Your own entries** (**+ Entry**) for changes made outside Nightgrid, with a host and a time; they can be edited and deleted. Kept two years.
+- **DRIFT reads the journal**: questions about a host include its changes from the last 14 days, and "what changed before it broke?" without a host gets the whole lab's. **Ask DRIFT** on an entry asks what it could have broken and how to undo it.
+- Settings → Features → Fleet → Journal turns it off; nothing is recorded while it's off.
 ## [0.10.80] - 2026-11-17
 
 ### Added: DRIFT reads your servers, an error reference and Nightgrid Node guides

@@ -111,7 +111,15 @@ pub async fn keys_authorized(app: AppHandle, host_id: HostId) -> CmdResult<Vec<A
 pub async fn keys_push(app: AppHandle, host_id: HostId, fingerprint: String) -> CmdResult<PushOutcome> {
     let key = find(&app.state::<AppState>(), &fingerprint).await?;
     let out = exec(&app, host_id, &keys::add_command(&key)?).await?;
-    Ok(if out.contains("added") { PushOutcome::Added } else { PushOutcome::AlreadyThere })
+    let added = out.contains("added");
+    if added {
+        let title = format!("Authorized key {fingerprint}");
+        crate::journal_cmd::record(
+            &app,
+            crate::journal_cmd::Change::new(host_id, nightgrid_core::journal::ChangeArea::Keys, &title),
+        );
+    }
+    Ok(if added { PushOutcome::Added } else { PushOutcome::AlreadyThere })
 }
 
 /// Removes a key from a host's `authorized_keys`. The UI confirms first,
@@ -129,7 +137,15 @@ pub async fn keys_remove(app: AppHandle, host_id: HostId, fingerprint: String) -
         }
     };
     let out = exec(&app, host_id, &keys::remove_command(&key)?).await?;
-    keys::parse_removed(&out).ok_or_else(|| CommandError::msg(format!("unexpected answer: {}", out.trim())))
+    let n = keys::parse_removed(&out).ok_or_else(|| CommandError::msg(format!("unexpected answer: {}", out.trim())))?;
+    if n > 0 {
+        let title = format!("Removed key {fingerprint}");
+        crate::journal_cmd::record(
+            &app,
+            crate::journal_cmd::Change::new(host_id, nightgrid_core::journal::ChangeArea::Keys, &title),
+        );
+    }
+    Ok(n)
 }
 
 /// Logs in to the host with only this key file (same jump hosts), then

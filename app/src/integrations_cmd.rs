@@ -71,6 +71,7 @@ pub fn integration_create(
         let _ = state.store().delete_integration(i.id);
         return Err(e);
     }
+    journal(&state, &format!("Added integration {}", input.name));
     Ok(view(&state, i))
 }
 
@@ -84,6 +85,7 @@ pub fn integration_update(
 ) -> CmdResult<IntegrationView> {
     let i = state.store().update_integration(id, &input)?;
     store_secret(&state, id, secret)?;
+    journal(&state, &format!("Changed integration {}", input.name));
     Ok(view(&state, i))
 }
 
@@ -91,6 +93,7 @@ pub fn integration_update(
 #[specta::specta]
 pub fn integration_delete(state: State<'_, AppState>, id: IntegrationId) -> CmdResult<()> {
     state.store().delete_integration(id)?;
+    journal(&state, "Removed an integration");
     if let Err(e) = state.keychain.delete(&secret_ref(id)) {
         tracing::warn!("keychain delete failed: {e}");
     }
@@ -178,4 +181,22 @@ pub async fn dns_filter_action(app: AppHandle, id: IntegrationId, action: DnsAct
     let secret = secret.ok_or_else(|| CommandError::msg("no password saved"))?;
     tracing::info!(integration = id, change = %action.describe(), "DNS filter change");
     dns::act(&i, &secret, &action).await.map_err(CommandError::msg)
+}
+
+/// Integrations aren't tied to a host; the journal gets them fleet-wide.
+fn journal(state: &AppState, title: &str) {
+    let store = state.store();
+    if !nightgrid_core::settings::AppSettings::load(&store).unwrap_or_default().feature("fleet.journal") {
+        return;
+    }
+    let e = nightgrid_core::journal::NewEntry {
+        at: nightgrid_core::services::check::now_unix(),
+        area: Some(nightgrid_core::journal::ChangeArea::Integrations),
+        title: title.to_owned(),
+        ok: true,
+        ..Default::default()
+    };
+    if let Err(err) = store.journal_add(&e) {
+        tracing::warn!("couldn't record a journal entry: {err}");
+    }
 }

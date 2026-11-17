@@ -165,8 +165,24 @@ pub async fn fs_save_text(
     expect: Option<Stamp>,
 ) -> FilesResult<SaveResult> {
     let fs = fs_for(&app, side).await?;
+    // The journal keeps a line diff of edits on hosts (secret lines hidden).
+    let before = match side {
+        Side::Host { .. } => text::read_text(&fs, &path).await.ok().map(|t| t.content),
+        Side::Local => None,
+    };
     let r = text::save_text(&fs, &path, &content, expect).await?;
     tracing::info!(?side, %path, atomic = r.atomic, "saved");
+    if let Side::Host { id } = side {
+        let diff = match &before {
+            Some(old) => nightgrid_core::journal::text_diff(old, &content),
+            None => Some(format!("@@ new file, {} lines", content.lines().count())),
+        };
+        let title = format!("Saved {path}");
+        crate::journal_cmd::record(
+            &app,
+            crate::journal_cmd::Change::new(id, nightgrid_core::journal::ChangeArea::File, &title).diff(diff),
+        );
+    }
     Ok(r)
 }
 

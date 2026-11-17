@@ -9,12 +9,14 @@ use nightgrid_core::docker::proxy_edit::{
 };
 use nightgrid_core::docker::DockerHost;
 use nightgrid_core::hosts::HostId;
+use nightgrid_core::journal::{self, ChangeArea as Area};
 use nightgrid_core::system::sudo;
 use nightgrid_core::system::SystemError;
 use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Manager};
 
+use crate::journal_cmd::{record, Change};
 use crate::state::AppState;
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
 use crate::term_cmd::connect_host;
@@ -93,6 +95,12 @@ pub async fn caddy_save(
         let (_, out) = d.exec_script(&proxy_name, &script).await.map_err(other)?;
         proxy_edit::parse_write(&out, &out)
     };
+    let title = format!("Caddyfile: {}", if summary.trim().is_empty() { "edited" } else { summary.trim() });
+    let detail =
+        format!("{} ({})", current.path, if proxy_name == "host" { "on the host" } else { proxy_name.as_str() });
+    let detail = if outcome.ok { detail } else { format!("{detail}: {}", outcome.message) };
+    let diff = if outcome.ok { journal::text_diff(&current.text, &text) } else { None };
+    record(&app, Change::new(host_id, Area::Proxy, &title).detail(&detail).diff(diff).ok(outcome.ok));
     Ok(outcome)
 }
 
@@ -128,5 +136,7 @@ pub async fn traefik_save(
             SystemError::other(format!("couldn't write {dir}/{}: {}", proxy_edit::TRAEFIK_FILE, out.trim())).into()
         );
     }
+    let title = format!("Traefik routes saved: {} route{}", routes.len(), if routes.len() == 1 { "" } else { "s" });
+    record(&app, Change::new(host_id, Area::Proxy, &title).detail(&format!("{dir} ({proxy_name})")));
     Ok(d.traefik_target(&proxy_name).await.map_err(other)?)
 }

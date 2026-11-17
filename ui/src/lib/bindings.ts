@@ -309,6 +309,24 @@ export const commands = {
 	timelineGet: (hostId: number, days: number, options?: InvokeOptions) => __TAURI_INVOKE<Timeline>("timeline_get", { hostId, days }, options),
 	/**  Forgets what Nightgrid recorded for the host (the host's own logs stay). */
 	timelineClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("timeline_clear", { hostId }, options),
+	journalQuery: (query: ChangeQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ChangeEntry_Serialize[]>("journal_query", { query }, options),
+	journalStats: (options?: InvokeOptions) => __TAURI_INVOKE<ChangeStats_Serialize>("journal_stats", undefined, options),
+	/**  Adds a hand-written entry (`at`: Unix seconds, default now). */
+	journalNote: (hostId: number | null, title: string, detail: string, at: number | null, options?: InvokeOptions) => __TAURI_INVOKE<ChangeEntry_Serialize>("journal_note", { hostId, title, detail, at }, options),
+	journalEdit: (id: number, title: string, detail: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("journal_edit", { id, title, detail }, options),
+	journalDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("journal_delete", { id }, options),
+	/**  Forgets the whole journal. The UI confirms first. */
+	journalClear: (options?: InvokeOptions) => __TAURI_INVOKE<number>("journal_clear", undefined, options),
+	/**
+	 *  What changed, as text for DRIFT: entries for the given hosts (or all
+	 *  hosts when empty) since `since`, newest first.
+	 */
+	journalForDrift: (hostIds: number[], since: number, max: number, options?: InvokeOptions) => __TAURI_INVOKE<string>("journal_for_drift", { hostIds, since, max }, options),
+	/**
+	 *  Saves the entries matching `query` as a Markdown changelog. `None` when
+	 *  cancelled.
+	 */
+	journalExport: (query: ChangeQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("journal_export", { query }, options),
 	watchList: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_list", undefined, options),
 	/**  Adds or updates an item; a certificate file is read right away. */
 	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
@@ -1812,6 +1830,39 @@ export type Change = "changed" |
 /**  Only on the left (the baseline, or the first host). */
 "removed";
 
+/**  What part of the lab an entry is about. */
+export type ChangeArea = 
+/**  Compose runs, deploys, snapshots, rollbacks, stacks from git. */
+"stack" | 
+/**  Container start, stop, restart, remove. */
+"container" | 
+/**  Files saved in the editor. */
+"file" | 
+/**  Config baselines and other host configuration. */
+"config" | "firewall" | 
+/**  Crontabs and systemd timers. */
+"jobs" | 
+/**  Reverse-proxy routes (Caddy, Traefik). */
+"proxy" | 
+/**  `.env` vault values (names only). */
+"secrets" | 
+/**  Package upgrades and systemd unit actions. */
+"system" | 
+/**  Reboot, shutdown, wake, sleep. */
+"power" | 
+/**  Proxmox guests, snapshots, backups, network and firewall. */
+"proxmox" | 
+/**  Snippet and playbook runs. */
+"automation" | 
+/**  SSH keys pushed or removed. */
+"keys" | 
+/**  Integrations added, changed or removed. */
+"integrations" | 
+/**  Blueprints exported or applied. */
+"blueprint" | 
+/**  Written by hand. */
+"note";
+
 export type ChangeCheck = ChangeCheck_Serialize | ChangeCheck_Deserialize;
 
 export type ChangeCheck_Deserialize = {
@@ -1824,6 +1875,90 @@ export type ChangeCheck_Serialize = {
 	summary: string,
 	/**  Why it could lock Nightgrid out; the host name must then be typed. */
 	risk: string | null,
+};
+
+export type ChangeEntry = ChangeEntry_Serialize | ChangeEntry_Deserialize;
+
+export type ChangeEntry_Deserialize = {
+	id: number,
+	/**  Unix seconds. */
+	at: number,
+	hostId?: number | null,
+	/**  The host's name when the entry was written ("" for none). */
+	host: string,
+	area: ChangeArea,
+	title: string,
+	detail: string,
+	/**  A unified line diff (`+`/`-`/` ` prefixes, `@@ n unchanged` gaps). */
+	diff?: string | null,
+	/**  False when the change failed. */
+	ok: boolean,
+	/**  Written by hand (can be edited and deleted; recorded ones can't). */
+	manual: boolean,
+};
+
+export type ChangeEntry_Serialize = {
+	id: number,
+	/**  Unix seconds. */
+	at: number,
+	hostId: number | null,
+	/**  The host's name when the entry was written ("" for none). */
+	host: string,
+	area: ChangeArea,
+	title: string,
+	detail: string,
+	/**  A unified line diff (`+`/`-`/` ` prefixes, `@@ n unchanged` gaps). */
+	diff: string | null,
+	/**  False when the change failed. */
+	ok: boolean,
+	/**  Written by hand (can be edited and deleted; recorded ones can't). */
+	manual: boolean,
+};
+
+export type ChangeQuery = ChangeQuery_Serialize | ChangeQuery_Deserialize;
+
+export type ChangeQuery_Deserialize = {
+	/**  Words that must all appear in the title, detail, host or diff. */
+	text?: string,
+	hostId?: number | null,
+	/**  Empty: every area. */
+	areas?: ChangeArea[],
+	/**  Unix seconds, inclusive. */
+	since?: number | null,
+	until?: number | null,
+	/**  Only failed changes. */
+	failedOnly?: boolean,
+	/**  0: [`LIST_MAX`]. */
+	limit?: number,
+};
+
+export type ChangeQuery_Serialize = {
+	/**  Words that must all appear in the title, detail, host or diff. */
+	text: string,
+	hostId: number | null,
+	/**  Empty: every area. */
+	areas: ChangeArea[],
+	/**  Unix seconds, inclusive. */
+	since: number | null,
+	until: number | null,
+	/**  Only failed changes. */
+	failedOnly: boolean,
+	/**  0: [`LIST_MAX`]. */
+	limit: number,
+};
+
+export type ChangeStats = ChangeStats_Serialize | ChangeStats_Deserialize;
+
+export type ChangeStats_Deserialize = {
+	count: number,
+	/**  Unix seconds of the oldest entry. */
+	oldest?: number | null,
+};
+
+export type ChangeStats_Serialize = {
+	count: number,
+	/**  Unix seconds of the oldest entry. */
+	oldest: number | null,
 };
 
 export type ChatTurn = {

@@ -68,6 +68,14 @@ pub async fn confdiff_save_baseline(app: AppHandle, host_id: HostId) -> SysResul
         return Err(SystemError::other("the baseline couldn't be written (is the home folder writable?)").into());
     }
     let b = baseline(&app, host_id).await?.ok_or_else(|| SystemError::other("the baseline wasn't saved"))?;
+    crate::journal_cmd::record(
+        &app,
+        crate::journal_cmd::Change::new(
+            host_id,
+            nightgrid_core::journal::ChangeArea::Config,
+            "Saved a config baseline",
+        ),
+    );
     Ok(SideInfo::of("baseline", &b))
 }
 

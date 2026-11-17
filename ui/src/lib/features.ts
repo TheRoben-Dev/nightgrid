@@ -30,6 +30,7 @@ export const FEATURES: Feature[] = [
   { id: "fleet.logs", parent: "fleet", label: "Log search", hint: "Cross-host log search. Off: no saved-search or anomaly alerts." },
   { id: "fleet.access", parent: "fleet", label: "Access audit", hint: "Who logged in where." },
   { id: "fleet.speed", parent: "fleet", label: "Speed tests", hint: "iperf3 between hosts." },
+  { id: "fleet.journal", parent: "fleet", label: "Journal", hint: "A changelog of every change made from Nightgrid, plus your own entries. Off: nothing is recorded." },
   { id: "desktops", label: "Desktops", hint: "VM screens over VNC and RDP." },
   { id: "proxmox", label: "Proxmox", hint: "Proxmox VE nodes, guests, storage, network and firewall." },
   { id: "network", label: "Network map", hint: "Hosts, containers and ports as a graph; LAN discovery." },

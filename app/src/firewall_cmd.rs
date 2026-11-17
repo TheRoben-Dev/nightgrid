@@ -170,11 +170,24 @@ pub async fn firewall_apply(
     }
     if !o.stdout.contains("@@applied") {
         let why = o.stderr.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("the command failed").to_owned();
+        let title = format!("Firewall: {}", check.summary);
+        crate::journal_cmd::record(
+            &app,
+            crate::journal_cmd::Change::new(host_id, nightgrid_core::journal::ChangeArea::Firewall, &title)
+                .detail(&format!("failed, old rules put back: {why}"))
+                .ok(false),
+        );
         return Err(SystemError::other(format!("the change failed and the old rules were put back: {why}")).into());
     }
     let p = Pending { token: token.clone(), deadline: now() + i64::from(secs), change: check.summary.clone(), auth };
     let out = PendingChange { token, deadline: p.deadline, change: p.change.clone() };
     hub.pending.lock().expect("poisoned").insert(host_id, p);
+    let title = format!("Firewall: {}", check.summary);
+    crate::journal_cmd::record(
+        &app,
+        crate::journal_cmd::Change::new(host_id, nightgrid_core::journal::ChangeArea::Firewall, &title)
+            .detail(&format!("applied with a {secs} s rollback armed")),
+    );
     Ok(out)
 }
 
@@ -228,12 +241,18 @@ async fn finish(app: &AppHandle, host_id: HostId, token: &str, keep: bool) -> Sy
 #[tauri::command]
 #[specta::specta]
 pub async fn firewall_keep(app: AppHandle, host_id: HostId, token: String) -> SysResult<()> {
-    finish(&app, host_id, &token, true).await
+    finish(&app, host_id, &token, true).await?;
+    let a = nightgrid_core::journal::ChangeArea::Firewall;
+    crate::journal_cmd::record(&app, crate::journal_cmd::Change::new(host_id, a, "Firewall change kept"));
+    Ok(())
 }
 
 /// Puts the old rules back now.
 #[tauri::command]
 #[specta::specta]
 pub async fn firewall_undo(app: AppHandle, host_id: HostId, token: String) -> SysResult<()> {
-    finish(&app, host_id, &token, false).await
+    finish(&app, host_id, &token, false).await?;
+    let a = nightgrid_core::journal::ChangeArea::Firewall;
+    crate::journal_cmd::record(&app, crate::journal_cmd::Change::new(host_id, a, "Firewall change undone"));
+    Ok(())
 }
