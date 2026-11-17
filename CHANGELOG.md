@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed: client devices are away, not offline
+- A host marked **Client, not a server** (laptop, desktop, handheld) that stops answering now shows as **away**: no HOST OFFLINE alert, and it doesn't count as down in uptime bars, SLA reports or the status page. Tick **Alert when it goes offline** in the host editor to watch a client anyway. D-152.
+
 ## [0.10.79] - 2026-11-17
 
 ### Added: a diagram for most of the Library

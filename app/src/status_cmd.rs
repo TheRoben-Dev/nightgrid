@@ -315,6 +315,7 @@ pub fn snapshot(app: &AppHandle, with_addresses: bool) -> StatusSnapshot {
                 Some(PollState::Suspended | PollState::Rebooting | PollState::ShuttingDown | PollState::Asleep) => {
                     "sleep"
                 }
+                Some(PollState::Away) => "away",
                 _ => "off",
             };
             let mut hs = HostStatus {

@@ -21,6 +21,7 @@ const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   tailnetAddress: null,
   driftHistory: false,
   driftLookups: false,
+  alertOffline: false,
   driftPaths: null,
   macAddress: null,
   wakeRelayId: null,

@@ -3,7 +3,7 @@
   import { hosts } from "../stores/hosts.svelte";
   import { metrics } from "../stores/metrics.svelte";
 
-  const PLANNED: Record<string, string> = { suspended: "suspended", rebooting: "rebooting", shuttingDown: "shut down", asleep: "asleep (sleep window)" };
+  const PLANNED: Record<string, string> = { suspended: "suspended", rebooting: "rebooting", shuttingDown: "shut down", asleep: "asleep (sleep window)", away: "away (client device)" };
   import { terms } from "../stores/terms.svelte";
 
   let collapsedGroups = $state<Record<string, boolean>>({});
@@ -15,13 +15,15 @@
     if (!p) return "unknown";
     if (p.connected) return "connected";
     if (p.state !== "online" && PLANNED[metrics.get(h.id).state]) return "asleep";
+    // A client device that isn't answering is away, not down.
+    if (p.state === "offline" && h.role === "client" && !h.alertOffline) return "asleep";
     return p.state === "online" ? "online" : p.state === "offline" ? "offline" : "unknown";
   }
 
   function title(h: Host): string {
     const p = hosts.pings[h.id];
     const target = `${h.username ? `${h.username}@` : ""}${h.hostname}${h.port !== 22 ? `:${h.port}` : ""}`;
-    const planned = PLANNED[metrics.get(h.id).state];
+    const planned = PLANNED[metrics.get(h.id).state] ?? (h.role === "client" && !h.alertOffline ? PLANNED.away : undefined);
     const state = !p
       ? "not checked yet"
       : planned && !p.connected && p.state !== "online"

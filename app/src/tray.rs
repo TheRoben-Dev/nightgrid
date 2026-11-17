@@ -72,6 +72,7 @@ impl Content {
                     Some(PollState::Rebooting) => "rebooting",
                     Some(PollState::ShuttingDown) => "shutting down",
                     Some(PollState::Asleep) => "asleep",
+                    Some(PollState::Away) => "away",
                     _ if connected.contains(&h.id) => "connected",
                     _ => "",
                 };

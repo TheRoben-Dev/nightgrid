@@ -318,7 +318,7 @@ In text fields and terminals, left and right are left to the field; up and down 
 
 ## Which host a view opens on
 
-Each view remembers the host you last picked in it. A view you haven't used yet starts on the host you picked last anywhere, or else the first server. In the host editor, tick **Client, not a server** for laptops, desktops and handhelds you also manage: views never open on them by themselves.
+Each view remembers the host you last picked in it. A view you haven't used yet starts on the host you picked last anywhere, or else the first server. In the host editor, tick **Client, not a server** for laptops, desktops and handhelds you also manage: views never open on them by themselves. A client is expected to come and go, so when it stops answering it shows as **away**, not offline: no offline alert, and it doesn't count as down in uptime, SLA reports or the status page. Tick **Alert when it goes offline** under it if you do want to know.
 
 ## Features: simple or everything
 
