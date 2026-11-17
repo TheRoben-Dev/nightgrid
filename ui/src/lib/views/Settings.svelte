@@ -63,6 +63,7 @@
     "nav.fleet": "Fleet (updates across hosts)",
     "nav.desktops": "Desktops (VM screens)",
     "nav.proxmox": "Proxmox",
+    "nav.nettools": "Network tools",
     "effects.toggle": "Toggle effects",
     "palette.openAlt": "Command palette (works in terminal)",
     "term.newLocal": "New local terminal",

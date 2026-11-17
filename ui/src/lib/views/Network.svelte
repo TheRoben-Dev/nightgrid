@@ -1,10 +1,14 @@
 <script lang="ts">
   import type { Exposure, ExposureKind, Listener, ListenScope } from "../api";
   import Toggle from "../components/Toggle.svelte";
+  import TopoMap from "../components/TopoMap.svelte";
+  import { canAttach, canParent } from "../netmap/layout";
   import { onMount } from "svelte";
   import { exposureIp, KIND_LABEL, labelKey, seenText, serviceLabel, type MapLink, type MapNode } from "../netmap/graph";
   import { hosts } from "../stores/hosts.svelte";
   import { netmap } from "../stores/netmap.svelte";
+  import { nettools } from "../stores/nettools.svelte";
+  import { services } from "../stores/services.svelte";
   import { system } from "../stores/system.svelte";
 
   const W = 196;
@@ -45,9 +49,17 @@
   };
   const SCOPE: Record<ListenScope, string> = { all: "every interface", address: "one address", vpn: "tailnet", local: "this host only" };
 
-  function pick(n: MapNode) {
-    netmap.selected = netmap.selected === n.id ? null : n.id;
+  function pick(n: MapNode | string) {
+    const id = typeof n === "string" ? n : n.id;
+    netmap.selected = netmap.selected === id ? null : id;
   }
+  const topoSel = $derived(netmap.topo.nodes.find((t) => t.id === netmap.selected) ?? null);
+  const parents = $derived(
+    topoSel && topoSel.node.kind !== "internet"
+      ? netmap.topo.nodes.filter((t) => !t.ghost && canParent(t) && canAttach(netmap.topo, topoSel.id, t.id))
+      : [],
+  );
+  const diff = $derived(netmap.topo.diff);
   function key(e: KeyboardEvent, n: MapNode) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -76,6 +88,7 @@
 
   onMount(() => {
     if (!netmap.labelsLoaded) void netmap.loadLabels();
+    if (!netmap.layoutLoaded) void netmap.loadLayout();
     void netmap.loadInventory();
   });
 
@@ -130,6 +143,54 @@
   }
 </script>
 
+{#snippet toolRow(ip: string, mac: string | null | undefined)}
+  <div class="toolrow" data-guide="netmap-tools">
+    <span class="lbl">TOOLS</span>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("ping", ip, netmap.resultHost)}>PING</button>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("ports", ip, netmap.resultHost)}>PORTS</button>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("http", ip, netmap.resultHost)}>WEB</button>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("path", ip, netmap.resultHost)}>PATH</button>
+    <button type="button" class="btn ghost tiny" onclick={() => nettools.open("dns", ip, netmap.resultHost)}>DNS</button>
+    {#if mac}<button type="button" class="btn ghost tiny" title="Wake-on-LAN from the machine that scanned" onclick={() => nettools.open("wol", mac, netmap.resultHost)}>WAKE</button>{/if}
+  </div>
+{/snippet}
+
+{#snippet svcScan(key: string, ip: string, name: string, hostId: number | null)}
+  {@const s = netmap.svc[key]}
+  <h4 data-guide="netmap-services">SERVICES</h4>
+  {#if !s}
+    <p class="muted small">Connects to 46 common ports from {netmap.resultHost === null ? "this computer" : "the machine that scanned"} and reads what answers. Nothing is logged in to.</p>
+    <button type="button" class="btn ghost" onclick={() => netmap.scanServices(key, ip)}>SCAN SERVICES</button>
+  {:else if s.running}
+    <p class="muted">Scanning from {s.from}…</p>
+  {:else if s.error}
+    <p class="err">{s.error}</p>
+    <button type="button" class="btn ghost tiny" onclick={() => netmap.scanServices(key, ip)}>TRY AGAIN</button>
+  {:else if s.result}
+    {#if s.result.note}<p class="warnline small">{s.result.note}</p>{/if}
+    <ul class="exp risks">
+      {#each s.result.facts.filter((f) => f.label.startsWith("Port ")) as f (f.label)}<li class={f.tone}><strong>{f.label}</strong><span>{f.value}</span></li>{/each}
+    </ul>
+    {#if s.result.table?.rows.length}
+      <table>
+        <tbody>
+          {#each s.result.table.rows as r (r[0])}
+            {@const web = r[1].startsWith("Web")}
+            <tr>
+              <td class="mono">{r[0]}</td>
+              <td title={r[2]}>{r[1]}</td>
+              <td class="r">
+                {#if web}<button type="button" class="btn ghost tiny" title="Watch it under Services" onclick={() => services.addFrom({ name: `${name} :${r[0]}`, url: `${r[3] === "TLS" ? "https" : "http"}://${ip}${(r[3] === "TLS" && r[0] === "443") || (r[3] !== "TLS" && r[0] === "80") ? "" : `:${r[0]}`}/`, hostId, allowUntrusted: r[3] === "TLS" })}>ADD AS SERVICE</button>{/if}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {:else}<p class="muted">No open ports among the common ones.</p>{/if}
+    <p class="muted small">From {s.from}. <button type="button" class="linkish" onclick={() => netmap.scanServices(key, ip)}>Scan again</button> · <button type="button" class="linkish" onclick={() => nettools.open("services", ip, netmap.resultHost)}>other ports…</button></p>
+  {/if}
+{/snippet}
+
 {#snippet labelForm()}
   <form class="labelform" data-guide="netmap-label" onsubmit={(e) => { e.preventDefault(); void saveLabel(); }}>
     <h4>LABEL</h4>
@@ -181,7 +242,7 @@
       {system.portMapLoading ? "AUDITING…" : "AUDIT PORTS ON ALL HOSTS"}
     </button>
     <span class="legend" aria-label="Legend">
-      <i class="sw internet"></i>internet-facing <i class="sw lan"></i>LAN <i class="sw tailnet"></i>tailnet <b class="scanmark">◉</b>can scan
+      <i class="sw internet"></i>internet-facing <i class="sw lan"></i>LAN <i class="sw tailnet"></i>tailnet <i class="sw routed"></i>routed <b class="scanmark">◉</b>can scan
     </span>
   </header>
 
@@ -192,6 +253,11 @@
       · {netmap.result.devices.length} devices{#if netmap.result.ranges.length} · swept {netmap.result.ranges.join(", ")}{/if}
       {#if netmap.newDevices.length}<span class="newc"> · {netmap.newDevices.length} new</span>{/if}
       {#if netmap.result.missing.length}<span class="miss"> · {netmap.result.missing.length} missing</span>{/if}
+      {#if diff.hasExpected}
+        {#if diff.missing.length || diff.unexpected.length}
+          <span class="miss" data-guide="netmap-diff"> · differs from the expected map: {diff.missing.length} missing, {diff.unexpected.length} not in it</span>
+        {:else}<span class="ok"> · matches the expected map</span>{/if}
+      {/if}
       {#each netmap.result.notes as n (n)}<span class="note"> · {n}</span>{/each}
     </p>
   {:else}
@@ -199,9 +265,24 @@
   {/if}
 
   <div class="body">
-    <div class="canvas" data-guide="netmap-graph">
+    <div class="canvas" class:graph={netmap.mode === "graph"} data-guide="netmap-graph">
+      <div class="maptools">
+        <div class="seg" role="group" aria-label="Map style" data-guide="netmap-mode">
+          <button type="button" class:on={netmap.mode === "graph"} aria-pressed={netmap.mode === "graph"} onclick={() => netmap.setMode("graph")}>GRAPH</button>
+          <button type="button" class:on={netmap.mode === "list"} aria-pressed={netmap.mode === "list"} onclick={() => netmap.setMode("list")}>LIST</button>
+        </div>
+        {#if netmap.mode === "graph"}
+          <button type="button" class="btn ghost tiny" data-guide="netmap-expected" title="Remember the map as it is now (devices, positions, connections). Later scans show what's missing or new." onclick={() => netmap.saveExpected()} disabled={!netmap.result}>SAVE AS EXPECTED</button>
+          {#if diff.hasExpected}<button type="button" class="btn ghost tiny" onclick={() => netmap.clearExpected()}>CLEAR EXPECTED</button>{/if}
+          <button type="button" class="btn ghost tiny" data-guide="netmap-autolayout" title="Forget where you placed nodes and lay the map out again (connections you set stay)" onclick={() => netmap.autoLayout()}>AUTO LAYOUT</button>
+          <span class="muted small hint">Drag to place · drop on a router, access point, switch or host to connect through it</span>
+        {/if}
+        {#if netmap.layoutError}<span class="err small">{netmap.layoutError}</span>{/if}
+      </div>
       {#if !hosts.hosts.length && !netmap.result}
         <p class="empty muted">Scan from this computer, or add hosts to see them on the map and scan from them.</p>
+      {:else if netmap.mode === "graph"}
+        <TopoMap onpick={(id) => pick(id)} />
       {:else}
         <svg {width} {height} viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Network map">
           {#each HEADS as h, i (h)}
@@ -323,6 +404,28 @@
         {@const n = netmap.current}
         <h3>{n.label}</h3>
         <p class="muted mono">{n.sub}</p>
+        {#if topoSel && topoSel.node.kind !== "internet" && !topoSel.ghost}
+          <label class="through" data-guide="netmap-parent">
+            <span class="lbl">CONNECTED THROUGH</span>
+            <select
+              class="input"
+              value={topoSel.manual ? (topoSel.parent ?? "") : ""}
+              onchange={(e) => netmap.setParent(topoSel.id, e.currentTarget.value || null)}
+            >
+              <option value="">Automatic{topoSel.parent && !topoSel.manual ? ` (${netmap.topo.nodes.find((t) => t.id === topoSel.parent)?.node.label ?? "?"})` : ""}</option>
+              {#each parents as p (p.id)}<option value={p.id}>{p.node.label}</option>{/each}
+            </select>
+          </label>
+          {#if topoSel.unexpected}
+            <p class="miss small">Not in the expected map. <button type="button" class="linkish" onclick={() => netmap.expect(topoSel.id, true)}>Add it</button></p>
+          {/if}
+        {/if}
+        {#if topoSel?.ghost}
+          <p>In the expected map, but this scan didn't see it. It may be off or asleep, on another network, or gone.</p>
+          <div class="actions">
+            <button type="button" class="btn ghost" onclick={() => (netmap.expect(topoSel.id, false), (netmap.selected = null))}>REMOVE FROM EXPECTED</button>
+          </div>
+        {/if}
 
         {#if n.kind === "internet"}
           <p>Ways in found by the last scan. Nothing outside your network was contacted to find these.</p>
@@ -333,6 +436,7 @@
           </ul>
         {:else if n.kind === "gateway"}
           {#if n.device?.mac}<p class="mono muted">MAC {n.device.mac}{n.device.vendor ? ` · ${n.device.vendor}` : ""}</p>{/if}
+          {#if n.ip}{@render toolRow(n.ip, n.device?.mac)}{/if}
           {#if n.device}{@render labelForm()}{/if}
           <p>The default route of the scanned host. Router port forwards (UPnP) are listed under <strong>Internet</strong> and on the host they land on.</p>
         {:else if n.kind === "tailnet"}
@@ -375,6 +479,8 @@
               {#each netmap.result.ifaces as f (f.name + f.addr)}<li>{f.name} {f.addr}/{f.prefix} <span class="muted">{f.kind}</span></li>{/each}
             </ul>
           {/if}
+          {#if n.ip}{@render toolRow(n.ip, null)}{/if}
+          {#if n.ip}{@render svcScan(`host:${n.label}`, n.ip, n.label, hid)}{/if}
           <h4>LISTENING PORTS</h4>
           {#if ls}
             <table>
@@ -415,6 +521,8 @@
             {#if d.os}<dt>OS</dt><dd>{d.os}{d.online === false ? " (offline)" : ""}</dd>{/if}
             <dt>SEEN BY</dt><dd>{seenText(d)}</dd>
           </dl>
+          {@render toolRow(d.ip, d.mac)}
+          {@render svcScan(devKey(d), d.ip, n.label, null)}
           {#if n.named?.note}<p class="note">{n.named.note}</p>{/if}
           {#if n.named?.tags.length}<p class="tags">{#each n.named.tags as t (t)}<span class="chip">#{t}</span>{/each}</p>{/if}
           {@render labelForm()}
@@ -430,6 +538,76 @@
 </div>
 
 <style>
+  .canvas.graph {
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .canvas.graph :global(.topo) {
+    flex: 1;
+  }
+  .maptools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--line);
+  }
+  .maptools .hint {
+    margin-left: 4px;
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--line);
+  }
+  .seg button {
+    padding: 2px 10px;
+    border: 0;
+    background: none;
+    color: var(--text-1);
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    cursor: pointer;
+  }
+  .seg button.on {
+    background: color-mix(in srgb, var(--cyan) 18%, transparent);
+    color: var(--text-0);
+  }
+  .risks li.bad {
+    border-left-color: var(--danger);
+  }
+  .risks li.warn {
+    border-left-color: var(--warn);
+  }
+  .risks li.info {
+    border-left-color: var(--line);
+  }
+  .warnline {
+    color: var(--warn);
+  }
+  .toolrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin: 8px 0;
+  }
+  .toolrow .lbl {
+    margin-right: 4px;
+  }
+  .through {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 10px 0 4px;
+  }
+  .sw.routed {
+    border-color: var(--warn);
+    border-top-style: dotted;
+  }
   .ranges {
     display: flex;
     align-items: center;
@@ -621,6 +799,13 @@
     stroke: var(--danger);
     stroke-width: 2;
   }
+  .link.wan {
+    stroke: var(--text-1);
+  }
+  .link.routed {
+    stroke: color-mix(in srgb, var(--warn) 70%, transparent);
+    stroke-dasharray: 2 4;
+  }
   .node {
     cursor: pointer;
     outline: none;
@@ -739,7 +924,7 @@
     font-size: var(--fs-xs);
   }
   td {
-    padding: 4px 0;
+    padding: 4px 10px 4px 0;
     border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
   }
   tr.internet td {

@@ -29,6 +29,9 @@ import type {
   Discovery_Serialize as Discovery,
   Device_Serialize as Device,
   NetDevice_Serialize as NetDevice,
+  LayoutEntry_Serialize as LayoutEntry,
+  ToolResult_Serialize as ToolResult,
+  ToolRequest,
   DeviceLabel,
 } from "./bindings";
 
@@ -105,6 +108,53 @@ function discovery(sweep: boolean, ranges: string[] = []): Discovery {
 }
 
 const inventory = new Map<string, NetDevice>();
+
+/** Made-up tool output for the browser preview (documentation addresses only). */
+function mockTool(r: ToolRequest): ToolResult {
+  const t = r.target.trim();
+  if (r.tool !== "neighbours" && r.tool !== "connections" && !/^[A-Za-z0-9.:_/-]+$/.test(t.replace(/^https?:\/\//, ""))) throw new Error("invalid value for target: a host name or address");
+  const base = { table: null, note: null };
+  switch (r.tool) {
+    case "ping":
+      return { ...base, ran: `ping -c 4 ${t}`, output: `PING ${t}: 56 data bytes\n64 bytes from ${t}: icmp_seq=0 ttl=64 time=1.2 ms\n…\n4 packets transmitted, 4 received, 0% packet loss\nrtt min/avg/max/mdev = 0.9/1.2/1.8/0.3 ms`, facts: [{ label: "Answers", value: "yes", tone: "ok" }, { label: "Loss", value: "0%", tone: "ok" }, { label: "Round trip", value: "1.2 ms avg (0.9–1.8)", tone: "info" }] };
+    case "path":
+      return { ...base, ran: `tracepath ${t}`, output: ` 1:  192.168.1.1   0.6ms\n 2:  10.0.0.1   8.1ms\n 3:  no reply\n 4:  ${t}   14.0ms reached`, facts: [{ label: "Hops", value: "4", tone: "info" }, { label: "No answer", value: "1 hop", tone: "info" }] };
+    case "dns":
+      return { ...base, ran: `${r.option || "A"} ${t}`, output: `;; ->>HEADER<<- opcode: QUERY, status: NOERROR\n${t}.\t300\tIN\tA\t192.168.1.20`, facts: [{ label: "Status", value: "NOERROR", tone: "ok" }, { label: "Answers", value: "1", tone: "ok" }], table: { columns: ["Name", "Type", "Value", "TTL"], rows: [[t, r.option || "A", "192.168.1.20", "300"]] } };
+    case "ports": {
+      const ports = r.option.split(/[\s,]+/).filter(Boolean);
+      const rows = ports.map((p) => [p, ["22", "80", "443"].includes(p) ? "open" : "closed", ({ "22": "SSH", "80": "HTTP", "443": "HTTPS" } as Record<string, string>)[p] ?? ""]);
+      return { ...base, ran: `TCP connect to ${t}`, output: "", facts: [{ label: "Open", value: rows.filter((x) => x[1] === "open").map((x) => x[0]).join(", ") || "none", tone: "ok" }], table: { columns: ["Port", "State", "Usually"], rows } };
+    }
+    case "http":
+      return { ...base, ran: `GET ${t}`, output: "HTTP/1.1 200 OK\nServer: nginx", facts: [{ label: "Status", value: "200", tone: "ok" }, { label: "Server", value: "nginx", tone: "info" }, { label: "Certificate", value: "not trusted by this machine (check 18)", tone: "bad" }, { label: "Issued by", value: "CN = nas.lan (self-signed)", tone: "warn" }, { label: "Expires", value: "in 213 days", tone: "ok" }] };
+    case "services":
+      return {
+        ...base,
+        ran: `service scan of ${t} (46 ports)`,
+        output: "",
+        facts: [
+          { label: "Open", value: "4", tone: "info" },
+          { label: "Port 23", value: "Telnet sends passwords in clear text: use SSH", tone: "bad" },
+          { label: "Port 445", value: "File sharing (SMB): check guest access is off", tone: "info" },
+        ],
+        table: {
+          columns: ["Port", "Service", "Says", "TLS"],
+          rows: [
+            ["22", "SSH (OpenSSH_9.6p1)", "SSH-2.0-OpenSSH_9.6p1", ""],
+            ["23", "Telnet", "", ""],
+            ["445", "SMB", "", ""],
+            ["5001", "Web (HTTPS): nginx", "HTTP/1.1 200 OK | Server: nginx", "TLS"],
+          ],
+        },
+      };
+    case "neighbours":
+      return { ...base, ran: "ip neigh", output: "192.168.1.1 dev eth0 lladdr a4:2b:b0:11:22:33 REACHABLE\n192.168.1.20 dev eth0 lladdr 00:11:32:aa:bb:cc STALE", facts: [{ label: "Entries", value: "2", tone: "info" }], table: { columns: ["Address", "MAC", "Maker"], rows: [["192.168.1.1", "a4:2b:b0:11:22:33", ""], ["192.168.1.20", "00:11:32:aa:bb:cc", "Synology"]] } };
+    default:
+      return { ...base, ran: "ss -tun", output: "tcp ESTAB 0 0 192.168.1.40:22 192.168.1.5:53422", facts: [{ label: "Connections", value: "1", tone: "info" }], table: { columns: ["Proto", "Local", "Remote", "State"], rows: [["tcp", "192.168.1.40:22", "192.168.1.5:53422", "ESTAB"]] } };
+  }
+}
+const layout = new Map<string, LayoutEntry>();
 
 let status: StatusPageSettings = { enabled: false, bind: "lan", port: 8787 };
 let tok = "3f9c2a71d0b84e6f9a1c5d7e2b4f6a8c0e1d3b5a7c9e2f4a6b8d0c1e3f5a7b9";
@@ -301,6 +351,24 @@ export const mockOps = {
   },
   forget: async (key: string): Promise<null> => {
     inventory.delete(key);
+    return null;
+  },
+  tool: async (_host: number | null, r: ToolRequest): Promise<ToolResult> => delay(mockTool(r), r.tool === "path" ? 1500 : 600),
+  macVendor: async (mac: string): Promise<string | null> => {
+    const hex = mac.replace(/[^0-9a-f]/gi, "").toLowerCase();
+    if (hex.length !== 12) return null;
+    if (parseInt(hex.slice(0, 2), 16) & 2) return "Random MAC";
+    return ({ "00113a": "Synology", "001132": "Synology", b827eb: "Raspberry Pi Foundation", "240ac4": "Espressif Inc." } as Record<string, string>)[hex.slice(0, 6)] ?? null;
+  },
+  wake: async (mac: string): Promise<string> => {
+    const hex = mac.replace(/[^0-9a-f]/gi, "");
+    if (hex.length !== 12) throw new Error("invalid value for mac: six bytes, like aa:bb:cc:dd:ee:ff");
+    return delay(hex.match(/../g)!.join(":").toLowerCase(), 300);
+  },
+  layoutGet: async (): Promise<LayoutEntry[]> => [...layout.values()].map((e) => ({ ...e })),
+  layoutSave: async (entries: LayoutEntry[], replace: boolean): Promise<null> => {
+    if (replace) layout.clear();
+    for (const e of entries) layout.set(e.key, { ...e });
     return null;
   },
   vms: (_hostId: number, elevate: boolean): Promise<VmReport> =>

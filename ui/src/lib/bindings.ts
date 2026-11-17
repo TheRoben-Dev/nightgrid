@@ -734,6 +734,25 @@ export const commands = {
 	/**  Forgets a device; it counts as new the next time a scan sees it. */
 	netmapDeviceForget: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_device_forget", { key }, options),
 	/**
+	 *  The network map as the user arranged it: positions, hand-set parents
+	 *  and the expected picture (D-141).
+	 */
+	netmapLayoutGet: (options?: InvokeOptions) => __TAURI_INVOKE<LayoutEntry_Serialize[]>("netmap_layout_get", undefined, options),
+	/**
+	 *  Saves map positions and parents; `replace` makes the saved layout exactly
+	 *  these entries (reset, or save as expected).
+	 */
+	netmapLayoutSave: (entries: LayoutEntry_Deserialize[], replace: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("netmap_layout_save", { entries, replace }, options),
+	/**
+	 *  Runs a network tool (ping, path, DNS, ports, HTTP/TLS, neighbours,
+	 *  connections) on a host, or on this computer when `host_id` is null (D-142).
+	 */
+	netTool: (hostId: number | null, req: ToolRequest, options?: InvokeOptions) => __TAURI_INVOKE<ToolResult_Serialize>("net_tool", { hostId, req }, options),
+	/**  The maker of a MAC address (offline list). */
+	netMacVendor: (mac: string, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("net_mac_vendor", { mac }, options),
+	/**  Sends a Wake-on-LAN packet for `mac` from a host (null: this computer). */
+	netWake: (hostId: number | null, mac: string, options?: InvokeOptions) => __TAURI_INVOKE<string>("net_wake", { hostId, mac }, options),
+	/**
 	 *  Starts, shuts down, reboots or stops a guest. Everything but start was
 	 *  confirmed in the UI with the guest and host named (security rule 5).
 	 */
@@ -2735,6 +2754,12 @@ export type Exposure_Serialize = {
 	detail: string,
 };
 
+export type Fact = {
+	label: string,
+	value: string,
+	tone: Tone,
+};
+
 /**  Failed attempts from one address. */
 export type FailSource = {
 	from: string,
@@ -4031,6 +4056,36 @@ export type LastTest = {
 	at: number,
 	ok: boolean,
 	note: string,
+};
+
+export type LayoutEntry = LayoutEntry_Serialize | LayoutEntry_Deserialize;
+
+export type LayoutEntry_Deserialize = {
+	/**
+	 *  A device's MAC or `ip:<address>`, `host:<name>`, or `gw`, `ts`,
+	 *  `net`, `local`.
+	 */
+	key: string,
+	x?: number | null,
+	y?: number | null,
+	/**  The node it connects through, set by hand (same key space). */
+	parent?: string | null,
+	/**  Part of the saved "expected" picture. */
+	expected: boolean,
+};
+
+export type LayoutEntry_Serialize = {
+	/**
+	 *  A device's MAC or `ip:<address>`, `host:<name>`, or `gw`, `ts`,
+	 *  `net`, `local`.
+	 */
+	key: string,
+	x: number | null,
+	y: number | null,
+	/**  The node it connects through, set by hand (same key space). */
+	parent: string | null,
+	/**  Part of the saved "expected" picture. */
+	expected: boolean,
 };
 
 export type Level = "info" | 
@@ -7140,10 +7195,55 @@ export type TlsInfo_Serialize = {
 	issuer: string | null,
 };
 
+export type Tone = "info" | "ok" | "warn" | "bad";
+
+export type Tool = "ping" | "path" | "dns" | "ports" | "http" | "neighbours" | "connections" | 
+/**  Open ports with what answers on them, and which are risky (D-143). */
+"services";
+
+export type ToolRequest = {
+	tool: Tool,
+	/**  Host name or address; a URL for `http`; unused for the tables. */
+	target: string,
+	/**  Ping count, DNS record type or the port list (`22,80,8000-8010`). */
+	option: string,
+	/**  DNS server to ask (blank: the machine's own resolver). */
+	server: string,
+};
+
+export type ToolResult = ToolResult_Serialize | ToolResult_Deserialize;
+
+export type ToolResult_Deserialize = {
+	/**  What ran, in words ("ping -c 4 192.168.1.1"). */
+	ran: string,
+	/**  The tool's own output (capped). */
+	output: string,
+	facts: Fact[],
+	table?: ToolTable | null,
+	/**  A missing tool or another reason the result is thin. */
+	note?: string | null,
+};
+
+export type ToolResult_Serialize = {
+	/**  What ran, in words ("ping -c 4 192.168.1.1"). */
+	ran: string,
+	/**  The tool's own output (capped). */
+	output: string,
+	facts: Fact[],
+	table: ToolTable | null,
+	/**  A missing tool or another reason the result is thin. */
+	note: string | null,
+};
+
 /**  Whether a tool is there and could be read. */
 export type ToolState = "missing" | 
 /**  Installed, but reading it needs root. */
 "denied" | "read";
+
+export type ToolTable = {
+	columns: string[],
+	rows: string[][],
+};
 
 /**  A route Nightgrid keeps in Traefik's file provider. */
 export type TraefikRoute = TraefikRoute_Serialize | TraefikRoute_Deserialize;

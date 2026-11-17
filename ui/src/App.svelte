@@ -183,11 +183,11 @@
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}
 
 <div class="shell" class:booted>
-  <LeftRail version={info?.version ?? "0.10.56"} />
+  <LeftRail version={info?.version ?? "0.10.59"} />
   <div class="main">
     <TopBar />
     <UpsCountdown />
-    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network" || section.id === "fleet" || section.id === "desktops" || section.id === "proxmox"} aria-label={section.label}>
+    <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "network" || section.id === "nettools" || section.id === "fleet" || section.id === "desktops" || section.id === "proxmox"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">
           <span class="slash" aria-hidden="true">//</span>

@@ -1,6 +1,6 @@
 import type { ActionId } from "./keys";
 
-export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "fleet" | "desktops" | "proxmox" | "network" | "automation" | "notes" | "settings";
+export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "fleet" | "desktops" | "proxmox" | "network" | "nettools" | "automation" | "notes" | "settings";
 
 export interface Section {
   id: SectionId;
@@ -22,6 +22,7 @@ export const SECTIONS: Section[] = [
   { id: "desktops", label: "Desktops", code: "DSK", action: "nav.desktops", milestone: "M10n" },
   { id: "proxmox", label: "Proxmox", code: "PVE", action: "nav.proxmox", milestone: "M10r" },
   { id: "network", label: "Network", code: "NET", action: "nav.network", milestone: "M10i" },
+  { id: "nettools", label: "Network tools", code: "NTL", action: "nav.nettools", milestone: "M10i" },
   { id: "automation", label: "Automation", code: "AUT", action: "nav.automation", milestone: "M8" },
   { id: "notes", label: "Knowledge", code: "KNW", action: "nav.notes", milestone: "M10e" },
   { id: "settings", label: "Settings", code: "CFG", action: "nav.settings", milestone: "M0" },
@@ -50,7 +51,7 @@ export const RAIL: RailEntry[] = [
   { id: "docker", label: "Docker", code: "DKR", members: ["docker"] },
   { id: "services", label: "Services", code: "SVC", members: ["services"] },
   { id: "system", label: "System", code: "SYS", members: ["system", "fleet"], tabs: { system: "One host", fleet: "Fleet" } },
-  { id: "network", label: "Network", code: "NET", members: ["network", "tunnels"], tabs: { network: "Map" } },
+  { id: "network", label: "Network", code: "NET", members: ["network", "nettools", "tunnels"], tabs: { network: "Map", nettools: "Tools" } },
   { id: "vms", label: "VMs", code: "VMS", members: ["proxmox", "desktops"] },
   { id: "automation", label: "Automation", code: "AUT", members: ["automation"] },
   { id: "notes", label: "Knowledge", code: "KNW", members: ["notes"] },
