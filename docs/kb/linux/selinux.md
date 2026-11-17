@@ -2,6 +2,8 @@
 
 Fix "permission denied" that isn't about file permissions on Fedora, RHEL, Alma and Rocky, without turning SELinux off.
 
+![Types, labels and the policy between them.](fig:lx-selinux)
+
 ## Part 1 · Is it SELinux?
 
 ```sh

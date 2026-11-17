@@ -2,6 +2,8 @@
 
 Subscribe to YouTube channels and playlists on your server: Pinchflat checks them on a schedule, downloads new videos with yt-dlp in the quality you choose, and names and tags them so Plex or Jellyfin show them as proper TV-style series.
 
+![Pinchflat archiving channels.](fig:app-video-archive)
+
 ## What you end up with
 
 - Pinchflat with media profiles for Jellyfin/Plex naming

@@ -2,6 +2,8 @@
 
 A media server for comics, manga and graphic novels (CBZ, CBR, PDF, EPUB): series, read progress, a web reader, and OPDS for reader apps on phones and tablets.
 
+![Komga serving your comics.](fig:app-media-server)
+
 ## What you end up with
 
 - Your comics organised into libraries and series with covers

@@ -2,6 +2,8 @@
 
 Download and index YouTube channels and playlists you want to keep, with a web player, search, and watched status. Uses yt-dlp under the hood, with Elasticsearch for search.
 
+![Tube Archivist archiving channels.](fig:app-video-archive)
+
 ## What you end up with
 
 - Subscribed channels downloaded on a schedule

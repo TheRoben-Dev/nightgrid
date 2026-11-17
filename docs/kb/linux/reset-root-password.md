@@ -2,6 +2,8 @@
 
 Get back into a Linux server when nobody remembers the admin password: boot into a root shell with a kernel parameter, set a new password, and boot normally. Needs the physical console (or IPMI, PiKVM, the hypervisor's console), not SSH.
 
+![Resetting a forgotten root password.](fig:lx-reset-root)
+
 ## What you end up with
 
 - A new password on root or your admin account

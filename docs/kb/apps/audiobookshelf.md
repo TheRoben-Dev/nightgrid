@@ -2,6 +2,8 @@
 
 Stream audiobooks and podcasts with progress synced across phones and the web, from your own library.
 
+![Audiobookshelf streaming your books.](fig:app-media-server)
+
 ## What you end up with
 
 - Audiobookshelf at `books.example.com` with libraries for audiobooks and podcasts

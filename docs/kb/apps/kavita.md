@@ -2,6 +2,8 @@
 
 A fast reader for comics, manga and e-books with series metadata, reading progress and OPDS.
 
+![Kavita serving your books and comics.](fig:app-media-server)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `kavita`:

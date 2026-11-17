@@ -2,6 +2,8 @@
 
 A web interface for running Ansible playbooks (and Terraform/OpenTofu, Bash or PowerShell scripts): store inventories and SSH keys once, run playbooks with a button or on a schedule, and keep a log of every run and who started it.
 
+![Semaphore runs playbooks like a control host.](fig:app-ansible)
+
 ## What you end up with
 
 - Semaphore with its built-in database, behind your proxy or on the LAN

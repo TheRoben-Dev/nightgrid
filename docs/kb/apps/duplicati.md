@@ -2,6 +2,8 @@
 
 Encrypted, deduplicated backups to almost any destination (another server over SFTP, S3, Backblaze B2, a USB disk, WebDAV, Google Drive and many more), set up from a browser. A friendly choice for a machine whose owner won't touch a terminal.
 
+![Duplicati backing up to a local and an offsite target.](fig:app-backup-repo)
+
 ## What you end up with
 
 - Scheduled, encrypted, versioned backups configured in a web UI

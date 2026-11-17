@@ -2,6 +2,8 @@
 
 The handful of kernel settings worth changing on a home server, why, and how to make them stick. Most defaults are fine; these fix real problems: inotify limits for sync tools, forwarding for VPN routers, memory map limits for search engines, and network buffers for fast links.
 
+![Test a value live, then make it permanent.](fig:lx-sysctl)
+
 ## What you end up with
 
 - Your changes in one file under `/etc/sysctl.d/`, applied at boot

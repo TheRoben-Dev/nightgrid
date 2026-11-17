@@ -2,6 +2,8 @@
 
 Manage restic repositories, schedules, retention and restores from a web UI, with hooks for notifications. Handy for people who prefer clicking to systemd units.
 
+![Backrest schedules restic to local and offsite repositories.](fig:app-backup-repo)
+
 ## Part 1 · The stack
 
 - [ ] [Docker](view:docker) → **+ New stack** named `backrest`:

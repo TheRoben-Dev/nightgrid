@@ -2,6 +2,8 @@
 
 Install, update, hold and clean up software on Debian, Ubuntu and Fedora-family servers, and find which package a file or command comes from.
 
+![Sources, index and installed packages.](fig:lx-apt)
+
 ## What you end up with
 
 - The handful of commands you use every week on both families

@@ -2,6 +2,8 @@
 
 Watch history and statistics for Jellyfin: who watched what, most played titles, active devices and libraries' growth. The Jellyfin counterpart to Tautulli.
 
+![Jellystat keeping Jellyfin's watch history.](fig:app-watch-stats)
+
 ## What you end up with
 
 - Watch history per user, title and device

@@ -2,6 +2,8 @@
 
 Unraid runs its array, Docker containers and VMs from its own web UI. Nightgrid adds a terminal, file browsing, container logs and restarts, service checks and alerts next to it, without fighting Unraid's way of doing things.
 
+![The layers of a NAS, as Unraid builds them.](fig:app-nas-os)
+
 ## What you end up with
 
 - Key-based SSH to the Unraid server that survives reboots

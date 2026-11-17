@@ -2,6 +2,8 @@
 
 A light, fast music streaming server compatible with Subsonic apps, for your own FLAC and MP3 collection.
 
+![Navidrome streaming your music library.](fig:app-media-server)
+
 ## What you end up with
 
 - Your music library streamed to any Subsonic-compatible app (Symfonium, Feishin, Substreamer, play:Sub)

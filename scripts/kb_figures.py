@@ -696,13 +696,15 @@ def flow(code, caption, cols, edges=(), zones=(), gap=80, nh=60, row=88, name=""
             sx, sy, tx, ty = xa + nw, ya + nh / 2, xb, yb + nh / 2
             mx = tx - gap / 2
             pts = [(sx, sy), (tx, ty)] if abs(sy - ty) < 1 else [(sx, sy), (mx, sy), (mx, ty), (tx, ty)]
-            lpos = (mx, min(sy, ty) - 8) if len(pts) == 4 else ((sx + tx) / 2, ty - 8)
+            short = label and len(label) * 7.9 <= gap / 2 - 4
+            lpos = (((mx + tx) / 2, ty - 8) if short else (mx, min(sy, ty) - 8)) if len(pts) == 4 else ((sx + tx) / 2, ty - 8)
             room = gap
         elif cb < ca:
             sx, sy, tx, ty = xa, ya + nh / 2, xb + nw, yb + nh / 2
             mx = tx + gap / 2
             pts = [(sx, sy), (tx, ty)] if abs(sy - ty) < 1 else [(sx, sy), (mx, sy), (mx, ty), (tx, ty)]
-            lpos = (mx, min(sy, ty) - 8) if len(pts) == 4 else ((sx + tx) / 2, ty - 8)
+            short = label and len(label) * 7.9 <= gap / 2 - 4
+            lpos = (((mx + tx) / 2, ty - 8) if short else (mx, min(sy, ty) - 8)) if len(pts) == 4 else ((sx + tx) / 2, ty - 8)
             room = gap
         else:
             cx = xa + nw / 2

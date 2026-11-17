@@ -2,6 +2,8 @@
 
 See CPU, board, drive and NVMe temperatures and fan speeds on a Linux server, and quiet down fans on boards that let Linux control them.
 
+![From sensor chips to a fan curve.](fig:lx-fan-curve)
+
 ## What you end up with
 
 - Every temperature and fan the board exposes, with names you understand

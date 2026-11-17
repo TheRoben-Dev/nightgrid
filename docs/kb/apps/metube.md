@@ -2,6 +2,8 @@
 
 A web front end for yt-dlp: paste a link from YouTube or any of the hundreds of sites yt-dlp supports, pick quality and format, and the file lands in a folder on the server, ready for Jellyfin or Plex. A browser extension and an iOS shortcut send links straight to it.
 
+![MeTube downloading a link into your library.](fig:app-video-archive)
+
 ## What you end up with
 
 - MeTube on the LAN, saving into your media share

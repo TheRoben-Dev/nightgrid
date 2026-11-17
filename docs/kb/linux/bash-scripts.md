@@ -2,6 +2,8 @@
 
 Small Bash scripts run backups, cleanups and checks on every homelab server. A few habits make them stop on errors, log what they did, and never run twice at once.
 
+![Four habits for safer admin scripts.](fig:lx-bash-safe)
+
 ## What you end up with
 
 - A script template that fails loudly instead of carrying on after an error

@@ -2,6 +2,8 @@
 
 History and stats for a Plex server: who watched what, when, on which device, and whether it transcoded. Plus notifications for new media and playback events.
 
+![Tautulli keeping Plex's watch history.](fig:app-watch-stats)
+
 ## What you end up with
 
 - Watch history per user and per title

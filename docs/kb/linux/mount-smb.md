@@ -2,6 +2,8 @@
 
 Mount an SMB share (a Windows PC, Synology, TrueNAS, Samba) on a Linux server so containers and scripts can use it like a local folder, with the password kept out of fstab.
 
+![An SMB share mounted with a credentials file.](fig:lx-mount-smb)
+
 ## What you end up with
 
 - A share mounted at boot with the right owner for your containers

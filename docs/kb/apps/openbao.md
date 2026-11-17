@@ -2,6 +2,8 @@
 
 A server for passwords, API keys and certificates that scripts and apps fetch at runtime, with access policies and an audit trail. OpenBao is the open-source fork of HashiCorp Vault and uses the same API and concepts. Worth it once several machines and scripts share secrets; for one person's logins, a password manager is simpler.
 
+![Unsealing OpenBao and reading secrets by policy.](fig:app-openbao)
+
 ## What you end up with
 
 - A single OpenBao server with integrated (Raft) storage

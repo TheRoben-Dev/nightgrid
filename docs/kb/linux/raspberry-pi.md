@@ -2,6 +2,8 @@
 
 Make a Raspberry Pi a reliable small server for DNS, Home Assistant, a VPN or monitoring: boot from SSD, cut SD card wear, and keep it cool.
 
+![What makes a Pi a dependable server.](fig:lx-raspberry-pi)
+
 ## What you end up with
 
 - Raspberry Pi OS Lite (64-bit) with SSH key login

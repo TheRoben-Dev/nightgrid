@@ -2,6 +2,8 @@
 
 Stream disposable Linux desktops and single apps (a browser, LibreOffice, a terminal) into any web browser. Each session is a fresh container that's thrown away when you close it, which makes it a good place to open dodgy links, test a download or give someone a temporary desktop.
 
+![A desktop in a browser tab.](fig:app-browser-desktop)
+
 ## What you end up with
 
 - Kasm Workspaces installed on a dedicated Linux host or VM

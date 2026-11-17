@@ -2,6 +2,8 @@
 
 SSH is the front door to every server. A few settings close the usual ways in without making daily use harder. Do these after your key login works.
 
+![SSH hardening, layer by layer.](fig:bs-sshd-layers)
+
 ## Before you change anything
 
 - Keep your current SSH session open while you edit and reload. If the new settings lock you out, that session is your way back; sshd has no automatic rollback.

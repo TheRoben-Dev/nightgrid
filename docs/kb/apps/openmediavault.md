@@ -2,6 +2,8 @@
 
 A NAS web UI on top of plain Debian: disks, RAID, SMB and NFS shares, users and scheduled jobs from a browser, while the box stays a normal Debian server you can SSH into and run Docker on.
 
+![The layers of a NAS OS.](fig:app-nas-os)
+
 ## What you end up with
 
 - A Debian NAS managed from a web page

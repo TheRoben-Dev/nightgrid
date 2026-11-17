@@ -2,6 +2,8 @@
 
 Health checks defined in one YAML file: HTTP, TCP, DNS, ICMP and certificate conditions, with a status page and alerts. Good if you like Uptime Kuma's idea but want config in git.
 
+![An always-on checker with a status page (Uptime Kuma shown; Gatus works the same).](fig:app-uptime-kuma)
+
 ## What you end up with
 
 - Endpoints and conditions in `config.yaml`, versioned

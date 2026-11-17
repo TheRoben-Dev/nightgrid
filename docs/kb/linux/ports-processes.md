@@ -2,6 +2,8 @@
 
 "Address already in use", "device is busy", a fan at full speed: three questions with the same answer, find the process. These commands work on any distro.
 
+![From a port to its owner.](fig:lx-port-owner)
+
 ## What you end up with
 
 - The process behind any listening port

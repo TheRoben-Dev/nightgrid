@@ -2,6 +2,8 @@
 
 A small web page with a button per machine: wake it, see if it's up, shut it down, or schedule wake-ups. Useful for family members who need to turn on the gaming PC or the NAS without asking you, and for phones on the LAN.
 
+![UpSnap waking a PC from your phone.](fig:app-wol-web)
+
 ## What you end up with
 
 - UpSnap on an always-on host, with your devices and their MAC addresses

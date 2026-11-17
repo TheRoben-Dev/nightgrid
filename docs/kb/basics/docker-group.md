@@ -2,6 +2,8 @@
 
 On Linux, the Docker daemon listens on a socket (`/var/run/docker.sock`) owned by root and the `docker` group. Adding a user to that group lets them run `docker` without sudo. It also gives them root on that host, which is worth knowing before you do it.
 
+![Why the docker group equals root.](fig:bs-docker-group)
+
 ## Why it's root
 
 Anyone who can talk to the Docker socket can start a container that mounts the host's root filesystem:

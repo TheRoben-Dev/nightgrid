@@ -2,6 +2,8 @@
 
 Downloads from Usenet: fast, reliable, and verified and repaired with par2 automatically. Pairs with Sonarr, Radarr and Lidarr as their download client.
 
+![Usenet downloads for Sonarr and Radarr.](fig:app-usenet)
+
 ## What you end up with
 
 - SABnzbd on port 8080 connected to your Usenet provider

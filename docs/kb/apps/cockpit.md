@@ -2,6 +2,8 @@
 
 Red Hat's web admin console for a single Linux server: services, logs, storage, networking, updates and a terminal, in a browser. Handy for people who won't use Nightgrid.
 
+![Cockpit's web console on a host.](fig:app-cockpit)
+
 ## Part 1 · Install
 
 ```sh

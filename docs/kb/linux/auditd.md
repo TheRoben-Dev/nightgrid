@@ -2,6 +2,8 @@
 
 Answer "who changed this file?" and "what did root run last night?" with the Linux audit system. Rules watch chosen files and system calls in the kernel, and each event records the user who originally logged in, even after `sudo`.
 
+![From an audit rule to a search result.](fig:lx-auditd)
+
 ## What you end up with
 
 - auditd running with a small, focused rule set

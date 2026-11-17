@@ -2,6 +2,8 @@
 
 ZFS, NVIDIA, some network cards, VirtualBox and many hardware drivers live outside the kernel and must be rebuilt for each new kernel. DKMS does that automatically on kernel updates. When it fails, the next reboot comes up without the module: no pool, no GPU, no network. Here's how to keep it working and fix it when it doesn't.
 
+![What happens to a DKMS module on a kernel update.](fig:lx-dkms)
+
 ## What you end up with
 
 - Matching kernel headers installed so DKMS can build

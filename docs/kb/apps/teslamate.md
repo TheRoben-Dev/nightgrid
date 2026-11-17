@@ -2,6 +2,8 @@
 
 Log everything your Tesla reports, on your own server: drives with maps, charging sessions with cost, battery degradation over time, efficiency, vampire drain and software updates, shown in ready-made Grafana dashboards. It also publishes live data over MQTT for Home Assistant.
 
+![TeslaMate's data path.](fig:app-teslamate)
+
 ## What you end up with
 
 - TeslaMate, PostgreSQL, Grafana and Mosquitto in one stack

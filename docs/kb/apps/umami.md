@@ -2,6 +2,8 @@
 
 Privacy-friendly visitor stats for your own sites: page views, referrers, countries and devices, without cookies or sending data to a third party.
 
+![Umami counting visits without cookies.](fig:app-web-analytics)
+
 ## What you end up with
 
 - A dashboard per website with views, visitors and sources
