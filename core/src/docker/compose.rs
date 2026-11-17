@@ -400,6 +400,7 @@ mod tests {
             service: Some(name.into()),
             compose_dir: Some(dir.into()),
             compose_files: vec![format!("{dir}/compose.yaml")],
+            web: vec![],
         }
     }
 

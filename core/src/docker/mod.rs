@@ -427,6 +427,8 @@ pub struct ContainerView {
     pub compose_dir: Option<String>,
     /// Compose files the project was started with (absolute paths).
     pub compose_files: Vec<String>,
+    /// Published ports that look like a web UI, best first (D-147).
+    pub web: Vec<crate::webui::WebUiTarget>,
 }
 
 fn health_from_status(status: &str) -> Option<String> {
@@ -465,7 +467,9 @@ impl From<ContainerSummary> for ContainerView {
             .and_then(|n| n.into_iter().next())
             .map(|n| n.trim_start_matches('/').to_owned())
             .unwrap_or_default();
+        let web = crate::webui::targets(&ports, labels.get(crate::webui::LABEL_WEBUI).map(String::as_str));
         ContainerView {
+            web,
             id: c.id.unwrap_or_default(),
             name,
             image: c.image.unwrap_or_default(),

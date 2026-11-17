@@ -773,6 +773,7 @@ static.example.com {
             service: service.map(str::to_owned),
             compose_dir: None,
             compose_files: vec![],
+            web: vec![],
         }
     }
 

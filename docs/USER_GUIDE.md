@@ -58,6 +58,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - **Snapshots** save each service's exact image plus copies of the compose files and `.env` on the host. One is taken before every Update and Rollback, and the newest 10 are kept. **Roll back…** names every file and service it changes and saves the current state first.
 - **+ New stack** builds a `compose.yaml` from an image (ports, volumes and variables pre-filled from what the image declares) or from pasted YAML. Variable values go into `.env` with mode 600, never into `compose.yaml`.
 - Environment values are masked until you click them.
+- **Web UIs**: **⧉** on a running container's row opens its web interface in its own Nightgrid window; the detail panel has a **Web UI** button, plus one for each other web port. Nightgrid picks the published ports that look like web pages (8080, 443, 3000, …, not databases or game ports). To choose for it, add the label `nightgrid.webui` to the container: a port (`8080`), a scheme, port and path (`https:8443/admin`) or just a path (`/ui`). The page is reached straight from this computer when it can be, otherwise through a temporary SSH tunnel to the host (ports published only on `127.0.0.1` always go through the tunnel). The window is an ordinary web page with no access to Nightgrid. Links that open a new window go to your browser. HTTPS pages with a self-signed certificate can't be shown there; Nightgrid says so and offers **Open in browser**.
 
 ## Proxmox
 
@@ -88,6 +89,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 - **Services**: a board of web apps with an up/down check, response time, certificate expiry and 30 days of history. Import them from a Homepage `services.yaml`, or add them by hand.
   - A failed check says why. A wrong status names the server that answered, the address it was reached at and the start of its error page, for example *HTTP 502 · from nginx at 203.0.113.7 · "502 Bad Gateway"*. A 502 or 504 means your reverse proxy answered but couldn't reach the app behind it: check the proxy's upstream for that site. A connection that fails lists the addresses the name resolves to.
+  - Click a service's name to open it in a Nightgrid window (reached through its host by SSH tunnel when this computer can't reach it directly); **↗** opens it in your browser.
   - Checks connect the way browsers do, trying IPv6 and IPv4 side by side, so a network with broken IPv6 doesn't make sites look down. A check that can't connect tries once more before it counts as down.
 - **Add integration**:
   - **Plex**: what's playing.
@@ -106,6 +108,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 - **Local** (`-L`): reach a server-side port from this computer. **Remote** (`-R`): expose a local port on the server. **Dynamic** (`-D`): a SOCKS proxy.
 - Saved tunnels can start with the app. Listening anywhere other than localhost is flagged as public.
+- **Browse** on a running local tunnel opens it in a Nightgrid window.
 
 ## System
 

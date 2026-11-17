@@ -2,7 +2,9 @@
   import { api, errorText, type ContainerDetail, type ContainerView } from "../../api";
   import { openExternal } from "../../clipboard";
   import { isUp } from "../../stores/docker.svelte";
+  import { hosts } from "../../stores/hosts.svelte";
   import { integrations, portainerUrl } from "../../stores/integrations.svelte";
+  import { targetLabel, targetUrl, webui } from "../../stores/webui.svelte";
   import ContainerLogs from "./ContainerLogs.svelte";
 
   interface Props {
@@ -57,6 +59,10 @@
   const toggleReveal = (k: string) =>
     (revealed = revealed.includes(k) ? revealed.filter((x) => x !== k) : [...revealed, k]);
 
+  const host = $derived(hosts.byId(hostId));
+  /** Web UI addresses (D-147), best first. */
+  const webs = $derived(host && container.state === "running" ? container.web.slice(0, 3).map((t) => ({ t, url: targetUrl(t, host.hostname) })) : []);
+
   const when = (t: string | null) => (t ? new Date(t).toLocaleString() : "—");
   const copy = (s: string) => void navigator.clipboard?.writeText(s);
 </script>
@@ -67,6 +73,27 @@
     <h2>{container.name}</h2>
     <span class="muted img">{container.image}</span>
     <span class="spacer"></span>
+    {#each webs as w, i (w.url)}
+      {#if i === 0}
+        <button
+          type="button"
+          class="btn tiny"
+          title="Open {w.url} in a Nightgrid window"
+          data-guide="docker-webui-panel"
+          disabled={webui.isBusy(hostId, w.url)}
+          onclick={() => void webui.open(hostId, w.url, container.service ?? container.name)}
+          >{webs.length > 1 ? `Web UI ${targetLabel(w.t)}` : "Web UI"}</button
+        >
+      {:else}
+        <button
+          type="button"
+          class="btn ghost tiny"
+          title="Open {w.url} in a Nightgrid window"
+          disabled={webui.isBusy(hostId, w.url)}
+          onclick={() => void webui.open(hostId, w.url, container.service ?? container.name)}>{targetLabel(w.t)}</button
+        >
+      {/if}
+    {/each}
     {#if portainer}
       <button type="button" class="btn ghost tiny" title={portainer} onclick={() => portainer && openExternal(portainer)}>Open in Portainer</button>
     {/if}

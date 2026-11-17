@@ -162,6 +162,8 @@ import {
   type ContainerDetail_Serialize as ContainerDetail,
   type ContainerStats,
   type ContainerView_Serialize as ContainerView,
+  type WebUiOpen_Serialize as WebUiOpen,
+  type WebUiTarget_Serialize as WebUiTarget,
   type DockerError,
   type EngineInfo,
   type LogEvent_Serialize as LogEvent,
@@ -511,6 +513,8 @@ export type {
   ContainerDetail,
   ContainerStats,
   ContainerView,
+  WebUiOpen,
+  WebUiTarget,
   DockerError,
   EngineInfo,
   LogEvent,
@@ -748,7 +752,7 @@ const MOCK_KEY = "nightgrid.mock.settings";
 const mock = {
   async appInfo(): Promise<AppInfo> {
     return {
-      version: "0.10.62-web",
+      version: "0.10.63-web",
       os: "browser",
       arch: "n/a",
       dataDir: "(browser)",
@@ -967,6 +971,14 @@ export const api = {
   tunnelStop: (id: number): Promise<null> => (T() ? commands.tunnelStop(id) : mockTunnels.stop(id)),
   tunnelOpenTemporary: (hostId: number, destHost: string, destPort: number): Promise<number> =>
     T() ? commands.tunnelOpenTemporary(hostId, destHost, destPort) : mockTunnels.openTemporary(hostId, destHost, destPort),
+  /** Opens a web UI in its own Nightgrid window (D-147); in the browser build, a new tab. */
+  webuiOpen: (hostId: number | null, url: string, title: string): Promise<WebUiOpen> =>
+    T()
+      ? commands.webuiOpen(hostId, url, title)
+      : Promise.resolve().then(() => {
+          window.open(url, "_blank", "noopener");
+          return { opened: true, url, viaTunnel: false, problem: null };
+        }),
   systemInfo: (hostId: number): Promise<SystemInfo> => (T() ? commands.systemInfo(hostId) : mockSystem.info(hostId)),
   systemSudoForget: (hostId: number): Promise<null> => (T() ? commands.systemSudoForget(hostId) : mockSystem.forget(hostId)),
   systemUnits: (hostId: number): Promise<Unit[]> => (T() ? commands.systemUnits(hostId) : mockSystem.units(hostId)),

@@ -620,6 +620,14 @@ Use a test VM or a host you can reach another way (a console) the first time.
 3. Search "zfs scrub" with the topic set to Storage & backups, then clear filters from the empty state if nothing matches.
 4. Ask DRIFT "how do I set up Immich?": the answer links **Immich** from the library.
 
+### macOS: testing web UIs in Nightgrid (0.10.63)
+
+1. Docker: a running container with a web port (AMP, Portainer, Homepage…) has **⧉** on its row. Click it: the page opens in its own window titled with the service. Clicking again focuses the same window.
+2. A container whose port is published only on `127.0.0.1`, or a host you reach only through the built-in tailnet: **⧉** still opens it (through a temporary SSH tunnel, listed under Tunnels).
+3. Services: click a service's name; it opens in a Nightgrid window. **↗** opens it in your browser instead.
+4. A self-signed HTTPS panel (Proxmox on 8006): a WEB UI note says the window can't show it, and **Open in browser** opens it there.
+5. Stop the container and click its Web UI button in the detail panel quickly: a note says nothing answers on that port.
+
 ### macOS: testing the Library (0.10.62)
 
 1. `Mod+Shift+L` (or Knowledge → **LIBRARY**): three shelves; search "restic password" lists Backups first.
