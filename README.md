@@ -613,6 +613,13 @@ Use a test VM or a host you can reach another way (a console) the first time.
 2. Run `nano ~/test.txt` (or `crontab -e`, `git commit`). An editor tab opens with normal shortcuts while the terminal waits.
 3. Edit, then click **Save & return**: you're back in the terminal and the command continues. Pressing Enter in the terminal stops waiting.
 
+### macOS: testing the bigger Library (0.10.64)
+
+1. `Mod+Shift+L`: six shelves with counts; the home page lists **Topics**. Click **Media**: only media articles remain on every shelf.
+2. Pick **Self-hosted apps** in the shelf chips and **Smart home** in the topic list; open **Zigbee2MQTT**: Objectives show its parts and ticks stay after a restart.
+3. Search "zfs scrub" with the topic set to Storage & backups, then clear filters from the empty state if nothing matches.
+4. Ask DRIFT "how do I set up Immich?": the answer links **Immich** from the library.
+
 ### macOS: testing the Library (0.10.62)
 
 1. `Mod+Shift+L` (or Knowledge → **LIBRARY**): three shelves; search "restic password" lists Backups first.

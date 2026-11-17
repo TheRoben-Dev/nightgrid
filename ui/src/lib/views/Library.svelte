@@ -1,14 +1,16 @@
 <script lang="ts">
   /**
-   * Library (M11): the built-in knowledge base inside Knowledge. Three
-   * shelves (Using Nightgrid, Homelab basics, Guides), full-text search, and
-   * guides read like a quest log: parts are objectives, ticks are kept.
+   * Library (M11): the built-in knowledge base inside Knowledge. Shelves
+   * (Using Nightgrid, How-tos, Homelab basics, Linux skills, Self-hosted
+   * apps, Guides), topics across them, full-text search, and step-by-step
+   * articles read like a quest log: parts are objectives, ticks are kept.
    * Everything is bundled; nothing is fetched.
    */
   import { writeClipboard } from "../clipboard";
   import Markdown from "../components/Markdown.svelte";
   import Panel from "../components/Panel.svelte";
-  import { SHELVES, type Shelf } from "../kb/catalog";
+  import { CATEGORIES, SHELVES, categoryOf, type Shelf } from "../kb/catalog";
+  import type { Article } from "../kb/library";
   import { ARTICLES, article, parts, search } from "../kb/library";
   import { scramble } from "../scramble";
   import { library } from "../stores/library.svelte";
@@ -16,12 +18,20 @@
   import { ui } from "../stores/ui.svelte";
 
   const shelfLabel = (s: Shelf) => SHELVES.find((x) => x.id === s)?.label ?? s;
-  const hits = $derived(library.query.trim() ? search(library.query) : null);
+  /** Shelves whose articles have `- [ ]` steps worth ticking. */
+  const tracked = (a: Article) => a.shelf !== "nightgrid" && a.shelf !== "basics";
+  const inShelf = (a: Article) => library.shelf === "all" || a.shelf === library.shelf;
+  const inCat = (a: Article) => library.cat === "all" || categoryOf(a.id) === library.cat;
+  const hits = $derived(library.query.trim() ? search(library.query, 60) : null);
   const listed = $derived(
     hits
-      ? hits.map((h) => ({ a: h.article, snippet: h.snippet }))
-      : ARTICLES.filter((a) => library.shelf === "all" || a.shelf === library.shelf).map((a) => ({ a, snippet: a.summary })),
+      ? hits.filter((h) => inShelf(h.article) && inCat(h.article)).map((h) => ({ a: h.article, snippet: h.snippet }))
+      : ARTICLES.filter((a) => inShelf(a) && inCat(a)).map((a) => ({ a, snippet: a.summary })),
   );
+  /** Counts beside each filter, given the other filter. */
+  const shelfCount = $derived(new Map(SHELVES.map((s) => [s.id, ARTICLES.filter((a) => a.shelf === s.id && inCat(a)).length])));
+  const catCount = $derived(new Map(CATEGORIES.map((c) => [c.id, ARTICLES.filter((a) => categoryOf(a.id) === c.id && inShelf(a)).length])));
+  const catLabel = (id: string) => CATEGORIES.find((c) => c.id === categoryOf(id))?.label ?? "";
   const cur = $derived(library.current ? (article(library.current) ?? null) : null);
   const objectives = $derived(cur ? parts(cur) : []);
   const ticks = $derived(cur ? (library.progress[cur.id] ?? {}) : {});
@@ -31,8 +41,9 @@
   }
   function progressOf(id: string): { done: number; total: number } | null {
     const a = article(id);
-    if (!a || a.shelf !== "guides") return null;
+    if (!a || !tracked(a)) return null;
     const keys = parts(a).flatMap((p) => p.keys);
+    if (!keys.length) return null;
     return { done: done(keys, library.progress[id] ?? {}), total: keys.length };
   }
   const total = $derived(objectives.reduce((n, p) => n + p.keys.length, 0));
@@ -65,26 +76,33 @@
   <Panel title="LIBRARY" prefix=">" count={listed.length} guide="library-list">
     <div class="side">
       <input class="input" type="search" placeholder="Search the library" aria-label="Search the library" data-guide="library-search" bind:value={library.query} />
-      {#if !hits}
-        <div class="tags" role="group" aria-label="Shelf">
-          <button type="button" class="chip" class:on={library.shelf === "all"} aria-pressed={library.shelf === "all"} onclick={() => (library.shelf = "all")}>ALL</button>
-          {#each SHELVES as s (s.id)}
-            <button type="button" class="chip" class:on={library.shelf === s.id} aria-pressed={library.shelf === s.id} title={s.what} onclick={() => (library.shelf = s.id)}>{s.label}</button>
-          {/each}
-        </div>
-      {/if}
+      <div class="tags" role="group" aria-label="Shelf">
+        <button type="button" class="chip" class:on={library.shelf === "all"} aria-pressed={library.shelf === "all"} onclick={() => (library.shelf = "all")}>ALL</button>
+        {#each SHELVES as s (s.id)}
+          <button type="button" class="chip" class:on={library.shelf === s.id} aria-pressed={library.shelf === s.id} title={s.what} onclick={() => (library.shelf = s.id)}>{s.label} <span class="n">{shelfCount.get(s.id)}</span></button>
+        {/each}
+      </div>
+      <select class="input topic" aria-label="Topic" data-guide="library-topic" bind:value={library.cat}>
+        <option value="all">All topics</option>
+        {#each CATEGORIES as c (c.id)}
+          <option value={c.id} disabled={!catCount.get(c.id)}>{c.label} ({catCount.get(c.id)})</option>
+        {/each}
+      </select>
       <ul class="list">
         {#each listed as { a, snippet } (a.id)}
           {@const p = progressOf(a.id)}
           <li>
             <button type="button" class="item" class:sel={a.id === library.current} onclick={() => library.read(a.id)}>
               <span class="t">{a.title}</span>
-              <span class="shelf">{shelfLabel(a.shelf)}{#if p && p.done} · {p.done}/{p.total}{/if}</span>
+              <span class="shelf">{shelfLabel(a.shelf)} · {catLabel(a.id)}{#if p && p.done} · {p.done}/{p.total}{/if}</span>
               <span class="snip muted">{snippet}</span>
             </button>
           </li>
         {:else}
-          <li class="muted empty">Nothing in the library matches. Try fewer words, or ask DRIFT.</li>
+          <li class="muted empty">
+            Nothing in the library matches{#if library.shelf !== "all" || library.cat !== "all"} with these filters{/if}. Try fewer words, or ask DRIFT.
+            {#if library.shelf !== "all" || library.cat !== "all"}<button type="button" class="btn ghost tiny" onclick={() => ((library.shelf = "all"), (library.cat = "all"))}>CLEAR FILTERS</button>{/if}
+          </li>
         {/each}
       </ul>
     </div>
@@ -95,13 +113,13 @@
       <header class="head">
         <span class="kicker">
           <button type="button" class="btn ghost tiny" onclick={() => (library.trail.length ? library.back() : library.read(null))}>← {library.trail.length ? "BACK" : "SHELVES"}</button>
-          {shelfLabel(cur.shelf)}
+          {shelfLabel(cur.shelf)} · {catLabel(cur.id)}
         </span>
         <h1 aria-label={cur.title}><span use:scramble={cur.title}></span></h1>
         {#if flash}<span class="flash" role="status">{flash}</span>{/if}
       </header>
 
-      {#if cur.shelf === "guides" && objectives.length}
+      {#if tracked(cur) && objectives.length}
         <aside class="quest" aria-label="Objectives" data-guide="library-objectives">
           <div class="qhead">
             <span class="qlabel">OBJECTIVES</span>
@@ -127,8 +145,8 @@
         steps
         onview={(v) => ui.go(v as never)}
         onarticle={(id) => library.read(id)}
-        ticks={cur.shelf === "guides" ? ticks : undefined}
-        ontick={cur.shelf === "guides" ? (k, on) => library.tick(cur.id, k, on) : undefined}
+        ticks={tracked(cur) ? ticks : undefined}
+        ontick={tracked(cur) ? (k, on) => library.tick(cur.id, k, on) : undefined}
       >
         {#snippet code(b)}
           <button type="button" class="btn ghost tiny" onclick={() => void copy(b.text)}>Copy</button>
@@ -138,12 +156,23 @@
     {:else}
       <div class="shelves">
         <h1>THE LIBRARY</h1>
-        <p class="muted">Built in and offline: how each part of Nightgrid works, the homelab background it assumes, and step-by-step guides for whole setups. Search covers every article; DRIFT reads them too.</p>
-        {#each SHELVES as s (s.id)}
+        <p class="muted">Built in and offline: how each part of Nightgrid works, how-tos for common jobs, the Linux and homelab background they assume, install guides for self-hosted apps, and step-by-step guides for whole setups. Search covers every article; DRIFT reads them too.</p>
+        <section class="shelfcard">
+          <h2>TOPICS <span class="muted small">· {ARTICLES.length} articles</span></h2>
+          <div class="topics">
+            <button type="button" class="chip" class:on={library.cat === "all"} aria-pressed={library.cat === "all"} onclick={() => (library.cat = "all")}>ALL</button>
+            {#each CATEGORIES as c (c.id)}
+              <button type="button" class="chip" class:on={library.cat === c.id} aria-pressed={library.cat === c.id} disabled={!catCount.get(c.id)} onclick={() => (library.cat = library.cat === c.id ? "all" : c.id)}>{c.label} <span class="n">{catCount.get(c.id)}</span></button>
+            {/each}
+          </div>
+        </section>
+        {#each SHELVES.filter((s) => library.shelf === "all" || library.shelf === s.id) as s (s.id)}
+          {@const shelfArticles = ARTICLES.filter((a) => a.shelf === s.id && inCat(a))}
+          {#if shelfArticles.length}
           <section class="shelfcard">
-            <h2>{s.label} <span class="muted small">· {s.what}</span></h2>
+            <h2>{s.label} <span class="muted small">· {s.what} · {shelfArticles.length}</span></h2>
             <div class="cards">
-              {#each ARTICLES.filter((a) => a.shelf === s.id) as a (a.id)}
+              {#each shelfArticles as a (a.id)}
                 {@const p = progressOf(a.id)}
                 <button type="button" class="card" onclick={() => library.read(a.id)}>
                   <span class="t">{a.title}</span>
@@ -153,6 +182,7 @@
               {/each}
             </div>
           </section>
+          {/if}
         {/each}
       </div>
     {/if}
@@ -203,6 +233,22 @@
     color: var(--bg-0);
     background: var(--mint);
     border-color: var(--mint);
+  }
+  .chip:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .chip .n {
+    opacity: 0.6;
+  }
+  .topics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .topics .chip {
+    font-size: var(--fs-sm);
+    padding: 3px 8px;
   }
   .list {
     list-style: none;

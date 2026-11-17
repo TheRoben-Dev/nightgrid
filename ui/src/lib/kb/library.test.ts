@@ -1,15 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { SECTIONS } from "../sections";
-import { CATALOG, VIEW_HELP } from "./catalog";
+import { CATALOG, CATEGORIES, VIEW_HELP } from "./catalog";
 import { inline } from "../helper/md";
 import { ARTICLES, article, fromFile, fromGuide, parts, plain, search } from "./library";
 
 describe("library", () => {
-  it("has all three shelves and a catalog in step with them", () => {
-    for (const s of ["nightgrid", "basics", "guides"]) expect(ARTICLES.some((a) => a.shelf === s)).toBe(true);
+  it("has every shelf and a catalog in step with them", () => {
+    for (const s of ["nightgrid", "howto", "basics", "linux", "apps", "guides"]) expect(ARTICLES.some((a) => a.shelf === s), s).toBe(true);
     const ids = (xs: { id: string; title: string }[]) => xs.map((x) => `${x.id}|${x.title}`).sort();
     expect(ids(CATALOG)).toEqual(ids(ARTICLES));
     expect(new Set(ARTICLES.map((a) => a.id)).size).toBe(ARTICLES.length);
+    expect(CATALOG.every((c) => c.id.startsWith(`${c.shelf}/`))).toBe(true);
+  });
+
+  it("puts every article in a topic, and every topic has articles", () => {
+    const cats = new Set(CATEGORIES.map((c) => c.id as string));
+    for (const c of CATALOG) expect(cats.has(c.cat), c.id).toBe(true);
+    for (const c of CATEGORIES) expect(CATALOG.some((x) => x.cat === c.id), c.id).toBe(true);
+  });
+
+  it("keeps the library lean", () => {
+    // Plain markdown only; the whole library stays far under its 25 MB ceiling.
+    const bytes = ARTICLES.reduce((n, a) => n + a.body.length, 0);
+    expect(bytes).toBeLessThan(25 * 1024 * 1024);
   });
 
   it("gives every view a help article", () => {
@@ -49,11 +62,12 @@ describe("library", () => {
     ]);
     // Keys match Markdown.svelte's block-item keys.
     expect(p[0].keys).toEqual(["2-0", "2-1"]);
-    for (const g of ARTICLES.filter((x) => x.shelf === "guides")) expect(parts(g).length, g.id).toBeGreaterThan(0);
+    for (const g of ARTICLES.filter((x) => ["guides", "howto", "apps", "linux"].includes(x.shelf))) expect(parts(g).length, g.id).toBeGreaterThan(0);
   });
 
   it("finds articles by their words", () => {
-    expect(search("restic password")[0]?.article.id).toBe("basics/backups");
+    expect(search("restic password").some((h) => h.article.id === "basics/backups")).toBe(true);
+    expect(search("zigbee2mqtt coordinator").slice(0, 3).some((h) => h.article.id === "apps/zigbee2mqtt")).toBe(true);
     expect(search("PasswordAuthentication sshd").some((h) => h.article.id === "basics/sshd-hardening")).toBe(true);
     expect(search("qwxyzzy")).toEqual([]);
   });

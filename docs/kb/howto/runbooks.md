@@ -20,21 +20,21 @@ Turn "what do I do when this breaks" into notes that open from the alert itself,
 - [ ] Put commands in fenced code blocks. Each block gets **Send to terminal** (typed at the prompt of a shell on the note's host; you press Enter) and **Copy**.
 - [ ] Link views with `[open Docker](view:docker)` and articles with `[Reading logs](kb:basics/reading-logs)`.
 
-A short example:
+A short example, as it looks once saved: a first line saying "Disk almost full on the media host.", then:
 
-````markdown
-Disk almost full on the media host.
+- [ ] See what grew:
 
-- [ ] See what grew
 ```sh
 sudo du -xh --max-depth=2 /srv | sort -h | tail -20
 ```
-- [ ] Clear old Docker images
+
+- [ ] Clear old Docker images:
+
 ```sh
 docker image prune -a --filter "until=168h"
 ```
-- [ ] If it's downloads, check the [Docker](view:docker) logs of the download client
-````
+
+- [ ] If it's downloads, check the [Docker](view:docker) logs of the download client.
 
 ## Part 3 · Use it
 
