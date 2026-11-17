@@ -2,6 +2,8 @@
 
 Use LVM to resize volumes without repartitioning, add disks to a volume group, and take snapshots before risky changes. Ubuntu Server installs with LVM by default.
 
+![Physical volumes pool into a volume group, which is cut into logical volumes.](fig:lvm-layers)
+
 ## What you end up with
 
 - The root volume grown into free space (a common Ubuntu fix)

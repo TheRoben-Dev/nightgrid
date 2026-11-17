@@ -493,6 +493,155 @@ def fig_jump_host():
     return finish(p)
 
 
+def fig_zfs_layout():
+    w, h = 960, 400
+    p = frame(w, h, "DX-09")
+    p.append(node(30, 160, 200, 64, "Pool: tank", "zpool create", AMBER, "nas"))
+    p.append(zone(270, 50, 250, 300, "VDEV: mirror-0"))
+    p.append(node(295, 100, 200, 56, "Disk A", "by-id path", CYAN, "disk"))
+    p.append(node(295, 240, 200, 56, "Disk B", "same data", CYAN, "disk"))
+    p.append(wire([(230, 192), (262, 192), (262, 128), (295, 128)], AMBER))
+    p.append(wire([(262, 192), (262, 268), (295, 268)], AMBER))
+    p.append(zone(560, 50, 370, 300, "DATASETS"))
+    for i, (n, sub) in enumerate([("tank/share", "SMB share"), ("tank/media", "recordsize=1M"), ("tank/backups", "replicated")]):
+        y = 80 + i * 86
+        p.append(node(585, y, 210, 58, n, sub, MINT, "doc"))
+        p.append(wire([(520, 200), (545, 200), (545, y + 29), (585, y + 29)], MINT))
+        p.append(t(830, y + 24, "@hourly", 13, MAGENTA))
+        p.append(t(830, y + 42, "@daily", 13, MAGENTA))
+    p.append(caption_bar(w, h, "A pool is built from vdevs; datasets share its space and each gets its own snapshots."))
+    return finish(p)
+
+
+def fig_wireguard_hub():
+    w, h = 960, 380
+    p = frame(w, h, "DX-10")
+    p.append(node(360, 150, 250, 70, "WireGuard server", "10.8.0.1 · UDP 51820", AMBER, "server"))
+    p.append(node(30, 70, 220, 60, "Router", "forwards 51820", DIM, "router"))
+    p.append(wire([(250, 100), (300, 100), (300, 172), (360, 172)], DIM))
+    for i, (n, ip, ic) in enumerate([("Phone", "10.8.0.2", "phone"), ("Laptop", "10.8.0.3", "laptop"), ("Friend's PC", "10.8.0.4", "laptop")]):
+        y = 60 + i * 95
+        p.append(node(700, y, 230, 60, n, ip, MINT, ic))
+        p.append(wire([(700, y + 30), (650, y + 30), (650, 185), (610, 185)], MAGENTA))
+    p.append(node(30, 230, 220, 60, "Home LAN", "192.168.1.0/24", CYAN, "house"))
+    p.append(wire([(360, 200), (300, 200), (300, 260), (250, 260)], CYAN, label="NAT", lpos=(320, 245)))
+    p.append(caption_bar(w, h, "Peers dial the server; it routes them to each other and, with NAT, to the home LAN."))
+    return finish(p)
+
+
+def fig_dns_chain():
+    w, h = 960, 360
+    p = frame(w, h, "DX-11")
+    p.append(node(30, 140, 190, 64, "Devices", "DNS from DHCP", MINT, "phone"))
+    p.append(node(280, 140, 200, 64, "Pi-hole", "blocks ads :53", MAGENTA, "shield"))
+    p.append(node(540, 140, 190, 64, "Unbound", "127.0.0.1:5335", AMBER, "server"))
+    p.append(node(780, 60, 150, 56, "Root", "the . zone", CYAN, "cloud"))
+    p.append(node(780, 145, 150, 56, "TLD", ".com .org", CYAN, "cloud"))
+    p.append(node(780, 230, 150, 56, "Domain", "example.com", CYAN, "cloud"))
+    p.append(wire([(220, 172), (280, 172)], MINT))
+    p.append(wire([(480, 172), (540, 172)], MAGENTA))
+    for y in (88, 173, 258):
+        p.append(wire([(730, 172), (755, 172), (755, y), (780, y)], AMBER))
+    p.append(t(380, 240, "blocked → 0.0.0.0", 13, MAGENTA, anchor="middle"))
+    p.append(caption_bar(w, h, "Pi-hole filters, Unbound asks the authoritative servers itself: no upstream provider sees it all."))
+    return finish(p)
+
+
+def fig_vlans():
+    w, h = 960, 380
+    p = frame(w, h, "DX-12")
+    p.append(node(30, 150, 170, 66, "Switch", "trunk port", DIM, "switch"))
+    p.append(node(330, 150, 220, 66, "Server NIC", "eth0 (untagged: LAN)", CYAN, "server"))
+    p.append(wire([(200, 183), (330, 183)], AMBER, label="tags 20, 30", lcolor=AMBER))
+    for i, (n, sub, c) in enumerate([("eth0", "LAN 192.168.1.10", CYAN), ("vlan20", "IoT 192.168.20.10", MINT), ("vlan30", "Guests 192.168.30.10", MAGENTA)]):
+        y = 60 + i * 95
+        p.append(node(660, y, 270, 60, n, sub, c, "router"))
+        p.append(wire([(550, 183), (605, 183), (605, y + 30), (660, y + 30)], c))
+    p.append(caption_bar(w, h, "One cable carries several networks; the server gets one interface per VLAN tag."))
+    return finish(p)
+
+
+def fig_cloudflared():
+    w, h = 960, 360
+    p = frame(w, h, "DX-13")
+    p.append(node(30, 140, 190, 64, "Visitor", "app.example.com", MINT, "laptop"))
+    p.append(node(270, 140, 235, 64, "Cloudflare edge", "TLS, WAF, Access", AMBER, "cloud"))
+    p.append(zone(560, 50, 370, 260, "HOME (no open ports)"))
+    p.append(node(585, 90, 320, 60, "cloudflared", "outbound connection", MAGENTA, "cube"))
+    p.append(node(585, 210, 320, 60, "App", "http://app:8080", CYAN, "cube"))
+    p.append(wire([(220, 172), (270, 172)], MINT))
+    p.append(wire([(585, 120), (530, 120), (530, 160), (505, 160)], MAGENTA, label="dials out", lpos=(530, 112), lcolor=MAGENTA))
+    p.append(wire([(745, 150), (745, 210)], CYAN))
+    p.append(caption_bar(w, h, "The tunnel is opened from inside, so the router forwards nothing; Cloudflare sees the traffic."))
+    return finish(p)
+
+
+def fig_gpu_passthrough():
+    w, h = 960, 380
+    p = frame(w, h, "DX-14")
+    p.append(zone(30, 50, 420, 290, "HOST (Proxmox / libvirt)"))
+    p.append(node(55, 90, 370, 60, "IOMMU on", "intel_iommu=on / AMD-Vi", AMBER, "chip"))
+    p.append(node(55, 175, 370, 60, "vfio-pci claims the GPU", "ids=10de:xxxx,10de:yyyy", MAGENTA, "gpu"))
+    p.append(node(55, 260, 370, 56, "Host driver blacklisted", "nouveau / nvidia / amdgpu", DIM, "lock"))
+    p.append(wire([(240, 150), (240, 175)], AMBER))
+    p.append(zone(540, 50, 390, 290, "VM"))
+    p.append(node(565, 120, 340, 60, "GPU as a PCI device", "hostpci0 / <hostdev>", CYAN, "gpu"))
+    p.append(node(565, 220, 340, 60, "Guest driver", "games, AI, transcoding", MINT, "terminal"))
+    p.append(wire([(425, 205), (490, 205), (490, 150), (565, 150)], MAGENTA, label="whole group", lpos=(490, 140), lcolor=MAGENTA))
+    p.append(wire([(735, 180), (735, 220)], CYAN))
+    p.append(caption_bar(w, h, "The host gives the GPU (and everything in its IOMMU group) to one VM, exclusively."))
+    return finish(p)
+
+
+def fig_lvm():
+    w, h = 960, 360
+    p = frame(w, h, "DX-15")
+    for i, n in enumerate(["/dev/sda3", "/dev/sdb"]):
+        p.append(node(30, 80 + i * 120, 200, 60, "PV", n, CYAN, "disk"))
+        p.append(wire([(230, 110 + i * 120), (300, 110 + i * 120), (300, 170), (360, 170)], CYAN))
+    p.append(node(360, 138, 220, 64, "VG: vg0", "pooled space", AMBER, "nas"))
+    for i, (n, sub) in enumerate([("LV: root", "/  ext4"), ("LV: data", "/srv  xfs"), ("snapshot", "before upgrades")]):
+        y = 60 + i * 90
+        c = MAGENTA if i == 2 else MINT
+        p.append(node(680, y, 250, 58, n, sub, c, "doc"))
+        p.append(wire([(580, 170), (630, 170), (630, y + 29), (680, y + 29)], c))
+    p.append(caption_bar(w, h, "Disks become PVs, PVs pool into a VG, and LVs are carved out, grown or snapshotted."))
+    return finish(p)
+
+
+def fig_nut():
+    w, h = 960, 380
+    p = frame(w, h, "DX-16")
+    p.append(node(30, 150, 190, 66, "UPS", "USB to one server", AMBER, "tape"))
+    p.append(node(300, 150, 260, 66, "NUT server", "upsd :3493 · primary", MAGENTA, "server"))
+    p.append(wire([(220, 183), (300, 183)], AMBER, label="USB", lcolor=AMBER))
+    for i, (n, ic) in enumerate([("NAS", "nas"), ("VM host", "server"), ("Nightgrid", "laptop")]):
+        y = 60 + i * 95
+        sub = "reads status, alerts" if n == "Nightgrid" else "upsmon secondary"
+        p.append(node(680, y, 250, 60, n, sub, MINT if n == "Nightgrid" else CYAN, ic))
+        p.append(wire([(560, 183), (620, 183), (620, y + 30), (680, y + 30)], CYAN))
+    p.append(t(300, 260, "low battery: secondaries shut down,", 13, DIM))
+    p.append(t(300, 278, "then the primary, then the UPS", 13, DIM))
+    p.append(caption_bar(w, h, "One machine talks to the UPS; every other machine listens over the network."))
+    return finish(p)
+
+
+def fig_prometheus():
+    w, h = 960, 380
+    p = frame(w, h, "DX-17")
+    for i, (n, sub) in enumerate([("node_exporter", "each host :9100"), ("cAdvisor", "containers :8080"), ("app /metrics", "any exporter")]):
+        y = 60 + i * 95
+        p.append(node(30, y, 250, 60, n, sub, CYAN, "chip"))
+        p.append(wire([(380, 183), (330, 183), (330, y + 30), (280, y + 30)], AMBER))
+    p.append(node(380, 150, 220, 66, "Prometheus", "scrapes every 15 s", AMBER, "server"))
+    p.append(node(690, 90, 240, 60, "Grafana", "dashboards", MINT, "photo"))
+    p.append(node(690, 220, 240, 60, "Alertmanager", "rules → notify", MAGENTA, "bulb"))
+    p.append(wire([(690, 120), (640, 120), (640, 183), (600, 183)], MINT, label="PromQL", lpos=(640, 110)))
+    p.append(wire([(600, 190), (640, 190), (640, 250), (690, 250)], MAGENTA))
+    p.append(caption_bar(w, h, "Prometheus pulls metrics from exporters; Grafana queries it, Alertmanager sends its alerts."))
+    return finish(p)
+
+
 FIGURES = {
     **{name: (lambda v=v: banner(*v)) for name, v in GUIDES.items()},
     "reverse-proxy": fig_reverse_proxy,
@@ -503,6 +652,15 @@ FIGURES = {
     "docker-networks": fig_docker_networks,
     "arr-hardlinks": fig_arr_hardlinks,
     "jump-host": fig_jump_host,
+    "zfs-layout": fig_zfs_layout,
+    "wireguard-hub": fig_wireguard_hub,
+    "dns-chain": fig_dns_chain,
+    "vlans-trunk": fig_vlans,
+    "cloudflared-tunnel": fig_cloudflared,
+    "gpu-passthrough": fig_gpu_passthrough,
+    "lvm-layers": fig_lvm,
+    "nut-network": fig_nut,
+    "prometheus-pull": fig_prometheus,
 }
 
 

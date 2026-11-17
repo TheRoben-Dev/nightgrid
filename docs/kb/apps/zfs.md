@@ -2,6 +2,8 @@
 
 Build a ZFS pool on Debian or Ubuntu, organise it in datasets, take automatic snapshots and send them to a second machine.
 
+![Disks form vdevs, vdevs form a pool, datasets and snapshots live on top.](fig:zfs-layout)
+
 ## What you end up with
 
 - A mirrored or RAIDZ pool with sensible defaults

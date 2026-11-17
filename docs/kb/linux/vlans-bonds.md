@@ -2,6 +2,8 @@
 
 Put a server on several VLANs over one cable, or join two NICs for redundancy or more bandwidth. Examples use netplan (Ubuntu) and NetworkManager's `nmcli` (Fedora, Debian desktops); Proxmox has its own section.
 
+![One trunk cable carries several networks; the server gets one interface per VLAN tag.](fig:vlans-trunk)
+
 ## What you end up with
 
 - A VLAN interface with its own address on a trunked switch port
