@@ -41,6 +41,9 @@ pub struct ModelSpec {
     /// Memory on top of the file while answering (8k context cache and
     /// buffers), from the model's layer and head counts.
     pub overhead: u64,
+    /// Context cache bytes per token (f16 keys and values: 2 × layers ×
+    /// KV heads × head size × 2 bytes), for sizing the window past 8k.
+    pub kv_per_token: u64,
     /// A hybrid model that thinks unless told not to: DRIFT asks it not to
     /// and drops any `<think>` block.
     pub no_think: bool,
@@ -62,6 +65,7 @@ pub const MODELS: &[ModelSpec] = &[
         sha256: "3605803b982cb64aead44f6c1b2ae36e3acdb41d8e46c8a94c6533bc4c67e597",
         bytes: 2_497_281_120,
         overhead: 1_000_000_000,
+        kv_per_token: 147_456,
         no_think: false,
     },
     // Qwen3-8B (hybrid), Q4_K_M: 16 GB machines.
@@ -77,6 +81,7 @@ pub const MODELS: &[ModelSpec] = &[
         sha256: "120307ba529eb2439d6c430d94104dabd578497bc7bfe7e322b5d9933b449bd4",
         bytes: 5_027_784_512,
         overhead: 1_500_000_000,
+        kv_per_token: 147_456,
         no_think: true,
     },
     // Qwen3-30B-A3B-Instruct-2507 (mixture of experts, 3B active per token),
@@ -93,6 +98,7 @@ pub const MODELS: &[ModelSpec] = &[
         sha256: "6c997b8af17debdfb01d890214400ccbab00db6acc0ba8da5de1cc906c4774d0",
         bytes: 18_556_686_752,
         overhead: 1_300_000_000,
+        kv_per_token: 98_304,
         no_think: false,
     },
 ];

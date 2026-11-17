@@ -90,6 +90,29 @@ pub fn fit(hw: &Hardware, spec: &ModelSpec) -> Fit {
     }
 }
 
+/// The window every model gets (what `overhead` was measured for).
+pub const BASE_CONTEXT: u32 = 8192;
+/// Windows tried, biggest first.
+const CONTEXTS: [u32; 3] = [16384, 12288, BASE_CONTEXT];
+
+/// The context window to load `spec` with: 16k or 12k when the bigger cache
+/// still fits the comfortable budget, else 8k. A bigger window costs only
+/// memory (the cache is allocated up front); prompts aren't slower until
+/// they're actually longer. On a CPU build the window stays at 8k, where
+/// reading a long prompt is slow enough that the extra room wouldn't help.
+pub fn context_for(hw: &Hardware, spec: &ModelSpec) -> u32 {
+    if hw.memory == 0 || !hw.gpu_build {
+        return BASE_CONTEXT;
+    }
+    // Keep a gigabyte of the comfortable budget free: the window is a nice
+    // to have, the rest of the computer isn't.
+    let room = budget(hw).0.saturating_sub(GB);
+    CONTEXTS
+        .into_iter()
+        .find(|&n| needed(spec) + u64::from(n - BASE_CONTEXT) * spec.kv_per_token <= room)
+        .unwrap_or(BASE_CONTEXT)
+}
+
 /// The biggest model that fits comfortably (the smallest when none does or
 /// memory is unknown). `models` is ordered small to big.
 pub fn recommend<'a>(hw: &Hardware, models: &'a [ModelSpec]) -> &'a ModelSpec {
@@ -256,6 +279,32 @@ mod tests {
     }
     fn pc(gb: u64) -> Hardware {
         Hardware { memory: gb * 1024 * 1024 * 1024, ..Default::default() }
+    }
+
+    #[test]
+    fn context_grows_only_with_room() {
+        let by_tier = |t: &str| MODELS.iter().find(|m| m.tier == t).unwrap();
+        let (light, balanced, best) = (by_tier("light"), by_tier("balanced"), by_tier("best"));
+        // 8 GB Mac: the light model fits with 8k only.
+        assert_eq!(context_for(&mac(8), light), 8192);
+        // 16 GB Mac: room for 16k with either the light or the balanced model.
+        assert_eq!(context_for(&mac(16), light), 16384);
+        assert_eq!(context_for(&mac(16), balanced), 16384);
+        // The best model on a 32 GB Mac gets 16k too; on 24 GB it doesn't fit, so 8k.
+        assert_eq!(context_for(&mac(32), best), 16384);
+        assert_eq!(context_for(&mac(24), best), 8192);
+        // CPU builds and unknown memory stay at 8k.
+        assert_eq!(context_for(&pc(64), light), 8192);
+        assert_eq!(context_for(&Hardware::default(), light), 8192);
+        // Never more than the comfortable budget.
+        for gb in [8, 16, 24, 32, 64] {
+            for m in MODELS {
+                let n = context_for(&mac(gb), m);
+                if n > 8192 {
+                    assert!(needed(m) + u64::from(n - 8192) * m.kv_per_token <= budget(&mac(gb)).0);
+                }
+            }
+        }
     }
 
     #[test]

@@ -6,7 +6,7 @@ import { api, type HelperModels, type HelperStatus } from "../api";
 import { guideTarget } from "../helper/guide";
 import { guideIndex, noteRefs, notesIndex } from "../helper/knowledge";
 import { tour } from "./tour.svelte";
-import { buildTurns, setFeatureCheck, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
+import { fitTurns, setFeatureCheck, parseReply, streamingText, type HelperAction, type HelperContext, type Turn } from "../helper/prompt";
 import { railTarget, sectionById } from "../sections";
 import { settingsTabFor } from "../settingsTabs";
 import { labelLines } from "../netmap/graph";
@@ -44,6 +44,8 @@ export interface ChatMessage {
   /** Exactly what the model was given for this reply. */
   sent?: Turn[];
   sources?: string[];
+  /** What was left out of the prompt to fit the model's window. */
+  trimmed?: string[];
   /** Notes the answer was given, to open from the reply. */
   noteRefs?: { id: number; title: string }[];
   /** Library articles (basics and guides) the answer drew on. */
@@ -328,17 +330,22 @@ class HelperStore {
     const libDocs = (lib.libraryIndex().search(q, 6) as { title: string; text: string; articleId?: string }[])
       .filter((c) => c.articleId && !c.articleId.startsWith("nightgrid/"))
       .slice(0, ctx.hosts.length || checks.length ? 1 : 2);
-    const docs = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, guideN), ...libDocs, ...notesIndex(notes.notes).search(q, 2)];
-    const articleRefs = [...new Map(libDocs.map((c) => [c.articleId!, lib.article(c.articleId!)?.title ?? c.title])).entries()].map(([id, title]) => ({ id, title }));
+    const found = [...guideIndex().search(`${q} ${sectionById(ctx.view).label}`, guideN), ...libDocs, ...notesIndex(notes.notes).search(q, 2)];
     const history: Turn[] = this.messages
       .filter((m) => !m.error && m.text)
       .map((m) => ({ role: m.role, content: m.text }));
-    const sent = buildTurns(history, q, ctx, docs);
+    // Fit everything into the loaded model's window (8k until it reports one);
+    // only the sections that made it in are listed as sources.
+    const fit = fitTurns(history, q, ctx, found, this.status?.context || undefined);
+    const sent = fit.turns;
+    const docs = fit.docs;
+    const usedLib = libDocs.filter((c) => docs.some((d) => d.title === c.title && (d as { articleId?: string }).articleId === c.articleId));
+    const articleRefs = [...new Map(usedLib.map((c) => [c.articleId!, lib.article(c.articleId!)?.title ?? c.title])).entries()].map(([id, title]) => ({ id, title }));
     const sel = ctx.selection?.trim();
     const n = sel ? sel.split("\n").length : 0;
     const attached = sel ? `${ctx.source ?? "selection"} · ${n} line${n === 1 ? "" : "s"}` : undefined;
     this.messages.push({ id: ++this.seq, role: "user", text: q, actions: [], attached });
-    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), noteRefs: noteRefs(docs), articleRefs, checks });
+    this.messages.push({ id: ++this.seq, role: "assistant", text: "", actions: [], streaming: true, sent, sources: docs.map((d) => d.title), trimmed: fit.trimmed, noteRefs: noteRefs(docs), articleRefs, checks });
     const msg = this.messages[this.messages.length - 1];
     // Selection is used once; the view context stays.
     this.context = { ...this.context, selection: null, source: null };

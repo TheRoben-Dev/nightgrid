@@ -40,6 +40,7 @@ const status = (): HelperStatus => {
     downloadingId,
     loaded: loadedId === m.id,
     gpu: true,
+    context: loadedId === m.id ? 8192 : 0,
   };
 };
 

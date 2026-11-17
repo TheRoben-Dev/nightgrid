@@ -83,12 +83,15 @@ pub struct HelperStatus {
     pub loaded: bool,
     /// The build offloads to the GPU (Metal on macOS); otherwise CPU.
     pub gpu: bool,
+    /// The loaded model's context window in tokens (0 until it's loaded).
+    pub context: u32,
 }
 
 fn status(state: &AppState, helper: &Helper) -> HelperStatus {
     let m = active(state);
     let (st, have) = state_of(&models_dir(state), m);
     let dl = *helper.downloading.lock().expect("poisoned");
+    let loaded = helper.engine.lock().expect("poisoned").as_ref().filter(|(id, _)| *id == m.id).map(|(_, e)| e.clone());
     HelperStatus {
         id: m.id.into(),
         model: m.name.into(),
@@ -98,7 +101,8 @@ fn status(state: &AppState, helper: &Helper) -> HelperStatus {
         have: have as f64,
         downloading: dl.is_some(),
         downloading_id: dl.map(Into::into),
-        loaded: helper.engine.lock().expect("poisoned").as_ref().is_some_and(|(id, _)| *id == m.id),
+        loaded: loaded.is_some(),
+        context: loaded.map_or(0, |e| e.context()),
         gpu: nightgrid_llm::gpu_build(),
     }
 }
@@ -373,13 +377,21 @@ async fn engine(app: &AppHandle, on_event: &Channel<HelperEvent>) -> Result<(&'s
     let path = model::model_path(&dir, m);
     let _ = on_event.send(HelperEvent::Loading);
     let started = Instant::now();
-    let e = tauri::async_runtime::spawn_blocking(move || Engine::load(&path, LoadOptions::default()))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
+    let hw = helper.hardware.get().cloned();
+    let (e, context) = tauri::async_runtime::spawn_blocking(move || {
+        // The window grows past 8k only when this computer has room for it.
+        let hw = hw.unwrap_or_else(|| hardware::detect(nightgrid_llm::gpu_build()));
+        let context = hardware::context_for(&hw, m);
+        Engine::load(&path, LoadOptions { context, ..LoadOptions::default() }).map(|e| (e, context))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())?;
     tracing::info!(
         model = m.id,
         secs = started.elapsed().as_secs_f32(),
+        context = e.context(),
+        planned = context,
         gpu = nightgrid_llm::gpu_build(),
         "helper model loaded"
     );
@@ -426,7 +438,15 @@ pub async fn helper_ask(
         let _ = on_event.send(HelperEvent::Thinking);
         let out = tauri::async_runtime::spawn_blocking(move || {
             let mut f = ThinkFilter::new();
-            let r = engine.generate(&msgs, &GenOptions::default(), &stop, |t| {
+            let gen = GenOptions::default();
+            // The webview already fits the prompt to the window; this catches
+            // what its estimate missed (older turns go first) instead of failing.
+            let before = msgs.len();
+            let fitted = engine.fit(&mut msgs, gen.max_tokens as usize)?;
+            if msgs.len() < before {
+                tracing::debug!(dropped = before - msgs.len(), tokens = fitted, "helper prompt trimmed to fit");
+            }
+            let r = engine.generate(&msgs, &gen, &stop, |t| {
                 let t = f.push(t);
                 if !t.is_empty() {
                     let _ = ch.send(HelperEvent::Text { text: t });

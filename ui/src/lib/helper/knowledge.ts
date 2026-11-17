@@ -14,7 +14,68 @@ export interface Chunk {
   noteId?: number;
 }
 
-const MAX_CHUNK = 900;
+export const MAX_CHUNK = 900;
+
+/** Cuts text at `max` chars, at a line or word boundary when there is one. */
+export function clip(text: string, max: number, mark = "…"): string {
+  if (text.length <= max) return text;
+  const room = Math.max(0, max - mark.length);
+  const cut = text.slice(0, room);
+  const at = Math.max(cut.lastIndexOf("\n"), cut.lastIndexOf(" "));
+  return `${(at > room * 0.6 ? cut.slice(0, at) : cut).trimEnd()}${mark}`;
+}
+
+/**
+ * Splits a block bigger than MAX_CHUNK (a long list, table or code block)
+ * into pieces that fit: at top-level list items or lines, keeping nested
+ * lines with their item, a table's header on every piece and code fences
+ * closed. A single line that's still too long is cut.
+ */
+export function splitBlock(block: string, max = MAX_CHUNK): string[] {
+  if (block.length <= max) return [block];
+  let lines = block.split("\n");
+  const fence = /^\s*(```|~~~)/.exec(lines[0])?.[1];
+  let head = "";
+  let tail = "";
+  if (fence && lines.length > 2 && lines[lines.length - 1].trim().startsWith(fence)) {
+    head = lines[0];
+    tail = lines[lines.length - 1];
+    lines = lines.slice(1, -1);
+  } else if (/^\s*\|/.test(lines[0]) && /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[1] ?? "") && lines[1].includes("-")) {
+    head = `${lines[0]}\n${lines[1]}`;
+    lines = lines.slice(2);
+  }
+  // Units: a line that starts at column 0 begins one; indented lines follow it.
+  const units: string[] = [];
+  for (const l of lines) {
+    if (units.length && !head.startsWith("```") && !head.startsWith("~~~") && /^\s+\S/.test(l)) units[units.length - 1] += `\n${l}`;
+    else units.push(l);
+  }
+  const wrap = (body: string) => [head, body, tail].filter(Boolean).join("\n");
+  const room = Math.max(80, max - head.length - tail.length - 2);
+  const out: string[] = [];
+  let cur = "";
+  for (const u of units) {
+    if (u.length > room) {
+      // Split a huge unit by its lines, then cut any line that is still too long.
+      for (const piece of u.split("\n").flatMap((l) => (l.length > room ? l.match(new RegExp(`[\\s\\S]{1,${room}}`, "g")) ?? [] : [l]))) {
+        if (cur && cur.length + piece.length + 1 > room) {
+          out.push(wrap(cur));
+          cur = "";
+        }
+        cur = cur ? `${cur}\n${piece}` : piece;
+      }
+      continue;
+    }
+    if (cur && cur.length + u.length + 1 > room) {
+      out.push(wrap(cur));
+      cur = "";
+    }
+    cur = cur ? `${cur}\n${u}` : u;
+  }
+  if (cur) out.push(wrap(cur));
+  return out;
+}
 
 /** Splits markdown into chunks by `##` heading, then by paragraph/list blocks. */
 export function chunkMarkdown(md: string): Chunk[] {
@@ -22,7 +83,12 @@ export function chunkMarkdown(md: string): Chunk[] {
   let title = "Nightgrid";
   let buf: string[] = [];
   const flush = () => {
-    const blocks = buf.join("\n").split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+    const blocks = buf
+      .join("\n")
+      .split(/\n{2,}/)
+      .map((b) => b.trim())
+      .filter(Boolean)
+      .flatMap((b) => splitBlock(b));
     let cur = "";
     for (const b of blocks) {
       if (cur && cur.length + b.length + 2 > MAX_CHUNK) {
