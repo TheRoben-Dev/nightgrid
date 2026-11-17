@@ -144,6 +144,7 @@ pub const FEATURES: &[&str] = &[
     "fleet.logs",
     "fleet.access",
     "fleet.speed",
+    "fleet.journal",
     "desktops",
     "proxmox",
     "network",

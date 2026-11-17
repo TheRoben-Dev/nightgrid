@@ -67,19 +67,43 @@ pub fn env_stacks(state: State<'_, AppState>) -> CmdResult<Vec<(HostId, String, 
 #[tauri::command]
 #[specta::specta]
 pub fn env_var_set(
+    app: AppHandle,
     state: State<'_, AppState>,
     host_id: HostId,
     stack: String,
     old_name: Option<String>,
     input: EnvVarInput,
 ) -> CmdResult<EnvVar> {
-    Ok(state.store().set_env_var(&state.keychain, host_id, &stack, old_name.as_deref(), &input)?)
+    let v = state.store().set_env_var(&state.keychain, host_id, &stack, old_name.as_deref(), &input)?;
+    // Names only: values never reach the journal (rule 1).
+    let what = match &old_name {
+        None => format!("added {}", v.name),
+        Some(o) if *o != v.name => format!("renamed {o} to {}", v.name),
+        Some(_) if input.value.is_some() => format!("changed {}", v.name),
+        Some(_) => format!("updated {}", v.name),
+    };
+    let title = format!(".env vault: {what}");
+    crate::journal_cmd::record(
+        &app,
+        crate::journal_cmd::Change::new(host_id, nightgrid_core::journal::ChangeArea::Secrets, &title).detail(&stack),
+    );
+    Ok(v)
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn env_var_delete(state: State<'_, AppState>, id: EnvVarId) -> CmdResult<()> {
-    Ok(state.store().delete_env_var(id)?)
+pub fn env_var_delete(app: AppHandle, state: State<'_, AppState>, id: EnvVarId) -> CmdResult<()> {
+    let known = state.store().env_var_by_id(id).ok().flatten();
+    state.store().delete_env_var(id)?;
+    if let Some((host_id, stack, name)) = known {
+        let title = format!(".env vault: removed {name}");
+        crate::journal_cmd::record(
+            &app,
+            crate::journal_cmd::Change::new(host_id, nightgrid_core::journal::ChangeArea::Secrets, &title)
+                .detail(&stack),
+        );
+    }
+    Ok(())
 }
 
 /// One value, for "click to reveal" (rule 6).

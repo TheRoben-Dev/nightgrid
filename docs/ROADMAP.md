@@ -21,6 +21,20 @@ What's planned after the shipped milestones (see `CHANGELOG.md` for what's done)
 | ~~**Features**~~ | Done in 0.10.48: Settings → Features with Simple / Standard / Everything presets; turned-off features are hidden, not loaded and do no background work. |
 | ~~**M11** · Knowledge base~~ | Done in 0.10.62: Knowledge → Library with three shelves (Using Nightgrid, Homelab basics, Guides), full-text search, quest-log guides with kept progress, "?" help on every view, Help: entries in the palette, DRIFT reads it. Images: bundled SVG figures since 0.10.76 (guide banners and diagrams, D-149). 0.10.64 added How-tos, Self-hosted apps and Linux skills shelves (161 articles) and topic filters. |
 
+## Road to 1.0
+
+Approved by Roben on 2026-11-17. One release each, in this order; the last one is 1.0.0.
+
+| Batch | Scope |
+| --- | --- |
+| ~~**M12a** · Homelab journal~~ | Done in 0.10.83: Fleet → JOURNAL, a searchable changelog of every change made from Nightgrid with line diffs, hand-written entries, Markdown export, and DRIFT answering "what changed before this broke?". |
+| **M12b** · Lab blueprints | Export a host's setup (stacks, `.env` vault values, firewall, cron and timers, proxy routes) as one encrypted bundle and rebuild it on a fresh machine, step by step with a preview. |
+| **M12c** · Sandbox clones | A throwaway Proxmox CT or VM copy of a guest to test an update in, then promote or discard it. Built against fixtures until a Proxmox host exists. |
+| **M12d** · Power & cost | Estimated watts and cost per host from UPS readings and CPU load, with idle-hour hints for scheduled power. |
+| **M12e** · Library quests | Guides become checklists DRIFT verifies read-only against your real hosts ("Harden SSH: 3 of 5 steps done on server01"). |
+| **M12f** · Nightgrid Node pairing | The Nightgrid side of hosts pushing data through Nightgrid Node instead of being polled over SSH; what Node needs is written up for its own project. |
+| **M12g** · MCP server → 1.0.0 | An opt-in MCP server so Claude (or any MCP client) can ask about the fleet: read-only by default, any write action needs its own opt-in and a confirmation in the app. |
+
 ## Later: after the standalone app is finished
 
 Not scheduled. Nothing here gets built until the app is more or less complete as a standalone product (after M11 and the Proxmox suite).
