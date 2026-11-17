@@ -380,6 +380,12 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/joplin-server", shelf: "apps", title: "Joplin Server for note sync", cat: "productivity" },
   { id: "apps/nocodb", shelf: "apps", title: "NocoDB spreadsheet database", cat: "productivity" },
   { id: "apps/ghost", shelf: "apps", title: "Ghost blog and newsletter", cat: "productivity" },
+  { id: "linux/proxmox-install", shelf: "linux", title: "Install Proxmox VE on a new server", cat: "virtualization" },
+  { id: "linux/nginx", shelf: "linux", title: "nginx as a web server and reverse proxy", cat: "network" },
+  { id: "apps/synology", shelf: "apps", title: "A Synology NAS alongside Nightgrid", cat: "storage" },
+  { id: "apps/unraid", shelf: "apps", title: "An Unraid server alongside Nightgrid", cat: "storage" },
+  { id: "apps/openwrt", shelf: "apps", title: "OpenWrt router", cat: "network" },
+  { id: "apps/jitsi-meet", shelf: "apps", title: "Jitsi Meet video calls", cat: "productivity" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));

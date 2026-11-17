@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.71] - 2026-11-17
+
+### Added: 6 more Library articles
+- **Alongside Nightgrid**: a Synology NAS (SSH, SFTP, Container Manager's Docker) and an Unraid server (keys that survive reboots, compose stacks, what doesn't apply), plus an OpenWrt router with SQM.
+- **Linux skills**: install Proxmox VE on a new server, and nginx as a web server and reverse proxy.
+- **Apps**: Jitsi Meet video calls.
+- The library now holds 322 articles.
+
 ## [0.10.70] - 2026-11-17
 
 ### Added: 9 more Library articles
