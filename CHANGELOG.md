@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.75] - 2026-11-17
+
+### Added: 2 more Library articles
+- **Linux skills**: move a server to a new SSD, by cloning or by copying files and reinstalling the bootloader.
+- **Apps**: Dockge alongside Nightgrid, sharing the same compose folders.
+- The library now holds 345 articles.
+
 ## [0.10.74] - 2026-11-17
 
 ### Added: 6 more Library articles

@@ -407,6 +407,8 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/mailpit", shelf: "apps", title: "Mailpit test mail catcher", cat: "dev" },
   { id: "apps/verdaccio", shelf: "apps", title: "Verdaccio private npm registry", cat: "dev" },
   { id: "linux/reset-root-password", shelf: "linux", title: "Reset a forgotten root or sudo password", cat: "linux" },
+  { id: "apps/dockge", shelf: "apps", title: "Dockge alongside Nightgrid", cat: "docker" },
+  { id: "linux/move-to-new-ssd", shelf: "linux", title: "Move a server to a new SSD", cat: "hardware" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));
