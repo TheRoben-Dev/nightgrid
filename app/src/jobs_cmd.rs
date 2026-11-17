@@ -87,6 +87,38 @@ pub async fn cron_apply(
     read(&conn, &auth, user.as_deref()).await
 }
 
+/// Adds the lines of `src` that the crontab lacks (blueprints). Existing
+/// lines stay. Returns how many lines were added.
+pub(crate) async fn cron_merge(
+    app: &AppHandle,
+    host_id: HostId,
+    user: Option<String>,
+    src: &str,
+    sudo: Option<SudoInput>,
+) -> SysResult<u32> {
+    let user = user.filter(|u| !u.trim().is_empty());
+    let conn = connect_host(app, host_id).await?;
+    let auth = crontab_auth(app, host_id, &conn, user.as_deref(), sudo).await?;
+    let cur = read(&conn, &auth, user.as_deref()).await?;
+    let added = nightgrid_core::blueprint::missing_cron_lines(src, &cur.text).len() as u32;
+    if added == 0 {
+        return Ok(0);
+    }
+    let text = nightgrid_core::blueprint::merge_crontab(src, &cur.text);
+    let now = nightgrid_core::services::check::now_unix();
+    let o =
+        sudo::run(&conn, &auth, &jobs::write_command(user.as_deref(), &text, now).map_err(SystemError::other)?).await?;
+    let whose = format!("{}'s crontab", user.as_deref().unwrap_or("the login user"));
+    let title = format!("Crontab: {added} line{} from a blueprint ({whose})", if added == 1 { "" } else { "s" });
+    if !o.stdout.contains("written") {
+        let why = o.stderr.lines().last().unwrap_or("crontab refused it").to_owned();
+        record(app, Change::new(host_id, Area::Jobs, &title).detail(&why).ok(false));
+        return Err(SystemError::other(format!("couldn't install the crontab: {why}")).into());
+    }
+    record(app, Change::new(host_id, Area::Jobs, &title).diff(journal::text_diff(&cur.text, &text)));
+    Ok(added)
+}
+
 /// Plain words for a cron schedule, or `None` when it isn't one.
 #[tauri::command]
 #[specta::specta]

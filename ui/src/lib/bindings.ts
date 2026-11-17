@@ -327,6 +327,28 @@ export const commands = {
 	 *  cancelled.
 	 */
 	journalExport: (query: ChangeQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("journal_export", { query }, options),
+	/**
+	 *  Reads `host_id`'s setup into a blueprint kept in memory; returns what's
+	 *  in it (no secret values). Parts that can't be read become notes.
+	 */
+	blueprintCapture: (hostId: number, include: BpInclude_Deserialize, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<BlueprintSummary_Serialize>("blueprint_capture", { hostId, include, sudo }, options),
+	/**
+	 *  Encrypts the captured blueprint with `passphrase` into a file picked in
+	 *  a save dialog. `None` when cancelled.
+	 */
+	blueprintSave: (hostId: number, passphrase: string, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("blueprint_save", { hostId, passphrase }, options),
+	/**  Opens and decrypts a blueprint file picked in a dialog. `None` when cancelled. */
+	blueprintOpen: (passphrase: string, options?: InvokeOptions) => __TAURI_INVOKE<BlueprintSummary_Serialize | null>("blueprint_open", { passphrase }, options),
+	/**  Forgets the captured and opened blueprints. */
+	blueprintClose: (options?: InvokeOptions) => __TAURI_INVOKE<void>("blueprint_close", undefined, options),
+	/**  Reads the target and lists what applying the opened blueprint would do. */
+	blueprintPlan: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<BpStep[]>("blueprint_plan", { hostId, sudo }, options),
+	/**
+	 *  Applies the chosen steps of the opened blueprint to `host_id`, in plan
+	 *  order. Manual steps are never applied. Stops at nothing: each step
+	 *  reports its own result.
+	 */
+	blueprintApply: (hostId: number, steps: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<BpStepResult[]>("blueprint_apply", { hostId, steps, sudo }, options),
 	watchList: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_list", undefined, options),
 	/**  Adds or updates an item; a certificate file is read right away. */
 	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
@@ -1735,6 +1757,38 @@ export type BackupWritten = {
 	bytes: number,
 };
 
+export type BlueprintSummary = BlueprintSummary_Serialize | BlueprintSummary_Deserialize;
+
+export type BlueprintSummary_Deserialize = {
+	host: string,
+	madeAt: number,
+	os: string,
+	stacks: StackSummary[],
+	crontabs: CronSummary[],
+	timers: string[],
+	/**  `ufw`/`firewalld` and how many rules and zone entries it has. */
+	firewall?: string | null,
+	firewallRules: number,
+	/**  "Caddy (host): /etc/caddy/Caddyfile", "Traefik (traefik): 4 routes". */
+	proxies: string[],
+	notes: string[],
+};
+
+export type BlueprintSummary_Serialize = {
+	host: string,
+	madeAt: number,
+	os: string,
+	stacks: StackSummary[],
+	crontabs: CronSummary[],
+	timers: string[],
+	/**  `ufw`/`firewalld` and how many rules and zone entries it has. */
+	firewall: string | null,
+	firewallRules: number,
+	/**  "Caddy (host): /etc/caddy/Caddyfile", "Traefik (traefik): 4 routes". */
+	proxies: string[],
+	notes: string[],
+};
+
 export type Bookmark = Bookmark_Serialize | Bookmark_Deserialize;
 
 export type Bookmark_Deserialize = {
@@ -1752,6 +1806,68 @@ export type Bookmark_Serialize = {
 	path: string,
 	label: string,
 };
+
+/**  What to put in a blueprint. */
+export type BpInclude = BpInclude_Serialize | BpInclude_Deserialize;
+
+/**  What to put in a blueprint. */
+export type BpInclude_Deserialize = {
+	/**  Stack names, when not every stack. */
+	stacks?: string[],
+	allStacks?: boolean,
+	/**  The `.env` vault's values for the stacks. */
+	env?: boolean,
+	cron?: boolean,
+	timers?: boolean,
+	firewall?: boolean,
+	proxy?: boolean,
+};
+
+/**  What to put in a blueprint. */
+export type BpInclude_Serialize = {
+	/**  Stack names, when not every stack. */
+	stacks: string[],
+	allStacks: boolean,
+	/**  The `.env` vault's values for the stacks. */
+	env: boolean,
+	cron: boolean,
+	timers: boolean,
+	firewall: boolean,
+	proxy: boolean,
+};
+
+export type BpStep = {
+	/**  Stable within one plan: `stack:<name>`, `start:<name>`, `cron:<user>`, … */
+	id: string,
+	kind: BpStepKind,
+	title: string,
+	detail: string,
+	state: BpStepState,
+	/**  Ticked when the plan opens. */
+	defaultOn: boolean,
+};
+
+export type BpStepKind = 
+/**  Write a stack's files (and its vault values). */
+"stackFiles" | 
+/**  `docker compose up -d` for a stack. */
+"stackStart" | "cron" | "timer" | "firewall" | "caddy" | "traefik";
+
+export type BpStepResult = {
+	id: string,
+	ok: boolean,
+	message: string,
+};
+
+export type BpStepState = 
+/**  Not on the target yet. */
+"new" | 
+/**  Already there and the same. */
+"same" | 
+/**  There, but different: applying overwrites (off by default). */
+"differs" | 
+/**  Can't be applied from here; the detail says how. */
+"manual";
 
 /**  One change to a Caddyfile. */
 export type CaddyEdit = 
@@ -2297,6 +2413,12 @@ export type CronJob_Serialize = {
 	command: string,
 	/**  Next run, unix seconds (none for `@reboot` or a schedule that never matches). */
 	next: number | null,
+};
+
+export type CronSummary = {
+	/**  "" for the login user. */
+	user: string,
+	lines: number,
 };
 
 /**  A user's crontab as read. */
@@ -7222,6 +7344,14 @@ export type StackDir = {
 	id: number,
 	hostId: number,
 	path: string,
+};
+
+export type StackSummary = {
+	name: string,
+	dir: string,
+	files: string[],
+	/**  Vault variable names (values are never shown here). */
+	env: string[],
 };
 
 /**

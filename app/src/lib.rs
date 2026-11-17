@@ -6,6 +6,7 @@ mod alerts_cmd;
 mod automation_cmd;
 mod backup_cmd;
 mod backup_jobs_cmd;
+mod blueprint_cmd;
 mod cmdwidget_cmd;
 mod commands;
 mod confdiff_cmd;
@@ -186,6 +187,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         journal_cmd::journal_clear,
         journal_cmd::journal_for_drift,
         journal_cmd::journal_export,
+        blueprint_cmd::blueprint_capture,
+        blueprint_cmd::blueprint_save,
+        blueprint_cmd::blueprint_open,
+        blueprint_cmd::blueprint_close,
+        blueprint_cmd::blueprint_plan,
+        blueprint_cmd::blueprint_apply,
         expiry_cmd::watch_list,
         expiry_cmd::watch_save,
         expiry_cmd::watch_delete,
