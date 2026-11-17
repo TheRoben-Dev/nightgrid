@@ -360,6 +360,17 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/gotosocial", shelf: "apps", title: "GoToSocial fediverse server", cat: "productivity" },
   { id: "apps/db-admin-uis", shelf: "apps", title: "Database web UIs: Adminer and pgAdmin", cat: "dev" },
   { id: "apps/opentofu-proxmox", shelf: "apps", title: "Proxmox VMs as code with OpenTofu", cat: "virtualization" },
+  { id: "apps/sunshine-moonlight", shelf: "apps", title: "Stream games with Sunshine and Moonlight", cat: "gaming" },
+  { id: "apps/pikvm", shelf: "apps", title: "PiKVM remote console", cat: "hardware" },
+  { id: "linux/keepalived", shelf: "linux", title: "A floating IP with keepalived", cat: "network" },
+  { id: "linux/systemd-nspawn", shelf: "linux", title: "Lightweight containers with systemd-nspawn", cat: "virtualization" },
+  { id: "apps/upsnap", shelf: "apps", title: "UpSnap wake-on-LAN dashboard", cat: "hardware" },
+  { id: "apps/metube", shelf: "apps", title: "MeTube video downloader", cat: "media" },
+  { id: "apps/librenms", shelf: "apps", title: "LibreNMS network monitoring", cat: "monitoring" },
+  { id: "apps/evcc", shelf: "apps", title: "evcc solar EV charging", cat: "smarthome" },
+  { id: "apps/teslamate", shelf: "apps", title: "TeslaMate car data logger", cat: "smarthome" },
+  { id: "apps/trilium", shelf: "apps", title: "Trilium notes", cat: "productivity" },
+  { id: "apps/wordpress", shelf: "apps", title: "WordPress site in Docker", cat: "productivity" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));
