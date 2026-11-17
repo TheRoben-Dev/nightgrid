@@ -2,6 +2,8 @@
 
 Nightgrid works without anything installed on your servers: it does everything over SSH, but only while the app is open. Nightgrid Node is an optional, tiny service you can put on a Linux server so it keeps watching when the app is closed, and hands everything over when the app comes back.
 
+![Where Nightgrid Node runs and how clients reach it.](fig:ng-node-arch)
+
 ## Why it exists
 
 Close the laptop and nobody is watching. A container that crash-loops at 3 AM, a disk that fills overnight or a power cut while you're away only show up later as a gap in the graphs. The node runs on the server itself and closes those gaps:

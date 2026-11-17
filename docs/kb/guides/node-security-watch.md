@@ -2,6 +2,8 @@
 
 A VPS or a server with ports open to the internet gets probed all day. [Nightgrid Node](kb:basics/nightgrid-node) records every login and failed login, alerts on bursts, can block brute-forcers for a while by itself, notices when a new port starts listening, and tracks changes to the files attackers touch first.
 
+![Failed logins, a burst alert, and a block that expires.](fig:ng-node-guard)
+
 ## What you end up with
 
 - Logins and failed logins in the timeline, with a burst alert

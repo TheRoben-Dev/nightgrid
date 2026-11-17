@@ -421,10 +421,26 @@ export const CATALOG: CatalogEntry[] = [
   { id: "guides/node-lan-watch", shelf: "guides", title: "Watch the home network", cat: "network" },
   { id: "guides/node-multi-host", shelf: "guides", title: "Link several servers and check from inside", cat: "monitoring" },
   // Error reference (generated from docs/kb/errors by scripts/kb_errcat.py)
+  { id: "errors/apt", shelf: "errors", title: "Errors: apt and dpkg", cat: "linux" },
+  { id: "errors/compose", shelf: "errors", title: "Errors: Docker Compose", cat: "docker" },
+  { id: "errors/databases", shelf: "errors", title: "Errors: databases", cat: "dev" },
   { id: "errors/disks", shelf: "errors", title: "Errors: disks, filesystems and mounts", cat: "storage" },
+  { id: "errors/dnf", shelf: "errors", title: "Errors: dnf, rpm, rpm-ostree and other package managers", cat: "linux" },
+  { id: "errors/docker", shelf: "errors", title: "Errors: Docker and Podman", cat: "docker" },
+  { id: "errors/firewall", shelf: "errors", title: "Errors: firewalls, iptables and nftables", cat: "security" },
+  { id: "errors/git", shelf: "errors", title: "Errors: git", cat: "dev" },
   { id: "errors/kernel", shelf: "errors", title: "Errors: kernel, memory and processes", cat: "hardware" },
+  { id: "errors/network", shelf: "errors", title: "Errors: networking and DNS", cat: "network" },
+  { id: "errors/nfs-smb", shelf: "errors", title: "Errors: NFS, SMB and network shares", cat: "storage" },
+  { id: "errors/runtimes", shelf: "errors", title: "Errors: Python, Node.js, Java and builds", cat: "dev" },
   { id: "errors/shell", shelf: "errors", title: "Errors: shell, bash and scripts", cat: "linux" },
+  { id: "errors/ssh", shelf: "errors", title: "Errors: SSH, keys and remote access", cat: "security" },
+  { id: "errors/storage", shelf: "errors", title: "Errors: ZFS, RAID and LVM", cat: "storage" },
   { id: "errors/systemd", shelf: "errors", title: "Errors: systemd, journald and boot", cat: "linux" },
+  { id: "errors/tls", shelf: "errors", title: "Errors: TLS, certificates and ACME", cat: "security" },
+  { id: "errors/users", shelf: "errors", title: "Errors: users, sudo, PAM and cron", cat: "security" },
+  { id: "errors/virtualization", shelf: "errors", title: "Errors: Proxmox, KVM, libvirt and LXC", cat: "virtualization" },
+  { id: "errors/web", shelf: "errors", title: "Errors: web servers and reverse proxies", cat: "network" },
   // errors:end
 ];
 

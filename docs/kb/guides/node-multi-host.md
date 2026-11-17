@@ -2,6 +2,8 @@
 
 With [Nightgrid Node](kb:basics/nightgrid-node) on two or more hosts, they can watch each other over the tailnet, check your services from inside the LAN every minute, and give you a read-only status page on your phone, all with the app closed and the laptop off.
 
+![Linked nodes, inside checks and a phone page.](fig:ng-node-link)
+
 ## What you end up with
 
 - Paired nodes that check each other over mutual TLS, so "the NAS is down" is told from "the path to the NAS is broken"

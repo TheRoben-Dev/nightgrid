@@ -2,6 +2,8 @@
 
 One home server, one laptop that's often shut. Put [Nightgrid Node](kb:basics/nightgrid-node) on the server so outages, crashes, full disks and failed backups are recorded while you're away, and read the story the next morning in a minute.
 
+![Recorded overnight, read in the morning.](fig:ng-node-away)
+
 ## What you end up with
 
 - Gap-free metric history, uptime and disk forecasts on the server, kept for months

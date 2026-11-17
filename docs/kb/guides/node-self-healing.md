@@ -2,6 +2,8 @@
 
 A container that goes unhealthy at night shouldn't wait for you to wake up. Let [Nightgrid Node](kb:basics/nightgrid-node) restart it after a few minutes, under strict limits, with every run logged, and only after a dry run proved the rule does what you expect.
 
+![How a self-healing rule decides to act.](fig:ng-node-heal)
+
 ## What you end up with
 
 - A self-healing rule: "unhealthy for 5 minutes → restart", capped per hour and per day, that gives up and tells you when restarting doesn't help

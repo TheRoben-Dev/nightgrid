@@ -2,6 +2,8 @@
 
 Put the optional [Nightgrid Node](kb:basics/nightgrid-node) on a Linux server: get the binary, verify it, install it as a sandboxed service, check that it runs, and know how to upgrade or remove it later.
 
+![From download to a running node.](fig:ng-node-install)
+
 ## What you end up with
 
 - `nightgrid-node.service` running as the unprivileged `nightgrid-node` account

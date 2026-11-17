@@ -2,6 +2,8 @@
 
 Out of the box, [Nightgrid Node](kb:basics/nightgrid-node) only reads what any user can read (metrics, uptime, disk usage, the ARP table, listening ports, file metadata). Everything more is a separate grant that root makes with one command and can take back. Here is what each grant gives, what it costs in trust, and when it's worth it.
 
+![Grants stack on a base that needs none.](fig:ng-node-grants)
+
 ## How grants work
 
 - Grant: `sudo nightgrid-node allow <name>`. Take back: `sudo nightgrid-node deny <name>`.

@@ -2,6 +2,8 @@
 
 An always-on server sees the whole LAN. With [Nightgrid Node](kb:basics/nightgrid-node) on it, you get a running inventory of devices and a heads-up when something new joins, an address is fought over, the router suddenly answers from another MAC, or a second DHCP server starts handing out addresses.
 
+![What the node hears on the LAN.](fig:ng-node-lan)
+
 ## What you end up with
 
 - An inventory of LAN devices, built from the kernel's neighbour table (no scanning, nothing sent)

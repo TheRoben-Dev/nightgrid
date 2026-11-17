@@ -2,6 +2,8 @@
 
 A UPS only buys minutes. With [Nightgrid Node](kb:basics/nightgrid-node) on each server, every host powers itself off in the right order during a long outage, with the app closed and the laptop asleep: compute first, storage last, and hosts with no UPS cable follow the one that has it.
 
+![From a power cut to a clean power-off.](fig:ng-node-ups)
+
 ## What you end up with
 
 - Each host with its own limits (minutes on battery, charge left, low-battery flag), so storage and the NUT server go last
