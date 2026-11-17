@@ -131,6 +131,8 @@ export interface HostFactsInput {
   historyError?: string | null;
   /** What other views know about this host (services, updates, disks, backups, containers), one line each. */
   known?: string[] | null;
+  /** Recent journal entries for the host, as text (newest first). */
+  changes?: string | null;
   /** Unix seconds. */
   now: number;
 }
@@ -194,6 +196,8 @@ export function hostFacts(i: HostFactsInput): string {
   if (i.historyMatches?.length) {
     lines.push(`Older shell history lines that mention the question's words (best match first):\n` + i.historyMatches.map((e) => `- ${e.when ? `[${when(e.when)}] ` : ""}${e.command}`).join("\n"));
   }
+  if (i.changes) lines.push(`Changes made from Nightgrid in the last 14 days (journal, newest first):\n${i.changes}`);
+  else if (i.changes === "") lines.push("Changes made from Nightgrid in the last 14 days: none recorded.");
   if (!i.history?.length && !i.historyMatches?.length) {
     if (i.historyError) lines.push(`Shell history: couldn't read it (${i.historyError}).`);
     else if (i.history) lines.push("Shell history: empty.");

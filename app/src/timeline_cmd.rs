@@ -24,6 +24,7 @@ pub(crate) fn record(app: &AppHandle, host: HostId, kind: EventKind, level: Leve
     if let Err(e) = r {
         tracing::warn!(host = %host, "couldn't record a timeline event: {e}");
     }
+    crate::journal_cmd::from_timeline(app, host, kind, level, title, detail);
 }
 
 /// Alerts that fired or cleared on a host go on that host's timeline.
