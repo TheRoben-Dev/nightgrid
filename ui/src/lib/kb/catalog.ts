@@ -6,7 +6,7 @@
  */
 import type { SectionId } from "../sections";
 
-export type Shelf = "nightgrid" | "howto" | "basics" | "linux" | "apps" | "guides";
+export type Shelf = "nightgrid" | "howto" | "basics" | "linux" | "apps" | "guides" | "errors";
 
 export const SHELVES: { id: Shelf; label: string; what: string }[] = [
   { id: "nightgrid", label: "USING NIGHTGRID", what: "one article per feature" },
@@ -15,6 +15,7 @@ export const SHELVES: { id: Shelf; label: string; what: string }[] = [
   { id: "linux", label: "LINUX SKILLS", what: "server skills you use everywhere" },
   { id: "apps", label: "SELF-HOSTED APPS", what: "install and run an app on a Linux server" },
   { id: "guides", label: "GUIDES", what: "whole setups, step by step" },
+  { id: "errors", label: "ERROR REFERENCE", what: "error messages: what they mean and what to try" },
 ];
 
 export type Category =
@@ -409,6 +410,22 @@ export const CATALOG: CatalogEntry[] = [
   { id: "linux/reset-root-password", shelf: "linux", title: "Reset a forgotten root or sudo password", cat: "linux" },
   { id: "apps/dockge", shelf: "apps", title: "Dockge alongside Nightgrid", cat: "docker" },
   { id: "linux/move-to-new-ssd", shelf: "linux", title: "Move a server to a new SSD", cat: "hardware" },
+  { id: "basics/nightgrid-node", shelf: "basics", title: "Nightgrid Node: the optional server agent", cat: "monitoring" },
+  { id: "howto/node-install", shelf: "howto", title: "Install Nightgrid Node", cat: "monitoring" },
+  { id: "howto/node-grants", shelf: "howto", title: "Choose what Nightgrid Node may do", cat: "security" },
+  { id: "howto/node-cli", shelf: "howto", title: "Use Nightgrid Node from the command line", cat: "monitoring" },
+  { id: "guides/node-always-watching", shelf: "guides", title: "Keep watching with the laptop closed", cat: "monitoring" },
+  { id: "guides/node-self-healing", shelf: "guides", title: "Restart a sick container by itself", cat: "docker" },
+  { id: "guides/node-ups-shutdown", shelf: "guides", title: "Shut down cleanly on a power cut", cat: "hardware" },
+  { id: "guides/node-security-watch", shelf: "guides", title: "Guard an internet-facing server", cat: "security" },
+  { id: "guides/node-lan-watch", shelf: "guides", title: "Watch the home network", cat: "network" },
+  { id: "guides/node-multi-host", shelf: "guides", title: "Link several servers and check from inside", cat: "monitoring" },
+  // Error reference (generated from docs/kb/errors by scripts/kb_errcat.py)
+  { id: "errors/disks", shelf: "errors", title: "Errors: disks, filesystems and mounts", cat: "storage" },
+  { id: "errors/kernel", shelf: "errors", title: "Errors: kernel, memory and processes", cat: "hardware" },
+  { id: "errors/shell", shelf: "errors", title: "Errors: shell, bash and scripts", cat: "linux" },
+  { id: "errors/systemd", shelf: "errors", title: "Errors: systemd, journald and boot", cat: "linux" },
+  // errors:end
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));
