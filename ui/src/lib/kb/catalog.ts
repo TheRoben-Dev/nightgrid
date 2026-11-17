@@ -394,6 +394,13 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/kasm-workspaces", shelf: "apps", title: "Kasm Workspaces browser desktops", cat: "virtualization" },
   { id: "linux/memory-limits", shelf: "linux", title: "Memory limits and OOM kills", cat: "linux" },
   { id: "linux/kernel-params", shelf: "linux", title: "Change kernel boot parameters", cat: "linux" },
+  { id: "apps/victoriametrics", shelf: "apps", title: "VictoriaMetrics long-term metrics", cat: "monitoring" },
+  { id: "apps/radicale", shelf: "apps", title: "Radicale calendars and contacts", cat: "productivity" },
+  { id: "apps/languagetool", shelf: "apps", title: "LanguageTool grammar checker", cat: "productivity" },
+  { id: "linux/tcpdump", shelf: "linux", title: "Capture network traffic with tcpdump", cat: "network" },
+  { id: "linux/age-encryption", shelf: "linux", title: "Encrypt files with age", cat: "security" },
+  { id: "linux/avahi-mdns", shelf: "linux", title: "Reach servers by name.local (mDNS)", cat: "network" },
+  { id: "guides/small-office-server", shelf: "guides", title: "Small office server", cat: "productivity" },
 ];
 
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));

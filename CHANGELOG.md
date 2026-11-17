@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.73] - 2026-11-17
+
+### Added: 7 more Library articles
+- **Guide**: a small office server (files, passwords, calendars, job board, paperwork and signing, workstation backups) for a shop of 2–15 people.
+- **Linux skills**: capture traffic with tcpdump, encrypt files with age, and reach servers by `name.local` with Avahi.
+- **Apps**: VictoriaMetrics long-term metrics, Radicale calendars and contacts, and the LanguageTool grammar checker.
+- The library now holds 337 articles.
+
 ## [0.10.72] - 2026-11-17
 
 ### Added: 8 more Library articles
