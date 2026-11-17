@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.72] - 2026-11-17
+
+### Added: 8 more Library articles
+- **Linux skills**: memory limits and OOM kills (systemd and compose limits, finding what got killed, protecting key services), and changing kernel boot parameters on GRUB, grubby, systemd-boot and rpm-ostree hosts.
+- **Apps**: Wallabag read-it-later, Kanboard project boards, DocuSeal document signing, OpenBao secrets manager, Penpot design and prototyping, and Kasm Workspaces browser desktops.
+- The library now holds 330 articles.
+
 ## [0.10.71] - 2026-11-17
 
 ### Added: 6 more Library articles
