@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.87] - 2026-11-17
+
+### Added: Library quests
+- **Verify on a host**: step-by-step guides and how-tos now have a **VERIFY ON [host] Check** row in their Objectives box. Nightgrid runs fixed, read-only checks on that host (no sudo, nothing changed) and marks each step it can verify with ✓ done, ✗ not yet (with what it found) or ? couldn't tell (for example a file only root can read).
+- **Tick verified** ticks every step the host passed, so a guide's progress matches the real server instead of what you remembered to tick.
+- Checks cover key-only SSH, root logins, firewall, automatic updates, Docker and the docker group, time sync, Tailscale, backup timers, swap, fail2ban, pending reboots, and named containers, services, listening ports and installed commands. Fifteen articles carry them, including *First homelab weekend*, sshd hardening, unattended upgrades, restic, Caddy, Vaultwarden, Pi-hole and Tailscale.
+- DRIFT knows the last result for the open guide ("Lock it down: 3 of 5 verified on server01").
+
 ## [0.10.86] - 2026-11-17
 
 ### Added: power & cost

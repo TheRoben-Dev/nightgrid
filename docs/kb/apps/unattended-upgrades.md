@@ -12,7 +12,7 @@ Let each server install security fixes by itself every day, reboot at a quiet ti
 
 ## Part 1 · Debian and Ubuntu
 
-- [ ] Install and enable:
+- [ ] Install and enable: {check: auto-updates}
 
 ```sh
 sudo apt install -y unattended-upgrades apt-listchanges
@@ -43,7 +43,7 @@ sudo cp /usr/share/dnf5/dnf5-plugins/automatic.conf /etc/dnf/automatic.conf
 ```
 
 - [ ] RHEL/Alma/Rocky 9: `sudo dnf install -y dnf-automatic`.
-- [ ] In `/etc/dnf/automatic.conf` set `upgrade_type = security` and `apply_updates = yes` (and `reboot = when-needed` if you want it), then enable the timer: `dnf5-automatic.timer` on Fedora 41+, `dnf-automatic.timer` on RHEL 9 and its rebuilds.
+- [ ] In `/etc/dnf/automatic.conf` set `upgrade_type = security` and `apply_updates = yes` (and `reboot = when-needed` if you want it), then enable the timer: `dnf5-automatic.timer` on Fedora 41+, `dnf-automatic.timer` on RHEL 9 and its rebuilds. {check: auto-updates}
 
 ```sh
 sudo systemctl enable --now dnf5-automatic.timer
@@ -51,7 +51,7 @@ sudo systemctl enable --now dnf5-automatic.timer
 
 ## Part 3 · In Nightgrid
 
-- [ ] [System](view:system) → **security** stops flagging automatic updates.
+- [ ] [System](view:system) → **security** stops flagging automatic updates. {check: auto-updates}
 - [ ] [Fleet](view:fleet) → **Updates** still shows non-security updates for you to apply in batches.
 - [ ] A reboot-needed flag on a host means the automatic reboot is off or hasn't happened yet.
 - [ ] System → **timeline** shows each apt or dnf transaction.

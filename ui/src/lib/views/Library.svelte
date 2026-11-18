@@ -13,7 +13,10 @@
   import type { Article } from "../kb/library";
   import { FIG_LINE } from "../helper/md";
   import { figure } from "../kb/figures";
-  import { ARTICLES, article, parts, search } from "../kb/library";
+  import { ARTICLES, article, parts, search, stepChecks } from "../kb/library";
+  import { questSummary } from "../kb/quest";
+  import { hosts } from "../stores/hosts.svelte";
+  import { quests } from "../stores/quests.svelte";
   import { scramble } from "../scramble";
   import { library } from "../stores/library.svelte";
   import { terms } from "../stores/terms.svelte";
@@ -55,6 +58,29 @@
     return { done: done(keys, library.progress[id] ?? {}), total: keys.length };
   }
   const total = $derived(objectives.reduce((n, p) => n + p.keys.length, 0));
+  /** Steps a host check can verify, by block-item key. */
+  const checkable = $derived(cur ? stepChecks(cur) : {});
+  const nCheckable = $derived(Object.keys(checkable).length);
+  let questHost = $state<number | null>(hosts.preferred("library")?.id ?? null);
+  $effect(() => {
+    if (questHost != null && !hosts.byId(questHost)) questHost = hosts.preferred("library")?.id ?? null;
+  });
+  const qrun = $derived(cur ? quests.run(cur.id, questHost) : null);
+  const qsum = $derived(qrun ? questSummary(Object.values(qrun.results)) : null);
+  const verified = $derived.by(() => {
+    const r = qrun;
+    if (!r) return undefined;
+    const out: Record<string, { state: "pass" | "fail" | "unknown"; detail: string; host: string }> = {};
+    for (const [k, id] of Object.entries(checkable)) {
+      const x = r.results[id];
+      if (x) out[k] = { state: x.state, detail: x.detail, host: r.host };
+    }
+    return out;
+  });
+  function tickVerified() {
+    if (!cur || !verified) return;
+    for (const [k, v] of Object.entries(verified)) if (v.state === "pass" && !ticks[k]) library.tick(cur.id, k, true);
+  }
   const doneAll = $derived(objectives.reduce((n, p) => n + done(p.keys, ticks), 0));
 
   let flash = $state<string | null>(null);
@@ -152,6 +178,24 @@
               </li>
             {/each}
           </ol>
+          {#if nCheckable && hosts.hosts.length}
+            <div class="verify" data-guide="library-verify">
+              <span class="qlabel">VERIFY ON</span>
+              <select class="input tiny" bind:value={questHost} aria-label="Host to check">
+                {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
+              </select>
+              <button type="button" class="btn tiny" disabled={questHost == null || quests.busy !== null} title="Runs {nCheckable} read-only checks on the host: nothing is changed and sudo is never used" onclick={() => cur && questHost != null && void quests.check(cur, questHost)}
+                >{quests.busy && cur && questHost != null && quests.busy === quests.key(cur.id, questHost) ? "Checking…" : qrun ? "Check again" : "Check"}</button
+              >
+              {#if qsum}
+                <span class="qcount" title="Checked {new Date(qrun?.at ?? 0).toLocaleTimeString()}">{qsum.pass}/{qsum.total} verified{qsum.unknown ? ` · ${qsum.unknown} unclear` : ""}</span>
+                {#if qsum.pass}<button type="button" class="btn ghost tiny" onclick={tickVerified}>Tick verified</button>{/if}
+              {:else}
+                <span class="muted small">{nCheckable} step{nCheckable === 1 ? "" : "s"} can be checked</span>
+              {/if}
+            </div>
+            {#if quests.error}<p class="error-text small">{quests.error}</p>{/if}
+          {/if}
         </aside>
       {/if}
 
@@ -162,6 +206,7 @@
         onarticle={(id) => library.read(id)}
         {figure}
         hideLead={!!lead}
+        {verified}
         ticks={tracked(cur) ? ticks : undefined}
         ontick={tracked(cur) ? (k, on) => library.tick(cur.id, k, on) : undefined}
       >
@@ -484,5 +529,19 @@
   }
   .small {
     font-size: var(--fs-xs);
+  }
+  .verify {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--line);
+  }
+  .verify .input.tiny {
+    padding: 2px 6px;
+    font-size: var(--fs-xs);
+    max-width: 180px;
   }
 </style>

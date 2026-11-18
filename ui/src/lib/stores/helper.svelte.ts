@@ -15,6 +15,7 @@ import { keymap } from "../term/keyhints";
 import { historyTerms, hostFacts, mentionedHosts } from "../helper/hostFacts";
 import { followUpHint, lookupBlock, lookupLabel, notYetRun, planLookups, takeCheckRequests, wantsLookups } from "../helper/lookups";
 import { asksAboutChanges } from "../journal";
+import { quests } from "./quests.svelte";
 import { checksText, runSkills, summaryCheck, type Check } from "../helper/skills";
 import { wantsSummary, type SummaryInput } from "../helper/skills/summary";
 import { diskRows, disksText, totals, updateRows, updatesText } from "../fleet";
@@ -513,6 +514,7 @@ class HelperStore {
       const cs = docker.containers.map((c) => `${c.name} ${c.state}${c.health ? ` (${c.health})` : ""}`);
       out.push(`Containers (Docker view, ${cs.length}): ${clip(cs, 20).join("; ")}`);
     }
+    for (const l of quests.linesFor(h.id)) out.push(`Library guide checked on this host (read-only, Library → Verify): ${l}`);
     return out;
   }
 

@@ -102,6 +102,8 @@ import {
   type PowerOverview_Serialize as PowerOverview,
   type HostPower_Serialize as HostPower,
   type IdleWindow,
+  type QuestResult,
+  type QuestState,
   type UpsPower_Serialize as UpsPower,
   type PowerProfile,
   type PveSandboxSpec_Deserialize as PveSandboxSpec,
@@ -351,6 +353,7 @@ import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockJournal } from "./mockJournal";
 import { mockPower } from "./mockPower";
+import { mockQuest } from "./mockQuest";
 import { mockBlueprint } from "./mockBlueprint";
 import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
@@ -444,6 +447,8 @@ export type {
   PowerOverview,
   HostPower,
   IdleWindow,
+  QuestResult,
+  QuestState,
   UpsPower,
   PowerProfile,
   PveSandboxSpec,
@@ -1363,6 +1368,7 @@ export const api = {
   pveVmCreate: (hostId: number, spec: PveVmSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveVmCreate(hostId, spec, sudo) : mockProxmox.vmCreate(spec)),
   pveCtCreate: (hostId: number, spec: PveCtSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveCtCreate(hostId, spec, sudo) : mockProxmox.ctCreate(spec)),
   pveClone: (hostId: number, spec: PveCloneSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveClone(hostId, spec, sudo) : mockProxmox.clone(spec)),
+  questCheck: (hostId: number, checks: string[]): Promise<QuestResult[]> => (T() ? commands.questCheck(hostId, checks) : mockQuest.check(checks)),
   powerOverview: (days: number, utcOffsetMins: number): Promise<PowerOverview> => (T() ? commands.powerOverview(days, utcOffsetMins) : mockPower.overview(days)),
   powerProfileSet: (hostId: number, idleW: number, maxW: number): Promise<null> => (T() ? commands.powerProfileSet(hostId, idleW, maxW) : mockPower.set(hostId, idleW, maxW)),
   powerProfileClear: (hostId: number): Promise<null> => (T() ? commands.powerProfileClear(hostId) : mockPower.clear(hostId)),

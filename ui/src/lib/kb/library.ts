@@ -22,8 +22,39 @@ export interface Article {
   title: string;
   /** The first paragraph, as plain text. */
   summary: string;
-  /** Markdown without the title line. */
+  /** Markdown without the title line (and without `{check: …}` marks). */
   body: string;
+  /** Each `- [ ]` step's read-only check (`{check: id}` at its end), in order; null for none. */
+  checks?: (string | null)[];
+}
+
+const STEP_LINE = /^\s*(?:[-*]|\d+[.)])\s+\[[ xX]\]\s/;
+const CHECK_MARK = /\s*\{check:\s*([A-Za-z0-9:._@-]+)\s*\}\s*$/;
+
+/** Takes the `{check: id}` marks off step lines, keeping one entry per step in order. */
+export function takeChecks(body: string): { body: string; checks: (string | null)[] } {
+  const checks: (string | null)[] = [];
+  let fence = false;
+  const lines = body.split("\n").map((l) => {
+    if (/^\s*```/.test(l)) fence = !fence;
+    if (fence || !STEP_LINE.test(l)) return l;
+    const m = CHECK_MARK.exec(l);
+    checks.push(m ? m[1] : null);
+    return m ? l.slice(0, m.index) : l;
+  });
+  return { body: lines.join("\n"), checks };
+}
+
+/** Block-item key → check id, for the steps that carry one. */
+export function stepChecks(a: Article): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!a.checks?.some(Boolean)) return out;
+  const keys = parts(a).flatMap((p) => p.keys);
+  keys.forEach((k, i) => {
+    const c = a.checks?.[i];
+    if (c) out[k] = c;
+  });
+  return out;
 }
 
 export function slug(s: string): string {
@@ -92,7 +123,10 @@ export function fromFile(path: string, raw: string): Article | null {
     .slice(at + 1)
     .join("\n")
     .trim();
-  return { id: `${m[1]}/${m[2]}`, shelf: m[1] as Shelf, title, summary: firstParagraph(body), body };
+  const t = takeChecks(body);
+  const art: Article = { id: `${m[1]}/${m[2]}`, shelf: m[1] as Shelf, title, summary: firstParagraph(t.body), body: t.body };
+  if (t.checks.some(Boolean)) art.checks = t.checks;
+  return art;
 }
 
 const SHELF_ORDER: Shelf[] = ["nightgrid", "howto", "basics", "linux", "apps", "guides", "errors"];
