@@ -908,6 +908,13 @@ export const commands = {
 	statusPageNewToken: (options?: InvokeOptions) => __TAURI_INVOKE<StatusPageInfo_Serialize>("status_page_new_token", undefined, options),
 	/**  Writes a static HTML snapshot of the dashboard. `None` when cancelled. */
 	dashboardExport: (withAddresses: boolean, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("dashboard_export", { withAddresses }, options),
+	mcpStatus: (options?: InvokeOptions) => __TAURI_INVOKE<McpStatus_Serialize>("mcp_status", undefined, options),
+	/**  Saves the MCP settings and starts or stops the server. */
+	mcpSet: (settings: McpSettings_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<McpStatus_Serialize>("mcp_set", { settings }, options),
+	/**  A new token: clients need the new one. */
+	mcpNewToken: (options?: InvokeOptions) => __TAURI_INVOKE<McpStatus_Serialize>("mcp_new_token", undefined, options),
+	/**  The person's answer to a change an MCP client asked for. */
+	mcpAnswer: (id: number, allow: boolean, options?: InvokeOptions) => __TAURI_INVOKE<null>("mcp_answer", { id, allow }, options),
 	updateCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateStatus_Serialize>("update_check", undefined, options),
 	/**
 	 *  Downloads, verifies and installs the update from the last check, then
@@ -1427,6 +1434,8 @@ export type AppSettings_Deserialize = {
 	statusPage?: StatusPageSettings_Deserialize,
 	/**  Electricity price for Fleet → POWER. */
 	power?: PowerSettings_Deserialize,
+	/**  The MCP server (M12g). Machine-specific, like the status page. */
+	mcp?: McpSettings_Deserialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch?: NetWatchSettings_Deserialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -1549,6 +1558,8 @@ export type AppSettings_Serialize = {
 	statusPage: StatusPageSettings_Serialize,
 	/**  Electricity price for Fleet → POWER. */
 	power: PowerSettings_Serialize,
+	/**  The MCP server (M12g). Machine-specific, like the status page. */
+	mcp: McpSettings_Serialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch: NetWatchSettings_Serialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -5001,6 +5012,82 @@ export type Manager = "apt" | "dnf" | "pacman" |
  *  with rpm-ostree, which stages it for the next boot.
  */
 "ostree";
+
+export type McpAsk = {
+	id: number,
+	client: string,
+	tool: string,
+	/**  What would happen, in words. */
+	summary: string,
+};
+
+export type McpCall = {
+	at: number | null,
+	client: string,
+	tool: string,
+	/**  `ok`, `error` or `denied`. */
+	outcome: string,
+	detail: string,
+};
+
+/**
+ *  The MCP server (M12g, D-166): off by default, only on 127.0.0.1, with a
+ *  token kept in the app's data folder. Read-only unless `allow_writes`,
+ *  and even then each change waits for approval in the app.
+ */
+export type McpSettings = McpSettings_Serialize | McpSettings_Deserialize;
+
+/**
+ *  The MCP server (M12g, D-166): off by default, only on 127.0.0.1, with a
+ *  token kept in the app's data folder. Read-only unless `allow_writes`,
+ *  and even then each change waits for approval in the app.
+ */
+export type McpSettings_Deserialize = {
+	enabled?: boolean,
+	port?: number,
+	allowWrites?: boolean,
+};
+
+/**
+ *  The MCP server (M12g, D-166): off by default, only on 127.0.0.1, with a
+ *  token kept in the app's data folder. Read-only unless `allow_writes`,
+ *  and even then each change waits for approval in the app.
+ */
+export type McpSettings_Serialize = {
+	enabled: boolean,
+	port: number,
+	allowWrites: boolean,
+};
+
+export type McpStatus = McpStatus_Serialize | McpStatus_Deserialize;
+
+export type McpStatus_Deserialize = {
+	settings: McpSettings_Deserialize,
+	running: boolean,
+	url?: string | null,
+	error?: string | null,
+	/**  Shown so it can be pasted into a client's config. */
+	token?: string | null,
+	/**  This app's executable, for a stdio client config (`--mcp`). */
+	exe?: string | null,
+	calls: McpCall[],
+	/**  Changes waiting for an answer. */
+	asks: McpAsk[],
+};
+
+export type McpStatus_Serialize = {
+	settings: McpSettings_Serialize,
+	running: boolean,
+	url: string | null,
+	error: string | null,
+	/**  Shown so it can be pasted into a client's config. */
+	token: string | null,
+	/**  This app's executable, for a stdio client config (`--mcp`). */
+	exe: string | null,
+	calls: McpCall[],
+	/**  Changes waiting for an answer. */
+	asks: McpAsk[],
+};
 
 export type MetricsEvent = MetricsEvent_Serialize | MetricsEvent_Deserialize;
 

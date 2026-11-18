@@ -82,6 +82,7 @@ export const CATALOG: CatalogEntry[] = [
   { id: "nightgrid/alerts-and-the-tray", shelf: "nightgrid", title: "Alerts and the tray", cat: "monitoring" },
   { id: "nightgrid/backups-and-moving-between-machines", shelf: "nightgrid", title: "Backups and moving between machines", cat: "storage" },
   { id: "nightgrid/phone-status-page-and-snapshots", shelf: "nightgrid", title: "Phone status page and snapshots", cat: "monitoring" },
+  { id: "nightgrid/ai-clients-mcp-server", shelf: "nightgrid", title: "AI clients (MCP server)", cat: "productivity" },
   { id: "nightgrid/handhelds-rog-ally-steam-deck-and-controllers", shelf: "nightgrid", title: "Handhelds (ROG Ally, Steam Deck) and controllers", cat: "hardware" },
   { id: "nightgrid/which-host-a-view-opens-on", shelf: "nightgrid", title: "Which host a view opens on", cat: "start" },
   { id: "nightgrid/features-simple-or-everything", shelf: "nightgrid", title: "Features: simple or everything", cat: "start" },

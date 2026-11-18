@@ -6,6 +6,7 @@
   import StatusPagePanel from "../components/status/StatusPagePanel.svelte";
   import TailnetPanel from "../components/tailnet/TailnetPanel.svelte";
   import KeysPanel from "../components/keys/KeysPanel.svelte";
+  import McpPanel from "../components/mcp/McpPanel.svelte";
   import HelperSettings from "../components/helper/HelperSettings.svelte";
   import Barcode from "../components/Barcode.svelte";
   import CustomThemeEditor from "../components/CustomThemeEditor.svelte";
@@ -368,6 +369,7 @@
 <div class="grid">
   <TailnetPanel />
   <KeysPanel />
+  <McpPanel />
 </div>
 {:else if ui.settingsTab === "drift"}
 <div class="grid">

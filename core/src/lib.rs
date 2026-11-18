@@ -32,6 +32,7 @@ pub mod integrations;
 pub mod journal;
 pub mod logsearch;
 pub mod logwatch;
+pub mod mcp;
 pub mod metrics;
 pub mod netident;
 pub mod netinv;

@@ -33,7 +33,7 @@ Approved by Roben on 2026-11-17. One release each, in this order; the last one i
 | ~~**M12d** · Power & cost~~ | Done in 0.10.86: Fleet → POWER estimates watts, kWh and cost per host from power profiles and CPU history, finds reliable idle hours for scheduled power, and checks the estimates against UPS output. |
 | ~~**M12e** · Library quests~~ | Done in 0.10.87: guides carry `{check: id}` steps that Nightgrid verifies read-only on a picked host (✓/✗/?), with **Tick verified** and DRIFT knowing the result. |
 | ~~**M12f** · Nightgrid Node pairing~~ | Done in 0.10.88: Fleet → NODE finds, installs, updates and removes the node per host; its history, uptime, disk usage, timeline and alerts fill the app after a reconnect, events and samples arrive live; gaps for the node project are in `docs/NODE_PAIRING.md`. |
-| **M12g** · MCP server → 1.0.0 | An opt-in MCP server so Claude (or any MCP client) can ask about the fleet: read-only by default, any write action needs its own opt-in and a confirmation in the app. |
+| ~~**M12g** · MCP server → 1.0.0~~ | Done in 1.0.0: Settings → Connections → MCP server, on 127.0.0.1 behind a token, nine read tools, and container actions and journal notes only with **Allow changes** on and **Allow once** in the app for each call; `nightgrid --mcp` is the stdio bridge. |
 
 ## Later: after the standalone app is finished
 

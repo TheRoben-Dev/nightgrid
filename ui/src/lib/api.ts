@@ -335,6 +335,10 @@ import {
   type Seen,
   type StatusPageInfo_Serialize as StatusPageInfo,
   type StatusPageSettings_Serialize as StatusPageSettings,
+  type McpSettings_Serialize as McpSettings,
+  type McpStatus_Serialize as McpStatus,
+  type McpCall,
+  type McpAsk,
   type ProxyRoute_Serialize as ProxyRoute,
   type ProxyFound,
   type ProxyKind,
@@ -361,6 +365,7 @@ import { mockUps } from "./mockUps";
 import { mockJournal } from "./mockJournal";
 import { mockPower } from "./mockPower";
 import { mockNode } from "./mockNode";
+import { mockMcp } from "./mockMcp";
 import { mockQuest } from "./mockQuest";
 import { mockBlueprint } from "./mockBlueprint";
 import { mockUptime } from "./mockUptime";
@@ -715,6 +720,10 @@ export type {
   Seen,
   StatusPageInfo,
   StatusPageSettings,
+  McpSettings,
+  McpStatus,
+  McpCall,
+  McpAsk,
   ProxyRoute,
   ProxyFound,
   ProxyKind,
@@ -812,6 +821,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   disabledFeatures: [],
   profileReminderSnooze: null,
   statusPage: { enabled: false, bind: "lan", port: 8787 },
+  mcp: { enabled: false, port: 47821, allowWrites: false },
   power: { pricePerKwh: 0, currency: "" },
   netWatch: { enabled: false, scanner: null, minutes: 60, sweep: false, alertNew: true, alertMissing: true, alertRisks: true },
 };
@@ -1181,6 +1191,10 @@ export const api = {
   statusPageGet: (): Promise<StatusPageInfo> => (T() ? commands.statusPageGet() : mockOps.statusGet()),
   statusPageSet: (s: StatusPageSettings): Promise<StatusPageInfo> => (T() ? commands.statusPageSet(s) : mockOps.statusSet(s)),
   statusPageNewToken: (): Promise<StatusPageInfo> => (T() ? commands.statusPageNewToken() : mockOps.statusNewToken()),
+  mcpStatus: (): Promise<McpStatus> => (T() ? commands.mcpStatus() : mockMcp.status()),
+  mcpSet: (s: McpSettings): Promise<McpStatus> => (T() ? commands.mcpSet(s) : mockMcp.set(s)),
+  mcpNewToken: (): Promise<McpStatus> => (T() ? commands.mcpNewToken() : mockMcp.newToken()),
+  mcpAnswer: (id: number, allow: boolean): Promise<null> => (T() ? commands.mcpAnswer(id, allow) : mockMcp.answer(id, allow)),
   dashboardExport: (withAddresses: boolean): Promise<string | null> =>
     T() ? commands.dashboardExport(withAddresses) : Promise.resolve("/Users/you/Downloads/nightgrid-status.html"),
   integrationsList: (): Promise<IntegrationView[]> => (T() ? commands.integrationsList() : mockIntegrations.list()),
