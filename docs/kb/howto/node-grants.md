@@ -7,6 +7,7 @@ Out of the box, [Nightgrid Node](kb:basics/nightgrid-node) only reads what any u
 ## How grants work
 
 - Grant: `sudo nightgrid-node allow <name>`. Take back: `sudo nightgrid-node deny <name>`.
+- `sudo nightgrid-node allow` (or `deny`) with no name opens a menu that shows every grant, whether it's on, and toggles it.
 - Each grant adds a systemd drop-in, a group, a udev rule or a separate small unit with its own sandbox. The main service never gains network access.
 - `nightgrid-node status` lists every grant under `access` as `ok`, `denied` (not granted), `absent` (nothing to read on this host) or `off` (disabled in the config).
 - Actions are a second, separate gate: even with the helper installed, the node does nothing that root didn't list in `[actions] allow` in `/etc/nightgrid-node/config.toml` (empty by default).
@@ -73,7 +74,7 @@ None of them is required. A node with no grants still records metrics, uptime, d
 ## Part 1 · Grant and check
 
 - [ ] Pick the row closest to your server above, and read each grant's "Costs" once more.
-- [ ] Run the `allow` commands, for example `sudo nightgrid-node allow journal`.
+- [ ] Run the `allow` commands, for example `sudo nightgrid-node allow journal`, or pick them from the menu with `sudo nightgrid-node allow`.
 - [ ] `nightgrid-node status`: each grant you made shows `ok` under `access`.
 - [ ] For actions, list exactly what may run in `[actions] allow` (and `[actions] units` for systemd units), then `sudo systemctl restart nightgrid-node`.
 - [ ] `nightgrid-node query actions.policy | jq` confirms what's allowed. Changed your mind? `sudo nightgrid-node deny <name>`.

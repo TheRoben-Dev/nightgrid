@@ -419,7 +419,7 @@ export const CATALOG: CatalogEntry[] = [
   { id: "basics/nightgrid-node", shelf: "basics", title: "Nightgrid Node: the optional server agent", cat: "monitoring" },
   { id: "howto/node-install", shelf: "howto", title: "Install Nightgrid Node", cat: "monitoring" },
   { id: "howto/node-grants", shelf: "howto", title: "Choose what Nightgrid Node may do", cat: "security" },
-  { id: "howto/node-cli", shelf: "howto", title: "Use Nightgrid Node from the command line", cat: "monitoring" },
+  { id: "howto/node-cli", shelf: "howto", title: "Use Nightgrid Node from the command line and its fix menu", cat: "monitoring" },
   { id: "guides/node-always-watching", shelf: "guides", title: "Keep watching with the laptop closed", cat: "monitoring" },
   { id: "guides/node-self-healing", shelf: "guides", title: "Restart a sick container by itself", cat: "docker" },
   { id: "guides/node-ups-shutdown", shelf: "guides", title: "Shut down cleanly on a power cut", cat: "hardware" },
