@@ -23,6 +23,8 @@ class LibraryStore {
   query = $state("");
   shelf = $state<Shelf | "all">("all");
   cat = $state<Category | "all">("all");
+  /** Only guides that can be started as quests. */
+  questsOnly = $state(false);
   progress = $state<Record<string, Record<string, boolean>>>(read());
 
   /** Articles read before this one, for BACK. */

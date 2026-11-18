@@ -109,6 +109,7 @@ import {
   type HostPower_Serialize as HostPower,
   type IdleWindow,
   type QuestResult,
+  type Quest_Serialize as Quest,
   type QuestState,
   type NodeView_Serialize as NodeView,
   type NodeState,
@@ -425,7 +426,7 @@ import { mockPosture } from "./mockPosture";
 import { mockNotify } from "./mockNotify";
 import { mockHub, mockNode } from "./mockNode";
 import { mockMcp } from "./mockMcp";
-import { mockQuest } from "./mockQuest";
+import { mockQuest, mockQuestLog } from "./mockQuest";
 import { mockBlueprint } from "./mockBlueprint";
 import { mockStarters } from "./mockStarters";
 import { mockUptime } from "./mockUptime";
@@ -522,6 +523,7 @@ export type {
   IdleWindow,
   QuestResult,
   QuestState,
+  Quest,
   NodeView,
   NodeState,
   NodeInfoView,
@@ -1523,6 +1525,11 @@ export const api = {
   pveCtCreate: (hostId: number, spec: PveCtSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveCtCreate(hostId, spec, sudo) : mockProxmox.ctCreate(spec)),
   pveClone: (hostId: number, spec: PveCloneSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveClone(hostId, spec, sudo) : mockProxmox.clone(spec)),
   questCheck: (hostId: number, checks: string[]): Promise<QuestResult[]> => (T() ? commands.questCheck(hostId, checks) : mockQuest.check(checks)),
+  questsList: (): Promise<Quest[]> => (T() ? commands.questsList() : mockQuestLog.list()),
+  questStart: (articleId: string, hostId: number | null, title: string, ticks: string[]): Promise<Quest> =>
+    T() ? commands.questStart(articleId, hostId, title, ticks) : mockQuestLog.start(articleId, hostId, title, ticks),
+  questTicks: (id: number, ticks: string[], complete: boolean): Promise<Quest> => (T() ? commands.questTicks(id, ticks, complete) : mockQuestLog.ticks(id, ticks, complete)),
+  questAbandon: (id: number): Promise<boolean> => (T() ? commands.questAbandon(id) : mockQuestLog.abandon(id)),
   nodeList: (): Promise<NodeView[]> => (T() ? commands.nodeList() : mockNode.list()),
   nodeCheck: (hostId: number): Promise<NodeView> => (T() ? commands.nodeCheck(hostId) : mockNode.check(hostId)),
   nodeSyncNow: (hostId: number): Promise<SyncReport> => (T() ? commands.nodeSyncNow(hostId) : mockNode.syncNow(hostId)),

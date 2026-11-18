@@ -18,6 +18,15 @@ Starters: ready-made server setups and alert runbooks you can read, preview and 
 - Library links in notes (`kb:`) now open the article.
 - **New how-to**: *Start from a ready-made setup*.
 
+## [1.4.0] - 2026-11-18
+
+### Added: quest log
+- **Start a quest** from any Library article with steps: the strip under the title says **◇ QUEST AVAILABLE**; pick the host it's for (or none) and press **▶ START QUEST**. Articles that can be quests are marked **◇ QUEST** in the list and on the shelves, and the **◇ QUESTS** chip shows only those. The same guide can run as separate quests on different hosts.
+- **QUESTS** in the top bar, beside INBOX: every active quest with its host, objective, progress bar and the step you're on. Click one to open the guide on that host; **Check now** runs its read-only checks; **Abandon** stops tracking it; finished quests are kept under **Completed**.
+- **Quest updates**: finishing a step shows **QUEST UPDATED** in the top right with what's next; finishing a part shows **OBJECTIVE COMPLETE** and the last step **QUEST COMPLETE**. The text decodes in, and the motion is off under reduce effects.
+- On a quest, steps that pass their read-only check complete by themselves, after **Check** and every few minutes while Nightgrid is already connected to the host.
+- Quests are kept in the database and travel in profile exports.
+
 ## [1.3.0] - 2026-11-18
 
 ### Fixed: installing Nightgrid Node

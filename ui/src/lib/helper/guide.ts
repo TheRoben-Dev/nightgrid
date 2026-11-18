@@ -153,6 +153,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "fleet-tab-speed", view: "fleet", what: "Fleet SPEED tab: network tests between your hosts (iperf3 both ways, ping), with history" },
   { id: "fleet-tab-journal", view: "fleet", what: "Fleet JOURNAL tab: what changed, where and when, across all hosts" },
   { id: "library-verify", view: "library", what: "VERIFY ON: runs the guide's checkable steps read-only on a host (no sudo, nothing changed) and marks each step verified, not yet, or can't tell; Tick verified ticks the ones that passed" },
+  { id: "library-quest", view: "library", what: "quest strip: pick the host and START QUEST to track a guide in the QUESTS log (top bar) with quest updates as steps complete" },
   { id: "fleet-tab-power", view: "fleet", what: "Fleet POWER tab: estimated watts, kWh and cost per host from a power profile (idle and full-load watts) and CPU history; idle hours worth a power schedule; UPS output compared with the estimates" },
   { id: "fleet-power", view: "fleet", what: "Power & cost: set each host's watts (Set watts… or a preset), the price per kWh at the top right" },
   { id: "fleet-tab-node", view: "fleet", what: "Fleet NODE tab: where the optional Nightgrid Node agent runs on each host, install / update / remove it, what it synced (history, uptime, alerts while the app was closed) and live samples instead of SSH polling" },

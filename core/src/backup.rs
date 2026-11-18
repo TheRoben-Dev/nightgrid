@@ -144,6 +144,12 @@ const TABLES: &[Table] = &[
         keys: &[&["host_id", "dir", "subdir"]],
     },
     Table { name: "cmd_widgets", id: true, fks: &[("host_id", "hosts", Missing::Skip)], keys: &[&["host_id", "name"]] },
+    Table {
+        name: "quests",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Skip)],
+        keys: &[&["article_id", "host_id"]],
+    },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];
 
@@ -214,6 +220,9 @@ pub struct BackupSummary {
     pub backup_jobs: u32,
     #[serde(default)]
     pub device_labels: u32,
+    /// Library quests (1.4).
+    #[serde(default)]
+    pub quests: u32,
     pub services: u32,
     pub tunnels: u32,
     pub integrations: u32,
@@ -419,6 +428,7 @@ impl Bundle {
             notes: self.count("notes"),
             backup_jobs: self.count("backup_jobs"),
             device_labels: self.count("device_labels"),
+            quests: self.count("quests"),
             services: self.count("services"),
             tunnels: self.count("tunnels"),
             integrations: self.count("integrations"),
