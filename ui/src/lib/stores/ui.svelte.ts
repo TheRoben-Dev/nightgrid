@@ -1,3 +1,4 @@
+import { sound } from "./sound.svelte";
 import { railFor, type SectionId } from "../sections";
 import type { SettingsTab } from "../settingsTabs";
 
@@ -25,6 +26,7 @@ class UiStore {
       this.settingsTab = "features";
       id = "settings";
     }
+    if (id !== this.section) sound.play("tick");
     this.section = id;
     this.crumbs = [];
     const entry = railFor(id);

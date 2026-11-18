@@ -54,6 +54,7 @@
   import TourOffer from "./lib/components/helper/TourOffer.svelte";
   import ProfileReminder from "./lib/components/backup/ProfileReminder.svelte";
   import { helper } from "./lib/stores/helper.svelte";
+  import { sound } from "./lib/stores/sound.svelte";
 
   let info = $state<AppInfo | null>(null);
   /** Files stays mounted after the first visit so open editors survive section switches. */
@@ -65,6 +66,7 @@
 
   onMount(() => {
     const stop = settings.watchReducedMotion();
+    sound.unlockOnGesture();
     const stopHosts = hosts.start();
     authNotices.start();
     const stopPad = startGamepad({

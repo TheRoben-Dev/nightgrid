@@ -14,6 +14,7 @@
   import SegmentSlider from "../components/SegmentSlider.svelte";
   import Toggle from "../components/Toggle.svelte";
   import FeaturesPanel from "../components/settings/FeaturesPanel.svelte";
+  import SoundPanel from "../components/settings/SoundPanel.svelte";
   import { SETTINGS_TABS } from "../settingsTabs";
   import { ui } from "../stores/ui.svelte";
   import { scramble } from "../scramble";
@@ -245,6 +246,8 @@
     {#if settings.error}<p class="error" role="alert"><span aria-hidden="true">▲</span> {settings.error}</p>{/if}
   </Panel>
 </div>
+{:else if ui.settingsTab === "sound"}
+<SoundPanel />
 {:else if ui.settingsTab === "terminal"}
 <div class="grid">
   <Panel title="TERMINAL" guide="settings-terminal">

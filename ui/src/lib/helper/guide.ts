@@ -240,6 +240,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "settings-services", view: "settings", what: "service check settings" },
   { id: "settings-alerts", view: "settings", what: "alert rules (offline, disk, containers, certificates)" },
   { id: "settings-deps", view: "settings", what: "alert dependencies: what breaks when a host or service is down, so its alerts fold under the cause" },
+  { id: "settings-sound", view: "settings", what: "UI sounds on or off, volume, quiet hours, mute when unfocused" },
+  { id: "settings-sound-list", view: "settings", what: "each kind of UI sound with an on/off switch and test buttons" },
   { id: "settings-notifications", view: "settings", what: "notifications, quiet hours, webhook" },
   { id: "settings-notify-routes", view: "settings", what: "which notices (alerts, restore drills, rotations due, posture drops, capacity) go to the desktop and to ntfy" },
   { id: "settings-ntfy", view: "settings", what: "ntfy (self-hosted): push notices to your phone through your own ntfy server; topic URL, optional access token, lowest level, test. Off by default; the public ntfy.sh is refused" },

@@ -3,6 +3,7 @@
  * root (the sudo prompt asks when needed). Power actions start Proxmox tasks;
  * the task's log is followed until it ends, then the view reloads.
  */
+import { sound } from "./sound.svelte";
 import { api, errorText, type PveFirewall, type PveFwRun, type PveFwRuleSpec, type PveFwScope, type PveIfaceSpec, type PveNetwork, type PveAppliance, type PveCloneSpec, type PveSandboxSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
 import { ACTION_WORD, backupTargets, type PveConfig, type PveHostDevices, type PveSetting, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
@@ -729,7 +730,9 @@ class ProxmoxStore {
     this.confirm = null;
     try {
       await c.run();
+      sound.play("ok");
     } catch (e) {
+      sound.play("fail");
       this.notice = { text: `${c.button}: ${errorText(e)}`, tone: "err" };
     }
   }

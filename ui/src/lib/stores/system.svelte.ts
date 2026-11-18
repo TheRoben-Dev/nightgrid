@@ -1,3 +1,4 @@
+import { sound } from "./sound.svelte";
 import {
   api,
   errorText,
@@ -577,6 +578,7 @@ class SystemStore {
     };
     try {
       await Promise.all([worker(), worker(), worker()]);
+      sound.play("taskDone");
     } finally {
       this.portMapLoading = false;
     }
@@ -615,11 +617,13 @@ class SystemStore {
           if (e.kind === "lines") this.run = { ...this.run, lines: [...this.run.lines, ...e.lines].slice(-4000) };
           else {
             this.run = { ...this.run, running: false, code: e.code ?? null, error: e.error ?? null };
+            sound.play(e.code === 0 && !e.error ? "ok" : "fail");
             void this.checkUpdates();
           }
         }),
       );
     } catch (e) {
+      if (errorText(e) !== "Cancelled.") sound.play("fail");
       this.run = { op, lines: this.run?.lines ?? [], running: false, code: null, error: errorText(e) };
     }
   }
@@ -631,6 +635,7 @@ class SystemStore {
     const name = this.host?.name ?? "Host";
     try {
       await this.withSudo(`${POWER_VERB[action]} the host`, (sudo) => api.systemPower(id, action, sudo));
+      sound.play("ok");
       this.notice = {
         text:
           action === "reboot"

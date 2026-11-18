@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [1.6.0] - 2026-11-18
+
+### Added: UI sounds
+- **Short cyberpunk-style UI sounds**, all synthesized by Nightgrid itself (no sound files or packs): alerts firing (a sharper one for critical) and clearing, new inbox notices, actions you started working or failing (container actions, firewall applies, Proxmox actions, package runs, power), confirm dialogs (a darker one for destructive ones), DRIFT finishing a reply, quest steps and completed quests, and scans, test restores, drills and speed tests finishing. Never for terminal output or live numbers.
+- **Settings → SOUND**: master switch, volume, a switch per kind of sound with a ▶ test button for every sound, quiet hours, and mute while the window isn't focused. On at 40 % to start; the view-switch tick is off until you turn it on. Included in profile exports, and in Settings → Features as **UI sounds**.
+
 ## [1.2.0] - 2026-11-18
 
 ### Added: Library content updates

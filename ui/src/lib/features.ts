@@ -49,6 +49,7 @@ export const FEATURES: Feature[] = [
   { id: "automation", label: "Automation", hint: "Snippets and playbooks across hosts." },
   { id: "notes", label: "Knowledge", hint: "Your notes and runbooks. The Library (help) stays on." },
   { id: "drift", label: "DRIFT helper", hint: "The local AI helper. Off: the model is never loaded." },
+  { id: "sound", label: "UI sounds", hint: "Short synthesized blips for alerts, the inbox, actions, dialogs, DRIFT and quests. Volume and categories in Settings → SOUND." },
 ];
 
 /** Sections that can't be turned off. */

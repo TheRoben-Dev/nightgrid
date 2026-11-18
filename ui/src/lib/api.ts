@@ -372,6 +372,7 @@ import {
   type PostureCheck_Serialize as PostureCheck,
   type PostureStatus,
   type SecuritySettings_Serialize as SecuritySettings,
+  type SoundSettings_Serialize as SoundSettings,
   type SecretItem_Serialize as SecretItem,
   type SecretKind,
   type RotationState,
@@ -799,6 +800,7 @@ export type {
   PostureCheck,
   PostureStatus,
   SecuritySettings,
+  SoundSettings,
   SecretItem,
   SecretKind,
   RotationState,
@@ -900,6 +902,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   power: { pricePerKwh: 0, currency: "" },
   notify: { native: true, ntfy: false, ntfyLevel: "warn", ntfyOk: true, muted: [] },
   security: { postureDaily: true, rotationNotices: true },
+  sound: { volume: 40, muted: ["navigation"], quietHours: false, quietStart: 1320, quietEnd: 420, unfocusedMute: true },
   netWatch: { enabled: false, scanner: null, minutes: 60, sweep: false, alertNew: true, alertMissing: true, alertRisks: true },
 };
 
