@@ -15,6 +15,7 @@ use nightgrid_core::files::transfer::Side;
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::journal::ChangeArea;
 use nightgrid_core::services::check::now_unix;
+use nightgrid_core::starters;
 use nightgrid_core::system::firewall::Backend;
 use nightgrid_core::system::sudo;
 use nightgrid_core::system::SystemError;
@@ -295,11 +296,22 @@ fn opened() -> SysResult<Blueprint> {
     OPENED.lock().expect("poisoned").clone().ok_or_else(|| other("open a blueprint first").into())
 }
 
+/// Replaces the opened blueprint (a starter built for a host, D-175).
+pub(crate) fn set_opened(bp: Blueprint) {
+    *OPENED.lock().expect("poisoned") = Some(bp);
+}
+
 /// Reads the target and lists what applying the opened blueprint would do.
 #[tauri::command]
 #[specta::specta]
 pub async fn blueprint_plan(app: AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<Vec<BpStep>> {
-    let bp = opened()?;
+    plan_for(&app, host_id, sudo).await.map(|(_, steps)| steps)
+}
+
+/// The opened blueprint, fitted to the target's firewall, and its plan.
+async fn plan_for(app: &AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<(Blueprint, Vec<BpStep>)> {
+    let app = app.clone();
+    let mut bp = opened()?;
     let conn = connect_host(&app, host_id).await?;
     let mut t = BpTarget::default();
     let paths = blueprint::stack_paths(&bp);
@@ -325,9 +337,13 @@ pub async fn blueprint_plan(app: AppHandle, host_id: HostId, sudo: Option<SudoIn
     }
     if bp.firewall.is_some() {
         match crate::firewall_cmd::firewall_read(app.clone(), host_id, again(&sudo)).await {
-            Ok(v) => t.firewall = firewall_of(&v.report),
+            Ok(v) => {
+                t.firewall = firewall_of(&v.report);
+                let zone = v.report.zones.iter().find(|z| z.default).map(|z| z.name.as_str());
+                starters::fit_firewall(&mut bp, t.firewall.as_ref(), zone);
+            }
             Err(e) if needs_password(&e) => return Err(e),
-            Err(_) => {}
+            Err(_) => starters::fit_firewall(&mut bp, None, None),
         }
     }
     if !bp.caddy.is_empty() || !bp.traefik.is_empty() {
@@ -337,7 +353,8 @@ pub async fn blueprint_plan(app: AppHandle, host_id: HostId, sudo: Option<SudoIn
                 x.traefik.into_iter().map(|t| (t.proxy_name, t.routes.into_iter().map(|r| r.name).collect())).collect();
         }
     }
-    Ok(blueprint::plan(&bp, &t))
+    let steps = blueprint::plan(&bp, &t);
+    Ok((bp, steps))
 }
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -378,6 +395,10 @@ async fn apply_stack(app: &AppHandle, host_id: HostId, s: &BpStack) -> Result<St
         let rendered = nightgrid_core::envvault::render(&vars);
         write_text(app, host_id, &blueprint::env_path(s), &rendered).await.map_err(|e| format!(".env: {e}"))?;
         msg.push_str(&format!(", {} .env value{} in the vault", s.env.len(), if s.env.len() == 1 { "" } else { "s" }));
+    }
+    // So Docker → STACKS lists it even while it's stopped.
+    if let Some((parent, _)) = s.dir.rsplit_once('/').filter(|(p, _)| !p.is_empty()) {
+        let _ = app.state::<AppState>().store().add_stack_dir(host_id, parent);
     }
     record(
         app,
@@ -495,6 +516,7 @@ async fn apply_step(
                 Err(out.message)
             }
         }
+        BpStepKind::Manual => Err(format!("done by hand: {}", step.detail)),
         BpStepKind::Traefik => {
             let tr = bp.traefik.iter().find(|t| t.proxy_name == key).ok_or("not in the blueprint")?;
             let targets = crate::proxy_cmd::proxy_edit_targets(app.clone(), host_id).await.map_err(|e| e.message)?;
@@ -519,8 +541,7 @@ pub async fn blueprint_apply(
     steps: Vec<String>,
     sudo: Option<SudoInput>,
 ) -> SysResult<Vec<BpStepResult>> {
-    let bp = opened()?;
-    let plan = blueprint_plan(app.clone(), host_id, again(&sudo)).await?;
+    let (bp, plan) = plan_for(&app, host_id, again(&sudo)).await?;
     // Ask for the sudo password once, up front, when a chosen step needs root.
     let root = plan.iter().any(|s| {
         steps.contains(&s.id)

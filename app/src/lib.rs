@@ -47,6 +47,7 @@ mod quest_cmd;
 mod replay_cmd;
 mod secrets_cmd;
 mod services_cmd;
+mod starters_cmd;
 mod state;
 mod status_cmd;
 mod system_cmd;
@@ -206,6 +207,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         blueprint_cmd::blueprint_close,
         blueprint_cmd::blueprint_plan,
         blueprint_cmd::blueprint_apply,
+        starters_cmd::starters_list,
+        starters_cmd::starter_target,
+        starters_cmd::starter_open,
         expiry_cmd::watch_list,
         expiry_cmd::watch_save,
         expiry_cmd::watch_delete,

@@ -10,6 +10,8 @@
   import { hosts } from "../../stores/hosts.svelte";
   import { ui } from "../../stores/ui.svelte";
   import { notes, runbookMatches } from "../../stores/notes.svelte";
+  import { starters } from "../../stores/starters.svelte";
+  import { startersFor } from "../../starters";
 
   const runbooks = (a: Alert) => notes.notes.filter((n) => runbookMatches(n, a));
   $effect(() => {
@@ -26,6 +28,15 @@
   }
 
   /** A new runbook for this kind of alert, on this host or service, with a step list to fill in. */
+  /** Opens Knowledge → Starters on one starter runbook (D-175). */
+  function openStarter(id: string) {
+    notes.cancel();
+    starters.focus = id;
+    notes.starters = true;
+    alerts.open = false;
+    ui.go("notes");
+  }
+
   function newRunbook(a: Alert) {
     const svc = /^svc:(\d+)/.exec(a.key);
     const serviceId = svc ? Number(svc[1]) : null;
@@ -101,6 +112,7 @@
 
   let now = $state(Math.floor(Date.now() / 1000));
   onMount(() => {
+    void starters.load();
     const t = setInterval(() => (now = Math.floor(Date.now() / 1000)), 15_000);
     return () => clearInterval(t);
   });
@@ -138,7 +150,12 @@
           {:else if rb.length > 1}
             <button type="button" class="btn tiny" data-guide="alert-runbook" aria-expanded={pick === a.id} onclick={() => (pick = pick === a.id ? null : a.id)}>▤ Runbooks ({rb.length})</button>
           {:else}
-            <button type="button" class="btn ghost tiny" title="Write a runbook for this kind of alert" onclick={() => newRunbook(a)}>+ Runbook</button>
+            {@const st = startersFor(a.kind, starters.catalog?.runbooks ?? [], notes.notes)}
+            {#if st.length}
+              <button type="button" class="btn ghost tiny" title="Read the starter runbook “{st[0].title}” and add it to your notes" onclick={() => openStarter(st[0].id)}>▤ Starter runbook</button>
+            {:else}
+              <button type="button" class="btn ghost tiny" title="Write a runbook for this kind of alert" onclick={() => newRunbook(a)}>+ Runbook</button>
+            {/if}
           {/if}
           {#if logFingerprint(a) && a.hostId != null}
             <button type="button" class="btn ghost tiny" data-guide="alert-mute" title="Never alert on this pattern from {logSource(a)} again (it's still counted)" onclick={() => void mute(a.hostId ?? 0, logSource(a) ?? "", logFingerprint(a) ?? "")}>Mute pattern</button>

@@ -9,6 +9,8 @@
   import ExplainButton from "../components/helper/ExplainButton.svelte";
   import Markdown from "../components/Markdown.svelte";
   import Panel from "../components/Panel.svelte";
+  import StarterRunbooks from "../components/notes/StarterRunbooks.svelte";
+  import { library } from "../stores/library.svelte";
   import { scramble } from "../scramble";
   import { hosts } from "../stores/hosts.svelte";
   import { hasSecret, notes, parseTags } from "../stores/notes.svelte";
@@ -96,7 +98,8 @@
 <div class="notes">
   <Panel title="NOTES" prefix=">" count={notes.notes.length} guide="notes-list">
     {#snippet actions()}
-      <button type="button" class="btn tiny" onclick={() => notes.startNew()} data-guide="notes-new">New</button>
+      <button type="button" class="btn ghost tiny" class:on={notes.starters} aria-pressed={notes.starters} onclick={() => ((notes.starters = !notes.starters), notes.cancel())} data-guide="notes-starters">Starters</button>
+      <button type="button" class="btn tiny" onclick={() => ((notes.starters = false), notes.startNew())} data-guide="notes-new">New</button>
     {/snippet}
     <div class="side">
       <input class="input" type="search" placeholder="Search notes" aria-label="Search notes" bind:value={notes.query} />
@@ -124,6 +127,7 @@
               class:sel={n.id === notes.selected && !draft}
               onclick={() => {
                 notes.cancel();
+                notes.starters = false;
                 notes.selected = n.id;
               }}
             >
@@ -143,7 +147,9 @@
   </Panel>
 
   <section class="main" data-guide="notes-view">
-    {#if draft}
+    {#if notes.starters && !draft}
+      <StarterRunbooks />
+    {:else if draft}
       <form class="editor" onsubmit={onSave}>
         <div class="row">
           <input class="input title" placeholder="Title" aria-label="Title" maxlength="120" bind:value={draft.input.title} onkeydown={saveKey} />
@@ -234,7 +240,7 @@
         <div class="text">
           {#if cur.body.trim()}
             {#if cur.runbook}<p class="muted small scope">For alerts: {runbookScope(cur, hostName, serviceName)}.</p>{/if}
-            <Markdown src={cur.body} steps onview={(v) => ui.go(v as never)}>
+            <Markdown src={cur.body} steps onview={(v) => ui.go(v as never)} onarticle={(id) => library.open(id)}>
               {#snippet code(b)}
                 <button type="button" class="btn ghost tiny" onclick={() => void copy(b.text)}>Copy</button>
                 <button

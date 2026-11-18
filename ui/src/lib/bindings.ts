@@ -349,6 +349,18 @@ export const commands = {
 	 *  reports its own result.
 	 */
 	blueprintApply: (hostId: number, steps: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<BpStepResult[]>("blueprint_apply", { hostId, steps, sudo }, options),
+	/**  The bundled starters. */
+	startersList: (options?: InvokeOptions) => __TAURI_INVOKE<StarterCatalog_Serialize>("starters_list", undefined, options),
+	/**
+	 *  Suggests where a starter's stacks go on `host_id`: its first stack
+	 *  folder, else `~/stacks` (the login user can create that without sudo).
+	 */
+	starterTarget: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<StarterTarget>("starter_target", { hostId }, options),
+	/**
+	 *  Builds starter `id` with the user's values into the opened blueprint,
+	 *  ready for `blueprint_plan` on `host_id`. Nothing is written to the host.
+	 */
+	starterOpen: (id: string, values: StarterValue[], parent: string, options?: InvokeOptions) => __TAURI_INVOKE<BlueprintSummary_Serialize>("starter_open", { id, values, parent }, options),
 	watchList: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_list", undefined, options),
 	/**  Adds or updates an item; a certificate file is read right away. */
 	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
@@ -1938,6 +1950,8 @@ export type BlueprintSummary_Deserialize = {
 	/**  "Caddy (host): /etc/caddy/Caddyfile", "Traefik (traefik): 4 routes". */
 	proxies: string[],
 	notes: string[],
+	/**  Titles of the steps done by hand. */
+	manual: string[],
 };
 
 export type BlueprintSummary_Serialize = {
@@ -1953,6 +1967,8 @@ export type BlueprintSummary_Serialize = {
 	/**  "Caddy (host): /etc/caddy/Caddyfile", "Traefik (traefik): 4 routes". */
 	proxies: string[],
 	notes: string[],
+	/**  Titles of the steps done by hand. */
+	manual: string[],
 };
 
 export type Bookmark = Bookmark_Serialize | Bookmark_Deserialize;
@@ -2017,7 +2033,9 @@ export type BpStepKind =
 /**  Write a stack's files (and its vault values). */
 "stackFiles" | 
 /**  `docker compose up -d` for a stack. */
-"stackStart" | "cron" | "timer" | "firewall" | "caddy" | "traefik";
+"stackStart" | "cron" | "timer" | "firewall" | "caddy" | "traefik" | 
+/**  Done by hand (a starter's checklist item). */
+"manual";
 
 export type BpStepResult = {
 	id: string,
@@ -8739,6 +8757,206 @@ export type Stamp_Deserialize = {
 export type Stamp_Serialize = {
 	size: number,
 	mtime: number | null,
+};
+
+export type StarterBlueprint = StarterBlueprint_Serialize | StarterBlueprint_Deserialize;
+
+export type StarterBlueprint_Deserialize = {
+	id: string,
+	title: string,
+	/**  One line for the card. */
+	summary: string,
+	/**  What it is for, in plain words. */
+	purpose: string,
+	/**  A Library topic id (`media`, `network`, …). */
+	category: string,
+	/**  Library articles (`apps/jellyfin`), the first being the main guide. */
+	library?: string[],
+	stacks?: StarterStack_Deserialize[],
+	firewall?: StarterFirewall_Deserialize | null,
+	timers?: TimerJob_Deserialize[],
+	manual?: StarterManual[],
+};
+
+export type StarterBlueprint_Serialize = {
+	id: string,
+	title: string,
+	/**  One line for the card. */
+	summary: string,
+	/**  What it is for, in plain words. */
+	purpose: string,
+	/**  A Library topic id (`media`, `network`, …). */
+	category: string,
+	/**  Library articles (`apps/jellyfin`), the first being the main guide. */
+	library: string[],
+	stacks: StarterStack_Serialize[],
+	firewall: StarterFirewall_Serialize | null,
+	timers: TimerJob_Serialize[],
+	manual: StarterManual[],
+};
+
+export type StarterCatalog = StarterCatalog_Serialize | StarterCatalog_Deserialize;
+
+export type StarterCatalog_Deserialize = {
+	format: number,
+	blueprints: StarterBlueprint_Deserialize[],
+	runbooks: StarterRunbook_Deserialize[],
+};
+
+export type StarterCatalog_Serialize = {
+	format: number,
+	blueprints: StarterBlueprint_Serialize[],
+	runbooks: StarterRunbook_Serialize[],
+};
+
+export type StarterFile = {
+	/**  Relative to the stack's folder. */
+	path: string,
+	text: string,
+};
+
+export type StarterFirewall = StarterFirewall_Serialize | StarterFirewall_Deserialize;
+
+export type StarterFirewall_Deserialize = {
+	/**  Ports to allow (`8096/tcp`). */
+	allow?: string[],
+	/**  Ports to allow with ufw's rate limit (SSH). */
+	limit?: string[],
+	/**  Suggest denying other incoming traffic (always done by hand). */
+	denyIncoming?: boolean,
+	/**  Suggest turning the firewall on (always done by hand). */
+	enable?: boolean,
+};
+
+export type StarterFirewall_Serialize = {
+	/**  Ports to allow (`8096/tcp`). */
+	allow: string[],
+	/**  Ports to allow with ufw's rate limit (SSH). */
+	limit: string[],
+	/**  Suggest denying other incoming traffic (always done by hand). */
+	denyIncoming: boolean,
+	/**  Suggest turning the firewall on (always done by hand). */
+	enable: boolean,
+};
+
+export type StarterManual = {
+	title: string,
+	detail: string,
+};
+
+export type StarterPort = StarterPort_Serialize | StarterPort_Deserialize;
+
+export type StarterPort_Deserialize = {
+	/**  `8096/tcp`. */
+	port: string,
+	/**  What answers there. */
+	what: string,
+	/**  Bound to 127.0.0.1 only: open it through Nightgrid's web UI window. */
+	local?: boolean,
+};
+
+export type StarterPort_Serialize = {
+	/**  `8096/tcp`. */
+	port: string,
+	/**  What answers there. */
+	what: string,
+	/**  Bound to 127.0.0.1 only: open it through Nightgrid's web UI window. */
+	local: boolean,
+};
+
+export type StarterRunbook = StarterRunbook_Serialize | StarterRunbook_Deserialize;
+
+export type StarterRunbook_Deserialize = {
+	id: string,
+	title: string,
+	summary: string,
+	/**  Empty when Nightgrid raises no alert for it yet. */
+	alertKinds?: AlertKind[],
+	tags?: string[],
+	library?: string[],
+	/**  Markdown (the part after the header). */
+	body?: string,
+};
+
+export type StarterRunbook_Serialize = {
+	id: string,
+	title: string,
+	summary: string,
+	/**  Empty when Nightgrid raises no alert for it yet. */
+	alertKinds: AlertKind[],
+	tags: string[],
+	library: string[],
+	/**  Markdown (the part after the header). */
+	body: string,
+};
+
+export type StarterStack = StarterStack_Serialize | StarterStack_Deserialize;
+
+export type StarterStack_Deserialize = {
+	/**  Compose project name, also its folder's name. */
+	name: string,
+	/**  `compose.yaml`. */
+	compose: string,
+	/**  Other files the stack needs (a Caddyfile, a config file). */
+	files?: StarterFile[],
+	env?: StarterVar_Deserialize[],
+	ports?: StarterPort_Deserialize[],
+};
+
+export type StarterStack_Serialize = {
+	/**  Compose project name, also its folder's name. */
+	name: string,
+	/**  `compose.yaml`. */
+	compose: string,
+	/**  Other files the stack needs (a Caddyfile, a config file). */
+	files: StarterFile[],
+	env: StarterVar_Serialize[],
+	ports: StarterPort_Serialize[],
+};
+
+export type StarterTarget = {
+	/**  Suggested folder for the starter's stacks. */
+	parent: string,
+	/**  Where the suggestion came from, in plain words. */
+	why: string,
+};
+
+export type StarterValue = {
+	/**  `stack/NAME`. */
+	key: string,
+	value: string,
+};
+
+export type StarterVar = StarterVar_Serialize | StarterVar_Deserialize;
+
+export type StarterVar_Deserialize = {
+	/**  The `${NAME}` used in the compose file. */
+	name: string,
+	/**  The question asked, in plain words. */
+	label: string,
+	default?: string,
+	help?: string,
+	/**  Masked in the form and kept as a secret in the vault. */
+	secret?: boolean,
+	/**  Left empty, a random value is made. */
+	generate?: boolean,
+	/**  An absolute folder on the host. */
+	path?: boolean,
+};
+
+export type StarterVar_Serialize = {
+	/**  The `${NAME}` used in the compose file. */
+	name: string,
+	/**  The question asked, in plain words. */
+	label: string,
+	default: string,
+	help: string,
+	/**  Masked in the form and kept as a secret in the vault. */
+	secret: boolean,
+	/**  Left empty, a random value is made. */
+	generate: boolean,
+	/**  An absolute folder on the host. */
+	path: boolean,
 };
 
 /**

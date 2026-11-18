@@ -1,0 +1,107 @@
+# Starter blueprint: see starters/README.md for the format.
+id: media-server
+title: Media server
+summary: Jellyfin to watch your movies and shows anywhere at home, with Sonarr, Radarr and Prowlarr to keep the library organised.
+category: media
+purpose: |
+  Turns a host into your own streaming service. Jellyfin scans a folder of
+  movies and shows, fetches artwork and plays them on TVs, phones and
+  browsers. Sonarr (shows), Radarr (movies) and Prowlarr (indexers) watch
+  for new episodes and file what you download into the right folders.
+
+  Only Jellyfin is opened on your network. The *arr apps listen on the host
+  itself; open them from Nightgrid's web UI window, which reaches them
+  through SSH. Add the download client you use when you're ready.
+library: [apps/jellyfin, apps/arr-stack, apps/plex, guides/proxmox-media-server]
+stacks:
+  - name: media
+    compose: |
+      services:
+        jellyfin:
+          image: jellyfin/jellyfin:latest
+          container_name: jellyfin
+          restart: unless-stopped
+          user: ${PUID}:${PGID}
+          ports:
+            - "8096:8096"
+          environment:
+            TZ: ${TZ}
+          volumes:
+            - ./jellyfin/config:/config
+            - ./jellyfin/cache:/cache
+            - ${MEDIA_DIR}:/media
+          # Hardware transcoding on Intel/AMD: uncomment if /dev/dri exists.
+          # devices:
+          #   - /dev/dri:/dev/dri
+
+        sonarr:
+          image: lscr.io/linuxserver/sonarr:latest
+          container_name: sonarr
+          restart: unless-stopped
+          environment:
+            PUID: ${PUID}
+            PGID: ${PGID}
+            TZ: ${TZ}
+          ports:
+            - "127.0.0.1:8989:8989"
+          volumes:
+            - ./sonarr:/config
+            - ${MEDIA_DIR}:/media
+
+        radarr:
+          image: lscr.io/linuxserver/radarr:latest
+          container_name: radarr
+          restart: unless-stopped
+          environment:
+            PUID: ${PUID}
+            PGID: ${PGID}
+            TZ: ${TZ}
+          ports:
+            - "127.0.0.1:7878:7878"
+          volumes:
+            - ./radarr:/config
+            - ${MEDIA_DIR}:/media
+
+        prowlarr:
+          image: lscr.io/linuxserver/prowlarr:latest
+          container_name: prowlarr
+          restart: unless-stopped
+          environment:
+            PUID: ${PUID}
+            PGID: ${PGID}
+            TZ: ${TZ}
+          ports:
+            - "127.0.0.1:9696:9696"
+          volumes:
+            - ./prowlarr:/config
+    env:
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+        help: Such as Europe/Stockholm or America/New_York.
+      - name: MEDIA_DIR
+        label: Folder holding your media
+        default: /srv/media
+        path: true
+        help: Put movies and shows in subfolders, such as /srv/media/movies and /srv/media/tv.
+      - name: PUID
+        label: User id that owns the media
+        default: "1000"
+        help: Run `id` on the host; the first user is usually 1000.
+      - name: PGID
+        label: Group id that owns the media
+        default: "1000"
+    ports:
+      - { port: 8096/tcp, what: Jellyfin }
+      - { port: 8989/tcp, what: Sonarr, local: true }
+      - { port: 7878/tcp, what: Radarr, local: true }
+      - { port: 9696/tcp, what: Prowlarr, local: true }
+firewall:
+  allow: [8096/tcp]
+manual:
+  - title: Make the media folder yours
+    detail: Create the media folder with movies and tv inside, owned by the user and group ids you entered (sudo mkdir -p /srv/media/movies /srv/media/tv && sudo chown -R 1000:1000 /srv/media).
+  - title: Finish Jellyfin's first-run wizard
+    detail: Open http://<host>:8096, create the admin user and add /media/movies and /media/tv as libraries.
+  - title: Connect the *arr apps
+    detail: Open Prowlarr, Sonarr and Radarr from Docker → web UIs, add your indexers in Prowlarr, then link Sonarr and Radarr to it under Settings → Apps.

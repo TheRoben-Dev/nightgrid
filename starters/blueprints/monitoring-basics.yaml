@@ -1,0 +1,51 @@
+id: monitoring-basics
+title: Monitoring basics
+summary: Uptime Kuma checks your sites and services from the inside, and Dozzle shows every container's logs live.
+category: monitoring
+purpose: |
+  Nightgrid already watches hosts, containers and service checks while it
+  runs. This adds a watcher that keeps going when your computer is off:
+  Uptime Kuma checks websites, ports and DNS every minute and keeps a
+  history and status page, and Dozzle is a light web page with every
+  container's logs, searchable as they scroll.
+
+  Dozzle reads the Docker socket, so it only listens on the host itself;
+  open it from Nightgrid's web UI window.
+library: [apps/uptime-kuma, apps/dozzle, howto/service-checks, howto/alerts]
+stacks:
+  - name: monitoring
+    compose: |
+      services:
+        uptime-kuma:
+          image: louislam/uptime-kuma:1
+          container_name: uptime-kuma
+          restart: unless-stopped
+          ports:
+            - "3001:3001"
+          environment:
+            TZ: ${TZ}
+          volumes:
+            - ./uptime-kuma:/app/data
+
+        dozzle:
+          image: amir20/dozzle:latest
+          container_name: dozzle
+          restart: unless-stopped
+          ports:
+            - "127.0.0.1:9999:8080"
+          volumes:
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+    env:
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+    ports:
+      - { port: 3001/tcp, what: Uptime Kuma }
+      - { port: 9999/tcp, what: Dozzle, local: true }
+firewall:
+  allow: [3001/tcp]
+manual:
+  - title: Create Uptime Kuma's admin account
+    detail: Open http://<host>:3001 and create the admin user, then add a monitor for each site or service you care about.
+  - title: Link it in Nightgrid
+    detail: Settings → Integrations can show an Uptime Kuma status page next to Nightgrid's own checks.

@@ -14,6 +14,7 @@ Turn "what do I do when this breaks" into notes that open from the alert itself,
 
 - [ ] Open the alerts list (the ALERTS counter in the status bar). An alert without a runbook offers **+ Runbook**, which starts a note for that kind of alert with a step list.
 - [ ] Or create a note in [Knowledge](view:notes) and tick **Runbook for alerts**, then pick the alert kinds, and optionally a host and a service.
+- [ ] Or start from a ready-made one: [Knowledge](view:notes) → **Starters** has runbooks for disk full, crash loops, failed units, expiring certificates, unreachable hosts, memory pressure and failed backups ([Start from a ready-made setup](kb:howto/starters)).
 
 ## Part 2 · Write it so it works at 3 a.m.
 

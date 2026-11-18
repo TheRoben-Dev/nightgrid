@@ -1,0 +1,60 @@
+id: dns-filter
+title: Network-wide ad blocking
+summary: Pi-hole answers DNS for your whole network and blocks ads and trackers for every device.
+category: network
+purpose: |
+  Every device on your network asks a DNS server where to find a site.
+  Point them at Pi-hole and it answers normally for real sites and with
+  nothing for ad and tracker domains, so ads disappear on phones, TVs and
+  game consoles without installing anything on them.
+
+  Pi-hole's dashboard shows which devices ask for what. Nightgrid reads it
+  too: add it in Settings → Integrations to see it under Network → DNS.
+library: [apps/pihole, apps/adguard-home, howto/dns-dashboard, linux/dns-debug]
+stacks:
+  - name: dns
+    compose: |
+      services:
+        pihole:
+          image: pihole/pihole:latest
+          container_name: pihole
+          restart: unless-stopped
+          ports:
+            - "53:53/tcp"
+            - "53:53/udp"
+            - "8080:80/tcp"
+          environment:
+            TZ: ${TZ}
+            FTLCONF_webserver_api_password: ${PIHOLE_PASSWORD}
+            FTLCONF_dns_listeningMode: all
+            FTLCONF_dns_upstreams: ${UPSTREAM_DNS}
+          volumes:
+            - ./etc-pihole:/etc/pihole
+          cap_add:
+            - SYS_NICE
+    env:
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+      - name: PIHOLE_PASSWORD
+        label: Dashboard password
+        secret: true
+        generate: true
+        help: Leave empty to generate one; it's kept in the .env vault for this stack.
+      - name: UPSTREAM_DNS
+        label: Where Pi-hole asks for real answers
+        default: 9.9.9.9;149.112.112.112
+        help: Separate servers with ; (Quad9 by default; 1.1.1.1 for Cloudflare).
+    ports:
+      - { port: 53/tcp, what: DNS }
+      - { port: 53/udp, what: DNS }
+      - { port: 8080/tcp, what: Pi-hole dashboard (/admin) }
+firewall:
+  allow: [53/tcp, 53/udp, 8080/tcp]
+manual:
+  - title: Free port 53 on Ubuntu and Fedora
+    detail: systemd-resolved holds port 53 there. Set DNSStubListener=no in /etc/systemd/resolved.conf and restart systemd-resolved before starting the stack.
+  - title: Give the host a fixed address
+    detail: Clients must always find the DNS server; set a DHCP reservation on your router or a static IP on the host.
+  - title: Hand Pi-hole out as the network's DNS
+    detail: In your router's DHCP settings, set this host's address as the only DNS server, then reconnect a device to test.

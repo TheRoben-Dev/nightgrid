@@ -1,0 +1,67 @@
+id: home-automation
+title: Home automation box
+summary: Home Assistant to run your lights, sensors and routines locally, with a Mosquitto MQTT broker for DIY devices.
+category: smarthome
+purpose: |
+  Puts your smart home on a box you own, so lights and sensors keep working
+  without a vendor's cloud. Home Assistant finds most devices on your
+  network by itself and runs automations ("turn the porch light on at
+  sunset"). Mosquitto is the message broker that Zigbee2MQTT, ESPHome and
+  Tasmota devices talk through.
+
+  Home Assistant uses the host's network directly so it can discover
+  devices; that's why its port isn't mapped in the compose file.
+library: [apps/home-assistant, apps/zigbee2mqtt, apps/esphome, guides/smart-home-hub]
+stacks:
+  - name: home
+    compose: |
+      services:
+        homeassistant:
+          image: ghcr.io/home-assistant/home-assistant:stable
+          container_name: homeassistant
+          restart: unless-stopped
+          network_mode: host
+          environment:
+            TZ: ${TZ}
+          volumes:
+            - ./homeassistant:/config
+            - /etc/localtime:/etc/localtime:ro
+            - /run/dbus:/run/dbus:ro
+
+        mosquitto:
+          image: eclipse-mosquitto:2
+          container_name: mosquitto
+          restart: unless-stopped
+          ports:
+            - "1883:1883"
+          volumes:
+            - ./mosquitto/config:/mosquitto/config
+            - ./mosquitto/data:/mosquitto/data
+    files:
+      - path: mosquitto/config/mosquitto.conf
+        text: |
+          # Written by a Nightgrid starter. Anonymous clients are refused:
+          # add users with mosquitto_passwd (see the steps by hand).
+          listener 1883
+          allow_anonymous false
+          password_file /mosquitto/config/passwd
+          persistence true
+          persistence_location /mosquitto/data/
+      - path: mosquitto/config/passwd
+        text: ""
+    env:
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+    ports:
+      - { port: 8123/tcp, what: Home Assistant }
+      - { port: 1883/tcp, what: MQTT }
+firewall:
+  allow: [8123/tcp, 1883/tcp]
+manual:
+  - title: Onboard Home Assistant
+    detail: Open http://<host>:8123, create your account and set your home's location; it then lists the devices it found.
+  - title: Add an MQTT user
+    detail: In a terminal on the host run docker exec -it mosquitto mosquitto_passwd /mosquitto/config/passwd homeassistant, type a password, then docker restart mosquitto. Use that user in Home Assistant's MQTT integration.
+  - title: Pass a USB radio through (optional)
+    detail: For a Zigbee or Z-Wave stick, add it under devices for the service that uses it (by its /dev/serial/by-id path, which doesn't change between boots).

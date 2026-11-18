@@ -1,0 +1,75 @@
+id: file-sync
+title: File sync and sharing
+summary: Syncthing keeps folders in step across your computers and phones, and File Browser shares them in a web page.
+category: storage
+purpose: |
+  Keeps your files on your own server instead of a cloud drive. Syncthing
+  copies folders between this host and your other devices whenever they
+  change, peer to peer and encrypted. File Browser gives the same folder a
+  simple web page to upload, download and share files from any browser.
+
+  For a classic network drive that shows up in Finder or Explorer, add a
+  Samba share of the same folder (see the Library guide).
+library: [apps/syncthing, apps/filebrowser, apps/samba, guides/diy-nas]
+stacks:
+  - name: files
+    compose: |
+      services:
+        syncthing:
+          image: lscr.io/linuxserver/syncthing:latest
+          container_name: syncthing
+          restart: unless-stopped
+          environment:
+            PUID: ${PUID}
+            PGID: ${PGID}
+            TZ: ${TZ}
+          ports:
+            - "127.0.0.1:8384:8384"
+            - "22000:22000/tcp"
+            - "22000:22000/udp"
+            - "21027:21027/udp"
+          volumes:
+            - ./syncthing:/config
+            - ${DATA_DIR}:/data
+
+        filebrowser:
+          image: filebrowser/filebrowser:latest
+          container_name: filebrowser
+          restart: unless-stopped
+          user: ${PUID}:${PGID}
+          ports:
+            - "8081:80"
+          volumes:
+            - ${DATA_DIR}:/srv
+            - ./filebrowser/database:/database
+            - ./filebrowser/config:/config
+    env:
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+      - name: DATA_DIR
+        label: Folder to sync and share
+        default: /srv/files
+        path: true
+      - name: PUID
+        label: User id that owns the files
+        default: "1000"
+        help: Run `id` on the host; the first user is usually 1000.
+      - name: PGID
+        label: Group id that owns the files
+        default: "1000"
+    ports:
+      - { port: 8384/tcp, what: Syncthing settings, local: true }
+      - { port: 22000/tcp, what: Syncthing sync }
+      - { port: 22000/udp, what: Syncthing sync (QUIC) }
+      - { port: 21027/udp, what: Syncthing finds devices on the LAN }
+      - { port: 8081/tcp, what: File Browser }
+firewall:
+  allow: [22000/tcp, 22000/udp, 21027/udp, 8081/tcp]
+manual:
+  - title: Create the folder and make it yours
+    detail: sudo mkdir -p /srv/files && sudo chown -R 1000:1000 /srv/files (use the folder and ids you entered), and create filebrowser/database and filebrowser/config in the stack folder owned by the same user.
+  - title: Read File Browser's first password
+    detail: Recent versions make a random admin password on first start and print it in the container's log (Docker → logs for filebrowser). Sign in as admin and change it.
+  - title: Pair your devices in Syncthing
+    detail: Open Syncthing from Docker → web UIs, set a GUI password, then add each device by its ID and share /data with it.

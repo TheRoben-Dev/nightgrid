@@ -159,7 +159,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "node-host", view: "fleet", what: "a host's Nightgrid Node state and version; click the name for details, Install… or Update… to put the latest release on it" },
   { id: "node-detail", view: "fleet", what: "details of the node on one host: version, what it records, access root granted, its alerts, Sync now, Use on this host and Remove…" },
   { id: "power-price", view: "fleet", what: "the electricity price per kWh and currency used for cost estimates" },
-  { id: "fleet-tab-blueprints", view: "fleet", what: "Fleet BLUEPRINTS tab: save a host's setup (stacks, .env vault values, crontab, timers, firewall rules, proxy routes) as one encrypted file, and rebuild it on another host from a plan of steps" },
+  { id: "fleet-tab-blueprints", view: "fleet", what: "Fleet BLUEPRINTS tab: STARTERS (ready-made setups: media server, reverse proxy, Pi-hole, file sync, monitoring, Home Assistant, Minecraft, hardened Docker host, backup target) and saving a host's setup as one encrypted file to rebuild on another host from a plan of steps" },
   { id: "fleet-blueprints", view: "fleet", what: "Fleet → BLUEPRINTS: make a blueprint (pick a host and what goes in, read it, save with a passphrase) and rebuild from one (open it, pick a host, Plan, tick steps, Apply). Nothing on the target is deleted; deny rules and turning a firewall on stay manual" },
   { id: "journal-note", view: "fleet", what: "+ Entry: write your own journal entry for a change made outside Nightgrid" },
   { id: "fleet-ups", view: "fleet", what: "each UPS with charge, runtime, load and what it will shut down" },
