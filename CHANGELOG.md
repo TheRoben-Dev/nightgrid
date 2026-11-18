@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.10.84] - 2026-11-17
+
+### Added: lab blueprints
+- **Fleet → BLUEPRINTS**: save a host's setup as one file encrypted with a passphrase: its compose stacks (compose files and `.env`, or the `.env` vault's values for them), crontab, Nightgrid timers, firewall rules and Caddy/Traefik routes. Pick every stack or some, and leave out what you don't want.
+- **Rebuild from a blueprint**: open the file, pick a host (a fresh machine or any other) and **Plan**. Nightgrid reads that host and lists every step as new, already there, different or by hand; tick what to apply. Stacks are written (vault values go into the target's vault) and started, missing crontab lines are added, timers installed, allow rules added and proxy routes written, each through the same code the editors use.
+- Nothing on the target is ever deleted. Changing files that already exist is off until ticked. Deny rules, default policies and turning a firewall on stay manual, so they go through System → FIREWALL's rollback.
+- Saving and applying a blueprint lands in the journal.
+
 ## [0.10.83] - 2026-11-17
 
 ### Added: the homelab journal

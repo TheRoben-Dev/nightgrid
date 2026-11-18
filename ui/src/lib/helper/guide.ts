@@ -144,6 +144,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "fleet-tab-ups", view: "fleet", what: "Fleet UPS tab: UPSes read with NUT (upsc), on-battery alerts and an optional group shutdown with a countdown" },
   { id: "fleet-tab-speed", view: "fleet", what: "Fleet SPEED tab: network tests between your hosts (iperf3 both ways, ping), with history" },
   { id: "fleet-tab-journal", view: "fleet", what: "Fleet JOURNAL tab: what changed, where and when, across all hosts" },
+  { id: "fleet-tab-blueprints", view: "fleet", what: "Fleet BLUEPRINTS tab: save a host's setup (stacks, .env vault values, crontab, timers, firewall rules, proxy routes) as one encrypted file, and rebuild it on another host from a plan of steps" },
+  { id: "fleet-blueprints", view: "fleet", what: "Fleet → BLUEPRINTS: make a blueprint (pick a host and what goes in, read it, save with a passphrase) and rebuild from one (open it, pick a host, Plan, tick steps, Apply). Nothing on the target is deleted; deny rules and turning a firewall on stay manual" },
   { id: "journal-note", view: "fleet", what: "+ Entry: write your own journal entry for a change made outside Nightgrid" },
   { id: "fleet-ups", view: "fleet", what: "each UPS with charge, runtime, load and what it will shut down" },
   { id: "fleet-ups-add", view: "fleet", what: "watch a UPS: pick the host it's plugged into and its NUT name" },
