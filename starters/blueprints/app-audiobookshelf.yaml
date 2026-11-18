@@ -1,0 +1,46 @@
+id: app-audiobookshelf
+kind: app
+title: Audiobookshelf
+summary: Audiobooks and podcasts with progress synced across your phones.
+category: media
+purpose: |
+  Serves your audiobooks and podcasts to a web player and its own phone
+  apps, remembering where each listener stopped. It also downloads podcast
+  episodes on a schedule.
+library: [apps/audiobookshelf]
+stacks:
+  - name: audiobookshelf
+    compose: |
+      services:
+        audiobookshelf:
+          image: ghcr.io/advplyr/audiobookshelf:latest
+          container_name: audiobookshelf
+          restart: unless-stopped
+          ports:
+            - "13378:80"
+          environment:
+            TZ: ${TZ}
+          volumes:
+            - ${AUDIOBOOKS_DIR}:/audiobooks
+            - ${PODCASTS_DIR}:/podcasts
+            - ./config:/config
+            - ./metadata:/metadata
+    env:
+      - name: AUDIOBOOKS_DIR
+        label: Folder with your audiobooks
+        default: /srv/audiobooks
+        path: true
+      - name: PODCASTS_DIR
+        label: Folder for podcasts
+        default: /srv/podcasts
+        path: true
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+    ports:
+      - { port: 13378/tcp, what: Audiobookshelf }
+firewall:
+  allow: [13378/tcp]
+manual:
+  - title: Create the root user and libraries
+    detail: Open http://<host>:13378, create the root user, then add libraries for /audiobooks and /podcasts.

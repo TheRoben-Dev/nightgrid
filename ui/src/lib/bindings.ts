@@ -9155,6 +9155,7 @@ export type StarterBlueprint = StarterBlueprint_Serialize | StarterBlueprint_Des
 
 export type StarterBlueprint_Deserialize = {
 	id: string,
+	kind?: StarterKind,
 	title: string,
 	/**  One line for the card. */
 	summary: string,
@@ -9168,10 +9169,17 @@ export type StarterBlueprint_Deserialize = {
 	firewall?: StarterFirewall_Deserialize | null,
 	timers?: TimerJob_Deserialize[],
 	manual?: StarterManual[],
+	/**
+	 *  Prompts used as `{{NAME}}` in timers and firewall entries (a disk,
+	 *  a unit, a network). Values are single words: no spaces or shell
+	 *  characters, since they end up on a command line.
+	 */
+	vars?: StarterVar_Deserialize[],
 };
 
 export type StarterBlueprint_Serialize = {
 	id: string,
+	kind: StarterKind,
 	title: string,
 	/**  One line for the card. */
 	summary: string,
@@ -9185,6 +9193,12 @@ export type StarterBlueprint_Serialize = {
 	firewall: StarterFirewall_Serialize | null,
 	timers: TimerJob_Serialize[],
 	manual: StarterManual[],
+	/**
+	 *  Prompts used as `{{NAME}}` in timers and firewall entries (a disk,
+	 *  a unit, a network). Values are single words: no spaces or shell
+	 *  characters, since they end up on a command line.
+	 */
+	vars: StarterVar_Serialize[],
 };
 
 export type StarterCatalog = StarterCatalog_Serialize | StarterCatalog_Deserialize;
@@ -9212,6 +9226,8 @@ export type StarterFirewall = StarterFirewall_Serialize | StarterFirewall_Deseri
 export type StarterFirewall_Deserialize = {
 	/**  Ports to allow (`8096/tcp`). */
 	allow?: string[],
+	/**  Addresses or networks allowed to reach everything (`192.168.1.0/24`). */
+	allowFrom?: string[],
 	/**  Ports to allow with ufw's rate limit (SSH). */
 	limit?: string[],
 	/**  Suggest denying other incoming traffic (always done by hand). */
@@ -9223,6 +9239,8 @@ export type StarterFirewall_Deserialize = {
 export type StarterFirewall_Serialize = {
 	/**  Ports to allow (`8096/tcp`). */
 	allow: string[],
+	/**  Addresses or networks allowed to reach everything (`192.168.1.0/24`). */
+	allowFrom: string[],
 	/**  Ports to allow with ufw's rate limit (SSH). */
 	limit: string[],
 	/**  Suggest denying other incoming traffic (always done by hand). */
@@ -9230,6 +9248,17 @@ export type StarterFirewall_Serialize = {
 	/**  Suggest turning the firewall on (always done by hand). */
 	enable: boolean,
 };
+
+/**  Which shelf of the gallery a starter is on. */
+export type StarterKind = 
+/**  A whole server's job: several stacks, firewall, checklist. */
+"setup" | 
+/**  One app as a compose stack. */
+"app" | 
+/**  Scheduled jobs (Nightgrid timers). */
+"jobs" | 
+/**  A firewall profile. */
+"firewall";
 
 export type StarterManual = {
 	title: string,

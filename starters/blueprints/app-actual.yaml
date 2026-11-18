@@ -1,0 +1,38 @@
+id: app-actual
+kind: app
+title: Actual Budget
+summary: Envelope budgeting that syncs between your devices, with your data at home.
+category: productivity
+purpose: |
+  A fast, private budgeting app: give every dollar a job, import bank
+  exports and see where the money goes. The server only syncs your budget
+  files between browsers and devices.
+
+  Browsers need HTTPS for it to work anywhere but on the host itself, so
+  put it behind the reverse proxy starter or Tailscale HTTPS.
+library: [apps/actual-budget]
+stacks:
+  - name: actual
+    compose: |
+      services:
+        actual:
+          image: docker.io/actualbudget/actual-server:latest
+          container_name: actual
+          restart: unless-stopped
+          ports:
+            - "5006:5006"
+          environment:
+            TZ: ${TZ}
+          volumes:
+            - ./data:/data
+    env:
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+    ports:
+      - { port: 5006/tcp, what: Actual Budget (put HTTPS in front) }
+firewall:
+  allow: [5006/tcp]
+manual:
+  - title: Serve it over HTTPS
+    detail: Route a name to http://<host>:5006 in your reverse proxy, open it and set the server password.

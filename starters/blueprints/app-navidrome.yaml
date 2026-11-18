@@ -1,0 +1,45 @@
+id: app-navidrome
+kind: app
+title: Navidrome
+summary: Stream your music collection to any browser or Subsonic app.
+category: media
+purpose: |
+  Your own Spotify for the music you own: a fast web player plus support
+  for dozens of Subsonic apps on phones, with playlists, favourites and
+  multiple users. It only reads your music folder.
+library: [apps/navidrome]
+stacks:
+  - name: navidrome
+    compose: |
+      services:
+        navidrome:
+          image: deluan/navidrome:latest
+          container_name: navidrome
+          restart: unless-stopped
+          user: ${PUID}:${PGID}
+          ports:
+            - "4533:4533"
+          environment:
+            ND_SCANSCHEDULE: 1h
+            ND_LOGLEVEL: info
+          volumes:
+            - ./data:/data
+            - ${MUSIC_DIR}:/music:ro
+    env:
+      - name: MUSIC_DIR
+        label: Folder with your music
+        default: /srv/music
+        path: true
+      - name: PUID
+        label: User id that can read the music
+        default: "1000"
+      - name: PGID
+        label: Group id
+        default: "1000"
+    ports:
+      - { port: 4533/tcp, what: Navidrome }
+firewall:
+  allow: [4533/tcp]
+manual:
+  - title: Create the admin account
+    detail: Open http://<host>:4533; the first user becomes the admin and the first scan starts.

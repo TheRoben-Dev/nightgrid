@@ -1,0 +1,16 @@
+id: job-docker-prune
+kind: jobs
+title: Nightly Docker cleanup
+summary: Removes stopped containers, unused images and build cache older than three days, every night.
+category: docker
+purpose: |
+  Docker keeps every image it ever pulled. After a few months of updates
+  that's often tens of gigabytes. This timer removes what no container uses
+  and that is older than three days, so a rollback to yesterday's image
+  still works. Volumes (your data) are never touched.
+library: [linux/docker-cleanup, howto/schedules]
+timers:
+  - name: docker-prune
+    command: docker system prune -af --filter until=72h
+    calendar: "*-*-* 03:30:00"
+    persistent: true

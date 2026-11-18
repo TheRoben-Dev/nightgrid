@@ -103,6 +103,8 @@ pub struct StarterStack {
 pub struct StarterFirewall {
     /// Ports to allow (`8096/tcp`).
     pub allow: Vec<String>,
+    /// Addresses or networks allowed to reach everything (`192.168.1.0/24`).
+    pub allow_from: Vec<String>,
     /// Ports to allow with ufw's rate limit (SSH).
     pub limit: Vec<String>,
     /// Suggest denying other incoming traffic (always done by hand).
@@ -119,11 +121,29 @@ pub struct StarterManual {
     pub detail: String,
 }
 
+/// Which shelf of the gallery a starter is on.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum StarterKind {
+    /// A whole server's job: several stacks, firewall, checklist.
+    #[default]
+    Setup,
+    /// One app as a compose stack.
+    App,
+    /// Scheduled jobs (Nightgrid timers).
+    Jobs,
+    /// A firewall profile.
+    Firewall,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StarterBlueprint {
     pub id: String,
+    #[serde(default)]
+    pub kind: StarterKind,
     pub title: String,
     /// One line for the card.
     pub summary: String,
@@ -142,6 +162,11 @@ pub struct StarterBlueprint {
     pub timers: Vec<TimerJob>,
     #[serde(default)]
     pub manual: Vec<StarterManual>,
+    /// Prompts used as `{{NAME}}` in timers and firewall entries (a disk,
+    /// a unit, a network). Values are single words: no spaces or shell
+    /// characters, since they end up on a command line.
+    #[serde(default)]
+    pub vars: Vec<StarterVar>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -191,6 +216,28 @@ pub const BLUEPRINT_FILES: &[(&str, &str)] = bundled!("blueprints", ".yaml":
     "game-server",
     "hardened-docker-host",
     "backup-target",
+    "app-actual",
+    "app-audiobookshelf",
+    "app-forgejo",
+    "app-freshrss",
+    "app-homepage",
+    "app-immich",
+    "app-mealie",
+    "app-navidrome",
+    "app-nextcloud",
+    "app-paperless",
+    "app-uptime-kuma",
+    "app-vaultwarden",
+    "fw-docker-host",
+    "fw-lan-only",
+    "fw-ssh-only",
+    "fw-web-server",
+    "job-apt-upgrade",
+    "job-backup-kickoff",
+    "job-docker-prune",
+    "job-fstrim",
+    "job-smart-test",
+    "job-zfs-scrub",
 );
 
 /// File name (without extension) and text of each bundled starter runbook.
@@ -369,15 +416,131 @@ fn check_blueprint(s: &StarterBlueprint) -> Result<()> {
             return Err(bad("ports", format!("{}: port {:?}", s.id, p.port)));
         }
     }
-    if let Some(fw) = &s.firewall {
-        if let Some(p) = fw.allow.iter().chain(&fw.limit).find(|p| !valid_port(p)) {
-            return Err(bad("firewall", format!("{}: port {p:?}", s.id)));
+    let mut names = BTreeSet::new();
+    for v in &s.vars {
+        if !envvault::valid_name(&v.name) || !names.insert(v.name.clone()) || v.label.trim().is_empty() || v.secret {
+            return Err(bad("vars", format!("{}: variable {:?} (named, labelled, never secret)", s.id, v.name)));
+        }
+        if !v.default.is_empty() && !valid_word(&v.default) {
+            return Err(bad("vars", format!("{}: {} default must be one plain word", s.id, v.name)));
         }
     }
-    for t in &s.timers {
+    let used: BTreeSet<String> = templated(s).iter().flat_map(|t| template_vars(t)).collect();
+    if used != names {
+        return Err(bad("vars", format!("{}: {{{{VARS}}}} used {used:?} but declared {names:?}", s.id)));
+    }
+    // Check the shape with each variable's default (or a stand-in).
+    let sample: Vec<StarterValue> =
+        s.vars.iter().map(|v| StarterValue { key: format!("vars/{}", v.name), value: sample_value(v) }).collect();
+    let (timers, fw) = fill(s, &sample)?;
+    if let Some(fw) = &fw {
+        check_firewall(fw).map_err(|e| bad("firewall", format!("{}: {e}", s.id)))?;
+    }
+    for t in &timers {
         t.normalized()?;
     }
     Ok(())
+}
+
+fn check_firewall(fw: &StarterFirewall) -> std::result::Result<(), String> {
+    if let Some(p) = fw.allow.iter().chain(&fw.limit).find(|p| !valid_port(p)) {
+        return Err(format!("{p} isn't a port such as 8080/tcp"));
+    }
+    if let Some(a) = fw.allow_from.iter().find(|a| !valid_source(a)) {
+        return Err(format!("{a} isn't an address or network such as 192.168.1.0/24"));
+    }
+    Ok(())
+}
+
+fn sample_value(v: &StarterVar) -> String {
+    if !v.default.is_empty() {
+        v.default.clone()
+    } else if v.path {
+        "/srv/x".into()
+    } else {
+        "x".into()
+    }
+}
+
+/// A value that can go into a command line or firewall rule as it is.
+pub fn valid_word(s: &str) -> bool {
+    !s.is_empty() && s.len() <= 200 && s.chars().all(|c| c.is_ascii_alphanumeric() || "/._:@+-".contains(c))
+}
+
+/// An IPv4/IPv6 address or network (`192.168.1.0/24`).
+pub fn valid_source(s: &str) -> bool {
+    let (ip, bits) = s.split_once('/').map_or((s, None), |(a, b)| (a, Some(b)));
+    let Ok(addr) = ip.parse::<std::net::IpAddr>() else { return false };
+    let max = if addr.is_ipv4() { 32 } else { 128 };
+    bits.map_or(true, |b| b.parse::<u8>().is_ok_and(|n| n <= max))
+}
+
+/// The text fields of a starter that may hold `{{NAME}}`.
+fn templated(s: &StarterBlueprint) -> Vec<&String> {
+    let mut v: Vec<&String> = Vec::new();
+    for t in &s.timers {
+        v.extend([&t.name, &t.command, &t.calendar]);
+    }
+    if let Some(f) = &s.firewall {
+        v.extend(f.allow.iter().chain(&f.limit).chain(&f.allow_from));
+    }
+    v
+}
+
+/// `{{NAME}}` placeholders in a text.
+pub fn template_vars(t: &str) -> BTreeSet<String> {
+    let mut out = BTreeSet::new();
+    let mut rest = t;
+    while let Some(i) = rest.find("{{") {
+        let after = &rest[i + 2..];
+        let Some(j) = after.find("}}") else { break };
+        out.insert(after[..j].trim().to_owned());
+        rest = &after[j + 2..];
+    }
+    out
+}
+
+fn substitute(t: &str, vals: &[(String, String)]) -> String {
+    let mut out = t.to_owned();
+    for (n, v) in vals {
+        out = out.replace(&format!("{{{{{n}}}}}"), v);
+    }
+    out
+}
+
+type Filled = (Vec<TimerJob>, Option<StarterFirewall>);
+
+/// The starter's timers and firewall with its `{{vars}}` filled in.
+fn fill(s: &StarterBlueprint, values: &[StarterValue]) -> Result<Filled> {
+    let mut vals = Vec::new();
+    for v in &s.vars {
+        let key = format!("vars/{}", v.name);
+        let typed = values.iter().find(|x| x.key == key).map(|x| x.value.as_str());
+        let value = resolve_value(v, typed)?;
+        if !valid_word(&value) {
+            return Err(bad("value", format!("“{}” must be one word: letters, digits and / . _ : @ + -", v.label)));
+        }
+        vals.push((v.name.clone(), value));
+    }
+    let timers = s
+        .timers
+        .iter()
+        .map(|t| TimerJob {
+            name: substitute(&t.name, &vals),
+            command: substitute(&t.command, &vals),
+            calendar: substitute(&t.calendar, &vals),
+            run_as: t.run_as.clone(),
+            persistent: t.persistent,
+        })
+        .collect();
+    let fw = s.firewall.as_ref().map(|f| StarterFirewall {
+        allow: f.allow.iter().map(|x| substitute(x, &vals)).collect(),
+        allow_from: f.allow_from.iter().map(|x| substitute(x, &vals)).collect(),
+        limit: f.limit.iter().map(|x| substitute(x, &vals)).collect(),
+        deny_incoming: f.deny_incoming,
+        enable: f.enable,
+    });
+    Ok((timers, fw))
 }
 
 fn check_runbook(r: &StarterRunbook) -> Result<()> {
@@ -487,11 +650,14 @@ pub fn build(s: &StarterBlueprint, values: &[StarterValue], parent: &str, now: i
         }
         bp.stacks.push(BpStack { name: st.name.clone(), dir, files, env });
     }
-    if let Some(fw) = &s.firewall {
+    let (timers, fw) = fill(s, values)?;
+    if let Some(fw) = &fw {
+        check_firewall(fw).map_err(|e| bad("value", e))?;
         let rules: Vec<String> = fw
-            .allow
+            .allow_from
             .iter()
-            .map(|p| format!("allow {p}"))
+            .map(|a| format!("allow from {a}"))
+            .chain(fw.allow.iter().map(|p| format!("allow {p}")))
             .chain(fw.limit.iter().map(|p| format!("limit {p}")))
             .collect();
         bp.firewall = Some(BpFirewall {
@@ -502,7 +668,7 @@ pub fn build(s: &StarterBlueprint, values: &[StarterValue], parent: &str, now: i
             zones: Vec::new(),
         });
     }
-    bp.timers = s.timers.iter().map(TimerJob::normalized).collect::<Result<_>>()?;
+    bp.timers = timers.iter().map(TimerJob::normalized).collect::<Result<_>>()?;
     bp.manual = s.manual.iter().map(|m| BpManual { title: m.title.clone(), detail: m.detail.clone() }).collect();
     Ok(bp)
 }
@@ -517,16 +683,30 @@ pub fn fit_firewall(bp: &mut Blueprint, target: Option<&BpFirewall>, default_zon
     let Some(f) = bp.firewall.as_mut().filter(|f| f.backend == ANY_FIREWALL) else { return };
     if target.is_some_and(|t| t.backend == "firewalld") {
         let mut ports: Vec<String> = Vec::new();
+        let mut sources: Vec<String> = Vec::new();
         for r in &f.ufw_rules {
-            let p = rule_port(r).to_owned();
-            if !ports.contains(&p) {
-                ports.push(p);
+            if let Some(src) = r.strip_prefix("allow from ") {
+                sources.push(src.to_owned());
+            } else if !ports.contains(&rule_port(r).to_owned()) {
+                ports.push(rule_port(r).to_owned());
             }
         }
+        // Trusting a network is a zone change: done by hand, behind the rollback.
+        let manual: Vec<BpManual> = sources
+            .into_iter()
+            .map(|src| BpManual {
+                title: format!("Trust {src}"),
+                detail: format!(
+                    "firewalld: add {src} as a source of the trusted zone in System → FIREWALL \
+                     (firewall-cmd --permanent --zone=trusted --add-source={src})"
+                ),
+            })
+            .collect();
         f.backend = "firewalld".into();
         f.zones = vec![BpZone { name: default_zone.unwrap_or("public").to_owned(), services: Vec::new(), ports }];
         f.ufw_rules.clear();
         f.default_in = None;
+        bp.manual.extend(manual);
     } else {
         f.backend = "ufw".into();
     }
@@ -739,6 +919,57 @@ manual:
         fit_firewall(&mut bp, None, None);
         let steps = plan(&bp, &BpTarget { docker: true, ..Default::default() });
         assert!(steps.iter().any(|s| s.id == "fw:backend" && s.state == BpStepState::Manual));
+    }
+
+    #[test]
+    fn vars_fill_timers_and_firewall_and_stay_one_word() {
+        let s = parse_blueprint(
+            r#"
+id: v
+kind: jobs
+title: V
+summary: s
+purpose: p
+category: storage
+library: [howto/backups]
+vars:
+  - { name: DISK, label: Disk, default: /dev/sda }
+  - { name: LAN, label: Network, default: 192.168.0.0/16 }
+timers:
+  - { name: "smart-{{DISK}}", command: "smartctl -t short {{DISK}}", calendar: "Sun *-*-* 02:00:00", persistent: true }
+firewall:
+  allowFrom: ["{{LAN}}"]
+"#,
+        )
+        .unwrap();
+        assert_eq!(s.kind, StarterKind::Jobs);
+        let bp = build(&s, &[], "/unused", 0).unwrap();
+        assert_eq!(bp.timers[0].command, "smartctl -t short /dev/sda");
+        let fw = bp.firewall.as_ref().unwrap();
+        assert_eq!(fw.ufw_rules, ["allow from 192.168.0.0/16"]);
+        assert!(crate::blueprint::ufw_add_command(&fw.ufw_rules[0]).is_some(), "an allow-from rule can be added");
+        let typed = |k: &str, v: &str| vec![StarterValue { key: format!("vars/{k}"), value: v.into() }];
+        let disk = build(&s, &typed("DISK", "/dev/disk/by-id/ata-X_1"), "/", 0).unwrap();
+        assert_eq!(disk.timers[0].command, "smartctl -t short /dev/disk/by-id/ata-X_1");
+        assert!(build(&s, &typed("DISK", "/dev/sda; rm -rf /"), "/", 0).is_err(), "no shell through a var");
+        assert!(build(&s, &typed("LAN", "300.1.1.1/8"), "/", 0).is_err(), "not a network");
+        assert!(build(&s, &typed("LAN", "10.0.0.0/33"), "/", 0).is_err());
+
+        // firewalld can't take a source rule from here: it becomes a step by hand.
+        let mut bp = build(&s, &[], "/", 0).unwrap();
+        let fwd = BpFirewall {
+            backend: "firewalld".into(),
+            active: true,
+            ufw_rules: vec![],
+            default_in: None,
+            zones: vec![],
+        };
+        fit_firewall(&mut bp, Some(&fwd), Some("public"));
+        assert!(bp.firewall.as_ref().unwrap().zones[0].ports.is_empty());
+        assert!(bp.manual.iter().any(|m| m.title == "Trust 192.168.0.0/16"));
+
+        let undeclared = "id: u\ntitle: U\nsummary: s\npurpose: p\ncategory: start\ntimers:\n  - { name: x, command: \"echo {{NOPE}}\", calendar: daily, persistent: false }\n";
+        assert!(parse_blueprint(undeclared).is_err(), "every {{VAR}} needs a prompt");
     }
 
     #[test]

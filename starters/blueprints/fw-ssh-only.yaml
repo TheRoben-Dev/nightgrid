@@ -1,0 +1,23 @@
+id: fw-ssh-only
+kind: firewall
+title: "Firewall: SSH only"
+summary: Nothing gets in except SSH, rate-limited against password guessing.
+category: security
+purpose: |
+  The tightest useful profile for a server you only manage: SSH is allowed
+  (with ufw's limit, which blocks an address after six tries in 30
+  seconds) and everything else coming in is refused. Outgoing traffic is
+  unaffected.
+
+  Nightgrid adds the SSH rule. Refusing everything else and turning the
+  firewall on are done in System → FIREWALL, which arms a rollback first so
+  a mistake can't lock you out.
+library: [howto/firewall, errors/firewall]
+vars:
+  - name: SSH_PORT
+    label: SSH port
+    default: "22"
+firewall:
+  limit: ["{{SSH_PORT}}/tcp"]
+  denyIncoming: true
+  enable: true

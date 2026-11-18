@@ -1,0 +1,52 @@
+id: app-vaultwarden
+kind: app
+title: Vaultwarden
+summary: A password manager server that works with the Bitwarden apps and browser extensions.
+category: security
+purpose: |
+  Keeps your passwords on your own server and syncs them to the Bitwarden
+  apps on every phone, computer and browser. Vaultwarden is a small,
+  compatible server written in Rust that runs happily on a Raspberry Pi.
+
+  Browsers only allow the web vault over HTTPS, so put it behind the
+  reverse proxy starter (or reach it over Tailscale with HTTPS).
+library: [apps/vaultwarden, apps/caddy]
+stacks:
+  - name: vaultwarden
+    compose: |
+      services:
+        vaultwarden:
+          image: vaultwarden/server:latest
+          container_name: vaultwarden
+          restart: unless-stopped
+          ports:
+            - "8222:80"
+          environment:
+            DOMAIN: ${DOMAIN}
+            SIGNUPS_ALLOWED: ${SIGNUPS_ALLOWED}
+            TZ: ${TZ}
+          volumes:
+            - ./data:/data
+    env:
+      - name: DOMAIN
+        label: Address you'll open it at
+        default: https://vault.example.com
+        help: The full https:// address, used in emails and for passkeys.
+      - name: SIGNUPS_ALLOWED
+        label: Let new people sign up
+        default: "true"
+        help: Leave true until your accounts exist, then set false in the vault and restart.
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+    ports:
+      - { port: 8222/tcp, what: Vaultwarden (put HTTPS in front) }
+firewall:
+  allow: [8222/tcp]
+manual:
+  - title: Serve it over HTTPS
+    detail: Route your domain to http://<host>:8222 in your reverse proxy (Docker → PROXY), then open the domain and create your account.
+  - title: Close sign-ups
+    detail: Set SIGNUPS_ALLOWED to false in the stack's .env vault and restart the stack once everyone has an account.
+  - title: Back it up
+    detail: The data folder holds everything (an SQLite database and attachments); add it to a backup job.

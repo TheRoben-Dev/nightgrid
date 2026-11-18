@@ -1,0 +1,27 @@
+id: fw-docker-host
+kind: firewall
+title: "Firewall: Docker host"
+summary: SSH and web ports in, everything else closed, with the Docker caveat explained.
+category: security
+purpose: |
+  For a host running containers behind a reverse proxy: SSH (rate-limited)
+  and HTTP/HTTPS come in, everything else is refused.
+
+  Docker writes its own firewall rules for published ports and they skip
+  ufw's: a container started with -p 8080:80 is reachable even when ufw
+  says deny. So publish app ports on 127.0.0.1 (as the starters do for
+  host-only apps) and let the reverse proxy reach them, or see the Library
+  guide for ufw-docker.
+library: [howto/firewall, apps/docker-host, linux/docker-networks]
+vars:
+  - name: SSH_PORT
+    label: SSH port
+    default: "22"
+firewall:
+  allow: [80/tcp, 443/tcp]
+  limit: ["{{SSH_PORT}}/tcp"]
+  denyIncoming: true
+  enable: true
+manual:
+  - title: Check which ports Docker publishes
+    detail: Docker → containers lists each published port; anything not on 127.0.0.1 is reachable from the network whatever ufw says.
