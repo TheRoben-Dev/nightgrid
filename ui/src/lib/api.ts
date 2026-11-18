@@ -365,11 +365,23 @@ import {
   type NotifySettings_Serialize as NotifySettings,
   type NtfyInfo_Serialize as NtfyInfo,
   type NotifyTest_Serialize as NotifyTest,
+  type PostureHost_Serialize as PostureHost,
+  type PostureRun_Serialize as PostureRun,
+  type PostureCheck_Serialize as PostureCheck,
+  type PostureStatus,
+  type SecuritySettings_Serialize as SecuritySettings,
+  type SecretItem_Serialize as SecretItem,
+  type SecretKind,
+  type RotationState,
+  type ManualSecret_Deserialize as ManualSecret,
+  type KeyHost_Serialize as KeyHost,
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockJournal } from "./mockJournal";
 import { mockPower } from "./mockPower";
+import { mockSecrets } from "./mockSecrets";
+import { mockPosture } from "./mockPosture";
 import { mockNotify } from "./mockNotify";
 import { mockNode } from "./mockNode";
 import { mockMcp } from "./mockMcp";
@@ -760,6 +772,16 @@ export type {
   NotifySettings,
   NtfyInfo,
   NotifyTest,
+  PostureHost,
+  PostureRun,
+  PostureCheck,
+  PostureStatus,
+  SecuritySettings,
+  SecretItem,
+  SecretKind,
+  RotationState,
+  ManualSecret,
+  KeyHost,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -837,6 +859,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   mcp: { enabled: false, port: 47821, allowWrites: false },
   power: { pricePerKwh: 0, currency: "" },
   notify: { native: true, ntfy: false, ntfyLevel: "warn", ntfyOk: true, muted: [] },
+  security: { postureDaily: true, rotationNotices: true },
   netWatch: { enabled: false, scanner: null, minutes: 60, sweep: false, alertNew: true, alertMissing: true, alertRisks: true },
 };
 
@@ -1507,6 +1530,15 @@ export const api = {
   ntfyGet: (): Promise<NtfyInfo> => (T() ? commands.ntfyGet() : mockNotify.ntfyGet()),
   ntfySet: (url: string | null, token: string | null): Promise<NtfyInfo> => (T() ? commands.ntfySet(url, token) : mockNotify.ntfySet(url, token)),
   notifyTest: (): Promise<NotifyTest> => (T() ? commands.notifyTest() : mockNotify.test()),
+  postureList: (): Promise<PostureHost[]> => (T() ? commands.postureList() : mockPosture.list()),
+  postureHistory: (hostId: number): Promise<PostureRun[]> => (T() ? commands.postureHistory(hostId) : mockPosture.history(hostId)),
+  postureCheck: (hostIds: number[]): Promise<PostureRun[]> => (T() ? commands.postureCheck(hostIds) : mockPosture.check(hostIds)),
+  secretsList: (): Promise<SecretItem[]> => (T() ? commands.secretsList() : mockSecrets.list()),
+  secretMarkRotated: (key: string): Promise<null> => (T() ? commands.secretMarkRotated(key) : mockSecrets.markRotated(key)),
+  secretPolicy: (key: string, days: number | null): Promise<null> => (T() ? commands.secretPolicy(key, days) : mockSecrets.policy(key, days)),
+  secretManualSave: (secret: ManualSecret): Promise<number> => (T() ? commands.secretManualSave(secret) : mockSecrets.save(secret)),
+  secretManualDelete: (id: number): Promise<null> => (T() ? commands.secretManualDelete(id) : mockSecrets.remove(id)),
+  secretKeyHosts: (fingerprint: string): Promise<KeyHost[]> => (T() ? commands.secretKeyHosts(fingerprint) : mockSecrets.keyHosts(fingerprint)),
 };
 
 /** The structured parts of a rejected Docker command, when present. */

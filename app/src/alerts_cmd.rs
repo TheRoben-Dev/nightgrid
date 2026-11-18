@@ -282,6 +282,7 @@ pub fn start(app: &AppHandle) {
             let cfg = settings(&app).effective();
             let now = now_unix();
             let changes = evaluate(&app, &cfg, now, &mut last_docker).await;
+            crate::chores::tick(&app, &cfg, now);
             crate::timeline_cmd::record_alerts(&app, &changes);
             let quiet = is_quiet(&cfg);
             let hub = app.state::<AppState>().alerts.clone();
@@ -1094,7 +1095,11 @@ pub fn alerts_webhook_set(state: State<'_, AppState>, url: Option<String>) -> Cm
             if !(lower.starts_with("https://") || lower.starts_with("http://")) || u.chars().any(char::is_whitespace) {
                 return Err(CommandError::msg("webhook URL must start with https:// or http://"));
             }
-            state.keychain.set(&webhook_ref(), &Secret::new(u.clone())).map_err(|e| CommandError::msg(e.to_string()))?
+            state
+                .keychain
+                .set(&webhook_ref(), &Secret::new(u.clone()))
+                .map_err(|e| CommandError::msg(e.to_string()))?;
+            crate::secrets_cmd::stamp(&state, "app:webhook");
         }
     }
     Ok(webhook_info(url.as_deref()))

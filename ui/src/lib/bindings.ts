@@ -775,6 +775,26 @@ export const commands = {
 	 *  hours and routes; only the channel switches count).
 	 */
 	notifyTest: (options?: InvokeOptions) => __TAURI_INVOKE<NotifyTest_Serialize>("notify_test", undefined, options),
+	/**  Every scored host's latest run, the score before it and the trend. */
+	postureList: (options?: InvokeOptions) => __TAURI_INVOKE<PostureHost_Serialize[]>("posture_list", undefined, options),
+	/**  Recent runs of one host, newest first. */
+	postureHistory: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<PostureRun_Serialize[]>("posture_history", { hostId }, options),
+	/**  Scores these hosts now (three at a time). */
+	postureCheck: (hostIds: number[], options?: InvokeOptions) => __TAURI_INVOKE<PostureRun_Serialize[]>("posture_check", { hostIds }, options),
+	/**  Every known secret, overdue first. */
+	secretsList: (options?: InvokeOptions) => __TAURI_INVOKE<SecretItem_Serialize[]>("secrets_list", undefined, options),
+	/**  "I rotated it": starts its clock again. */
+	secretMarkRotated: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("secret_mark_rotated", { key }, options),
+	/**  Rotate every `days` days; 0 turns the policy off, none restores the default. */
+	secretPolicy: (key: string, days: number | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("secret_policy", { key, days }, options),
+	secretManualSave: (secret: ManualSecret_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<number>("secret_manual_save", { secret }, options),
+	secretManualDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("secret_manual_delete", { id }, options),
+	/**
+	 *  Reads `authorized_keys` on every server host (three at a time) and says
+	 *  where this key is, so a rotation reaches every host before the old key
+	 *  is removed.
+	 */
+	secretKeyHosts: (fingerprint: string, options?: InvokeOptions) => __TAURI_INVOKE<KeyHost_Serialize[]>("secret_key_hosts", { fingerprint }, options),
 	/**
 	 *  Recent error lines behind a log alert (key `logs:<host>:<source>:…`),
 	 *  for "what broke". Secret-looking lines were never kept.
@@ -1456,6 +1476,8 @@ export type AppSettings_Deserialize = {
 	 *  live in the keychain.
 	 */
 	notify?: NotifySettings_Deserialize,
+	/**  Security view (1.1): posture checks and rotation reminders. */
+	security?: SecuritySettings_Deserialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch?: NetWatchSettings_Deserialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -1585,6 +1607,8 @@ export type AppSettings_Serialize = {
 	 *  live in the keychain.
 	 */
 	notify: NotifySettings_Serialize,
+	/**  Security view (1.1): posture checks and rotation reminders. */
+	security: SecuritySettings_Serialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch: NetWatchSettings_Serialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -4503,6 +4527,25 @@ export type JournalQuery_Serialize = {
 	follow: boolean,
 };
 
+/**  Where a key is authorized: one row per server host. */
+export type KeyHost = KeyHost_Serialize | KeyHost_Deserialize;
+
+/**  Where a key is authorized: one row per server host. */
+export type KeyHost_Deserialize = {
+	hostId: number,
+	name: string,
+	authorized: boolean,
+	error?: string | null,
+};
+
+/**  Where a key is authorized: one row per server host. */
+export type KeyHost_Serialize = {
+	hostId: number,
+	name: string,
+	authorized: boolean,
+	error: string | null,
+};
+
 /**  The user's keys and where they were looked for. */
 export type KeyList = KeyList_Serialize | KeyList_Deserialize;
 
@@ -5037,6 +5080,35 @@ export type Manager = "apt" | "dnf" | "pacman" |
  *  with rpm-ostree, which stages it for the next boot.
  */
 "ostree";
+
+/**  A secret kept outside Nightgrid, listed by hand. No value is stored. */
+export type ManualSecret = ManualSecret_Serialize | ManualSecret_Deserialize;
+
+/**  A secret kept outside Nightgrid, listed by hand. No value is stored. */
+export type ManualSecret_Deserialize = {
+	/**  `None` adds a new one. */
+	id?: number | null,
+	name: string,
+	/**  Where it's used ("router admin", "Cloudflare DNS API"). */
+	place: string,
+	hostId?: number | null,
+	/**  When it was last rotated (unix seconds), if known. */
+	rotatedAt?: number | null,
+	note: string,
+};
+
+/**  A secret kept outside Nightgrid, listed by hand. No value is stored. */
+export type ManualSecret_Serialize = {
+	/**  `None` adds a new one. */
+	id: number | null,
+	name: string,
+	/**  Where it's used ("router admin", "Cloudflare DNS API"). */
+	place: string,
+	hostId: number | null,
+	/**  When it was last rotated (unix seconds), if known. */
+	rotatedAt: number | null,
+	note: string,
+};
 
 export type McpAsk = {
 	id: number,
@@ -6170,6 +6242,85 @@ export type PortainerStatus_Deserialize = {
 export type PortainerStatus_Serialize = {
 	version: string | null,
 };
+
+/**  One scored check. */
+export type PostureCheck = PostureCheck_Serialize | PostureCheck_Deserialize;
+
+/**  One scored check. */
+export type PostureCheck_Deserialize = {
+	id: string,
+	title: string,
+	status: PostureStatus,
+	detail: string,
+	fix?: string | null,
+	weight: number,
+	/**  The Library article that fixes it (`howto/firewall`). */
+	article: string,
+};
+
+/**  One scored check. */
+export type PostureCheck_Serialize = {
+	id: string,
+	title: string,
+	status: PostureStatus,
+	detail: string,
+	fix: string | null,
+	weight: number,
+	/**  The Library article that fixes it (`howto/firewall`). */
+	article: string,
+};
+
+/**  A host's latest run with the score before it and the recent trend. */
+export type PostureHost = PostureHost_Serialize | PostureHost_Deserialize;
+
+/**  A host's latest run with the score before it and the recent trend. */
+export type PostureHost_Deserialize = {
+	latest: PostureRun_Deserialize,
+	previous?: number | null,
+	/**  Scores of the last 30 runs that read the host, oldest first. */
+	trend: number[],
+};
+
+/**  A host's latest run with the score before it and the recent trend. */
+export type PostureHost_Serialize = {
+	latest: PostureRun_Serialize,
+	previous: number | null,
+	/**  Scores of the last 30 runs that read the host, oldest first. */
+	trend: number[],
+};
+
+/**  A host's score from one run. */
+export type PostureRun = PostureRun_Serialize | PostureRun_Deserialize;
+
+/**  A host's score from one run. */
+export type PostureRun_Deserialize = {
+	hostId: number,
+	at: number,
+	/**  0–100; none when the host couldn't be read. */
+	score?: number | null,
+	/**  `A` … `F`. */
+	grade?: string | null,
+	checks: PostureCheck_Deserialize[],
+	/**  Ports on every interface (from the audit), for the summary. */
+	openPorts: number,
+	error?: string | null,
+};
+
+/**  A host's score from one run. */
+export type PostureRun_Serialize = {
+	hostId: number,
+	at: number,
+	/**  0–100; none when the host couldn't be read. */
+	score: number | null,
+	/**  `A` … `F`. */
+	grade: string | null,
+	checks: PostureCheck_Serialize[],
+	/**  Ports on every interface (from the audit), for the summary. */
+	openPorts: number,
+	error: string | null,
+};
+
+export type PostureStatus = "pass" | "warn" | "fail" | "unknown";
 
 /**  A power action the user starts from Nightgrid. */
 export type PowerAction = "reboot" | "shutdown" | "suspend";
@@ -7326,6 +7477,14 @@ export type RestoreTest_Serialize = {
 	at: number,
 };
 
+export type RotationState = "ok" | 
+/**  Due within 30 days. */
+"dueSoon" | "overdue" | 
+/**  No date known: never stamped. */
+"unknown" | 
+/**  No rotation policy (turned off for this item). */
+"noPolicy";
+
 /**  What an upgrade run's channel carries. */
 export type RunEvent = RunEvent_Serialize | RunEvent_Deserialize;
 
@@ -7612,6 +7771,65 @@ export type Scope =
 /**  Every interface (`0.0.0.0`, `::`, `*`). */
 "all";
 
+/**  One secret in the list. */
+export type SecretItem = SecretItem_Serialize | SecretItem_Deserialize;
+
+/**  One secret in the list. */
+export type SecretItem_Deserialize = {
+	/**
+	 *  Stable id: `ssh:<fingerprint>`, `vault:<id>`, `integration:<id>`,
+	 *  `app:mcp`, `host:<id>`, `expiry:<id>`, `manual:<id>`.
+	 */
+	key: string,
+	kind: SecretKind,
+	name: string,
+	/**  Where it's used, in words (hosts, a stack, a server). */
+	place: string,
+	hostId?: number | null,
+	/**  When it was created or last rotated (unix seconds). */
+	rotatedAt?: number | null,
+	/**  Rotate every this many days; none = no policy. */
+	policyDays?: number | null,
+	/**  When it's due (or expires, for expiry items). */
+	dueAt?: number | null,
+	state: RotationState,
+	note: string,
+};
+
+/**  One secret in the list. */
+export type SecretItem_Serialize = {
+	/**
+	 *  Stable id: `ssh:<fingerprint>`, `vault:<id>`, `integration:<id>`,
+	 *  `app:mcp`, `host:<id>`, `expiry:<id>`, `manual:<id>`.
+	 */
+	key: string,
+	kind: SecretKind,
+	name: string,
+	/**  Where it's used, in words (hosts, a stack, a server). */
+	place: string,
+	hostId: number | null,
+	/**  When it was created or last rotated (unix seconds). */
+	rotatedAt: number | null,
+	/**  Rotate every this many days; none = no policy. */
+	policyDays: number | null,
+	/**  When it's due (or expires, for expiry items). */
+	dueAt: number | null,
+	state: RotationState,
+	note: string,
+};
+
+export type SecretKind = "sshKey" | 
+/**  A `.env` vault value marked secret. */
+"vault" | "integration" | 
+/**  Nightgrid's own tokens: MCP, status page, ntfy, webhook. */
+"appToken" | 
+/**  A host's SSH or sudo password kept in the keychain. */
+"hostPassword" | 
+/**  A certificate, domain or token date from the expiry watch. */
+"expiry" | 
+/**  Listed by hand: kept outside Nightgrid. */
+"manual";
+
 export type SecurityReport = SecurityReport_Serialize | SecurityReport_Deserialize;
 
 export type SecurityReport_Deserialize = {
@@ -7634,6 +7852,25 @@ export type SecurityReport_Serialize = {
 	listeners: Listener_Serialize[],
 	/**  Process names are only visible for our own processes without root. */
 	processesPartial: boolean,
+};
+
+/**  The Security view (1.1). */
+export type SecuritySettings = SecuritySettings_Serialize | SecuritySettings_Deserialize;
+
+/**  The Security view (1.1). */
+export type SecuritySettings_Deserialize = {
+	/**  Re-score hosts Nightgrid is already connected to once a day. */
+	postureDaily?: boolean,
+	/**  Notify when a secret or certificate is due for rotation. */
+	rotationNotices?: boolean,
+};
+
+/**  The Security view (1.1). */
+export type SecuritySettings_Serialize = {
+	/**  Re-score hosts Nightgrid is already connected to once a day. */
+	postureDaily: boolean,
+	/**  Notify when a secret or certificate is due for rotation. */
+	rotationNotices: boolean,
 };
 
 export type Seen = 

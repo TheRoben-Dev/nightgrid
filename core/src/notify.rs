@@ -225,7 +225,7 @@ impl NotifySettings {
 
     pub fn routed(&self, ch: Channel, source: NoticeSource) -> bool {
         let key = format!("{}:{}", ch.as_str(), source.as_str());
-        !self.muted.iter().any(|m| *m == key)
+        !self.muted.contains(&key)
     }
 
     /// Whether a notice of this source and level goes to ntfy. `System`

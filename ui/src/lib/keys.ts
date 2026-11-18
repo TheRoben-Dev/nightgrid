@@ -91,6 +91,7 @@ export const DEFAULT_KEYMAP = {
   "nav.notes": "Mod+9",
   "nav.network": "Mod+0",
   "nav.fleet": "Mod+Shift+U",
+  "nav.security": "Mod+Shift+Y",
   "nav.desktops": "Mod+Shift+M",
   "nav.proxmox": "Mod+Shift+P",
   "nav.nettools": "Mod+Shift+N",

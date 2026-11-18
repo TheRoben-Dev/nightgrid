@@ -7,6 +7,7 @@ mod automation_cmd;
 mod backup_cmd;
 mod backup_jobs_cmd;
 mod blueprint_cmd;
+mod chores;
 mod cmdwidget_cmd;
 mod commands;
 mod confdiff_cmd;
@@ -34,6 +35,7 @@ mod node_cmd;
 mod notes_cmd;
 mod notify_cmd;
 mod platform;
+mod posture_cmd;
 mod powercost_cmd;
 mod proxmox_cmd;
 mod proxy_cmd;
@@ -373,6 +375,15 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         notify_cmd::ntfy_get,
         notify_cmd::ntfy_set,
         notify_cmd::notify_test,
+        posture_cmd::posture_list,
+        posture_cmd::posture_history,
+        posture_cmd::posture_check,
+        secrets_cmd::secrets_list,
+        secrets_cmd::secret_mark_rotated,
+        secrets_cmd::secret_policy,
+        secrets_cmd::secret_manual_save,
+        secrets_cmd::secret_manual_delete,
+        secrets_cmd::secret_key_hosts,
         alerts_cmd::alerts_log_samples,
         alerts_cmd::alerts_log_mute,
         alerts_cmd::log_classify,

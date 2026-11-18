@@ -246,7 +246,7 @@ pub fn ntfy_set(app: AppHandle, url: Option<String>, token: Option<String>) -> C
         Some(u) => {
             notify::check_ntfy_url(&u).map_err(CommandError::msg)?;
             state.keychain.set(&ntfy_url_ref(), &Secret::new(u)).map_err(err)?;
-            crate::secrets_cmd::stamp(&app, "ntfy");
+            crate::secrets_cmd::stamp(&app.state::<AppState>(), "app:ntfy");
         }
     }
     match token.map(|t| t.trim().to_owned()) {
@@ -257,7 +257,7 @@ pub fn ntfy_set(app: AppHandle, url: Option<String>, token: Option<String>) -> C
                 return Err(CommandError::msg("that doesn't look like an ntfy access token"));
             }
             state.keychain.set(&ntfy_token_ref(), &Secret::new(t)).map_err(err)?;
-            crate::secrets_cmd::stamp(&app, "ntfy");
+            crate::secrets_cmd::stamp(&app.state::<AppState>(), "app:ntfy");
         }
     }
     Ok(ntfy_info(&app))

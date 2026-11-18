@@ -82,7 +82,7 @@ struct TokenFile {
     token: String,
 }
 
-fn token_path(data_dir: &Path) -> PathBuf {
+pub(crate) fn token_path(data_dir: &Path) -> PathBuf {
     data_dir.join(FILE)
 }
 
@@ -599,6 +599,7 @@ pub async fn mcp_new_token(app: AppHandle) -> CmdResult<McpStatus> {
     let state = app.state::<AppState>();
     let port = settings(&app).mcp.port;
     write_token(&state.data_dir, &TokenFile { port, token: new_token() }).map_err(CommandError::msg)?;
+    crate::secrets_cmd::stamp(&state, "app:mcp");
     apply(&app);
     tokio::time::sleep(Duration::from_millis(150)).await;
     Ok(status(&app))

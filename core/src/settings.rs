@@ -116,6 +116,8 @@ pub struct AppSettings {
     /// Where notices go besides the inbox (1.1). The ntfy URL and token
     /// live in the keychain.
     pub notify: crate::notify::NotifySettings,
+    /// Security view (1.1): posture checks and rotation reminders.
+    pub security: SecuritySettings,
     /// Background network scans with alerts (D-145).
     pub net_watch: NetWatchSettings,
     /// Overview dashboards (M10o). Empty means the built-in default.
@@ -173,6 +175,23 @@ pub const FEATURES: &[&str] = &[
 ];
 
 pub const STATUS_BINDS: &[&str] = &["lan", "tailscale", "all"];
+
+/// The Security view (1.1).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(default, rename_all = "camelCase")]
+pub struct SecuritySettings {
+    /// Re-score hosts Nightgrid is already connected to once a day.
+    pub posture_daily: bool,
+    /// Notify when a secret or certificate is due for rotation.
+    pub rotation_notices: bool,
+}
+
+impl Default for SecuritySettings {
+    fn default() -> Self {
+        Self { posture_daily: true, rotation_notices: true }
+    }
+}
 
 /// Power & cost (M12d): the electricity price for cost estimates.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
@@ -389,6 +408,7 @@ impl Default for AppSettings {
             profile_reminder_snooze: None,
             status_page: StatusPageSettings::default(),
             notify: crate::notify::NotifySettings::default(),
+            security: SecuritySettings::default(),
             power: PowerSettings::default(),
             mcp: McpSettings::default(),
             net_watch: NetWatchSettings::default(),

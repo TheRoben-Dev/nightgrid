@@ -9,6 +9,12 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Settings → Alerts → Notifications**: choose per notice type whether it reaches the desktop and ntfy.
 - **ntfy (self-hosted)**: off by default; push notices to your phone through your own ntfy server, with an optional access token kept in the keychain, a level filter and a test. The public ntfy.sh is refused. An "ntfy" alert webhook from an older version moves here by itself.
 
+### Added: Security view (Mod+Shift+Y)
+- **Security → POSTURE**: a score from 0 to 100 and a grade for every host, from the same read-only checks as System → security plus waiting security updates and container images over six months old. Click a host for its checks, worst first, each with the fix and a Library guide. Every host keeps a trend line, and a score that drops by 10 or a grade sends a notice. **Check connected hosts once a day** keeps it current.
+- **New quest guide**: *Raise your fleet's security score* takes every host to an A step by step and checks each fix on the real host (new checks: no exposed databases, no Docker API on TCP, security updates, image age).
+- **Security → SECRETS**: every SSH key, saved host password, `.env` vault secret, integration token, Nightgrid token and certificate in one list with its age and rotation due date, overdue first. Set how often each should change, **Mark rotated today** for anything changed elsewhere, list secrets kept outside Nightgrid by name, and for an SSH key see which hosts still accept it. A notice comes 30 days before one is due. No secret's value is read or shown.
+- **New how-to**: *Rotate secrets and certificates*.
+
 ## [1.0.0] - 2026-11-17
 
 Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power & cost, Library quests, Node pairing) ends with an MCP server.

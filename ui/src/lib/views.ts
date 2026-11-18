@@ -10,6 +10,7 @@ export const VIEWS = {
   tunnels: () => import("./views/Tunnels.svelte"),
   automation: () => import("./views/Automation.svelte"),
   fleet: () => import("./views/Fleet.svelte"),
+  security: () => import("./views/Security.svelte"),
   desktops: () => import("./views/Desktops.svelte"),
   proxmox: () => import("./views/Proxmox.svelte"),
   network: () => import("./views/Network.svelte"),
