@@ -14,6 +14,11 @@
   import BlueprintPanel from "../components/fleet/BlueprintPanel.svelte";
   import PowerPanel from "../components/fleet/PowerPanel.svelte";
   import NodePanel from "../components/fleet/NodePanel.svelte";
+  import CatalogPanel from "../components/fleet/CatalogPanel.svelte";
+  import DrillsPanel from "../components/fleet/DrillsPanel.svelte";
+  import CapacityPanel from "../components/fleet/CapacityPanel.svelte";
+  import ReplayPanel from "../components/fleet/ReplayPanel.svelte";
+  import { notices } from "../stores/notices.svelte";
   import { alerts } from "../stores/alerts.svelte";
   import { diskTone, type FleetTab } from "../fleet";
   import { settings } from "../stores/settings.svelte";
@@ -34,6 +39,10 @@
     { id: "blueprints", label: "BLUEPRINTS" },
     { id: "power", label: "POWER" },
     { id: "node", label: "NODE" },
+    { id: "catalog", label: "CATALOG" },
+    { id: "drills", label: "DRILLS" },
+    { id: "capacity", label: "CAPACITY" },
+    { id: "replay", label: "REPLAY" },
   ];
   // Tabs turned off in Settings → Features are hidden.
   const tabs = $derived(TABS.filter((t) => settings.on(`fleet.${t.id}`)));
@@ -42,6 +51,11 @@
   });
   const upsBad = $derived(alerts.active.filter((a) => a.kind === "upsOnBattery").length + (alerts.snap?.upsCountdown ? 1 : 0));
   const backupBad = $derived(backups.jobs.filter((j) => ["failed", "error", "stale"].includes(jobState(backups.status[j.id]))).length);
+  // A notice opened this view on a tab.
+  $effect(() => {
+    const t = notices.wantTab && notices.takeTab("fleet");
+    if (t && TABS.some((x) => x.id === t)) open(t as FleetTab);
+  });
   function open(t: FleetTab) {
     if (t === "backups") fleet.openBackups();
     else fleet.tab = t;
@@ -107,6 +121,14 @@
       <PowerPanel />
     {:else if fleet.tab === "node"}
       <NodePanel />
+    {:else if fleet.tab === "catalog"}
+      <CatalogPanel />
+    {:else if fleet.tab === "drills"}
+      <DrillsPanel />
+    {:else if fleet.tab === "capacity"}
+      <CapacityPanel />
+    {:else if fleet.tab === "replay"}
+      <ReplayPanel />
     {/if}
   </div>
 </div>
@@ -131,6 +153,7 @@
   }
   .tabs {
     display: flex;
+    flex-wrap: wrap;
     border: 1px solid var(--line);
   }
   .tabs button {

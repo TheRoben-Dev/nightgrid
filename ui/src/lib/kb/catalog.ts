@@ -128,6 +128,8 @@ export const CATALOG: CatalogEntry[] = [
   { id: "howto/firewall", shelf: "howto", title: "Change a firewall safely", cat: "security" },
   { id: "howto/security-score", shelf: "howto", title: "Raise a host's security score", cat: "security" },
   { id: "howto/secret-rotation", shelf: "howto", title: "Rotate secrets and certificates", cat: "security" },
+  { id: "howto/restore-drills", shelf: "howto", title: "Prove your backups restore", cat: "storage" },
+  { id: "howto/capacity", shelf: "howto", title: "Plan capacity and replay incidents", cat: "monitoring" },
   { id: "howto/access-audit", shelf: "howto", title: "Audit who can log in", cat: "security" },
   { id: "howto/log-search", shelf: "howto", title: "Search logs across all hosts", cat: "monitoring" },
   { id: "howto/config-drift", shelf: "howto", title: "Track config drift and host history", cat: "monitoring" },

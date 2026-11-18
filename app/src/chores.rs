@@ -13,4 +13,6 @@ pub(crate) fn tick(app: &AppHandle, cfg: &AppSettings, now: i64) {
     let connected: Vec<HostId> = app.state::<AppState>().pool.connected();
     crate::posture_cmd::due(app, cfg, &connected, now);
     crate::secrets_cmd::due(app, cfg, now);
+    crate::drills_cmd::due(app, cfg, &connected, now);
+    crate::capacity_cmd::due(app, cfg, &connected, now);
 }

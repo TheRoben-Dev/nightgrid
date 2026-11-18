@@ -7,6 +7,8 @@ mod automation_cmd;
 mod backup_cmd;
 mod backup_jobs_cmd;
 mod blueprint_cmd;
+mod capacity_cmd;
+mod catalog_cmd;
 mod chores;
 mod cmdwidget_cmd;
 mod commands;
@@ -14,6 +16,7 @@ mod confdiff_cmd;
 mod desktop_cmd;
 mod docker_cmd;
 mod drift_cmd;
+mod drills_cmd;
 mod envvault_cmd;
 mod expiry_cmd;
 mod files_cmd;
@@ -40,6 +43,7 @@ mod powercost_cmd;
 mod proxmox_cmd;
 mod proxy_cmd;
 mod quest_cmd;
+mod replay_cmd;
 mod secrets_cmd;
 mod services_cmd;
 mod state;
@@ -384,6 +388,18 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         secrets_cmd::secret_manual_save,
         secrets_cmd::secret_manual_delete,
         secrets_cmd::secret_key_hosts,
+        capacity_cmd::capacity_list,
+        catalog_cmd::catalog_build,
+        replay_cmd::replay_incidents,
+        replay_cmd::replay_load,
+        catalog_cmd::catalog_markdown,
+        catalog_cmd::report_save,
+        drills_cmd::drills_list,
+        drills_cmd::drill_save,
+        drills_cmd::drill_delete,
+        drills_cmd::drill_runs,
+        drills_cmd::drill_run,
+        drills_cmd::drill_report,
         alerts_cmd::alerts_log_samples,
         alerts_cmd::alerts_log_mute,
         alerts_cmd::log_classify,

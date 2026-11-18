@@ -111,11 +111,8 @@ pub(crate) fn due(app: &AppHandle, cfg: &AppSettings, connected: &[HostId], now:
         return;
     }
     let last = app.state::<AppState>().store().posture_last_at().unwrap_or_default();
-    let ids: Vec<HostId> = connected
-        .iter()
-        .copied()
-        .filter(|h| !last.iter().any(|(id, at)| id == h && now - at < DAILY))
-        .collect();
+    let ids: Vec<HostId> =
+        connected.iter().copied().filter(|h| !last.iter().any(|(id, at)| id == h && now - at < DAILY)).collect();
     if ids.is_empty() || AUTO_RUNNING.swap(true, Ordering::SeqCst) {
         return;
     }

@@ -1066,3 +1066,134 @@ pub async fn pve_sandbox_destroy(
     note(&app, host_id, Level::Info, format!("Proxmox: sandbox {vmid} destroyed"), format!("{kind} on {node}"));
     Ok(upid)
 }
+
+// ---- restore drills (1.1, D-171) ----
+
+use nightgrid_core::drills::{self as drl, Drill};
+use nightgrid_core::proxmox::sandbox::PveIsolation;
+
+/// Waits for a task to end; `Err` with its last log lines when it failed.
+async fn wait_task(
+    app: &AppHandle,
+    host_id: HostId,
+    node: &str,
+    upid: &str,
+    limit: std::time::Duration,
+) -> Result<(), String> {
+    let started = std::time::Instant::now();
+    let script = proxmox::task_script(node, upid, 30).ok_or("not a Proxmox task id")?;
+    loop {
+        let out = root_run(app, host_id, None, &script).await.map_err(|e| e.to_string())?;
+        let t = proxmox::parse_task(&out)?;
+        if !t.running {
+            return match t.exitstatus.as_deref() {
+                None | Some("OK") => Ok(()),
+                Some(e) => {
+                    let tail: Vec<&str> = t.log.iter().rev().take(3).rev().map(String::as_str).collect();
+                    Err(format!("{e}: {}", tail.join(" / ")))
+                }
+            };
+        }
+        if started.elapsed() > limit {
+            return Err(format!("the task was still running after {} minutes", limit.as_secs() / 60));
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    }
+}
+
+/// A Proxmox drill: the guest's newest backup restored as a new guest,
+/// isolated and tagged as a sandbox with a 2 h expiry (so the node cleans up
+/// even if Nightgrid goes away), started, checked, destroyed. Runs without a
+/// sudo prompt: the host must allow root without a password (or remember it).
+/// Returns what was restored.
+pub(crate) async fn drill_proxmox(app: &AppHandle, d: &Drill, steps: &mut Vec<String>) -> Result<String, String> {
+    let (Some(node), Some(kind), Some(vmid), Some(storage), Some(target)) =
+        (d.node.as_deref(), d.guest_kind.as_deref(), d.vmid, d.storage.as_deref(), d.target_storage.as_deref())
+    else {
+        return Err("the drill is missing its guest or storage".into());
+    };
+    let host = d.host_id;
+    let err = |e: crate::system_cmd::SystemCmdError| e.to_string();
+    let now = nightgrid_core::services::check::now_unix();
+
+    let script = pbk::backups_script(&[PveStorageRef { node: node.into(), storage: storage.into() }])
+        .ok_or("invalid storage")?;
+    let list = pbk::parse_backups(&root_run(app, host, None, &script).await.map_err(err)?);
+    let b = drl::newest_backup(&list.files, vmid, kind)
+        .ok_or_else(|| format!("no backup of {kind} {vmid} on {storage}"))?
+        .clone();
+    steps.push(format!(
+        "Newest backup: {} ({} hours old, {:.1} GB)",
+        b.volid,
+        (now - b.time).max(0) / 3600,
+        b.size / 1e9
+    ));
+
+    let out = root_run(app, host, None, "pvesh get /cluster/nextid --output-format json").await.map_err(err)?;
+    let newid = drl::parse_nextid(&out).ok_or("Proxmox didn't hand out a free guest id")?;
+
+    let t0 = std::time::Instant::now();
+    let upid =
+        start_task(app, host, None, pbk::restore_script(node, kind, newid, &b.volid, target, false, false), "restore")
+            .await
+            .map_err(err)?;
+    steps.push(format!("Restoring into a new {kind} {newid} on {target}"));
+    if let Err(e) = wait_task(app, host, node, &upid, std::time::Duration::from_secs(90 * 60)).await {
+        steps.push("The restore failed".into());
+        // A half-restored guest is removed by Proxmox itself; nothing to clean.
+        return Err(e);
+    }
+    steps.push(format!("Restored in {} s", t0.elapsed().as_secs()));
+
+    let spec = PveSandboxSpec {
+        node: node.into(),
+        kind: kind.into(),
+        vmid,
+        newid,
+        name: format!("drill-{vmid}"),
+        snapshot: None,
+        full: true,
+        storage: None,
+        isolation: PveIsolation::Cut,
+        bridge: None,
+        hours: 2,
+        start: true,
+    };
+    let result = async {
+        let done = pve_sandbox_isolate(app.clone(), host, spec, None).await.map_err(err)?;
+        steps.push(format!("Isolated: {}", done.notes.join("; ")));
+        if let Some(u) = &done.upid {
+            wait_task(app, host, node, u, std::time::Duration::from_secs(5 * 60)).await?;
+        }
+        steps.push("Started".into());
+        // Running, then (best effort) the guest itself answers.
+        let probe = if kind == "qemu" {
+            format!("for i in $(seq 1 24); do qm agent {newid} ping >/dev/null 2>&1 && {{ echo AGENT; exit 0; }}; sleep 5; done; qm status {newid}")
+        } else {
+            format!("for i in $(seq 1 24); do pct exec {newid} -- true >/dev/null 2>&1 && {{ echo AGENT; exit 0; }}; sleep 5; done; pct status {newid}")
+        };
+        let out = root_run(app, host, None, &probe).await.map_err(err)?;
+        if out.contains("AGENT") {
+            steps.push(if kind == "qemu" { "The guest agent answered".into() } else { "A command ran inside the container".into() });
+        } else if out.contains("status: running") {
+            steps.push(if kind == "qemu" {
+                "Running (no guest agent answered within 2 minutes, so the OS itself isn't confirmed)".into()
+            } else {
+                "Running, but a command inside didn't answer within 2 minutes".into()
+            });
+        } else {
+            return Err(format!("the restored guest didn't stay running ({})", out.trim()));
+        }
+        Ok::<_, String>(())
+    }
+    .await;
+
+    match pve_sandbox_destroy(app.clone(), host, node.into(), kind.into(), newid, None).await {
+        Ok(u) => match wait_task(app, host, node, &u, std::time::Duration::from_secs(10 * 60)).await {
+            Ok(()) => steps.push(format!("Destroyed {kind} {newid}")),
+            Err(e) => steps.push(format!("Destroying {newid} failed ({e}); its 2 h expiry timer will remove it")),
+        },
+        Err(e) => steps.push(format!("Couldn't destroy {newid} ({e}); its 2 h expiry timer will remove it")),
+    }
+    result.map(|()| format!("{} restored as {newid}", b.volid))
+}

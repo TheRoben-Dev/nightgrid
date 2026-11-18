@@ -795,6 +795,30 @@ export const commands = {
 	 *  is removed.
 	 */
 	secretKeyHosts: (fingerprint: string, options?: InvokeOptions) => __TAURI_INVOKE<KeyHost_Serialize[]>("secret_key_hosts", { fingerprint }, options),
+	/**  Each host's size, p95 CPU and memory over the last `days`, and disks. */
+	capacityList: (days: number, options?: InvokeOptions) => __TAURI_INVOKE<HostCapacity_Serialize[]>("capacity_list", { days }, options),
+	/**  Reads the catalog of these hosts (three at a time). Nothing is stored. */
+	catalogBuild: (hostIds: number[], options?: InvokeOptions) => __TAURI_INVOKE<CatalogHost_Serialize[]>("catalog_build", { hostIds }, options),
+	/**  Outages and alert bursts of the last `days` (at most 90), newest first. */
+	replayIncidents: (days: number, options?: InvokeOptions) => __TAURI_INVOKE<Incident_Serialize[]>("replay_incidents", { days }, options),
+	/**  Everything recorded around one incident. */
+	replayLoad: (incident: Incident_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Replay_Serialize>("replay_load", { incident }, options),
+	/**  The catalog as Markdown (for the export and for DRIFT). */
+	catalogMarkdown: (hosts: CatalogHost_Deserialize[], options?: InvokeOptions) => __TAURI_INVOKE<string>("catalog_markdown", { hosts }, options),
+	/**
+	 *  Saves a report the user asked for where they pick (a Save dialog).
+	 *  `None` when cancelled.
+	 */
+	reportSave: (name: string, content: string, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("report_save", { name, content }, options),
+	drillsList: (options?: InvokeOptions) => __TAURI_INVOKE<DrillBoard_Serialize>("drills_list", undefined, options),
+	drillSave: (drill: Drill_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<number>("drill_save", { drill }, options),
+	drillDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("drill_delete", { id }, options),
+	/**  Last 50 runs, newest first. */
+	drillRuns: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<DrillRun_Serialize[]>("drill_runs", { id }, options),
+	/**  Runs a drill now and waits for it (a Proxmox drill can take a while). */
+	drillRun: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<DrillRun_Serialize>("drill_run", { id }, options),
+	/**  The drill's runs as a Markdown report. */
+	drillReport: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<string>("drill_report", { id }, options),
 	/**
 	 *  Recent error lines behind a log alert (key `logs:<host>:<source>:…`),
 	 *  for "what broke". Secret-looking lines were never kept.
@@ -2052,6 +2076,100 @@ export type CalendarPreview = {
 	next: string[],
 };
 
+export type CapDisk = CapDisk_Serialize | CapDisk_Deserialize;
+
+export type CapDisk_Deserialize = {
+	mount: string,
+	size: number,
+	used: number,
+	daysLeft?: number | null,
+};
+
+export type CapDisk_Serialize = {
+	mount: string,
+	size: number,
+	used: number,
+	daysLeft: number | null,
+};
+
+export type CatalogEntry = CatalogEntry_Serialize | CatalogEntry_Deserialize;
+
+export type CatalogEntry_Deserialize = {
+	name: string,
+	image: string,
+	/**  The image's version label, else its tag (none for `latest`). */
+	version?: string | null,
+	state: string,
+	health?: string | null,
+	project?: string | null,
+	/**  `8080→80/tcp`. */
+	ports: string[],
+	urls: string[],
+	mounts: CatalogMount_Deserialize[],
+	coverage: Coverage,
+};
+
+export type CatalogEntry_Serialize = {
+	name: string,
+	image: string,
+	/**  The image's version label, else its tag (none for `latest`). */
+	version: string | null,
+	state: string,
+	health: string | null,
+	project: string | null,
+	/**  `8080→80/tcp`. */
+	ports: string[],
+	urls: string[],
+	mounts: CatalogMount_Serialize[],
+	coverage: Coverage,
+};
+
+export type CatalogHost = CatalogHost_Serialize | CatalogHost_Deserialize;
+
+export type CatalogHost_Deserialize = {
+	hostId: number,
+	name: string,
+	entries: CatalogEntry_Deserialize[],
+	/**  Docker unreadable, not installed, host unreachable. */
+	error?: string | null,
+	/**  Backup jobs on this host whose command line could be read. */
+	jobsRead: number,
+};
+
+export type CatalogHost_Serialize = {
+	hostId: number,
+	name: string,
+	entries: CatalogEntry_Serialize[],
+	/**  Docker unreadable, not installed, host unreachable. */
+	error: string | null,
+	/**  Backup jobs on this host whose command line could be read. */
+	jobsRead: number,
+};
+
+export type CatalogMount = CatalogMount_Serialize | CatalogMount_Deserialize;
+
+export type CatalogMount_Deserialize = {
+	/**  Host path (binds) or the volume's folder on the host. */
+	source: string,
+	destination: string,
+	/**  `bind` or `volume`. */
+	kind: string,
+	name?: string | null,
+	/**  The backup job whose command line names this folder or a parent. */
+	backedUpBy?: string | null,
+};
+
+export type CatalogMount_Serialize = {
+	/**  Host path (binds) or the volume's folder on the host. */
+	source: string,
+	destination: string,
+	/**  `bind` or `volume`. */
+	kind: string,
+	name: string | null,
+	/**  The backup job whose command line names this folder or a parent. */
+	backedUpBy: string | null,
+};
+
 export type CertInfo = CertInfo_Serialize | CertInfo_Deserialize;
 
 export type CertInfo_Deserialize = {
@@ -2506,6 +2624,16 @@ export type ContainerView_Serialize = {
 	/**  Published ports that look like a web UI, best first (D-147). */
 	web: WebUiTarget_Serialize[],
 };
+
+export type Coverage = 
+/**  Every data mount is named by a backup job. */
+"covered" | 
+/**  Some are. */
+"partial" | 
+/**  Data mounts, none named by a backup job. */
+"none" | 
+/**  No data mounts (stateless) or nothing to judge. */
+"stateless";
 
 /**  A change to one crontab. */
 export type CronEdit = { op: "add"; schedule: string; command: string } | { op: "update"; line: number; schedule: string; command: string } | { op: "remove"; line: number } | { op: "setEnabled"; line: number; enabled: boolean };
@@ -3040,6 +3168,117 @@ export type DriftReport_Serialize = {
 	hidden: number,
 	/**  Package lists come from different package managers. */
 	mixedManagers: boolean,
+};
+
+export type Drill = Drill_Serialize | Drill_Deserialize;
+
+export type DrillBoard = DrillBoard_Serialize | DrillBoard_Deserialize;
+
+export type DrillBoard_Deserialize = {
+	drills: DrillView_Deserialize[],
+	/**  Drills running right now. */
+	running: number[],
+};
+
+export type DrillBoard_Serialize = {
+	drills: DrillView_Serialize[],
+	/**  Drills running right now. */
+	running: number[],
+};
+
+export type DrillKind = 
+/**  A backup job's test restore. */
+"job" | 
+/**  A Proxmox guest's newest backup into an isolated sandbox. */
+"proxmox";
+
+export type DrillRun = DrillRun_Serialize | DrillRun_Deserialize;
+
+export type DrillRun_Deserialize = {
+	id: number,
+	drillId: number,
+	at: number,
+	seconds: number,
+	ok: boolean,
+	steps: string[],
+	error?: string | null,
+	/**  What was restored (snapshot, file, backup volume). */
+	detail: string,
+};
+
+export type DrillRun_Serialize = {
+	id: number,
+	drillId: number,
+	at: number,
+	seconds: number,
+	ok: boolean,
+	steps: string[],
+	error: string | null,
+	/**  What was restored (snapshot, file, backup volume). */
+	detail: string,
+};
+
+/**  A drill with its last run and when it runs next. */
+export type DrillView = DrillView_Serialize | DrillView_Deserialize;
+
+/**  A drill with its last run and when it runs next. */
+export type DrillView_Deserialize = {
+	drill: Drill_Deserialize,
+	last?: DrillRun_Deserialize | null,
+	/**  Runs passed out of the last ten. */
+	passed: number,
+	runs: number,
+	nextAt?: number | null,
+};
+
+/**  A drill with its last run and when it runs next. */
+export type DrillView_Serialize = {
+	drill: Drill_Serialize,
+	last: DrillRun_Serialize | null,
+	/**  Runs passed out of the last ten. */
+	passed: number,
+	runs: number,
+	nextAt: number | null,
+};
+
+export type Drill_Deserialize = {
+	/**  `None` adds a new one. */
+	id?: number | null,
+	name: string,
+	kind: DrillKind,
+	hostId: number,
+	jobId?: number | null,
+	node?: string | null,
+	/**  `qemu` or `lxc`. */
+	guestKind?: string | null,
+	vmid?: number | null,
+	/**  Where the guest's backups are. */
+	storage?: string | null,
+	/**  Where the drill restores to (needs room for the guest's disks). */
+	targetStorage?: string | null,
+	/**  Run every this many days; 0 = only by hand. */
+	everyDays: number,
+	enabled: boolean,
+};
+
+export type Drill_Serialize = {
+	/**  `None` adds a new one. */
+	id: number | null,
+	name: string,
+	kind: DrillKind,
+	hostId: number,
+	jobId: number | null,
+	node: string | null,
+	/**  `qemu` or `lxc`. */
+	guestKind: string | null,
+	vmid: number | null,
+	/**  Where the guest's backups are. */
+	storage: string | null,
+	/**  Where the drill restores to (needs room for the guest's disks). */
+	targetStorage: string | null,
+	/**  Run every this many days; 0 = only by hand. */
+	everyDays: number,
+	enabled: boolean,
 };
 
 export type EditTargets = EditTargets_Serialize | EditTargets_Deserialize;
@@ -3837,6 +4076,34 @@ export type HostAuthNotice_Serialize = {
 	notice: AuthNotice_Serialize,
 };
 
+export type HostCapacity = HostCapacity_Serialize | HostCapacity_Deserialize;
+
+export type HostCapacity_Deserialize = {
+	hostId: number,
+	spec?: HostSpec | null,
+	cpuAvg?: number | null,
+	cpuP95?: number | null,
+	memAvg?: number | null,
+	memP95?: number | null,
+	gpuP95?: number | null,
+	/**  Hours of history behind the numbers. */
+	hours: number,
+	disks: CapDisk_Deserialize[],
+};
+
+export type HostCapacity_Serialize = {
+	hostId: number,
+	spec: HostSpec | null,
+	cpuAvg: number | null,
+	cpuP95: number | null,
+	memAvg: number | null,
+	memP95: number | null,
+	gpuP95: number | null,
+	/**  Hours of history behind the numbers. */
+	hours: number,
+	disks: CapDisk_Serialize[],
+};
+
 export type HostEvent = {
 	/**  Unix seconds. */
 	at: number,
@@ -4038,6 +4305,13 @@ export type HostSchedule_Serialize = {
 	onHostName: string,
 } & InstalledSchedule_Serialize;
 
+export type HostSpec = {
+	hostId: number,
+	cores: number,
+	memTotal: number,
+	at: number,
+};
+
 export type Host_Deserialize = {
 	id: number,
 	name: string,
@@ -4219,6 +4493,36 @@ export type ImportSummary = {
 	/**  Previously imported entries no longer in the file. */
 	removed: number,
 	stale: string[],
+};
+
+export type Incident = Incident_Serialize | Incident_Deserialize;
+
+export type IncidentKind = 
+/**  A host or service was down (uptime). */
+"outage" | 
+/**  Alerts on one host close together. */
+"alerts";
+
+export type Incident_Deserialize = {
+	kind: IncidentKind,
+	hostId?: number | null,
+	serviceId?: number | null,
+	title: string,
+	detail: string,
+	start: number,
+	end: number,
+	level: Level,
+};
+
+export type Incident_Serialize = {
+	kind: IncidentKind,
+	hostId: number | null,
+	serviceId: number | null,
+	title: string,
+	detail: string,
+	start: number,
+	end: number,
+	level: Level,
 };
 
 /**  The `--json` report of install and uninstall. */
@@ -7441,6 +7745,50 @@ export type RemoteImage_Serialize = {
 	env: string[],
 	source: string | null,
 	description: string | null,
+};
+
+export type Replay = Replay_Serialize | Replay_Deserialize;
+
+export type ReplayEvent = ReplayEvent_Serialize | ReplayEvent_Deserialize;
+
+export type ReplayEvent_Deserialize = {
+	at: number,
+	source: ReplaySource,
+	level: Level,
+	title: string,
+	detail: string,
+	hostId?: number | null,
+};
+
+export type ReplayEvent_Serialize = {
+	at: number,
+	source: ReplaySource,
+	level: Level,
+	title: string,
+	detail: string,
+	hostId: number | null,
+};
+
+export type ReplaySource = "event" | "change" | "outage" | "notice";
+
+export type Replay_Deserialize = {
+	incident: Incident_Deserialize,
+	from: number,
+	to: number,
+	/**  The host's metrics over the window (minute points when recent). */
+	metrics: Point_Deserialize[],
+	/**  Oldest first. */
+	events: ReplayEvent_Deserialize[],
+};
+
+export type Replay_Serialize = {
+	incident: Incident_Serialize,
+	from: number,
+	to: number,
+	/**  The host's metrics over the window (minute points when recent). */
+	metrics: Point_Serialize[],
+	/**  Oldest first. */
+	events: ReplayEvent_Serialize[],
 };
 
 export type RestoreTest = RestoreTest_Serialize | RestoreTest_Deserialize;

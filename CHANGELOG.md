@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] - 2026-11-18
+
+Nightgrid 1.1: a Security view, an inbox for every notice, and four new Fleet tabs for knowing what runs where and proving it can come back.
 
 ### Added: local notifications
 - **INBOX** in the top bar: every notice Nightgrid sent in the last 30 days (alerts firing and clearing, restore drills, rotations due, security score drops, capacity warnings) with an unread count. Click one to open what it's about.
@@ -14,6 +16,13 @@ All notable changes to this project are documented here. The format follows [Kee
 - **New quest guide**: *Raise your fleet's security score* takes every host to an A step by step and checks each fix on the real host (new checks: no exposed databases, no Docker API on TCP, security updates, image age).
 - **Security → SECRETS**: every SSH key, saved host password, `.env` vault secret, integration token, Nightgrid token and certificate in one list with its age and rotation due date, overdue first. Set how often each should change, **Mark rotated today** for anything changed elsewhere, list secrets kept outside Nightgrid by name, and for an SSH key see which hosts still accept it. A notice comes 30 days before one is due. No secret's value is read or shown.
 - **New how-to**: *Rotate secrets and certificates*.
+
+### Added: Fleet → CATALOG, DRILLS, CAPACITY, REPLAY
+- **Service catalog**: every container on every server with image, version, ports, the URLs that reach it and its data folders, and whether a backup job covers them. Filter to what has no backup; export as Markdown.
+- **Restore drills**: run a backup job's test restore on a schedule, or restore a Proxmox guest's newest backup into an isolated sandbox, boot it, check it and destroy it. Each run keeps its steps, a failure sends a notice, and **Report** saves the history.
+- **Capacity planner**: each host's size and busiest CPU and memory (p95 over 7, 30 or 90 days) with its fullest disk. Pick workloads to see which host can take them and what a new server needs. A notice when a host stays short of memory or CPU for a week.
+- **Incident replay**: step through an outage or an alert burst minute by minute with metrics, alerts, restarts, OOM kills, deploys and notices on one timeline, plus the host's warnings from that window.
+- **New how-tos**: *Prove your backups restore* and *Plan capacity and replay incidents*.
 
 ## [1.0.0] - 2026-11-17
 
