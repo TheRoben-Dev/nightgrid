@@ -41,11 +41,28 @@ Not sure what to run on a new server, or just want the common thing done right? 
 - [ ] [Knowledge](view:notes) → **Starters** lists the runbooks. Open one to read it, then **Add to my runbooks…** and confirm.
 - [ ] It's now your note: it shows as **▤ Runbook** on matching alerts, and you can edit it to fit your setup. An alert with no runbook of yours offers **▤ Starter runbook** when one exists.
 
+## Part 5 · The other shelves
+
+The tabs above the cards hold more starters. Each says what it changes and asks before changing anything.
+
+- [ ] **APPS**: one app as a compose stack (Vaultwarden, Immich, Nextcloud, Uptime Kuma, Paperless-ngx, Homepage, Forgejo, Navidrome, Audiobookshelf, Mealie, FreshRSS, Actual Budget). Same preview and apply as above.
+- [ ] **JOBS**: scheduled jobs installed as Nightgrid timers (Docker cleanup, unattended upgrades, SMART self-tests, a backup kick-off, TRIM, ZFS scrubs). Some ask for a word such as the disk or pool; they show up in System → SCHEDULES.
+- [ ] **FIREWALL**: allow-rule profiles (SSH only, web server, LAN only, Docker host). Turning the firewall on stays in System → FIREWALL, behind its rollback.
+- [ ] **ALERTS**: alert rule sets (quiet nights, strict storage, calm log alerts, everything on). A table shows each setting now and after.
+- [ ] **TILES** and **DASHBOARDS**: command tiles for the Overview, and whole dashboards for a media box, a NAS or network ops that bring their own tiles. Pick the host the tiles read from; dashboards are added beside yours.
+- [ ] **LOG SEARCHES**: saved searches across every host (SSH logins, out-of-memory kills, disk errors, container errors, failed services); some alert on new matches.
+- [ ] **PROXY ROUTES**: names like `jellyfin.your-domain` for the app starters, saved to a Caddy or Traefik proxy Nightgrid found on a host. Type your domain, untick what you don't want, **Preview the change** shows the diff, then confirm.
+- [ ] **PROXMOX**: VM and container shapes (a Docker LXC, a small service LXC, a Linux VM, Home Assistant OS, Windows 11). They open Proxmox → Create with the values filled in; you pick the ID, storage and network and press Create there.
+- [ ] **DRILLS**: a restore drill for each backup job that has none, weekly or monthly.
+- [ ] **POSTURE**: security scoring and network watch settings as a set.
+
 ## Limits and gotchas
 
 - Starters are a sound beginning, not a finished setup: change versions, ports and folders in Docker → STACKS afterwards like any stack.
 - A stack name that already runs on the host shows as **THERE**; starting it again is skipped.
 - Folders owned by root (such as `/opt/stacks` on a fresh host) need creating and handing to your user first, or pick one in your home folder.
+- Proxy routes reach apps by container name, so the app and the proxy must share a Docker network; otherwise change the upstream to `host:port` in Docker → PROXY.
+- Tiles and dashboards are added each time you confirm; remove extras from the Overview's edit mode.
 - Runbooks for failed units and high memory have no alert kind yet, so they aren't offered on alerts; tie one to a host in its editor if you like.
 
 ## Related
