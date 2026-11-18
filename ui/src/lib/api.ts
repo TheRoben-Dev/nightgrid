@@ -359,11 +359,18 @@ import {
   type LogEventView_Serialize as LogEventView,
   type LogNote_Serialize as LogNote,
   type HostAuthNotice_Serialize as HostAuthNotice,
+  type Notice_Serialize as Notice,
+  type NoticeLevel,
+  type NoticeSource,
+  type NotifySettings_Serialize as NotifySettings,
+  type NtfyInfo_Serialize as NtfyInfo,
+  type NotifyTest_Serialize as NotifyTest,
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockJournal } from "./mockJournal";
 import { mockPower } from "./mockPower";
+import { mockNotify } from "./mockNotify";
 import { mockNode } from "./mockNode";
 import { mockMcp } from "./mockMcp";
 import { mockQuest } from "./mockQuest";
@@ -747,6 +754,12 @@ export type {
   Rate,
   Sample,
   Temp,
+  Notice,
+  NoticeLevel,
+  NoticeSource,
+  NotifySettings,
+  NtfyInfo,
+  NotifyTest,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -823,6 +836,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   statusPage: { enabled: false, bind: "lan", port: 8787 },
   mcp: { enabled: false, port: 47821, allowWrites: false },
   power: { pricePerKwh: 0, currency: "" },
+  notify: { native: true, ntfy: false, ntfyLevel: "warn", ntfyOk: true, muted: [] },
   netWatch: { enabled: false, scanner: null, minutes: 60, sweep: false, alertNew: true, alertMissing: true, alertRisks: true },
 };
 
@@ -1487,6 +1501,12 @@ export const api = {
     T()
       ? commands.termOpenVmConsole(hostId, kind, id, asRoot, cols, rows, channel(on))
       : mockBackend.termOpenSsh(hostId, on),
+  noticesList: (limit: number): Promise<Notice[]> => (T() ? commands.noticesList(limit) : mockNotify.list(limit)),
+  noticesRead: (ids: number[] | null): Promise<null> => (T() ? commands.noticesRead(ids) : mockNotify.read(ids)),
+  noticesClear: (): Promise<null> => (T() ? commands.noticesClear() : mockNotify.clear()),
+  ntfyGet: (): Promise<NtfyInfo> => (T() ? commands.ntfyGet() : mockNotify.ntfyGet()),
+  ntfySet: (url: string | null, token: string | null): Promise<NtfyInfo> => (T() ? commands.ntfySet(url, token) : mockNotify.ntfySet(url, token)),
+  notifyTest: (): Promise<NotifyTest> => (T() ? commands.notifyTest() : mockNotify.test()),
 };
 
 /** The structured parts of a rejected Docker command, when present. */

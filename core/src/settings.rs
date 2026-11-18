@@ -113,6 +113,9 @@ pub struct AppSettings {
     pub power: PowerSettings,
     /// The MCP server (M12g). Machine-specific, like the status page.
     pub mcp: McpSettings,
+    /// Where notices go besides the inbox (1.1). The ntfy URL and token
+    /// live in the keychain.
+    pub notify: crate::notify::NotifySettings,
     /// Background network scans with alerts (D-145).
     pub net_watch: NetWatchSettings,
     /// Overview dashboards (M10o). Empty means the built-in default.
@@ -152,6 +155,13 @@ pub const FEATURES: &[&str] = &[
     "fleet.blueprints",
     "fleet.power",
     "fleet.node",
+    "fleet.catalog",
+    "fleet.drills",
+    "fleet.capacity",
+    "fleet.replay",
+    "security",
+    "security.posture",
+    "security.secrets",
     "desktops",
     "proxmox",
     "proxmox.sandbox",
@@ -378,6 +388,7 @@ impl Default for AppSettings {
             last_profile_export: None,
             profile_reminder_snooze: None,
             status_page: StatusPageSettings::default(),
+            notify: crate::notify::NotifySettings::default(),
             power: PowerSettings::default(),
             mcp: McpSettings::default(),
             net_watch: NetWatchSettings::default(),
@@ -545,6 +556,7 @@ impl AppSettings {
         if !WEBHOOK_KINDS.contains(&a.webhook.as_str()) {
             return Err(Error::Invalid { field: "alerts.webhook", reason: format!("unknown webhook {:?}", a.webhook) });
         }
+        self.notify.validate()?;
         crate::dashboard::validate_all(&self.dashboards, &self.dashboard_presets)?;
         if self.term_scrollback > TERM_SCROLLBACK_MAX {
             return Err(Error::Invalid { field: "termScrollback", reason: format!("at most {TERM_SCROLLBACK_MAX}") });

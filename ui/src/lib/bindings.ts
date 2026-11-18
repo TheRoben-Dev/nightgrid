@@ -760,6 +760,21 @@ export const commands = {
 	 *  Ignores quiet hours. Returns a line per channel describing what happened.
 	 */
 	alertsTest: (options?: InvokeOptions) => __TAURI_INVOKE<TestResult_Serialize>("alerts_test", undefined, options),
+	noticesList: (limit: number, options?: InvokeOptions) => __TAURI_INVOKE<Notice_Serialize[]>("notices_list", { limit }, options),
+	/**  Marks these notices read, or every one with `null`. */
+	noticesRead: (ids: number[] | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("notices_read", { ids }, options),
+	noticesClear: (options?: InvokeOptions) => __TAURI_INVOKE<null>("notices_clear", undefined, options),
+	ntfyGet: (options?: InvokeOptions) => __TAURI_INVOKE<NtfyInfo_Serialize>("ntfy_get", undefined, options),
+	/**
+	 *  Saves the topic URL (`null` removes it and the token) and, when given,
+	 *  the access token (empty string removes it). Refuses the public ntfy.sh.
+	 */
+	ntfySet: (url: string | null, token: string | null, options?: InvokeOptions) => __TAURI_INVOKE<NtfyInfo_Serialize>("ntfy_set", { url, token }, options),
+	/**
+	 *  Sends a test notice to the inbox, the desktop and ntfy (ignores quiet
+	 *  hours and routes; only the channel switches count).
+	 */
+	notifyTest: (options?: InvokeOptions) => __TAURI_INVOKE<NotifyTest_Serialize>("notify_test", undefined, options),
 	/**
 	 *  Recent error lines behind a log alert (key `logs:<host>:<source>:…`),
 	 *  for "what broke". Secret-looking lines were never kept.
@@ -1436,6 +1451,11 @@ export type AppSettings_Deserialize = {
 	power?: PowerSettings_Deserialize,
 	/**  The MCP server (M12g). Machine-specific, like the status page. */
 	mcp?: McpSettings_Deserialize,
+	/**
+	 *  Where notices go besides the inbox (1.1). The ntfy URL and token
+	 *  live in the keychain.
+	 */
+	notify?: NotifySettings_Deserialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch?: NetWatchSettings_Deserialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -1560,6 +1580,11 @@ export type AppSettings_Serialize = {
 	power: PowerSettings_Serialize,
 	/**  The MCP server (M12g). Machine-specific, like the status page. */
 	mcp: McpSettings_Serialize,
+	/**
+	 *  Where notices go besides the inbox (1.1). The ntfy URL and token
+	 *  live in the keychain.
+	 */
+	notify: NotifySettings_Serialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch: NetWatchSettings_Serialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -5649,6 +5674,139 @@ export type Note_Serialize = {
 	serviceId: number | null,
 	/**  Unix seconds. */
 	updatedAt: number,
+};
+
+/**  A notice in the inbox. */
+export type Notice = Notice_Serialize | Notice_Deserialize;
+
+export type NoticeLevel = "info" | 
+/**  Something went back to normal or passed. */
+"ok" | "warn" | "critical";
+
+export type NoticeSource = 
+/**  An alert fired or cleared. */
+"alert" | 
+/**  A restore drill passed or failed. */
+"drill" | 
+/**  A secret or certificate is due for rotation. */
+"rotation" | 
+/**  A host's security posture score dropped. */
+"posture" | 
+/**  A host is running out of room (capacity planner). */
+"capacity" | 
+/**  Tests and Nightgrid's own messages. */
+"system";
+
+/**  A notice in the inbox. */
+export type Notice_Deserialize = {
+	id: number,
+	/**  Unix seconds. */
+	at: number,
+	source: NoticeSource,
+	level: NoticeLevel,
+	title: string,
+	body: string,
+	hostId?: number | null,
+	view?: string | null,
+	read: boolean,
+};
+
+/**  A notice in the inbox. */
+export type Notice_Serialize = {
+	id: number,
+	/**  Unix seconds. */
+	at: number,
+	source: NoticeSource,
+	level: NoticeLevel,
+	title: string,
+	body: string,
+	hostId: number | null,
+	view: string | null,
+	read: boolean,
+};
+
+/**
+ *  Where notices go. Desktop notifications for alerts follow
+ *  `alerts.native`; everything else is routed here.
+ */
+export type NotifySettings = NotifySettings_Serialize | NotifySettings_Deserialize;
+
+/**
+ *  Where notices go. Desktop notifications for alerts follow
+ *  `alerts.native`; everything else is routed here.
+ */
+export type NotifySettings_Deserialize = {
+	/**  Desktop notifications for the sources that aren't alerts. */
+	native?: boolean,
+	/**  Send to a self-hosted ntfy server (its URL lives in the keychain). */
+	ntfy?: boolean,
+	/**  Lowest level sent to ntfy. */
+	ntfyLevel?: NoticeLevel,
+	/**  Also send "resolved" and "passed" notices to ntfy. */
+	ntfyOk?: boolean,
+	/**  Routes turned off, as `native:<source>` or `ntfy:<source>`. */
+	muted?: string[],
+};
+
+/**
+ *  Where notices go. Desktop notifications for alerts follow
+ *  `alerts.native`; everything else is routed here.
+ */
+export type NotifySettings_Serialize = {
+	/**  Desktop notifications for the sources that aren't alerts. */
+	native: boolean,
+	/**  Send to a self-hosted ntfy server (its URL lives in the keychain). */
+	ntfy: boolean,
+	/**  Lowest level sent to ntfy. */
+	ntfyLevel: NoticeLevel,
+	/**  Also send "resolved" and "passed" notices to ntfy. */
+	ntfyOk: boolean,
+	/**  Routes turned off, as `native:<source>` or `ntfy:<source>`. */
+	muted: string[],
+};
+
+/**  What a test sent on each channel. */
+export type NotifyTest = NotifyTest_Serialize | NotifyTest_Deserialize;
+
+/**  What a test sent on each channel. */
+export type NotifyTest_Deserialize = {
+	native?: string | null,
+	ntfy?: string | null,
+};
+
+/**  What a test sent on each channel. */
+export type NotifyTest_Serialize = {
+	native: string | null,
+	ntfy: string | null,
+};
+
+/**  What's saved for ntfy, without the secret parts. */
+export type NtfyInfo = NtfyInfo_Serialize | NtfyInfo_Deserialize;
+
+/**  What's saved for ntfy, without the secret parts. */
+export type NtfyInfo_Deserialize = {
+	configured: boolean,
+	/**  `https://server/topic` without credentials. */
+	url?: string | null,
+	hasToken: boolean,
+	/**
+	 *  The saved URL points at the public ntfy service (only possible for
+	 *  a webhook moved over from an older version).
+	 */
+	public: boolean,
+};
+
+/**  What's saved for ntfy, without the secret parts. */
+export type NtfyInfo_Serialize = {
+	configured: boolean,
+	/**  `https://server/topic` without credentials. */
+	url: string | null,
+	hasToken: boolean,
+	/**
+	 *  The saved URL points at the public ntfy service (only possible for
+	 *  a webhook moved over from an older version).
+	 */
+	public: boolean,
 };
 
 export type NvmeHealth = {

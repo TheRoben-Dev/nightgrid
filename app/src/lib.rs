@@ -32,11 +32,13 @@ mod netperf_cmd;
 mod netwatch_cmd;
 mod node_cmd;
 mod notes_cmd;
+mod notify_cmd;
 mod platform;
 mod powercost_cmd;
 mod proxmox_cmd;
 mod proxy_cmd;
 mod quest_cmd;
+mod secrets_cmd;
 mod services_cmd;
 mod state;
 mod status_cmd;
@@ -365,6 +367,12 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_webhook_get,
         alerts_cmd::alerts_webhook_set,
         alerts_cmd::alerts_test,
+        notify_cmd::notices_list,
+        notify_cmd::notices_read,
+        notify_cmd::notices_clear,
+        notify_cmd::ntfy_get,
+        notify_cmd::ntfy_set,
+        notify_cmd::notify_test,
         alerts_cmd::alerts_log_samples,
         alerts_cmd::alerts_log_mute,
         alerts_cmd::log_classify,
@@ -492,6 +500,7 @@ pub fn run() {
             }
             app.manage(state);
             tray::apply(app.handle());
+            notify_cmd::migrate(app.handle());
             alerts_cmd::start(app.handle());
             status_cmd::apply(app.handle());
             mcp_cmd::apply(app.handle());

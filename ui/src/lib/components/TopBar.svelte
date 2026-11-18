@@ -7,6 +7,7 @@
   import { helper } from "../stores/helper.svelte";
   import { settings } from "../stores/settings.svelte";
   import Drift from "./helper/Drift.svelte";
+  import NoticesBell from "./notify/NoticesBell.svelte";
 
   const node = $derived.by(() => {
     const o = ui.section === "terminal" ? terms.currentSession?.origin : undefined;
@@ -37,6 +38,7 @@
     {#if settings.on("tunnels")}
       <button type="button" class="ind tun" class:on={tunnels.activeCount > 0} title="Active tunnels" onclick={() => ui.go("tunnels")}><span class="glyph" aria-hidden="true">⇄</span> TUN <b>{tunnels.activeCount}</b></button>
     {/if}
+    <NoticesBell />
     {#if settings.on("drift")}<button
       type="button"
       class="ind drift"

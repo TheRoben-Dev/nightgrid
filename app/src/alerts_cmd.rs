@@ -245,7 +245,7 @@ fn local_minutes() -> u16 {
     (now.hour() * 60 + now.minute()) as u16
 }
 
-fn is_quiet(s: &AppSettings) -> bool {
+pub(crate) fn is_quiet(s: &AppSettings) -> bool {
     s.alerts.quiet_hours && alerts::in_quiet_hours(s.alerts.quiet_start, s.alerts.quiet_end, local_minutes())
 }
 
@@ -795,13 +795,19 @@ fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], released: Vec
             }
         }
     }
-    if quiet || (fired.is_empty() && resolved.is_empty()) {
+    if fired.is_empty() && resolved.is_empty() {
         return;
     }
     let explains = |a: &Alert| match folded_under.get(&a.id) {
         Some(n) => format!(" (and {n} alert{} it explains)", if *n == 1 { "" } else { "s" }),
         None => String::new(),
     };
+    // The inbox keeps every round, quiet hours or not (1.1).
+    let with_why: Vec<(Alert, String)> = fired.iter().map(|a| (a.clone(), explains(a))).collect();
+    crate::notify_cmd::from_alerts(app, cfg, &with_why, &resolved, quiet);
+    if quiet {
+        return;
+    }
     if cfg.alerts.native && !fired.is_empty() {
         if fired.len() > NOTIFY_BATCH {
             let crit = fired.iter().filter(|a| a.severity == Severity::Critical).count();
@@ -855,6 +861,8 @@ pub(crate) fn import_from_node(app: &AppHandle, host_name: &str, list: Vec<Alert
     let hub = app.state::<AppState>().alerts.clone();
     let fired = hub.tracker.lock().expect("poisoned").import(list);
     hub.push(&cfg);
+    let with_why: Vec<(Alert, String)> = fired.iter().map(|a| (a.clone(), String::new())).collect();
+    crate::notify_cmd::from_alerts(app, &cfg, &with_why, &[], is_quiet(&cfg));
     if fired.is_empty() || is_quiet(&cfg) || !cfg.alerts.native {
         return;
     }

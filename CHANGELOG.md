@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added: local notifications
+- **INBOX** in the top bar: every notice Nightgrid sent in the last 30 days (alerts firing and clearing, restore drills, rotations due, security score drops, capacity warnings) with an unread count. Click one to open what it's about.
+- **Settings → Alerts → Notifications**: choose per notice type whether it reaches the desktop and ntfy.
+- **ntfy (self-hosted)**: off by default; push notices to your phone through your own ntfy server, with an optional access token kept in the keychain, a level filter and a test. The public ntfy.sh is refused. An "ntfy" alert webhook from an older version moves here by itself.
+
 ## [1.0.0] - 2026-11-17
 
 Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power & cost, Library quests, Node pairing) ends with an MCP server.
