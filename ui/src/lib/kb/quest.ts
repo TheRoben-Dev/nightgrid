@@ -24,7 +24,7 @@ export const STATE_WORD: Record<QuestResult["state"], string> = { pass: "VERIFIE
 export const questLine = (title: string, host: string, s: QuestSummary): string =>
   `${title}: ${s.pass} of ${s.total} checkable steps verified on ${host}${s.fail ? `, ${s.fail} not done yet` : ""}${s.unknown ? `, ${s.unknown} couldn't be checked` : ""}`;
 
-/** One `- [ ]` step of a guide, for the quest log (1.3). */
+/** One `- [ ]` step of a guide, for the quest log (1.4). */
 export interface QuestStep {
   /** Markdown block-item key, as ticks use. */
   key: string;

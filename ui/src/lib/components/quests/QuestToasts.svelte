@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Quest updates (1.3): top right, under the top bar, styled like a quest
+   * Quest updates (1.4): top right, under the top bar, styled like a quest
    * log entry. The label and title decode in (off under reduce effects, as is
    * the slide); click opens the guide on the quest's host.
    */

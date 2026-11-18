@@ -1,5 +1,5 @@
 /**
- * The quest log (1.3, D-175): Library guides started as quests, one per
+ * The quest log (1.4, D-176): Library guides started as quests, one per
  * guide and host, with the steps done so far. The top bar lists the active
  * ones with their current step; finishing a step, an objective or the whole
  * guide shows a quest-update toast. Quests on a connected host re-run their

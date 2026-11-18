@@ -17,7 +17,7 @@ export const mockQuest = {
   },
 };
 
-/** Browser-only quest log (1.3): kept in localStorage like the real one is kept in the database. */
+/** Browser-only quest log (1.4): kept in localStorage like the real one is kept in the database. */
 const LOG_KEY = "nightgrid.mock.quests";
 function load(): Quest[] {
   try {

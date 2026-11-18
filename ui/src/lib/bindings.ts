@@ -1892,7 +1892,7 @@ export type BackupSummary_Deserialize = {
 	notes?: number,
 	backupJobs?: number,
 	deviceLabels?: number,
-	/**  Library quests (1.3). */
+	/**  Library quests (1.4). */
 	quests?: number,
 	services: number,
 	tunnels: number,
@@ -1915,7 +1915,7 @@ export type BackupSummary_Serialize = {
 	notes: number,
 	backupJobs: number,
 	deviceLabels: number,
-	/**  Library quests (1.3). */
+	/**  Library quests (1.4). */
 	quests: number,
 	services: number,
 	tunnels: number,

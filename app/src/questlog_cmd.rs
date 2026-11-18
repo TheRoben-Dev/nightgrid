@@ -1,4 +1,4 @@
-//! The quest log (1.3, D-175): Library guides started as quests, with the
+//! The quest log (1.4, D-176): Library guides started as quests, with the
 //! steps done so far. The UI works out the current step from the guide text;
 //! this only keeps the record (local, part of the profile export).
 

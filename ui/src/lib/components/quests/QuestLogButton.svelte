@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** The quest log (1.3): beside INBOX, every active Library quest with its current step and progress per host. */
+  /** The quest log (1.4): beside INBOX, every active Library quest with its current step and progress per host. */
   import { onMount } from "svelte";
   import { questLog } from "../../stores/questlog.svelte";
   import { quests as checks } from "../../stores/quests.svelte";

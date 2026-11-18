@@ -1,4 +1,4 @@
-//! The quest log (1.3): Library guides the user started as quests. A quest
+//! The quest log (1.4): Library guides the user started as quests. A quest
 //! is one guide on one host (or on no host, for a guide with nothing to
 //! check) and remembers which of its steps are done, so the top bar can show
 //! every active quest with its current step. The guide text stays in the app

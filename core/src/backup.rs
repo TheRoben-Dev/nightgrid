@@ -220,7 +220,7 @@ pub struct BackupSummary {
     pub backup_jobs: u32,
     #[serde(default)]
     pub device_labels: u32,
-    /// Library quests (1.3).
+    /// Library quests (1.4).
     #[serde(default)]
     pub quests: u32,
     pub services: u32,

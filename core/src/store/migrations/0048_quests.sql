@@ -1,4 +1,4 @@
--- 0048 (1.3): the quest log. A Library guide the user started as a quest,
+-- 0048 (1.4): the quest log. A Library guide the user started as a quest,
 -- on one host (or none, for guides with nothing to check), with the steps
 -- done so far as Markdown block-item keys ("12-0"). Config, not history:
 -- quests travel in the profile export.

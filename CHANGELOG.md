@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
-## [1.3.0] - 2026-11-18
+## [1.4.0] - 2026-11-18
 
 ### Added: quest log
 - **Start a quest** from any Library article with steps: the strip under the title says **◇ QUEST AVAILABLE**; pick the host it's for (or none) and press **▶ START QUEST**. Articles that can be quests are marked **◇ QUEST** in the list and on the shelves, and the **◇ QUESTS** chip shows only those. The same guide can run as separate quests on different hosts.
