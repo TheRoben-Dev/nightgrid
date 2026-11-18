@@ -8617,6 +8617,7 @@ export type SnippetInput_Serialize = {
 /**  Where a snippet shows up: everywhere, on one host, or on a group's hosts. */
 export type SnippetScope = { kind: "global" } | { kind: "host"; hostId: number } | { kind: "group"; groupId: number };
 
+/**  UI sounds (D-178): synthesized in the UI, nothing is stored but these. */
 export type SoundSettings = SoundSettings_Serialize | SoundSettings_Deserialize;
 
 /**  UI sounds (D-178): synthesized in the UI, nothing is stored but these. */
