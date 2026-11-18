@@ -16,6 +16,7 @@ import guideMd from "../../../../docs/USER_GUIDE.md?raw";
 import { chunkMarkdown, Index, type Chunk } from "../helper/knowledge";
 import { parseMd } from "../helper/md";
 import type { Shelf } from "./catalog";
+import type { QuestStep } from "./quest";
 
 const FILES = import.meta.glob("../../../../docs/kb/{basics,guides,howto,apps,linux,errors}/*.md", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
 
@@ -194,6 +195,38 @@ export function parts(a: Article): Part[] {
     }
   });
   return out.filter((p) => p.keys.length > 0);
+}
+
+/** A guide's steps in order, with their text and part, for the quest log. */
+export function stepList(a: Article): QuestStep[] {
+  const out: QuestStep[] = [];
+  let part = -1;
+  let partTitle = a.title;
+  let n = 0;
+  parseMd(a.body, { headings: true, steps: true, figures: true }).forEach((b, bi) => {
+    if (b.kind === "h" && b.level === 2) {
+      partTitle = b.text.map((t) => t.text).join("");
+      part = -1;
+    } else if ((b.kind === "ul" || b.kind === "ol") && b.checks) {
+      b.checks.forEach((c, ii) => {
+        if (c === null) return;
+        if (part < 0) part = new Set(out.map((s) => s.part)).size;
+        const text = b.items[ii]
+          .map((t) => t.text)
+          .join("")
+          .replace(/\s+/g, " ")
+          .trim();
+        out.push({ key: `${bi}-${ii}`, text, part, partTitle, check: a.checks?.[n] ?? null });
+        n++;
+      });
+    }
+  });
+  return out;
+}
+
+/** Guides that can be started as quests: the ones with `- [ ]` steps, outside the Nightgrid and basics shelves. */
+export function questable(a: Article): boolean {
+  return a.shelf !== "nightgrid" && a.shelf !== "basics" && parts(a).length > 0;
 }
 
 /** Article chunks for search and DRIFT, titled "Library › Article › Section". */
