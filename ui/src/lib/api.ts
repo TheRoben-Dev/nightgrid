@@ -359,11 +359,48 @@ import {
   type LogEventView_Serialize as LogEventView,
   type LogNote_Serialize as LogNote,
   type HostAuthNotice_Serialize as HostAuthNotice,
+  type Notice_Serialize as Notice,
+  type NoticeLevel,
+  type NoticeSource,
+  type NotifySettings_Serialize as NotifySettings,
+  type NtfyInfo_Serialize as NtfyInfo,
+  type NotifyTest_Serialize as NotifyTest,
+  type PostureHost_Serialize as PostureHost,
+  type PostureRun_Serialize as PostureRun,
+  type PostureCheck_Serialize as PostureCheck,
+  type PostureStatus,
+  type SecuritySettings_Serialize as SecuritySettings,
+  type SecretItem_Serialize as SecretItem,
+  type SecretKind,
+  type RotationState,
+  type ManualSecret_Deserialize as ManualSecret,
+  type KeyHost_Serialize as KeyHost,
+  type CatalogHost_Serialize as CatalogHost,
+  type CatalogEntry_Serialize as CatalogEntry,
+  type CatalogMount_Serialize as CatalogMount,
+  type Coverage,
+  type Drill_Serialize as Drill,
+  type DrillKind,
+  type DrillRun_Serialize as DrillRun,
+  type DrillView_Serialize as DrillView,
+  type DrillBoard_Serialize as DrillBoard,
+  type HostCapacity_Serialize as HostCapacity,
+  type CapDisk_Serialize as CapDisk,
+  type HostSpec,
+  type Incident_Serialize as Incident,
+  type IncidentKind,
+  type Replay_Serialize as Replay,
+  type ReplayEvent_Serialize as ReplayEvent,
+  type ReplaySource,
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
 import { mockJournal } from "./mockJournal";
 import { mockPower } from "./mockPower";
+import { mockCapacity, mockCatalog, mockDrills, mockReplay } from "./mockFleet11";
+import { mockSecrets } from "./mockSecrets";
+import { mockPosture } from "./mockPosture";
+import { mockNotify } from "./mockNotify";
 import { mockNode } from "./mockNode";
 import { mockMcp } from "./mockMcp";
 import { mockQuest } from "./mockQuest";
@@ -747,6 +784,39 @@ export type {
   Rate,
   Sample,
   Temp,
+  Notice,
+  NoticeLevel,
+  NoticeSource,
+  NotifySettings,
+  NtfyInfo,
+  NotifyTest,
+  PostureHost,
+  PostureRun,
+  PostureCheck,
+  PostureStatus,
+  SecuritySettings,
+  SecretItem,
+  SecretKind,
+  RotationState,
+  ManualSecret,
+  KeyHost,
+  CatalogHost,
+  CatalogEntry,
+  CatalogMount,
+  Coverage,
+  Drill,
+  DrillKind,
+  DrillRun,
+  DrillView,
+  DrillBoard,
+  HostCapacity,
+  CapDisk,
+  HostSpec,
+  Incident,
+  IncidentKind,
+  Replay,
+  ReplayEvent,
+  ReplaySource,
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -823,6 +893,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   statusPage: { enabled: false, bind: "lan", port: 8787 },
   mcp: { enabled: false, port: 47821, allowWrites: false },
   power: { pricePerKwh: 0, currency: "" },
+  notify: { native: true, ntfy: false, ntfyLevel: "warn", ntfyOk: true, muted: [] },
+  security: { postureDaily: true, rotationNotices: true },
   netWatch: { enabled: false, scanner: null, minutes: 60, sweep: false, alertNew: true, alertMissing: true, alertRisks: true },
 };
 
@@ -1487,6 +1559,33 @@ export const api = {
     T()
       ? commands.termOpenVmConsole(hostId, kind, id, asRoot, cols, rows, channel(on))
       : mockBackend.termOpenSsh(hostId, on),
+  noticesList: (limit: number): Promise<Notice[]> => (T() ? commands.noticesList(limit) : mockNotify.list(limit)),
+  noticesRead: (ids: number[] | null): Promise<null> => (T() ? commands.noticesRead(ids) : mockNotify.read(ids)),
+  noticesClear: (): Promise<null> => (T() ? commands.noticesClear() : mockNotify.clear()),
+  ntfyGet: (): Promise<NtfyInfo> => (T() ? commands.ntfyGet() : mockNotify.ntfyGet()),
+  ntfySet: (url: string | null, token: string | null): Promise<NtfyInfo> => (T() ? commands.ntfySet(url, token) : mockNotify.ntfySet(url, token)),
+  notifyTest: (): Promise<NotifyTest> => (T() ? commands.notifyTest() : mockNotify.test()),
+  postureList: (): Promise<PostureHost[]> => (T() ? commands.postureList() : mockPosture.list()),
+  postureHistory: (hostId: number): Promise<PostureRun[]> => (T() ? commands.postureHistory(hostId) : mockPosture.history(hostId)),
+  postureCheck: (hostIds: number[]): Promise<PostureRun[]> => (T() ? commands.postureCheck(hostIds) : mockPosture.check(hostIds)),
+  secretsList: (): Promise<SecretItem[]> => (T() ? commands.secretsList() : mockSecrets.list()),
+  secretMarkRotated: (key: string): Promise<null> => (T() ? commands.secretMarkRotated(key) : mockSecrets.markRotated(key)),
+  secretPolicy: (key: string, days: number | null): Promise<null> => (T() ? commands.secretPolicy(key, days) : mockSecrets.policy(key, days)),
+  secretManualSave: (secret: ManualSecret): Promise<number> => (T() ? commands.secretManualSave(secret) : mockSecrets.save(secret)),
+  secretManualDelete: (id: number): Promise<null> => (T() ? commands.secretManualDelete(id) : mockSecrets.remove(id)),
+  secretKeyHosts: (fingerprint: string): Promise<KeyHost[]> => (T() ? commands.secretKeyHosts(fingerprint) : mockSecrets.keyHosts(fingerprint)),
+  catalogBuild: (hostIds: number[]): Promise<CatalogHost[]> => (T() ? commands.catalogBuild(hostIds) : mockCatalog.build(hostIds)),
+  catalogMarkdown: (hosts: CatalogHost[]): Promise<string> => (T() ? commands.catalogMarkdown(hosts) : mockCatalog.markdown(hosts)),
+  reportSave: (name: string, content: string): Promise<string | null> => (T() ? commands.reportSave(name, content) : Promise.resolve(null)),
+  drillsList: (): Promise<DrillBoard> => (T() ? commands.drillsList() : mockDrills.list()),
+  drillSave: (drill: Drill): Promise<number> => (T() ? commands.drillSave(drill) : mockDrills.save(drill)),
+  drillDelete: (id: number): Promise<null> => (T() ? commands.drillDelete(id) : mockDrills.remove(id)),
+  drillRuns: (id: number): Promise<DrillRun[]> => (T() ? commands.drillRuns(id) : mockDrills.runs(id)),
+  drillRun: (id: number): Promise<DrillRun> => (T() ? commands.drillRun(id) : mockDrills.run(id)),
+  drillReport: (id: number): Promise<string> => (T() ? commands.drillReport(id) : mockDrills.report(id)),
+  capacityList: (days: number): Promise<HostCapacity[]> => (T() ? commands.capacityList(days) : mockCapacity.list(days)),
+  replayIncidents: (days: number): Promise<Incident[]> => (T() ? commands.replayIncidents(days) : mockReplay.incidents()),
+  replayLoad: (incident: Incident): Promise<Replay> => (T() ? commands.replayLoad(incident) : mockReplay.load(incident)),
 };
 
 /** The structured parts of a rejected Docker command, when present. */

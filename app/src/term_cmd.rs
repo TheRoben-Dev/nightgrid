@@ -336,6 +336,7 @@ pub fn ssh_provide_secret(
         if let Some(id) = host {
             state.keychain.set(&SecretRef::new(kind, id.to_string()), &secret)?;
             state.store().set_remember_secret(id, true)?;
+            crate::secrets_cmd::stamp(&state, &format!("host:{id}"));
         }
     }
     Ok(())

@@ -428,6 +428,7 @@ pub async fn status_page_new_token(app: AppHandle) -> CmdResult<StatusPageInfo> 
             .keychain
             .set(&token_ref(), &Secret::new(status_page::new_token()))
             .map_err(|e| CommandError::msg(e.to_string()))?;
+        crate::secrets_cmd::stamp(&state, "app:status");
     }
     let enabled = AppSettings::load(&app.state::<AppState>().store())?.status_page.enabled;
     if enabled {

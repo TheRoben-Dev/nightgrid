@@ -1,6 +1,6 @@
 import type { ActionId } from "./keys";
 
-export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "fleet" | "desktops" | "proxmox" | "network" | "nettools" | "automation" | "notes" | "library" | "settings";
+export type SectionId = "overview" | "terminal" | "files" | "docker" | "services" | "tunnels" | "system" | "fleet" | "security" | "desktops" | "proxmox" | "network" | "nettools" | "automation" | "notes" | "library" | "settings";
 
 export interface Section {
   id: SectionId;
@@ -19,6 +19,7 @@ export const SECTIONS: Section[] = [
   { id: "tunnels", label: "Tunnels", code: "TUN", action: "nav.tunnels", milestone: "M5" },
   { id: "system", label: "System", code: "SYS", action: "nav.system", milestone: "M6" },
   { id: "fleet", label: "Fleet", code: "FLT", action: "nav.fleet", milestone: "M10m" },
+  { id: "security", label: "Security", code: "SEC", action: "nav.security", milestone: "1.1" },
   { id: "desktops", label: "Desktops", code: "DSK", action: "nav.desktops", milestone: "M10n" },
   { id: "proxmox", label: "Proxmox", code: "PVE", action: "nav.proxmox", milestone: "M10r" },
   { id: "network", label: "Network", code: "NET", action: "nav.network", milestone: "M10i" },
@@ -52,6 +53,7 @@ export const RAIL: RailEntry[] = [
   { id: "docker", label: "Docker", code: "DKR", members: ["docker"] },
   { id: "services", label: "Services", code: "SVC", members: ["services"] },
   { id: "system", label: "System", code: "SYS", members: ["system", "fleet"], tabs: { system: "One host", fleet: "Fleet" } },
+  { id: "security", label: "Security", code: "SEC", members: ["security"] },
   { id: "network", label: "Network", code: "NET", members: ["network", "nettools", "tunnels"], tabs: { network: "Map", nettools: "Tools" } },
   { id: "vms", label: "VMs", code: "VMS", members: ["proxmox", "desktops"] },
   { id: "automation", label: "Automation", code: "AUT", members: ["automation"] },

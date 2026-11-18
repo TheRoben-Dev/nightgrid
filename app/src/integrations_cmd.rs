@@ -67,9 +67,13 @@ pub fn integration_create(
     secret: Option<String>,
 ) -> CmdResult<IntegrationView> {
     let i = state.store().create_integration(&input)?;
+    let stamped = secret.as_deref().is_some_and(|s| !s.trim().is_empty());
     if let Err(e) = store_secret(&state, i.id, secret) {
         let _ = state.store().delete_integration(i.id);
         return Err(e);
+    }
+    if stamped {
+        crate::secrets_cmd::stamp(&state, &format!("integration:{}", i.id));
     }
     journal(&state, &format!("Added integration {}", input.name));
     Ok(view(&state, i))
@@ -84,7 +88,11 @@ pub fn integration_update(
     secret: Option<String>,
 ) -> CmdResult<IntegrationView> {
     let i = state.store().update_integration(id, &input)?;
+    let stamped = secret.as_deref().is_some_and(|s| !s.trim().is_empty());
     store_secret(&state, id, secret)?;
+    if stamped {
+        crate::secrets_cmd::stamp(&state, &format!("integration:{id}"));
+    }
     journal(&state, &format!("Changed integration {}", input.name));
     Ok(view(&state, i))
 }

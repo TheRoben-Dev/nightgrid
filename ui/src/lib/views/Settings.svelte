@@ -62,6 +62,7 @@
     "nav.notes": "Knowledge",
     "nav.network": "Network map",
     "nav.fleet": "Fleet (updates across hosts)",
+    "nav.security": "Security (posture and secrets)",
     "nav.desktops": "Desktops (VM screens)",
     "nav.proxmox": "Proxmox",
     "nav.nettools": "Network tools",

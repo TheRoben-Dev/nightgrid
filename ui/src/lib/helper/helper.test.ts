@@ -11,13 +11,14 @@ describe("guide targets", () => {
     for (const t of GUIDE_TARGETS) {
       const literal = markup.includes(`guide="${t.id}"`);
       const rail = t.id.startsWith("rail-") && markup.includes('data-guide="rail-{r.members[0]}"');
+      const secTab = t.id.startsWith("security-tab-") && markup.includes('data-guide="security-tab-{t.id}"');
       const sysTab = t.id.startsWith("system-tab-") && markup.includes('data-guide="system-tab-{t.id}"');
       const fleetTab = t.id.startsWith("fleet-tab-") && markup.includes('data-guide="fleet-tab-{t.id}"');
       const pveTab = t.id.startsWith("proxmox-tab-") && markup.includes('data-guide="proxmox-tab-{t.id}"');
       const setTab = t.id.startsWith("settings-tab-") && markup.includes('data-guide="settings-tab-{t.id}"');
       const viewTab = t.id.startsWith("viewtab-") && markup.includes('data-guide="viewtab-{v.id}"');
       const toolBtn = t.id.startsWith("nettools-") && markup.includes("data-guide={`nettools-${t.id}`}");
-      expect(literal || rail || sysTab || fleetTab || pveTab || viewTab || setTab || toolBtn, t.id).toBe(true);
+      expect(literal || rail || secTab || sysTab || fleetTab || pveTab || viewTab || setTab || toolBtn, t.id).toBe(true);
     }
   });
   it("views that share a sidebar row point at the row and say where they are", () => {

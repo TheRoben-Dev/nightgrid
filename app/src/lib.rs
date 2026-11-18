@@ -7,12 +7,16 @@ mod automation_cmd;
 mod backup_cmd;
 mod backup_jobs_cmd;
 mod blueprint_cmd;
+mod capacity_cmd;
+mod catalog_cmd;
+mod chores;
 mod cmdwidget_cmd;
 mod commands;
 mod confdiff_cmd;
 mod desktop_cmd;
 mod docker_cmd;
 mod drift_cmd;
+mod drills_cmd;
 mod envvault_cmd;
 mod expiry_cmd;
 mod files_cmd;
@@ -32,11 +36,15 @@ mod netperf_cmd;
 mod netwatch_cmd;
 mod node_cmd;
 mod notes_cmd;
+mod notify_cmd;
 mod platform;
+mod posture_cmd;
 mod powercost_cmd;
 mod proxmox_cmd;
 mod proxy_cmd;
 mod quest_cmd;
+mod replay_cmd;
+mod secrets_cmd;
 mod services_cmd;
 mod state;
 mod status_cmd;
@@ -365,6 +373,33 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_webhook_get,
         alerts_cmd::alerts_webhook_set,
         alerts_cmd::alerts_test,
+        notify_cmd::notices_list,
+        notify_cmd::notices_read,
+        notify_cmd::notices_clear,
+        notify_cmd::ntfy_get,
+        notify_cmd::ntfy_set,
+        notify_cmd::notify_test,
+        posture_cmd::posture_list,
+        posture_cmd::posture_history,
+        posture_cmd::posture_check,
+        secrets_cmd::secrets_list,
+        secrets_cmd::secret_mark_rotated,
+        secrets_cmd::secret_policy,
+        secrets_cmd::secret_manual_save,
+        secrets_cmd::secret_manual_delete,
+        secrets_cmd::secret_key_hosts,
+        capacity_cmd::capacity_list,
+        catalog_cmd::catalog_build,
+        replay_cmd::replay_incidents,
+        replay_cmd::replay_load,
+        catalog_cmd::catalog_markdown,
+        catalog_cmd::report_save,
+        drills_cmd::drills_list,
+        drills_cmd::drill_save,
+        drills_cmd::drill_delete,
+        drills_cmd::drill_runs,
+        drills_cmd::drill_run,
+        drills_cmd::drill_report,
         alerts_cmd::alerts_log_samples,
         alerts_cmd::alerts_log_mute,
         alerts_cmd::log_classify,
@@ -492,6 +527,7 @@ pub fn run() {
             }
             app.manage(state);
             tray::apply(app.handle());
+            notify_cmd::migrate(app.handle());
             alerts_cmd::start(app.handle());
             status_cmd::apply(app.handle());
             mcp_cmd::apply(app.handle());

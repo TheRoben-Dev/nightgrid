@@ -64,7 +64,7 @@ async fn find(state: &AppState, fingerprint: &str) -> CmdResult<String> {
         .ok_or_else(|| CommandError::msg("that key isn't in ~/.ssh or the agent any more"))
 }
 
-async fn exec(app: &AppHandle, host_id: HostId, command: &str) -> CmdResult<String> {
+pub(crate) async fn exec(app: &AppHandle, host_id: HostId, command: &str) -> CmdResult<String> {
     let conn = crate::term_cmd::connect_host(app, host_id).await.map_err(|e| CommandError::msg(e.to_string()))?;
     let (code, out, err) = tokio::time::timeout(EXEC_TIMEOUT, conn.exec(command))
         .await

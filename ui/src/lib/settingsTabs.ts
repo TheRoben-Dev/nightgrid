@@ -29,6 +29,8 @@ const BY_TARGET: Record<string, SettingsTab> = {
   "settings-log-rules": "alerts",
   "settings-deps": "alerts",
   "settings-notifications": "alerts",
+  "settings-notify-routes": "alerts",
+  "settings-ntfy": "alerts",
   "settings-desktop": "general",
   "settings-updates": "general",
   "settings-diagnostics": "general",

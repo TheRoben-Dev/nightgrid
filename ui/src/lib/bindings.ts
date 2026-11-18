@@ -760,6 +760,65 @@ export const commands = {
 	 *  Ignores quiet hours. Returns a line per channel describing what happened.
 	 */
 	alertsTest: (options?: InvokeOptions) => __TAURI_INVOKE<TestResult_Serialize>("alerts_test", undefined, options),
+	noticesList: (limit: number, options?: InvokeOptions) => __TAURI_INVOKE<Notice_Serialize[]>("notices_list", { limit }, options),
+	/**  Marks these notices read, or every one with `null`. */
+	noticesRead: (ids: number[] | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("notices_read", { ids }, options),
+	noticesClear: (options?: InvokeOptions) => __TAURI_INVOKE<null>("notices_clear", undefined, options),
+	ntfyGet: (options?: InvokeOptions) => __TAURI_INVOKE<NtfyInfo_Serialize>("ntfy_get", undefined, options),
+	/**
+	 *  Saves the topic URL (`null` removes it and the token) and, when given,
+	 *  the access token (empty string removes it). Refuses the public ntfy.sh.
+	 */
+	ntfySet: (url: string | null, token: string | null, options?: InvokeOptions) => __TAURI_INVOKE<NtfyInfo_Serialize>("ntfy_set", { url, token }, options),
+	/**
+	 *  Sends a test notice to the inbox, the desktop and ntfy (ignores quiet
+	 *  hours and routes; only the channel switches count).
+	 */
+	notifyTest: (options?: InvokeOptions) => __TAURI_INVOKE<NotifyTest_Serialize>("notify_test", undefined, options),
+	/**  Every scored host's latest run, the score before it and the trend. */
+	postureList: (options?: InvokeOptions) => __TAURI_INVOKE<PostureHost_Serialize[]>("posture_list", undefined, options),
+	/**  Recent runs of one host, newest first. */
+	postureHistory: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<PostureRun_Serialize[]>("posture_history", { hostId }, options),
+	/**  Scores these hosts now (three at a time). */
+	postureCheck: (hostIds: number[], options?: InvokeOptions) => __TAURI_INVOKE<PostureRun_Serialize[]>("posture_check", { hostIds }, options),
+	/**  Every known secret, overdue first. */
+	secretsList: (options?: InvokeOptions) => __TAURI_INVOKE<SecretItem_Serialize[]>("secrets_list", undefined, options),
+	/**  "I rotated it": starts its clock again. */
+	secretMarkRotated: (key: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("secret_mark_rotated", { key }, options),
+	/**  Rotate every `days` days; 0 turns the policy off, none restores the default. */
+	secretPolicy: (key: string, days: number | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("secret_policy", { key, days }, options),
+	secretManualSave: (secret: ManualSecret_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<number>("secret_manual_save", { secret }, options),
+	secretManualDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("secret_manual_delete", { id }, options),
+	/**
+	 *  Reads `authorized_keys` on every server host (three at a time) and says
+	 *  where this key is, so a rotation reaches every host before the old key
+	 *  is removed.
+	 */
+	secretKeyHosts: (fingerprint: string, options?: InvokeOptions) => __TAURI_INVOKE<KeyHost_Serialize[]>("secret_key_hosts", { fingerprint }, options),
+	/**  Each host's size, p95 CPU and memory over the last `days`, and disks. */
+	capacityList: (days: number, options?: InvokeOptions) => __TAURI_INVOKE<HostCapacity_Serialize[]>("capacity_list", { days }, options),
+	/**  Reads the catalog of these hosts (three at a time). Nothing is stored. */
+	catalogBuild: (hostIds: number[], options?: InvokeOptions) => __TAURI_INVOKE<CatalogHost_Serialize[]>("catalog_build", { hostIds }, options),
+	/**  Outages and alert bursts of the last `days` (at most 90), newest first. */
+	replayIncidents: (days: number, options?: InvokeOptions) => __TAURI_INVOKE<Incident_Serialize[]>("replay_incidents", { days }, options),
+	/**  Everything recorded around one incident. */
+	replayLoad: (incident: Incident_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Replay_Serialize>("replay_load", { incident }, options),
+	/**  The catalog as Markdown (for the export and for DRIFT). */
+	catalogMarkdown: (hosts: CatalogHost_Deserialize[], options?: InvokeOptions) => __TAURI_INVOKE<string>("catalog_markdown", { hosts }, options),
+	/**
+	 *  Saves a report the user asked for where they pick (a Save dialog).
+	 *  `None` when cancelled.
+	 */
+	reportSave: (name: string, content: string, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("report_save", { name, content }, options),
+	drillsList: (options?: InvokeOptions) => __TAURI_INVOKE<DrillBoard_Serialize>("drills_list", undefined, options),
+	drillSave: (drill: Drill_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<number>("drill_save", { drill }, options),
+	drillDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("drill_delete", { id }, options),
+	/**  Last 50 runs, newest first. */
+	drillRuns: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<DrillRun_Serialize[]>("drill_runs", { id }, options),
+	/**  Runs a drill now and waits for it (a Proxmox drill can take a while). */
+	drillRun: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<DrillRun_Serialize>("drill_run", { id }, options),
+	/**  The drill's runs as a Markdown report. */
+	drillReport: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<string>("drill_report", { id }, options),
 	/**
 	 *  Recent error lines behind a log alert (key `logs:<host>:<source>:…`),
 	 *  for "what broke". Secret-looking lines were never kept.
@@ -1436,6 +1495,13 @@ export type AppSettings_Deserialize = {
 	power?: PowerSettings_Deserialize,
 	/**  The MCP server (M12g). Machine-specific, like the status page. */
 	mcp?: McpSettings_Deserialize,
+	/**
+	 *  Where notices go besides the inbox (1.1). The ntfy URL and token
+	 *  live in the keychain.
+	 */
+	notify?: NotifySettings_Deserialize,
+	/**  Security view (1.1): posture checks and rotation reminders. */
+	security?: SecuritySettings_Deserialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch?: NetWatchSettings_Deserialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -1560,6 +1626,13 @@ export type AppSettings_Serialize = {
 	power: PowerSettings_Serialize,
 	/**  The MCP server (M12g). Machine-specific, like the status page. */
 	mcp: McpSettings_Serialize,
+	/**
+	 *  Where notices go besides the inbox (1.1). The ntfy URL and token
+	 *  live in the keychain.
+	 */
+	notify: NotifySettings_Serialize,
+	/**  Security view (1.1): posture checks and rotation reminders. */
+	security: SecuritySettings_Serialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch: NetWatchSettings_Serialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -2001,6 +2074,100 @@ export type CalendarPreview = {
 	normalized: string,
 	/**  The next runs as systemd prints them (host time). */
 	next: string[],
+};
+
+export type CapDisk = CapDisk_Serialize | CapDisk_Deserialize;
+
+export type CapDisk_Deserialize = {
+	mount: string,
+	size: number,
+	used: number,
+	daysLeft?: number | null,
+};
+
+export type CapDisk_Serialize = {
+	mount: string,
+	size: number,
+	used: number,
+	daysLeft: number | null,
+};
+
+export type CatalogEntry = CatalogEntry_Serialize | CatalogEntry_Deserialize;
+
+export type CatalogEntry_Deserialize = {
+	name: string,
+	image: string,
+	/**  The image's version label, else its tag (none for `latest`). */
+	version?: string | null,
+	state: string,
+	health?: string | null,
+	project?: string | null,
+	/**  `8080→80/tcp`. */
+	ports: string[],
+	urls: string[],
+	mounts: CatalogMount_Deserialize[],
+	coverage: Coverage,
+};
+
+export type CatalogEntry_Serialize = {
+	name: string,
+	image: string,
+	/**  The image's version label, else its tag (none for `latest`). */
+	version: string | null,
+	state: string,
+	health: string | null,
+	project: string | null,
+	/**  `8080→80/tcp`. */
+	ports: string[],
+	urls: string[],
+	mounts: CatalogMount_Serialize[],
+	coverage: Coverage,
+};
+
+export type CatalogHost = CatalogHost_Serialize | CatalogHost_Deserialize;
+
+export type CatalogHost_Deserialize = {
+	hostId: number,
+	name: string,
+	entries: CatalogEntry_Deserialize[],
+	/**  Docker unreadable, not installed, host unreachable. */
+	error?: string | null,
+	/**  Backup jobs on this host whose command line could be read. */
+	jobsRead: number,
+};
+
+export type CatalogHost_Serialize = {
+	hostId: number,
+	name: string,
+	entries: CatalogEntry_Serialize[],
+	/**  Docker unreadable, not installed, host unreachable. */
+	error: string | null,
+	/**  Backup jobs on this host whose command line could be read. */
+	jobsRead: number,
+};
+
+export type CatalogMount = CatalogMount_Serialize | CatalogMount_Deserialize;
+
+export type CatalogMount_Deserialize = {
+	/**  Host path (binds) or the volume's folder on the host. */
+	source: string,
+	destination: string,
+	/**  `bind` or `volume`. */
+	kind: string,
+	name?: string | null,
+	/**  The backup job whose command line names this folder or a parent. */
+	backedUpBy?: string | null,
+};
+
+export type CatalogMount_Serialize = {
+	/**  Host path (binds) or the volume's folder on the host. */
+	source: string,
+	destination: string,
+	/**  `bind` or `volume`. */
+	kind: string,
+	name: string | null,
+	/**  The backup job whose command line names this folder or a parent. */
+	backedUpBy: string | null,
 };
 
 export type CertInfo = CertInfo_Serialize | CertInfo_Deserialize;
@@ -2457,6 +2624,16 @@ export type ContainerView_Serialize = {
 	/**  Published ports that look like a web UI, best first (D-147). */
 	web: WebUiTarget_Serialize[],
 };
+
+export type Coverage = 
+/**  Every data mount is named by a backup job. */
+"covered" | 
+/**  Some are. */
+"partial" | 
+/**  Data mounts, none named by a backup job. */
+"none" | 
+/**  No data mounts (stateless) or nothing to judge. */
+"stateless";
 
 /**  A change to one crontab. */
 export type CronEdit = { op: "add"; schedule: string; command: string } | { op: "update"; line: number; schedule: string; command: string } | { op: "remove"; line: number } | { op: "setEnabled"; line: number; enabled: boolean };
@@ -2991,6 +3168,117 @@ export type DriftReport_Serialize = {
 	hidden: number,
 	/**  Package lists come from different package managers. */
 	mixedManagers: boolean,
+};
+
+export type Drill = Drill_Serialize | Drill_Deserialize;
+
+export type DrillBoard = DrillBoard_Serialize | DrillBoard_Deserialize;
+
+export type DrillBoard_Deserialize = {
+	drills: DrillView_Deserialize[],
+	/**  Drills running right now. */
+	running: number[],
+};
+
+export type DrillBoard_Serialize = {
+	drills: DrillView_Serialize[],
+	/**  Drills running right now. */
+	running: number[],
+};
+
+export type DrillKind = 
+/**  A backup job's test restore. */
+"job" | 
+/**  A Proxmox guest's newest backup into an isolated sandbox. */
+"proxmox";
+
+export type DrillRun = DrillRun_Serialize | DrillRun_Deserialize;
+
+export type DrillRun_Deserialize = {
+	id: number,
+	drillId: number,
+	at: number,
+	seconds: number,
+	ok: boolean,
+	steps: string[],
+	error?: string | null,
+	/**  What was restored (snapshot, file, backup volume). */
+	detail: string,
+};
+
+export type DrillRun_Serialize = {
+	id: number,
+	drillId: number,
+	at: number,
+	seconds: number,
+	ok: boolean,
+	steps: string[],
+	error: string | null,
+	/**  What was restored (snapshot, file, backup volume). */
+	detail: string,
+};
+
+/**  A drill with its last run and when it runs next. */
+export type DrillView = DrillView_Serialize | DrillView_Deserialize;
+
+/**  A drill with its last run and when it runs next. */
+export type DrillView_Deserialize = {
+	drill: Drill_Deserialize,
+	last?: DrillRun_Deserialize | null,
+	/**  Runs passed out of the last ten. */
+	passed: number,
+	runs: number,
+	nextAt?: number | null,
+};
+
+/**  A drill with its last run and when it runs next. */
+export type DrillView_Serialize = {
+	drill: Drill_Serialize,
+	last: DrillRun_Serialize | null,
+	/**  Runs passed out of the last ten. */
+	passed: number,
+	runs: number,
+	nextAt: number | null,
+};
+
+export type Drill_Deserialize = {
+	/**  `None` adds a new one. */
+	id?: number | null,
+	name: string,
+	kind: DrillKind,
+	hostId: number,
+	jobId?: number | null,
+	node?: string | null,
+	/**  `qemu` or `lxc`. */
+	guestKind?: string | null,
+	vmid?: number | null,
+	/**  Where the guest's backups are. */
+	storage?: string | null,
+	/**  Where the drill restores to (needs room for the guest's disks). */
+	targetStorage?: string | null,
+	/**  Run every this many days; 0 = only by hand. */
+	everyDays: number,
+	enabled: boolean,
+};
+
+export type Drill_Serialize = {
+	/**  `None` adds a new one. */
+	id: number | null,
+	name: string,
+	kind: DrillKind,
+	hostId: number,
+	jobId: number | null,
+	node: string | null,
+	/**  `qemu` or `lxc`. */
+	guestKind: string | null,
+	vmid: number | null,
+	/**  Where the guest's backups are. */
+	storage: string | null,
+	/**  Where the drill restores to (needs room for the guest's disks). */
+	targetStorage: string | null,
+	/**  Run every this many days; 0 = only by hand. */
+	everyDays: number,
+	enabled: boolean,
 };
 
 export type EditTargets = EditTargets_Serialize | EditTargets_Deserialize;
@@ -3788,6 +4076,34 @@ export type HostAuthNotice_Serialize = {
 	notice: AuthNotice_Serialize,
 };
 
+export type HostCapacity = HostCapacity_Serialize | HostCapacity_Deserialize;
+
+export type HostCapacity_Deserialize = {
+	hostId: number,
+	spec?: HostSpec | null,
+	cpuAvg?: number | null,
+	cpuP95?: number | null,
+	memAvg?: number | null,
+	memP95?: number | null,
+	gpuP95?: number | null,
+	/**  Hours of history behind the numbers. */
+	hours: number,
+	disks: CapDisk_Deserialize[],
+};
+
+export type HostCapacity_Serialize = {
+	hostId: number,
+	spec: HostSpec | null,
+	cpuAvg: number | null,
+	cpuP95: number | null,
+	memAvg: number | null,
+	memP95: number | null,
+	gpuP95: number | null,
+	/**  Hours of history behind the numbers. */
+	hours: number,
+	disks: CapDisk_Serialize[],
+};
+
 export type HostEvent = {
 	/**  Unix seconds. */
 	at: number,
@@ -3989,6 +4305,13 @@ export type HostSchedule_Serialize = {
 	onHostName: string,
 } & InstalledSchedule_Serialize;
 
+export type HostSpec = {
+	hostId: number,
+	cores: number,
+	memTotal: number,
+	at: number,
+};
+
 export type Host_Deserialize = {
 	id: number,
 	name: string,
@@ -4170,6 +4493,36 @@ export type ImportSummary = {
 	/**  Previously imported entries no longer in the file. */
 	removed: number,
 	stale: string[],
+};
+
+export type Incident = Incident_Serialize | Incident_Deserialize;
+
+export type IncidentKind = 
+/**  A host or service was down (uptime). */
+"outage" | 
+/**  Alerts on one host close together. */
+"alerts";
+
+export type Incident_Deserialize = {
+	kind: IncidentKind,
+	hostId?: number | null,
+	serviceId?: number | null,
+	title: string,
+	detail: string,
+	start: number,
+	end: number,
+	level: Level,
+};
+
+export type Incident_Serialize = {
+	kind: IncidentKind,
+	hostId: number | null,
+	serviceId: number | null,
+	title: string,
+	detail: string,
+	start: number,
+	end: number,
+	level: Level,
 };
 
 /**  The `--json` report of install and uninstall. */
@@ -4476,6 +4829,25 @@ export type JournalQuery_Serialize = {
 	lines: number,
 	/**  Keep streaming new entries (`-f`). */
 	follow: boolean,
+};
+
+/**  Where a key is authorized: one row per server host. */
+export type KeyHost = KeyHost_Serialize | KeyHost_Deserialize;
+
+/**  Where a key is authorized: one row per server host. */
+export type KeyHost_Deserialize = {
+	hostId: number,
+	name: string,
+	authorized: boolean,
+	error?: string | null,
+};
+
+/**  Where a key is authorized: one row per server host. */
+export type KeyHost_Serialize = {
+	hostId: number,
+	name: string,
+	authorized: boolean,
+	error: string | null,
 };
 
 /**  The user's keys and where they were looked for. */
@@ -5012,6 +5384,35 @@ export type Manager = "apt" | "dnf" | "pacman" |
  *  with rpm-ostree, which stages it for the next boot.
  */
 "ostree";
+
+/**  A secret kept outside Nightgrid, listed by hand. No value is stored. */
+export type ManualSecret = ManualSecret_Serialize | ManualSecret_Deserialize;
+
+/**  A secret kept outside Nightgrid, listed by hand. No value is stored. */
+export type ManualSecret_Deserialize = {
+	/**  `None` adds a new one. */
+	id?: number | null,
+	name: string,
+	/**  Where it's used ("router admin", "Cloudflare DNS API"). */
+	place: string,
+	hostId?: number | null,
+	/**  When it was last rotated (unix seconds), if known. */
+	rotatedAt?: number | null,
+	note: string,
+};
+
+/**  A secret kept outside Nightgrid, listed by hand. No value is stored. */
+export type ManualSecret_Serialize = {
+	/**  `None` adds a new one. */
+	id: number | null,
+	name: string,
+	/**  Where it's used ("router admin", "Cloudflare DNS API"). */
+	place: string,
+	hostId: number | null,
+	/**  When it was last rotated (unix seconds), if known. */
+	rotatedAt: number | null,
+	note: string,
+};
 
 export type McpAsk = {
 	id: number,
@@ -5651,6 +6052,139 @@ export type Note_Serialize = {
 	updatedAt: number,
 };
 
+/**  A notice in the inbox. */
+export type Notice = Notice_Serialize | Notice_Deserialize;
+
+export type NoticeLevel = "info" | 
+/**  Something went back to normal or passed. */
+"ok" | "warn" | "critical";
+
+export type NoticeSource = 
+/**  An alert fired or cleared. */
+"alert" | 
+/**  A restore drill passed or failed. */
+"drill" | 
+/**  A secret or certificate is due for rotation. */
+"rotation" | 
+/**  A host's security posture score dropped. */
+"posture" | 
+/**  A host is running out of room (capacity planner). */
+"capacity" | 
+/**  Tests and Nightgrid's own messages. */
+"system";
+
+/**  A notice in the inbox. */
+export type Notice_Deserialize = {
+	id: number,
+	/**  Unix seconds. */
+	at: number,
+	source: NoticeSource,
+	level: NoticeLevel,
+	title: string,
+	body: string,
+	hostId?: number | null,
+	view?: string | null,
+	read: boolean,
+};
+
+/**  A notice in the inbox. */
+export type Notice_Serialize = {
+	id: number,
+	/**  Unix seconds. */
+	at: number,
+	source: NoticeSource,
+	level: NoticeLevel,
+	title: string,
+	body: string,
+	hostId: number | null,
+	view: string | null,
+	read: boolean,
+};
+
+/**
+ *  Where notices go. Desktop notifications for alerts follow
+ *  `alerts.native`; everything else is routed here.
+ */
+export type NotifySettings = NotifySettings_Serialize | NotifySettings_Deserialize;
+
+/**
+ *  Where notices go. Desktop notifications for alerts follow
+ *  `alerts.native`; everything else is routed here.
+ */
+export type NotifySettings_Deserialize = {
+	/**  Desktop notifications for the sources that aren't alerts. */
+	native?: boolean,
+	/**  Send to a self-hosted ntfy server (its URL lives in the keychain). */
+	ntfy?: boolean,
+	/**  Lowest level sent to ntfy. */
+	ntfyLevel?: NoticeLevel,
+	/**  Also send "resolved" and "passed" notices to ntfy. */
+	ntfyOk?: boolean,
+	/**  Routes turned off, as `native:<source>` or `ntfy:<source>`. */
+	muted?: string[],
+};
+
+/**
+ *  Where notices go. Desktop notifications for alerts follow
+ *  `alerts.native`; everything else is routed here.
+ */
+export type NotifySettings_Serialize = {
+	/**  Desktop notifications for the sources that aren't alerts. */
+	native: boolean,
+	/**  Send to a self-hosted ntfy server (its URL lives in the keychain). */
+	ntfy: boolean,
+	/**  Lowest level sent to ntfy. */
+	ntfyLevel: NoticeLevel,
+	/**  Also send "resolved" and "passed" notices to ntfy. */
+	ntfyOk: boolean,
+	/**  Routes turned off, as `native:<source>` or `ntfy:<source>`. */
+	muted: string[],
+};
+
+/**  What a test sent on each channel. */
+export type NotifyTest = NotifyTest_Serialize | NotifyTest_Deserialize;
+
+/**  What a test sent on each channel. */
+export type NotifyTest_Deserialize = {
+	native?: string | null,
+	ntfy?: string | null,
+};
+
+/**  What a test sent on each channel. */
+export type NotifyTest_Serialize = {
+	native: string | null,
+	ntfy: string | null,
+};
+
+/**  What's saved for ntfy, without the secret parts. */
+export type NtfyInfo = NtfyInfo_Serialize | NtfyInfo_Deserialize;
+
+/**  What's saved for ntfy, without the secret parts. */
+export type NtfyInfo_Deserialize = {
+	configured: boolean,
+	/**  `https://server/topic` without credentials. */
+	url?: string | null,
+	hasToken: boolean,
+	/**
+	 *  The saved URL points at the public ntfy service (only possible for
+	 *  a webhook moved over from an older version).
+	 */
+	public: boolean,
+};
+
+/**  What's saved for ntfy, without the secret parts. */
+export type NtfyInfo_Serialize = {
+	configured: boolean,
+	/**  `https://server/topic` without credentials. */
+	url: string | null,
+	hasToken: boolean,
+	/**
+	 *  The saved URL points at the public ntfy service (only possible for
+	 *  a webhook moved over from an older version).
+	 */
+	public: boolean,
+};
+
 export type NvmeHealth = {
 	criticalWarning: number,
 	availableSpare: number,
@@ -6012,6 +6546,85 @@ export type PortainerStatus_Deserialize = {
 export type PortainerStatus_Serialize = {
 	version: string | null,
 };
+
+/**  One scored check. */
+export type PostureCheck = PostureCheck_Serialize | PostureCheck_Deserialize;
+
+/**  One scored check. */
+export type PostureCheck_Deserialize = {
+	id: string,
+	title: string,
+	status: PostureStatus,
+	detail: string,
+	fix?: string | null,
+	weight: number,
+	/**  The Library article that fixes it (`howto/firewall`). */
+	article: string,
+};
+
+/**  One scored check. */
+export type PostureCheck_Serialize = {
+	id: string,
+	title: string,
+	status: PostureStatus,
+	detail: string,
+	fix: string | null,
+	weight: number,
+	/**  The Library article that fixes it (`howto/firewall`). */
+	article: string,
+};
+
+/**  A host's latest run with the score before it and the recent trend. */
+export type PostureHost = PostureHost_Serialize | PostureHost_Deserialize;
+
+/**  A host's latest run with the score before it and the recent trend. */
+export type PostureHost_Deserialize = {
+	latest: PostureRun_Deserialize,
+	previous?: number | null,
+	/**  Scores of the last 30 runs that read the host, oldest first. */
+	trend: number[],
+};
+
+/**  A host's latest run with the score before it and the recent trend. */
+export type PostureHost_Serialize = {
+	latest: PostureRun_Serialize,
+	previous: number | null,
+	/**  Scores of the last 30 runs that read the host, oldest first. */
+	trend: number[],
+};
+
+/**  A host's score from one run. */
+export type PostureRun = PostureRun_Serialize | PostureRun_Deserialize;
+
+/**  A host's score from one run. */
+export type PostureRun_Deserialize = {
+	hostId: number,
+	at: number,
+	/**  0–100; none when the host couldn't be read. */
+	score?: number | null,
+	/**  `A` … `F`. */
+	grade?: string | null,
+	checks: PostureCheck_Deserialize[],
+	/**  Ports on every interface (from the audit), for the summary. */
+	openPorts: number,
+	error?: string | null,
+};
+
+/**  A host's score from one run. */
+export type PostureRun_Serialize = {
+	hostId: number,
+	at: number,
+	/**  0–100; none when the host couldn't be read. */
+	score: number | null,
+	/**  `A` … `F`. */
+	grade: string | null,
+	checks: PostureCheck_Serialize[],
+	/**  Ports on every interface (from the audit), for the summary. */
+	openPorts: number,
+	error: string | null,
+};
+
+export type PostureStatus = "pass" | "warn" | "fail" | "unknown";
 
 /**  A power action the user starts from Nightgrid. */
 export type PowerAction = "reboot" | "shutdown" | "suspend";
@@ -7134,6 +7747,50 @@ export type RemoteImage_Serialize = {
 	description: string | null,
 };
 
+export type Replay = Replay_Serialize | Replay_Deserialize;
+
+export type ReplayEvent = ReplayEvent_Serialize | ReplayEvent_Deserialize;
+
+export type ReplayEvent_Deserialize = {
+	at: number,
+	source: ReplaySource,
+	level: Level,
+	title: string,
+	detail: string,
+	hostId?: number | null,
+};
+
+export type ReplayEvent_Serialize = {
+	at: number,
+	source: ReplaySource,
+	level: Level,
+	title: string,
+	detail: string,
+	hostId: number | null,
+};
+
+export type ReplaySource = "event" | "change" | "outage" | "notice";
+
+export type Replay_Deserialize = {
+	incident: Incident_Deserialize,
+	from: number,
+	to: number,
+	/**  The host's metrics over the window (minute points when recent). */
+	metrics: Point_Deserialize[],
+	/**  Oldest first. */
+	events: ReplayEvent_Deserialize[],
+};
+
+export type Replay_Serialize = {
+	incident: Incident_Serialize,
+	from: number,
+	to: number,
+	/**  The host's metrics over the window (minute points when recent). */
+	metrics: Point_Serialize[],
+	/**  Oldest first. */
+	events: ReplayEvent_Serialize[],
+};
+
 export type RestoreTest = RestoreTest_Serialize | RestoreTest_Deserialize;
 
 export type RestoreTest_Deserialize = {
@@ -7167,6 +7824,14 @@ export type RestoreTest_Serialize = {
 	error: string | null,
 	at: number,
 };
+
+export type RotationState = "ok" | 
+/**  Due within 30 days. */
+"dueSoon" | "overdue" | 
+/**  No date known: never stamped. */
+"unknown" | 
+/**  No rotation policy (turned off for this item). */
+"noPolicy";
 
 /**  What an upgrade run's channel carries. */
 export type RunEvent = RunEvent_Serialize | RunEvent_Deserialize;
@@ -7454,6 +8119,65 @@ export type Scope =
 /**  Every interface (`0.0.0.0`, `::`, `*`). */
 "all";
 
+/**  One secret in the list. */
+export type SecretItem = SecretItem_Serialize | SecretItem_Deserialize;
+
+/**  One secret in the list. */
+export type SecretItem_Deserialize = {
+	/**
+	 *  Stable id: `ssh:<fingerprint>`, `vault:<id>`, `integration:<id>`,
+	 *  `app:mcp`, `host:<id>`, `expiry:<id>`, `manual:<id>`.
+	 */
+	key: string,
+	kind: SecretKind,
+	name: string,
+	/**  Where it's used, in words (hosts, a stack, a server). */
+	place: string,
+	hostId?: number | null,
+	/**  When it was created or last rotated (unix seconds). */
+	rotatedAt?: number | null,
+	/**  Rotate every this many days; none = no policy. */
+	policyDays?: number | null,
+	/**  When it's due (or expires, for expiry items). */
+	dueAt?: number | null,
+	state: RotationState,
+	note: string,
+};
+
+/**  One secret in the list. */
+export type SecretItem_Serialize = {
+	/**
+	 *  Stable id: `ssh:<fingerprint>`, `vault:<id>`, `integration:<id>`,
+	 *  `app:mcp`, `host:<id>`, `expiry:<id>`, `manual:<id>`.
+	 */
+	key: string,
+	kind: SecretKind,
+	name: string,
+	/**  Where it's used, in words (hosts, a stack, a server). */
+	place: string,
+	hostId: number | null,
+	/**  When it was created or last rotated (unix seconds). */
+	rotatedAt: number | null,
+	/**  Rotate every this many days; none = no policy. */
+	policyDays: number | null,
+	/**  When it's due (or expires, for expiry items). */
+	dueAt: number | null,
+	state: RotationState,
+	note: string,
+};
+
+export type SecretKind = "sshKey" | 
+/**  A `.env` vault value marked secret. */
+"vault" | "integration" | 
+/**  Nightgrid's own tokens: MCP, status page, ntfy, webhook. */
+"appToken" | 
+/**  A host's SSH or sudo password kept in the keychain. */
+"hostPassword" | 
+/**  A certificate, domain or token date from the expiry watch. */
+"expiry" | 
+/**  Listed by hand: kept outside Nightgrid. */
+"manual";
+
 export type SecurityReport = SecurityReport_Serialize | SecurityReport_Deserialize;
 
 export type SecurityReport_Deserialize = {
@@ -7476,6 +8200,25 @@ export type SecurityReport_Serialize = {
 	listeners: Listener_Serialize[],
 	/**  Process names are only visible for our own processes without root. */
 	processesPartial: boolean,
+};
+
+/**  The Security view (1.1). */
+export type SecuritySettings = SecuritySettings_Serialize | SecuritySettings_Deserialize;
+
+/**  The Security view (1.1). */
+export type SecuritySettings_Deserialize = {
+	/**  Re-score hosts Nightgrid is already connected to once a day. */
+	postureDaily?: boolean,
+	/**  Notify when a secret or certificate is due for rotation. */
+	rotationNotices?: boolean,
+};
+
+/**  The Security view (1.1). */
+export type SecuritySettings_Serialize = {
+	/**  Re-score hosts Nightgrid is already connected to once a day. */
+	postureDaily: boolean,
+	/**  Notify when a secret or certificate is due for rotation. */
+	rotationNotices: boolean,
 };
 
 export type Seen = 

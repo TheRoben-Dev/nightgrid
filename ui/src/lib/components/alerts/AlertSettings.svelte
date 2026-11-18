@@ -4,6 +4,7 @@
   import Panel from "../Panel.svelte";
   import SegmentSlider from "../SegmentSlider.svelte";
   import Toggle from "../Toggle.svelte";
+  import NotifyChannels from "../notify/NotifyChannels.svelte";
   import { fromHhmm, toHhmm } from "../../stores/alerts.svelte";
   import { settings } from "../../stores/settings.svelte";
 
@@ -40,12 +41,10 @@
   const removeMute = (i: number) => set({ logMutes: mutes.filter((_, j) => j !== i) });
   const WEBHOOKS = [
     { id: "none", label: "Off" },
-    { id: "ntfy", label: "ntfy" },
     { id: "discord", label: "Discord" },
     { id: "json", label: "JSON POST" },
   ] as const;
   const PLACEHOLDER: Record<string, string> = {
-    ntfy: "https://ntfy.sh/your-topic",
     discord: "https://discord.com/api/webhooks/…",
     json: "https://hooks.example/nightgrid",
   };
@@ -186,7 +185,7 @@
 <Panel title="NOTIFICATIONS" guide="settings-notifications">
   <div class="toggles">
     <Toggle label="Desktop notifications" hint="One per new alert; a burst becomes one summary." checked={a.native} onchange={(v) => set({ native: v })} />
-    <Toggle label="Quiet hours" hint="Alerts still show in the app, but no notifications or webhooks." checked={a.quietHours} onchange={(v) => set({ quietHours: v })} />
+    <Toggle label="Quiet hours" hint="Notices still land in the inbox, but nothing goes to the desktop, ntfy or webhooks." checked={a.quietHours} onchange={(v) => set({ quietHours: v })} />
   </div>
   {#if a.quietHours}
     <div class="row">
@@ -198,6 +197,8 @@
       </label>
     </div>
   {/if}
+
+  <NotifyChannels />
 
   <div class="row">
     <span class="label">WEBHOOK</span>

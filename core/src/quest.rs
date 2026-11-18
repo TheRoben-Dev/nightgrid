@@ -63,6 +63,14 @@ pub enum Probe {
     Fail2ban,
     /// No `/var/run/reboot-required`.
     NoRebootPending,
+    /// No database, cache or admin port listens on every address (1.1).
+    NoExposedDb,
+    /// Docker's unencrypted API (TCP 2375) isn't listening (1.1).
+    NoDockerTcp,
+    /// No running container's image is older than [`IMAGE_MAX_DAYS`] (1.1).
+    ImagesFresh,
+    /// No security updates waiting (apt or dnf, from their caches) (1.1).
+    SecurityUpdates,
     /// A container with this name is running.
     Container(String),
     /// A systemd unit with this name is active.
@@ -112,6 +120,10 @@ impl Probe {
             "swap" => Probe::Swap,
             "fail2ban" => Probe::Fail2ban,
             "no-reboot-pending" => Probe::NoRebootPending,
+            "no-exposed-db" => Probe::NoExposedDb,
+            "no-docker-tcp" => Probe::NoDockerTcp,
+            "images-fresh" => Probe::ImagesFresh,
+            "security-updates" => Probe::SecurityUpdates,
             _ => return Err(format!("unknown check {id:?}")),
         })
     }
@@ -133,6 +145,11 @@ impl Probe {
             Probe::Swap => "echo \"swaps $(($(wc -l < /proc/swaps 2>/dev/null || echo 1) - 1))\"".into(),
             Probe::Fail2ban => "echo \"state $(systemctl is-active fail2ban 2>/dev/null)\"".into(),
             Probe::NoRebootPending => "if [ -e /var/run/reboot-required ]; then echo 'reboot yes'; else echo 'reboot no'; fi".into(),
+            Probe::NoExposedDb | Probe::NoDockerTcp => {
+                "if command -v ss >/dev/null 2>&1; then ss -Hltn 2>/dev/null | awk '{print $4}'; else echo '@@noss'; fi".into()
+            }
+            Probe::ImagesFresh => "echo \"now $(date +%s)\"; if command -v docker >/dev/null 2>&1; then docker ps --format '{{.Image}}' 2>&1 | sort -u | head -60 | while IFS= read -r i; do case \"$i\" in *ermission*|*rror*) echo \"@@denied\"; break ;; esac; printf 'img %s %s\\n' \"$(docker image inspect -f '{{.Created}}' \"$i\" 2>/dev/null | cut -c1-10)\" \"$i\"; done; else echo '@@nodocker'; fi".into(),
+            Probe::SecurityUpdates => "if command -v apt-get >/dev/null 2>&1; then echo \"apt $(apt-get -s -o Debug::NoLocking=1 upgrade 2>/dev/null | grep -c '^Inst .*[Ss]ecurity')\"; elif command -v dnf >/dev/null 2>&1; then echo \"dnf $(dnf -q -C updateinfo list --security 2>/dev/null | grep -c .)\"; else echo 'none'; fi".into(),
             Probe::Container(n) => format!(
                 "if command -v docker >/dev/null 2>&1; then docker inspect -f '{{{{.State.Status}}}}' {} 2>&1 | head -1; else echo 'no docker'; fi",
                 shell_quote(n)
@@ -327,6 +344,78 @@ pub fn judge(id: &str, p: &Probe, out: &str) -> QuestResult {
             Some("yes") => r(id, Fail, "a reboot is pending"),
             _ => r(id, Unknown, "couldn't tell"),
         },
+        Probe::NoExposedDb => {
+            if out.contains("@@noss") {
+                return r(id, Unknown, "ss isn't available");
+            }
+            let open: Vec<String> = listening(out)
+                .into_iter()
+                .filter(|(all, port)| *all && RISKY_PORTS.iter().any(|(p, _)| p == port))
+                .map(|(_, port)| {
+                    let name = RISKY_PORTS.iter().find(|(p, _)| *p == port).map_or("", |(_, n)| *n);
+                    format!("{name} {port}")
+                })
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            if open.is_empty() {
+                r(id, Pass, "no database or admin port on every address")
+            } else {
+                r(id, Fail, format!("on every address: {}", open.join(", ")))
+            }
+        }
+        Probe::NoDockerTcp => {
+            if out.contains("@@noss") {
+                return r(id, Unknown, "ss isn't available");
+            }
+            if listening(out).iter().any(|(_, p)| *p == 2375) {
+                r(id, Fail, "Docker's API listens on TCP 2375 without TLS")
+            } else {
+                r(id, Pass, "no unencrypted Docker API")
+            }
+        }
+        Probe::ImagesFresh => {
+            if out.contains("@@nodocker") {
+                return r(id, Pass, "no docker");
+            }
+            if out.contains("@@denied") {
+                return r(id, Unknown, "this login can't use docker");
+            }
+            let now = word(out, "now").and_then(|n| n.parse::<i64>().ok()).unwrap_or(0);
+            let mut old: Vec<(i64, String)> = Vec::new();
+            let mut n = 0;
+            for l in out.lines().filter_map(|l| l.strip_prefix("img ")) {
+                let (date, image) = l.split_once(' ').unwrap_or((l, ""));
+                let Some(day) = days_from_iso(date) else { continue };
+                n += 1;
+                let age = now / 86_400 - day;
+                if age > IMAGE_MAX_DAYS {
+                    old.push((age, image.trim().to_owned()));
+                }
+            }
+            old.sort_by_key(|o| std::cmp::Reverse(o.0));
+            match (n, old.first()) {
+                (0, _) => r(id, Pass, "no running containers"),
+                (_, None) => r(
+                    id,
+                    Pass,
+                    format!("{n} image{} built in the last {IMAGE_MAX_DAYS} days", if n == 1 { "" } else { "s" }),
+                ),
+                (_, Some((age, img))) => r(
+                    id,
+                    Fail,
+                    format!("{} of {n} older than {IMAGE_MAX_DAYS} days, oldest {img} ({age} days)", old.len()),
+                ),
+            }
+        }
+        Probe::SecurityUpdates => {
+            let n = word(out, "apt").or_else(|| word(out, "dnf")).and_then(|n| n.parse::<u32>().ok());
+            match n {
+                Some(0) => r(id, Pass, "no security updates waiting"),
+                Some(n) => r(id, Fail, format!("{n} security update{} waiting", if n == 1 { "" } else { "s" })),
+                None => r(id, Unknown, "no apt or dnf to ask"),
+            }
+        }
         Probe::Container(n) => {
             let l = out.lines().next().unwrap_or("").trim();
             if l == "running" {
@@ -351,6 +440,57 @@ pub fn judge(id: &str, p: &Probe, out: &str) -> QuestResult {
             _ => r(id, Fail, format!("{c} isn't installed")),
         },
     }
+}
+
+/// Images older than this many days count as outdated.
+pub const IMAGE_MAX_DAYS: i64 = 180;
+
+/// Ports that shouldn't listen on every address: databases, caches,
+/// search and the Docker API.
+pub const RISKY_PORTS: [(u16, &str); 10] = [
+    (3306, "MySQL"),
+    (5432, "PostgreSQL"),
+    (6379, "Redis"),
+    (27017, "MongoDB"),
+    (9200, "Elasticsearch"),
+    (11211, "memcached"),
+    (5984, "CouchDB"),
+    (8086, "InfluxDB"),
+    (2375, "Docker API"),
+    (2379, "etcd"),
+];
+
+/// `ss -Hltn` local addresses → (listens on every address, port).
+fn listening(out: &str) -> Vec<(bool, u16)> {
+    out.lines()
+        .filter_map(|l| {
+            let a = l.trim();
+            let (host, port) = a.rsplit_once(':')?;
+            let port = port.parse::<u16>().ok()?;
+            let host = host.trim_start_matches('[').trim_end_matches(']');
+            let host = host.split('%').next().unwrap_or(host);
+            Some((matches!(host, "0.0.0.0" | "*" | "::" | ""), port))
+        })
+        .collect()
+}
+
+/// Days since 1970-01-01 for `YYYY-MM-DD`.
+pub fn days_from_iso(s: &str) -> Option<i64> {
+    let mut it = s.trim().splitn(3, '-');
+    let y: i64 = it.next()?.parse().ok()?;
+    let m: i64 = it.next()?.parse().ok()?;
+    let d: i64 = it.next()?.get(..2)?.parse().ok()?;
+    if !(1..=12).contains(&m) || !(1..=31).contains(&d) || y < 1970 {
+        return None;
+    }
+    // Civil-from-days inverse (Howard Hinnant's algorithm).
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = y.div_euclid(400);
+    let yoe = y - era * 400;
+    let mp = (m + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    Some(era * 146_097 + doe - 719_468)
 }
 
 trait NoneOrNo {
@@ -473,6 +613,32 @@ mod tests {
     }
 
     #[test]
+    fn judges_posture_checks() {
+        let ss = "127.0.0.1:5432\n0.0.0.0:22\n[::]:6379\n*:3306\n192.168.1.5:9200\n";
+        let r = j("no-exposed-db", ss);
+        assert_eq!(r.state, Fail);
+        assert_eq!(r.detail, "on every address: MySQL 3306, Redis 6379");
+        assert_eq!(j("no-exposed-db", "127.0.0.1:5432\n0.0.0.0:22\n").state, Pass);
+        assert_eq!(j("no-exposed-db", "@@noss\n").state, Unknown);
+        assert_eq!(j("no-docker-tcp", "0.0.0.0:2375\n").state, Fail);
+        assert_eq!(j("no-docker-tcp", "0.0.0.0:2376\n").state, Pass);
+        let now = days_from_iso("2026-11-18").unwrap() * 86_400;
+        let out = format!("now {now}\nimg 2026-10-01 caddy:2\nimg 2025-01-02 old/app:1\nimg  broken\n");
+        let r = j("images-fresh", &out);
+        assert_eq!(r.state, Fail);
+        assert!(r.detail.starts_with("1 of 2 older than 180 days, oldest old/app:1"), "{}", r.detail);
+        assert_eq!(j("images-fresh", &format!("now {now}\nimg 2026-10-01 caddy:2\n")).state, Pass);
+        assert_eq!(j("images-fresh", "now 1\n@@nodocker\n").state, Pass);
+        assert_eq!(j("images-fresh", "now 1\n@@denied\n").state, Unknown);
+        assert_eq!(j("security-updates", "apt 0\n").state, Pass);
+        assert_eq!(j("security-updates", "dnf 4\n").detail, "4 security updates waiting");
+        assert_eq!(j("security-updates", "none\n").state, Unknown);
+        assert_eq!(days_from_iso("1970-01-01"), Some(0));
+        assert_eq!(days_from_iso("2000-03-01"), Some(11_017));
+        assert_eq!(days_from_iso("2024-13-01"), None);
+    }
+
+    #[test]
     fn one_script_and_its_sections() {
         let (planned, _) = plan(&["swap".into(), "container:caddy".into(), "ssh-no-root".into()]);
         let s = script(&planned);
@@ -504,6 +670,10 @@ mod tests {
             "swap",
             "fail2ban",
             "no-reboot-pending",
+            "no-exposed-db",
+            "no-docker-tcp",
+            "images-fresh",
+            "security-updates",
             "container:x",
             "service:x",
             "port:22",
