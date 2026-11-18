@@ -35,6 +35,25 @@ While a host is visible the app subscribes to `metrics` and uses the pushed samp
 
 The binary is the latest release's `nightgrid-node-<tag>-<arch>-linux`, used only when its SHA-256 matches the release's `SHA256SUMS` (and it starts with an ELF header), cached in the app's data folder; or a file the person picks. It goes to `mktemp -d /tmp/nightgrid-node.XXXXXX`, mode 0700, and `<file> install --json --user <login user>` runs through the app's sudo flow. Remove runs `nightgrid-node uninstall --json [--purge]`, or the node's `dist/uninstall.sh` (bundled in the app) when the binary is gone. The app doesn't drop the SSH connection after an install; the `sg` route covers the new group.
 
+## Hub and link setup (Nightgrid 1.3, D-175)
+
+| Spec | State in the app | Notes |
+|---|---|---|
+| 0016 · Pairing nodes | Partly | Only pairing with a hub. The link is turned on (`allow peers`) when a host joins; host-to-host pairs aren't offered yet. Each host's HUB & LINK tab shows `peers.latest` readings. |
+| 0020 · Hub (H1) | Setup done, sync not yet | Make a hub, add and remove members, the overview and hub events. The app still syncs every host directly (§4 not used yet) and has no hub notifications (H2 isn't built). |
+
+**Making a hub** on a host with node 0.26+: download `nightgrid-hub-<tag>-<arch>-linux` from the same release (SHA256SUMS, ELF), upload to a private temp folder, `install --json --user <login>`, `nightgrid-node allow peers --json` if the host's link is off, `nightgrid-hub allow collect --json`. The hub host then joins as its own first member.
+
+**Joining** (sudo on the member): `allow peers` if `peers.latest.access` isn't `ok` (then wait for the certificate). The app resolves the member's address on the hub host (`getent ahosts`, then `ip -o route get` for the hub's source address) and reads both configs:
+
+- no `listening` on the member (no tailnet address): `[peers] listen` becomes `<LAN ip>:7419`, but only if that IP is one of the member's own addresses (`ip -o addr`);
+- the hub's source address not in the member's `[peers] networks`: added as `/32` (`/128`);
+- the member's link address not in the hub's `[collect] networks`: returned to the UI, which saves it on the hub with the hub's sudo (`hub_allow_networks`).
+
+Config changes are saved through the same checked save as the CONFIG tab (below), which runs `allow peers` / `allow collect` again for the new networks. Then `peers.set` (the hub's id, collector fingerprint, and its tailnet address, or `<hub LAN ip>:7420` for a LAN member), `hub.member.set`, `serve add sync`, and `fleet.members.set` on the hub with the member's id, link address and fingerprint. **Leaving** undoes it in reverse (`fleet.members.set` without it, `hub.member.set null`, unpair, `serve remove sync`); networks stay as they are.
+
+**Config, status and logs.** `cat` reads either config (both 0644). A save uploads the file, checks it with `nightgrid-node doctor --config <tmp> --json` (the hub: TOML and its four sections), then as root keeps `config.toml.bak`, installs it 0644, `systemctl try-restart`s the program's services, re-runs `allow <grant>` for sections whose `networks` changed and whose unit exists, and restores the old file if the main unit isn't active after 3 s. Status is `systemctl is-active` per unit plus `nightgrid-node doctor --json`; logs are `journalctl -u …` as root.
+
 ## What would help on the node's side
 
 None of these block anything; the app works with the node as it is.
@@ -45,6 +64,11 @@ None of these block anything; the app works with the node as it is.
 4. **Say what `next` is on an empty page.** The app treats `next < after` as "no progress" and keeps its cursor; PROTOCOL.md could promise `next == after` when nothing was returned.
 5. **Filter `events.sync` by kind (optional).** A `kinds` parameter would let a first sync skip the up to 20 000 login, file and network events the app doesn't show yet.
 6. **Alert kinds the app doesn't have.** `loginBurst` has no counterpart in the app yet, so it is not imported (it still fires on the node). Any new kind should keep using the app's camelCase names so it maps without code.
+
+7. **A 32-bit ARM build (`armv7`).** Many NAS boxes (a ReadyNAS RN102, older Synology and QNAP) are `armv7l`; the app shows "no build" there. An `armv7-unknown-linux-musleabihf` build would let them run the node.
+8. **The collector listening on more than one address.** `[collect] listen` is one address, normally the tailnet one. A LAN-only member then pings the hub at an address nothing answers, so its Linked list shows the hub unreachable and its timeline gets "peer … unreachable" once (pulls aren't affected). A list, or `listen = ["tailnet", "192.168.1.10:7420"]`, would fix that.
+9. **`[peers] listen = "lan"`.** Hosts without Tailscale need a hand-set `ip:port`. A `lan` value (the address of the default route) would survive DHCP changes.
+10. **A config check for the hub.** `nightgrid-hub doctor` (or `check-config FILE`) would let the app refuse a bad hub config before restarting it, as `nightgrid-node doctor --config` does.
 
 ## Testing
 

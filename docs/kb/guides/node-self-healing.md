@@ -20,6 +20,7 @@ A container that goes unhealthy at night shouldn't wait for you to wake up. Let 
 - [ ] Edit `/etc/nightgrid-node/config.toml` as root. In `[actions]`, set `allow = ["container.restart"]` (add `"images.prune"` if you want the disk rule). Keep `max_per_hour` low (the default 20 covers every rule and manual run together).
 - [ ] `sudo systemctl restart nightgrid-node`.
 - [ ] `nightgrid-node query actions.policy | jq`: `allowed` lists what you just added. Nothing you send over the socket can widen this list.
+- [ ] Rather not edit `config.toml`? `sudo nightgrid-node fix` offers to allow a fix or list a unit, and saves it in `/etc/nightgrid-node/fixes.toml`. That file only adds to `[actions] allow` and `units`.
 
 ## Part 2 · Write the rule, dry run first
 
@@ -46,6 +47,15 @@ A container that goes unhealthy at night shouldn't wait for you to wake up. Let 
 - [ ] Restarting a systemd service instead of a container needs the root helper: `sudo nightgrid-node allow helper`, the unit by full name in `[actions] units` (for example `units = ["nginx.service"]`), and `unit.restart` in `allow`. These run from manual requests only; self-healing rules can't use unit or power actions.
 - [ ] Run one by hand: `nightgrid-node query actions.run '{"action":"unit.restart","target":"nginx.service","dryRun":false}'`.
 - [ ] Risky file edits can be wrapped in a rollback: list the paths in `[rollback] paths` (keep it narrow, for example your compose folder), add `files.rollback` to `allow`, and run `sudo nightgrid-node allow helper` again. Before editing, arm it: `nightgrid-node query changes.begin '{"paths":["/etc/ssh/sshd_config"],"confirmWithinSecs":120,"note":"move SSH to port 2222","onRevert":{"action":"unit.restart","target":"ssh.service"}}'`. Make the edit, test a fresh login, then `changes.confirm '{"id":"<id>"}'`. If you get locked out and never confirm, the node puts the file back (even across a reboot) and restarts SSH (that needs `unit.restart` allowed and `ssh.service` in `[actions] units`).
+
+## Part 6 · Host-local presets (optional)
+
+The rules above come from the app or `heal.rules.set`. Root can also switch on ready-made presets on the host itself, next to them.
+
+- [ ] `sudo nightgrid-node fix auto` opens the presets menu. Or switch one directly: `sudo nightgrid-node fix auto NAME on|preview|off`.
+- [ ] The presets: `services` (restart failed units root listed), `containers` (restart unhealthy containers), `stopped` (start containers that stopped), and `journal`, `packages` and `images` (when a disk fills).
+- [ ] Start with `preview`: it only logs what the preset would do. Read it with `nightgrid-node audit`, where runs show from source `autofix NAME`.
+- [ ] Each preset waits 5 to 10 minutes, is capped per hour and per day, and gives up until the condition clears. All start off.
 
 ## If it misbehaves
 

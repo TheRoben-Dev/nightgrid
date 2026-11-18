@@ -109,6 +109,20 @@ import {
   type NodeState,
   type NodeInfoView_Serialize as NodeInfoView,
   type NodeInstallResult_Serialize as NodeInstallResult,
+  type NodeSetup_Serialize as NodeSetup,
+  type LinkView_Serialize as LinkView,
+  type HubView_Serialize as HubView,
+  type HubOverview_Serialize as HubOverview,
+  type HubMemberState_Serialize as HubMemberState,
+  type HubStepResult_Serialize as HubStepResult,
+  type HubReport_Serialize as HubReport,
+  type HubJoinResult,
+  type NodeConfigFile,
+  type ConfigSaveReport_Serialize as ConfigSaveReport,
+  type DoctorFinding_Serialize as DoctorFinding,
+  type NodePeer_Serialize as NodePeer,
+  type NodeUnit,
+  type NodePart,
   type InstallReport_Serialize as InstallReport,
   type SyncReport,
   type Release,
@@ -404,7 +418,7 @@ import { mockCapacity, mockCatalog, mockDrills, mockReplay } from "./mockFleet11
 import { mockSecrets } from "./mockSecrets";
 import { mockPosture } from "./mockPosture";
 import { mockNotify } from "./mockNotify";
-import { mockNode } from "./mockNode";
+import { mockHub, mockNode } from "./mockNode";
 import { mockMcp } from "./mockMcp";
 import { mockQuest, mockQuestLog } from "./mockQuest";
 import { mockBlueprint } from "./mockBlueprint";
@@ -507,6 +521,20 @@ export type {
   NodeState,
   NodeInfoView,
   NodeInstallResult,
+  NodeSetup,
+  LinkView,
+  HubView,
+  HubOverview,
+  HubMemberState,
+  HubStepResult,
+  HubReport,
+  HubJoinResult,
+  NodeConfigFile,
+  ConfigSaveReport,
+  DoctorFinding,
+  NodePeer,
+  NodeUnit,
+  NodePart,
   InstallReport,
   SyncReport,
   Release,
@@ -1494,6 +1522,22 @@ export const api = {
     T() ? commands.nodeInstall(hostId, fromFile, sudo) : mockNode.install(hostId),
   nodeUninstall: (hostId: number, purge: boolean, sudo: SudoInput | null): Promise<NodeInstallResult> =>
     T() ? commands.nodeUninstall(hostId, purge, sudo) : mockNode.uninstall(hostId),
+  nodeSetup: (hostId: number): Promise<NodeSetup> => (T() ? commands.nodeSetup(hostId) : mockHub.setup(hostId)),
+  nodeConfigRead: (hostId: number, part: NodePart): Promise<NodeConfigFile> => (T() ? commands.nodeConfigRead(hostId, part) : mockHub.configRead(hostId, part)),
+  nodeConfigSave: (hostId: number, part: NodePart, text: string, sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.nodeConfigSave(hostId, part, text, sudo) : mockHub.configSave(hostId, part, text),
+  nodeLogs: (hostId: number, part: NodePart, lines: number, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.nodeLogs(hostId, part, lines, sudo) : mockHub.logs(part),
+  hubInstall: (hostId: number, fromFile: boolean, sudo: SudoInput | null): Promise<HubStepResult | null> =>
+    T() ? commands.hubInstall(hostId, fromFile, sudo) : mockHub.install(hostId),
+  hubUninstall: (hostId: number, purge: boolean, sudo: SudoInput | null): Promise<HubStepResult> =>
+    T() ? commands.hubUninstall(hostId, purge, sudo) : mockHub.uninstall(hostId),
+  hubJoin: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<HubJoinResult> =>
+    T() ? commands.hubJoin(memberId, hubHost, sudo) : mockHub.join(memberId, hubHost),
+  hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<HubJoinResult> =>
+    T() ? commands.hubLeave(memberId, hubHost, sudo) : mockHub.leave(memberId),
+  hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.hubAllowNetworks(hubHost, networks, sudo) : mockHub.allowNetworks(networks),
   powerOverview: (days: number, utcOffsetMins: number): Promise<PowerOverview> => (T() ? commands.powerOverview(days, utcOffsetMins) : mockPower.overview(days)),
   powerProfileSet: (hostId: number, idleW: number, maxW: number): Promise<null> => (T() ? commands.powerProfileSet(hostId, idleW, maxW) : mockPower.set(hostId, idleW, maxW)),
   powerProfileClear: (hostId: number): Promise<null> => (T() ? commands.powerProfileClear(hostId) : mockPower.clear(hostId)),
