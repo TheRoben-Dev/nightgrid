@@ -1,0 +1,73 @@
+name: Library content
+
+# Library content updates (D-174): when only Library content changes on main,
+# publish it as a signed pack to the rolling `kb-latest` release. Installed
+# apps fetch it, verify the signature with the release key and use it when
+# it's newer than their bundled copy, so articles ship without an app build.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/kb/**"
+      - "ui/src/lib/kb/catalog.ts"
+  workflow_dispatch:
+
+# Its own group: never cancels (or waits on) the app's CI and release runs.
+concurrency:
+  group: kb-content
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    name: Build, sign and publish the Library pack
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # The same Library tests as CI (catalog in step, links, figures, 25 MB ceiling).
+      - name: Library tests
+        run: pnpm vitest run ui/src/lib/kb
+
+      - name: Build pack
+        run: node scripts/kb-pack.mjs kb-out
+
+      - name: Sign with the release key
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set: apps would refuse an unsigned pack."
+            exit 1
+          fi
+          pnpm tauri signer sign kb-out/kb-pack.json.gz
+          test -s kb-out/kb-pack.json.gz.sig
+          ls -la kb-out
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: kb-latest
+          name: Library content (rolling)
+          # Never "latest": the app updater reads releases/latest.
+          prerelease: true
+          make_latest: false
+          target_commitish: ${{ github.sha }}
+          overwrite_files: true
+          body: |
+            Signed Library content for Nightgrid, updated whenever docs/kb changes on main.
+            Apps with **Settings → Updates → Library content updates** on pick it up by themselves; there is nothing to download here by hand.
+          files: |
+            kb-out/kb-pack.json.gz
+            kb-out/kb-pack.json.gz.sig
+            kb-out/kb-pack.meta.json

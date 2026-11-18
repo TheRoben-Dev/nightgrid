@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [1.2.0] - 2026-11-18
+
+### Added: Library content updates
+- **Library articles now update between app releases.** When only Library content changes (articles, guides, figures, the error reference), it's published as a small signed download, and Nightgrid picks it up after start-up and every 6 hours without an app update or restart. The Library's home page shows the content date and whether it's built in or a downloaded update.
+- **Settings → Updates → Library content updates** (on by default) turns it off; **Check content** looks right away, and **Use built-in copy** removes downloaded content.
+- Downloads come from this project's GitHub Releases and are checked against the same signing key as app updates; anything that doesn't verify, is older than the built-in copy or is meant for a newer app version is ignored. The Library still works fully offline, and DRIFT reads the newest content.
+
 ## [1.1.0] - 2026-11-18
 
 Nightgrid 1.1: a Security view, an inbox for every notice, and four new Fleet tabs for knowing what runs where and proving it can come back.
