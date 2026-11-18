@@ -1,0 +1,19 @@
+id: search-oom-kills
+kind: searches
+title: Out-of-memory kills
+summary: Finds processes the kernel killed for lack of memory, and alerts when it happens again.
+category: linux
+library: [howto/log-search, linux/memory-limits]
+purpose: |
+  When memory runs out, Linux kills the biggest process, often a database or a
+  container. The app just "restarts" without a clear error. This search finds those kills.
+searches:
+  - name: OOM kills
+    what: Out-of-memory kills from the kernel or systemd-oomd.
+    alert: true
+    query:
+      text: "Out of memory|oom-kill|Killed process|oom_reaper"
+      regex: true
+      journal: true
+      containers: false
+      sinceMins: 1440

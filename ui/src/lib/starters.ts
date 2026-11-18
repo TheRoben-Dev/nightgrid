@@ -16,6 +16,8 @@ export const CATEGORY_LABEL: Record<string, string> = {
   smarthome: "Smart home",
   gaming: "Gaming",
   productivity: "Productivity",
+  alerts: "Alerts",
+  logs: "Logs",
 };
 
 export const categoryLabel = (c: string): string => CATEGORY_LABEL[c] ?? c;

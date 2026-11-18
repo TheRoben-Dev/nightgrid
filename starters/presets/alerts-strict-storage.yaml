@@ -1,0 +1,17 @@
+id: alerts-strict-storage
+kind: alerts
+title: Strict storage watch
+summary: Warns at 80 % full instead of 90 %, a month ahead of a disk filling up, and on any SMART, pool or backup problem.
+category: storage
+library: [howto/alerts, howto/disks]
+purpose: |
+  For NAS and backup boxes where running out of space or losing a disk hurts most.
+  Earlier warnings give you time to clean up or buy a disk before it's urgent.
+alerts:
+  diskFull: true
+  diskPercent: 80
+  diskForecast: true
+  forecastDays: 30
+  smartWarning: true
+  poolDegraded: true
+  backupStale: true

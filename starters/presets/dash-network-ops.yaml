@@ -1,0 +1,32 @@
+id: dash-network-ops
+kind: dashboard
+title: Network ops dashboard
+summary: An Overview page for the network - service checks, tunnels, alerts and network tiles for one host.
+category: network
+library: [howto/look-and-feel, howto/network-tools, howto/service-checks]
+purpose: |
+  Adds a "Network ops" dashboard to the Overview: every service check, SSH tunnels,
+  alerts and network tiles for your router or DNS host. Your other dashboards are left alone.
+tiles:
+  - name: Gateway ping
+    what: Round trip to the default gateway, in ms.
+    command: "ping -c1 -W1 \"$(ip route show default | awk '{print $3; exit}')\" | sed -n 's/.*time=\\([0-9.]*\\).*/\\1/p'"
+    parse: number
+    unit: ms
+    warn: 20
+    crit: 100
+    intervalSecs: 60
+  - name: Connections
+    what: Established TCP connections.
+    command: "ss -Htn state established | wc -l"
+    parse: number
+    intervalSecs: 120
+dashboard:
+  name: Network ops
+  widgets:
+    - { id: services, kind: services, x: 0, y: 0, w: 8, h: 4 }
+    - { id: t0, kind: "tile:0", x: 8, y: 0, w: 4, h: 2 }
+    - { id: t1, kind: "tile:1", x: 8, y: 2, w: 4, h: 2 }
+    - { id: alerts, kind: alerts, x: 0, y: 4, w: 6, h: 3 }
+    - { id: tunnels, kind: tunnels, x: 6, y: 4, w: 6, h: 3 }
+    - { id: nodes, kind: nodes, x: 0, y: 7, w: 12, h: 4 }

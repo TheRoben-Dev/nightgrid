@@ -188,13 +188,15 @@ pub struct StarterRunbook {
     pub body: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "specta", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct StarterCatalog {
     pub format: u32,
     pub blueprints: Vec<StarterBlueprint>,
     pub runbooks: Vec<StarterRunbook>,
+    /// App settings ready to add (alert rules, tiles, dashboards, log searches).
+    pub presets: Vec<crate::starter_presets::StarterPreset>,
 }
 
 // ---- the bundled set -----------------------------------------------------------
@@ -281,7 +283,7 @@ fn to_json(y: &Yaml) -> std::result::Result<serde_json::Value, String> {
     })
 }
 
-fn parse_yaml<T: serde::de::DeserializeOwned>(text: &str) -> std::result::Result<T, String> {
+pub(crate) fn parse_yaml<T: serde::de::DeserializeOwned>(text: &str) -> std::result::Result<T, String> {
     let docs = YamlLoader::load_from_str(text).map_err(|e| e.to_string())?;
     let doc = docs.first().ok_or("empty file")?;
     serde_json::from_value(to_json(doc)?).map_err(|e| e.to_string())
@@ -312,12 +314,13 @@ pub fn bundled() -> StarterCatalog {
         format: FORMAT,
         blueprints: BLUEPRINT_FILES.iter().filter_map(|(_, t)| parse_blueprint(t).ok()).collect(),
         runbooks: RUNBOOK_FILES.iter().filter_map(|(_, t)| parse_runbook(t).ok()).collect(),
+        presets: crate::starter_presets::bundled(),
     }
 }
 
 // ---- checks -----------------------------------------------------------------------
 
-fn valid_id(s: &str) -> bool {
+pub(crate) fn valid_id(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 40
         && s.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')

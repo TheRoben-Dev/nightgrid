@@ -1,0 +1,28 @@
+id: tiles-network
+kind: tiles
+title: Network basics
+summary: Gateway latency, open connections and listening ports, as Overview tiles.
+category: network
+library: [howto/command-widgets, howto/network-tools]
+purpose: |
+  Tiles for a router, DNS box or any host where the network matters. Only the
+  local gateway is pinged; nothing outside your network is contacted.
+tiles:
+  - name: Gateway ping
+    what: Round trip to the default gateway, in ms.
+    command: "ping -c1 -W1 \"$(ip route show default | awk '{print $3; exit}')\" | sed -n 's/.*time=\\([0-9.]*\\).*/\\1/p'"
+    parse: number
+    unit: ms
+    warn: 20
+    crit: 100
+    intervalSecs: 60
+  - name: Connections
+    what: Established TCP connections.
+    command: "ss -Htn state established | wc -l"
+    parse: number
+    intervalSecs: 120
+  - name: Listening ports
+    what: TCP ports open for connections. A sudden change is worth a look.
+    command: "ss -Htln | wc -l"
+    parse: number
+    intervalSecs: 600

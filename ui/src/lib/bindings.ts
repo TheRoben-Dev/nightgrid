@@ -1322,6 +1322,9 @@ export type AlertSettings_Serialize = {
 	webhookResolved: boolean,
 };
 
+/**  An alert setting's new value. */
+export type AlertValue = boolean | number;
+
 export type Alert_Deserialize = {
 	id: number,
 	key: string,
@@ -7112,6 +7115,71 @@ export type PowerSettings_Serialize = {
 	currency: string,
 };
 
+/**  Which shelf of the gallery a preset is on. */
+export type PresetKind = 
+/**  Alert switches and thresholds. */
+"alerts" | 
+/**  Command tiles for the Overview. */
+"tiles" | 
+/**  An Overview dashboard (may bring its own tiles). */
+"dashboard" | 
+/**  Saved log searches. */
+"searches";
+
+/**  A saved log search over every host. */
+export type PresetSearch = PresetSearch_Serialize | PresetSearch_Deserialize;
+
+/**  A saved log search over every host. */
+export type PresetSearch_Deserialize = {
+	name: string,
+	query: LogSearchQuery_Deserialize,
+	alert?: boolean,
+	/**  What it finds, in plain words. */
+	what?: string,
+};
+
+/**  A saved log search over every host. */
+export type PresetSearch_Serialize = {
+	name: string,
+	query: LogSearchQuery_Serialize,
+	alert: boolean,
+	/**  What it finds, in plain words. */
+	what: string,
+};
+
+/**  A command tile without its host (picked when it is added). */
+export type PresetTile = PresetTile_Serialize | PresetTile_Deserialize;
+
+/**  A command tile without its host (picked when it is added). */
+export type PresetTile_Deserialize = {
+	name: string,
+	command: string,
+	parse?: string,
+	pattern?: string,
+	unit?: string,
+	warn?: number | null,
+	crit?: number | null,
+	below?: boolean,
+	intervalSecs?: number,
+	/**  What the tile shows, in plain words. */
+	what?: string,
+};
+
+/**  A command tile without its host (picked when it is added). */
+export type PresetTile_Serialize = {
+	name: string,
+	command: string,
+	parse: string,
+	pattern: string,
+	unit: string,
+	warn: number | null,
+	crit: number | null,
+	below: boolean,
+	intervalSecs: number,
+	/**  What the tile shows, in plain words. */
+	what: string,
+};
+
 export type PromptKind = "password" | "passphrase";
 
 export type Proto = "tcp" | "udp" | "any";
@@ -9207,12 +9275,16 @@ export type StarterCatalog_Deserialize = {
 	format: number,
 	blueprints: StarterBlueprint_Deserialize[],
 	runbooks: StarterRunbook_Deserialize[],
+	/**  App settings ready to add (alert rules, tiles, dashboards, log searches). */
+	presets: StarterPreset_Deserialize[],
 };
 
 export type StarterCatalog_Serialize = {
 	format: number,
 	blueprints: StarterBlueprint_Serialize[],
 	runbooks: StarterRunbook_Serialize[],
+	/**  App settings ready to add (alert rules, tiles, dashboards, log searches). */
+	presets: StarterPreset_Serialize[],
 };
 
 export type StarterFile = {
@@ -9283,6 +9355,40 @@ export type StarterPort_Serialize = {
 	what: string,
 	/**  Bound to 127.0.0.1 only: open it through Nightgrid's web UI window. */
 	local: boolean,
+};
+
+export type StarterPreset = StarterPreset_Serialize | StarterPreset_Deserialize;
+
+export type StarterPreset_Deserialize = {
+	id: string,
+	kind: PresetKind,
+	title: string,
+	summary: string,
+	purpose: string,
+	category?: string,
+	library?: string[],
+	/**  Alert settings to change, by their Settings name (`diskPercent`). */
+	alerts?: { [key in string]: AlertValue },
+	tiles?: PresetTile_Deserialize[],
+	/**  Widgets may be `tile:<n>`: the preset's n-th tile, once added. */
+	dashboard?: Dashboard | null,
+	searches?: PresetSearch_Deserialize[],
+};
+
+export type StarterPreset_Serialize = {
+	id: string,
+	kind: PresetKind,
+	title: string,
+	summary: string,
+	purpose: string,
+	category: string,
+	library: string[],
+	/**  Alert settings to change, by their Settings name (`diskPercent`). */
+	alerts: { [key in string]: AlertValue },
+	tiles: PresetTile_Serialize[],
+	/**  Widgets may be `tile:<n>`: the preset's n-th tile, once added. */
+	dashboard: Dashboard | null,
+	searches: PresetSearch_Serialize[],
 };
 
 export type StarterRunbook = StarterRunbook_Serialize | StarterRunbook_Deserialize;

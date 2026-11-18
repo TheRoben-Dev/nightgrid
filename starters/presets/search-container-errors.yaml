@@ -1,0 +1,18 @@
+id: search-container-errors
+kind: searches
+title: Container errors
+summary: Errors, fatals and panics from every container in the last hour.
+category: docker
+library: [howto/log-search, basics/reading-logs]
+purpose: |
+  A quick first look when an app misbehaves: every line from every container that
+  mentions an error, fatal or panic. Narrow it to one container from Fleet → LOGS.
+searches:
+  - name: Container errors
+    what: error, fatal and panic lines from containers.
+    query:
+      text: "\\b(error|fatal|panic|exception)\\b"
+      regex: true
+      journal: false
+      containers: true
+      sinceMins: 60

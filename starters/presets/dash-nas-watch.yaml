@@ -1,0 +1,40 @@
+id: dash-nas-watch
+kind: dashboard
+title: NAS watch dashboard
+summary: An Overview page for storage - disks, pools, backups and storage tiles for one host.
+category: storage
+library: [howto/look-and-feel, howto/disks, howto/backups]
+purpose: |
+  Adds a "NAS watch" dashboard to the Overview: pools and SMART, backup jobs, the
+  fullest mount, ZFS and RAID health. Your other dashboards are left alone.
+tiles:
+  - name: Fullest mount
+    what: Percent used on the fullest filesystem.
+    command: "df -P -x tmpfs -x devtmpfs -x overlay -x squashfs | awk 'NR!=1{gsub(\"%\",\"\",$5); if (m<$5+0) m=$5+0} END{print m+0}'"
+    parse: number
+    unit: "%"
+    warn: 80
+    crit: 90
+    intervalSecs: 600
+  - name: ZFS pools
+    what: Health of every ZFS pool (ONLINE is good).
+    command: "zpool list -H -o health 2>/dev/null | sort -u | paste -sd, - | grep . || echo none"
+    parse: text
+    intervalSecs: 600
+  - name: Degraded RAID
+    what: Software RAID arrays missing a disk.
+    command: "cat /proc/mdstat 2>/dev/null | grep -c '\\[[U_]*_[U_]*\\]'"
+    parse: number
+    warn: 1
+    crit: 1
+    intervalSecs: 600
+dashboard:
+  name: NAS watch
+  widgets:
+    - { id: disks, kind: disks, x: 0, y: 0, w: 8, h: 4 }
+    - { id: t0, kind: "tile:0", x: 8, y: 0, w: 4, h: 2 }
+    - { id: t1, kind: "tile:1", x: 8, y: 2, w: 2, h: 2 }
+    - { id: t2, kind: "tile:2", x: 10, y: 2, w: 2, h: 2 }
+    - { id: backups, kind: backups, x: 0, y: 4, w: 6, h: 3 }
+    - { id: alerts, kind: alerts, x: 6, y: 4, w: 6, h: 3 }
+    - { id: nodes, kind: nodes, x: 0, y: 7, w: 12, h: 4 }

@@ -1,0 +1,18 @@
+id: search-failed-units
+kind: searches
+title: Failed services
+summary: Finds systemd services that failed or crashed over the last day.
+category: linux
+library: [howto/log-search, howto/runbooks]
+purpose: |
+  systemd logs a line whenever a service fails, so this search lists every failure on every
+  host. The starter runbook "Failed systemd unit" walks through fixing one.
+searches:
+  - name: Failed units
+    what: Services that failed, crashed or hit their restart limit.
+    query:
+      text: "Failed with result|Failed to start|entered failed state|Start request repeated too quickly"
+      regex: true
+      journal: true
+      containers: false
+      sinceMins: 1440

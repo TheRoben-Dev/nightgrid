@@ -1,0 +1,19 @@
+id: search-disk-errors
+kind: searches
+title: Disk errors
+summary: Finds I/O errors, filesystem errors and drive resets in the kernel log, and alerts on new ones.
+category: storage
+library: [howto/log-search, linux/disk-testing]
+purpose: |
+  A failing disk or cable usually shows up as kernel errors days before SMART notices.
+  This search catches I/O errors, ext4/btrfs/xfs errors and SATA/NVMe resets.
+searches:
+  - name: Disk errors
+    what: I/O, filesystem and link errors from the kernel.
+    alert: true
+    query:
+      text: "I/O error|EXT4-fs error|BTRFS error|XFS .*error|ata[0-9.]+: (failed|exception|hard resetting)|nvme[0-9]+: .*(timeout|reset)"
+      regex: true
+      journal: true
+      containers: false
+      sinceMins: 1440
