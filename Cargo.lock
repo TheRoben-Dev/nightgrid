@@ -3706,6 +3706,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "keyring",
+ "minisign-verify",
  "portable-pty",
  "rand 0.10.3",
  "rand_core 0.10.1",

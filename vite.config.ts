@@ -1,6 +1,21 @@
 import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { execFileSync } from "node:child_process";
 import { freezeSafe } from "./ui/tools/freezeSafe.ts";
+
+/**
+ * The bundled Library's content version (D-174): the time of the newest
+ * commit touching it, the same rule scripts/kb-pack.mjs uses for packs, so
+ * a pack is preferred only when it was built from later content.
+ */
+function kbVersion(): number {
+  try {
+    const t = execFileSync("git", ["log", "-1", "--format=%ct", "--", "docs/kb", "ui/src/lib/kb/catalog.ts"], { encoding: "utf8" }).trim();
+    return Number(t) || 0;
+  } catch {
+    return 0;
+  }
+}
 
 const host = process.env.TAURI_DEV_HOST;
 
@@ -8,6 +23,7 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig({
   root: "ui",
   plugins: [freezeSafe(), svelte()],
+  define: { __KB_VERSION__: JSON.stringify(kbVersion()) },
   clearScreen: false,
   server: {
     port: 1420,

@@ -6,7 +6,7 @@
  * message itself, so a pasted log line lands on its entry even when the
  * question says nothing else. Loaded lazily with the library.
  */
-import { ARTICLES } from "./library";
+import { ARTICLES, contentGeneration } from "./library";
 import type { Check } from "../helper/skills";
 
 export interface RefEntry {
@@ -72,8 +72,10 @@ export function parseEntries(articleId: string, area: string, body: string): Ref
 }
 
 let all: Compiled[] | null = null;
+let builtFor = -1;
 function compiled(): Compiled[] {
-  if (all) return all;
+  if (all && builtFor === contentGeneration()) return all;
+  builtFor = contentGeneration();
   all = [];
   for (const a of ARTICLES) {
     if (a.shelf !== "errors") continue;

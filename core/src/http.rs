@@ -35,7 +35,7 @@ pub struct Request {
     pub body: Vec<u8>,
     pub allow_untrusted: bool,
     pub timeout: Duration,
-    /// Largest response body accepted ([`MAX_BODY`] unless raised for a download).
+    /// Largest response body accepted ([`MAX_BODY`] unless raised).
     pub max_body: usize,
 }
 
@@ -85,10 +85,9 @@ impl Request {
         self
     }
 
-    /// Accepts a response body up to `bytes` (downloads larger than the
-    /// usual API answer, such as a release binary).
-    pub fn max_body(mut self, bytes: usize) -> Self {
-        self.max_body = bytes;
+    /// Accepts a larger body (downloads such as the Library's content pack).
+    pub fn max_body(mut self, n: usize) -> Self {
+        self.max_body = n;
         self
     }
 }

@@ -13,6 +13,12 @@ All notable changes to this project are documented here. The format follows [Kee
 - **HUB card**: make one always-on server the network's hub (Nightgrid Node 0.26+). It pulls the other servers' history read-only and notices a host going offline while Nightgrid is closed. **Make a hub…** installs it next to the node, **Add members…** links the other servers (including LAN-only ones behind a jump host), and the card shows each member as the hub sees it, with **Leave**, the hub's events, config, logs and **Remove…**.
 - **ROLE** column: hub, reports to hub, or direct.
 - **Per-host tabs**: STATUS (services and `doctor`), HUB & LINK (role, join or leave, the link's address and peers), CONFIG (edit the node's or hub's config: checked first, the old file kept, services restarted, rolled back if they don't come up) and LOGS (the services' journal).
+## [1.2.0] - 2026-11-18
+
+### Added: Library content updates
+- **Library articles now update between app releases.** When only Library content changes (articles, guides, figures, the error reference), it's published as a small signed download, and Nightgrid picks it up after start-up and every 6 hours without an app update or restart. The Library's home page shows the content date and whether it's built in or a downloaded update.
+- **Settings → Updates → Library content updates** (on by default) turns it off; **Check content** looks right away, and **Use built-in copy** removes downloaded content.
+- Downloads come from this project's GitHub Releases and are checked against the same signing key as app updates; anything that doesn't verify, is older than the built-in copy or is meant for a newer app version is ignored. The Library still works fully offline, and DRIFT reads the newest content.
 
 ## [1.1.0] - 2026-11-18
 

@@ -1034,6 +1034,16 @@ export const commands = {
 	 *  restarts the app. Returns an error (and leaves the app running) on failure.
 	 */
 	updateInstall: (onProgress: Channel<UpdateProgress_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("update_install", { onProgress }, options),
+	kbPackStatus: (options?: InvokeOptions) => __TAURI_INVOKE<KbPackStatus_Serialize>("kb_pack_status", undefined, options),
+	/**
+	 *  Looks for newer Library content. `bundled` is the version built into this
+	 *  app's UI, so a pack older than the app's own copy is never fetched.
+	 */
+	kbPackCheck: (bundled: number, options?: InvokeOptions) => __TAURI_INVOKE<KbPackStatus_Serialize>("kb_pack_check", { bundled }, options),
+	/**  The stored pack's catalog, and its files when `files` is true. */
+	kbPackLoad: (files: boolean, options?: InvokeOptions) => __TAURI_INVOKE<KbPackContent | null>("kb_pack_load", { files }, options),
+	/**  Deletes the stored pack: the Library goes back to the copy bundled with the app. */
+	kbPackRemove: (options?: InvokeOptions) => __TAURI_INVOKE<KbPackStatus_Serialize>("kb_pack_remove", undefined, options),
 };
 
 /* Types */
@@ -1523,6 +1533,8 @@ export type AppSettings_Deserialize = {
 	updateCheck?: boolean,
 	/**  A version the user chose to skip (no launch prompt for it). */
 	updateSkipVersion?: string | null,
+	/**  Fetch signed Library content packs between app releases (D-174). */
+	kbUpdates?: boolean,
 	/**  Alert rules and delivery. */
 	alerts?: AlertSettings_Deserialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -1654,6 +1666,8 @@ export type AppSettings_Serialize = {
 	updateCheck: boolean,
 	/**  A version the user chose to skip (no launch prompt for it). */
 	updateSkipVersion: string | null,
+	/**  Fetch signed Library content packs between app releases (D-174). */
+	kbUpdates: boolean,
 	/**  Alert rules and delivery. */
 	alerts: AlertSettings_Serialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -5056,6 +5070,56 @@ export type JournalQuery_Serialize = {
 	lines: number,
 	/**  Keep streaming new entries (`-f`). */
 	follow: boolean,
+};
+
+/**  One catalog line, as in ui/src/lib/kb/catalog.ts. */
+export type KbCatalogEntry = {
+	id: string,
+	shelf: string,
+	title: string,
+	cat: string,
+};
+
+export type KbPackContent = {
+	version: number,
+	catalog: KbCatalogEntry[],
+	/**  `shelf/slug.md` and `figures/name.svg` → text (empty unless asked for). */
+	files: { [key in string]: string },
+};
+
+export type KbPackInfo = {
+	/**  Unix time of the content's commit. */
+	version: number,
+	minApp: string,
+	commit: string,
+	articles: number,
+	figures: number,
+};
+
+export type KbPackStatus = KbPackStatus_Serialize | KbPackStatus_Deserialize;
+
+export type KbPackStatus_Deserialize = {
+	/**  The stored pack, when there is one and it verifies. */
+	installed?: KbPackInfo | null,
+	/**  When content was last checked this run (RFC 3339). */
+	checkedAt?: string | null,
+	error?: string | null,
+	/**  The check just stored a newer pack. */
+	updated: boolean,
+	/**  This build has no release key, so packs can't be verified. */
+	notConfigured: boolean,
+};
+
+export type KbPackStatus_Serialize = {
+	/**  The stored pack, when there is one and it verifies. */
+	installed: KbPackInfo | null,
+	/**  When content was last checked this run (RFC 3339). */
+	checkedAt: string | null,
+	error: string | null,
+	/**  The check just stored a newer pack. */
+	updated: boolean,
+	/**  This build has no release key, so packs can't be verified. */
+	notConfigured: boolean,
 };
 
 /**  Where a key is authorized: one row per server host. */

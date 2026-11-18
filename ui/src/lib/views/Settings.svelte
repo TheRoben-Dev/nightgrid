@@ -18,6 +18,7 @@
   import { ui } from "../stores/ui.svelte";
   import { scramble } from "../scramble";
   import { updates } from "../stores/updates.svelte";
+  import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
   import { DEFAULT_KEYMAP, formatChord, type ActionId } from "../keys";
   import {
     METRICS_BACKGROUND_STEPS,
@@ -131,7 +132,21 @@
         checked={settings.value.updateCheck}
         onchange={(v) => settings.update({ updateCheck: v })}
       />
+      <Toggle
+        label="Library content updates"
+        hint="New and corrected Library articles between app releases: a small signed download from the same GitHub Releases, checked after start-up and every 6 hours. The Library always works offline from its built-in copy."
+        checked={settings.value.kbUpdates}
+        onchange={(v) => settings.update({ kbUpdates: v })}
+      />
     </div>
+    <div class="kbrow" data-guide="settings-kb-content">
+      <span class="muted small">
+        Library content {kbVersionLabel(kbContent.version)} · {kbContent.source === "update" ? `downloaded update (${kbContent.status?.installed?.articles ?? 0} articles)` : "built in"}{#if kbContent.status?.checkedAt} · checked {new Date(kbContent.status.checkedAt).toLocaleTimeString()}{/if}
+      </span>
+      <button type="button" class="btn ghost tiny" disabled={kbContent.checking || kbContent.status?.notConfigured} onclick={() => void kbContent.check(true)}>{kbContent.checking ? "Checking…" : "Check content"}</button>
+      {#if kbContent.status?.installed}<button type="button" class="btn ghost tiny" title="Delete the downloaded content and use the copy built into this version" onclick={() => void kbContent.useBundled()}>Use built-in copy</button>{/if}
+    </div>
+    {#if kbContent.error}<p class="error" role="alert" use:scramble={kbContent.error}></p>{/if}
   </Panel>
 
   <div class="wide">
@@ -488,6 +503,16 @@
     margin-top: 12px;
     border-top: 1px solid var(--line);
     padding-top: 6px;
+  }
+  .kbrow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .kbrow span {
+    flex: 1 1 220px;
   }
   .note {
     margin: 10px 0 0;

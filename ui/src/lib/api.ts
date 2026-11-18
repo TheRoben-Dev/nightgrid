@@ -232,6 +232,8 @@ import {
   type Sample_Serialize as Sample,
   type Temp,
   type UpdateInfo,
+  type KbPackStatus_Serialize as KbPackStatus,
+  type KbPackContent,
   type UpdateProgress_Serialize as UpdateProgress,
   type UpdateStatus_Serialize as UpdateStatus,
   type Service_Serialize as Service,
@@ -671,6 +673,8 @@ export type {
   StackDir,
   MetricsEvent,
   UpdateInfo,
+  KbPackStatus,
+  KbPackContent,
   Service,
   ServiceInput,
   ServiceStatus,
@@ -874,6 +878,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   servicesIntervalSecs: 60,
   updateCheck: true,
   updateSkipVersion: null,
+  kbUpdates: true,
   alerts: {
     enabled: true,
     hostOffline: true,
@@ -979,6 +984,9 @@ function channel(listener: TermListener) {
 }
 
 const T = inTauri;
+
+/** Outside the desktop app there is no downloaded Library content. */
+const NO_KB_PACK: KbPackStatus = { installed: null, checkedAt: null, error: null, updated: false, notConfigured: true };
 
 function jobsChannel(listener: (jobs: JobView[]) => void) {
   const ch = new Channel<JobView[]>();
@@ -1589,6 +1597,10 @@ export const api = {
           return mock.settingsSet({ ...cur, alerts: { ...cur.alerts, logMutes: [...mutes, { source, regex: "", fingerprint, label }] } });
         }),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
+  kbPackStatus: (): Promise<KbPackStatus> => (T() ? commands.kbPackStatus() : Promise.resolve(NO_KB_PACK)),
+  kbPackCheck: (bundled: number): Promise<KbPackStatus> => (T() ? commands.kbPackCheck(bundled) : Promise.resolve(NO_KB_PACK)),
+  kbPackLoad: (files: boolean): Promise<KbPackContent | null> => (T() ? commands.kbPackLoad(files) : Promise.resolve(null)),
+  kbPackRemove: (): Promise<KbPackStatus> => (T() ? commands.kbPackRemove() : Promise.resolve(NO_KB_PACK)),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));
     const ch = new Channel<UpdateProgress>();
