@@ -4,9 +4,13 @@
    * and rebuild it on another host from a plan of steps you tick.
    */
   import { api, errorText, type BlueprintSummary, type BpInclude, type BpStep, type BpStepResult, type Stack } from "../../api";
-  import { groups, initialPick, passphraseProblem, pickable, resultsLine, STATE_WORD, toggleStep } from "../../blueprint";
+  import { initialPick, passphraseProblem, resultsLine } from "../../blueprint";
+  import PlanSteps from "./PlanSteps.svelte";
+  import StarterGallery from "./StarterGallery.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { system } from "../../stores/system.svelte";
+
+  let mode = $state<"starters" | "files">("starters");
 
   // ---- make ----
   let srcId = $state<number | null>(null);
@@ -137,9 +141,16 @@
     results = null;
   }
 
-  const resultOf = (id: string) => results?.find((r) => r.id === id);
 </script>
 
+<div class="wrap">
+<div class="modes" role="tablist" aria-label="Blueprints">
+  <button type="button" role="tab" class="mode" class:on={mode === "starters"} aria-selected={mode === "starters"} onclick={() => (mode = "starters")}>STARTERS</button>
+  <button type="button" role="tab" class="mode" class:on={mode === "files"} aria-selected={mode === "files"} onclick={() => (mode = "files")}>YOUR BLUEPRINTS</button>
+</div>
+{#if mode === "starters"}
+  <StarterGallery />
+{:else}
 <div class="bp" data-guide="fleet-blueprints">
   <section class="col">
     <h3 class="label">MAKE A BLUEPRINT</h3>
@@ -210,25 +221,7 @@
     {/if}
 
     {#if plan}
-      <div class="plan" role="list">
-        {#each groups(plan) as g (g.label)}
-          <p class="glabel label">{g.label}</p>
-          {#each g.steps as s (s.id)}
-            {@const r = resultOf(s.id)}
-            <label class="step st-{s.state}" class:off={!pickable(s)} role="listitem">
-              <input type="checkbox" checked={picked.has(s.id)} disabled={!pickable(s) || busyBuild} onchange={() => (picked = toggleStep(picked, plan ?? [], s.id))} />
-              <span class="tag">{STATE_WORD[s.state]}</span>
-              <span class="body">
-                <span class="title">{s.title}</span>
-                <span class="detail">{s.detail}</span>
-                {#if r}<span class="res" class:bad={!r.ok} class:ok={r.ok}>{r.ok ? "✓" : "✗"} {r.message}</span>{/if}
-              </span>
-            </label>
-          {/each}
-        {:else}
-          <p class="muted small">The blueprint is empty.</p>
-        {/each}
-      </div>
+      <PlanSteps {plan} bind:picked {results} busy={busyBuild} />
       <div class="row">
         <span class="muted small">{picked.size} step{picked.size === 1 ? "" : "s"} ticked{#if dstId != null} for {nameOf(dstId)}{/if}</span>
         <span class="spacer"></span>
@@ -238,6 +231,8 @@
     {/if}
     {#if errBuild}<p class="bad small" role="alert">{errBuild}</p>{/if}
   </section>
+</div>
+{/if}
 </div>
 
 {#snippet summary(s: BlueprintSummary)}
@@ -251,14 +246,41 @@
       {#if s.timers.length}<li><span class="k">TIMERS</span> {s.timers.join(", ")}</li>{/if}
       {#if s.firewall}<li><span class="k">FIREWALL</span> {s.firewall} <span class="muted">{s.firewallRules} rule{s.firewallRules === 1 ? "" : "s"}</span></li>{/if}
       {#each s.proxies as p (p)}<li><span class="k">PROXY</span> {p}</li>{/each}
+      {#each s.manual ?? [] as m (m)}<li><span class="k">BY HAND</span> {m}</li>{/each}
     </ul>
     {#each s.notes as n (n)}<p class="warn small">⚠ {n}</p>{/each}
   </div>
 {/snippet}
 
 <style>
-  .bp {
+  .wrap {
     height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+  }
+  .modes {
+    display: flex;
+    gap: 4px;
+    flex: none;
+  }
+  .mode {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--text-1);
+    padding: 3px 12px;
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    cursor: pointer;
+  }
+  .mode.on {
+    color: var(--text-0);
+    border-color: var(--cyan);
+  }
+  .bp {
+    flex: 1;
     display: grid;
     grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.3fr);
     gap: 18px;
@@ -381,64 +403,5 @@
     color: var(--cyan);
     font-family: var(--font-display);
     letter-spacing: var(--tracking-label);
-  }
-  .plan {
-    border-top: 1px solid var(--line);
-    display: flex;
-    flex-direction: column;
-  }
-  .glabel {
-    padding: 8px 0 2px;
-  }
-  .step {
-    display: grid;
-    grid-template-columns: 18px 64px 1fr;
-    gap: 8px;
-    align-items: start;
-    padding: 4px 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
-    cursor: pointer;
-  }
-  .step.off {
-    cursor: default;
-    opacity: 0.75;
-  }
-  .tag {
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    color: var(--text-1);
-    padding-top: 2px;
-  }
-  .st-new .tag {
-    color: var(--cyan);
-  }
-  .st-differs .tag {
-    color: var(--warn);
-  }
-  .st-manual .tag {
-    color: var(--magenta);
-  }
-  .body {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .title {
-    font-size: var(--fs-sm);
-    color: var(--text-0);
-    overflow-wrap: anywhere;
-  }
-  .detail,
-  .res {
-    font-size: var(--fs-xs);
-    color: var(--text-1);
-    overflow-wrap: anywhere;
-  }
-  .res.ok {
-    color: var(--ok, #4ade80);
-  }
-  .res.bad {
-    color: var(--danger);
   }
 </style>

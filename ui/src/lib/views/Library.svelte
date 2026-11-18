@@ -7,6 +7,7 @@
    * Everything is bundled and works offline; newer signed content can
    * replace the bundled shelves between releases (D-174, stores/kbcontent).
    */
+  import { untrack } from "svelte";
   import { writeClipboard } from "../clipboard";
   import Markdown from "../components/Markdown.svelte";
   import Panel from "../components/Panel.svelte";
@@ -14,10 +15,11 @@
   import type { Article } from "../kb/library";
   import { FIG_LINE } from "../helper/md";
   import { figure } from "../kb/figures";
-  import { ARTICLES, article, parts, search, stepChecks } from "../kb/library";
+  import { ARTICLES, article, parts, questable, search, stepChecks } from "../kb/library";
   import { questSummary } from "../kb/quest";
   import { hosts } from "../stores/hosts.svelte";
   import { quests } from "../stores/quests.svelte";
+  import { questLog } from "../stores/questlog.svelte";
   import { scramble } from "../scramble";
   import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
   import { library } from "../stores/library.svelte";
@@ -28,7 +30,9 @@
   /** Shelves whose articles have `- [ ]` steps worth ticking. */
   const tracked = (a: Article) => a.shelf !== "nightgrid" && a.shelf !== "basics";
   const inShelf = (a: Article) => library.shelf === "all" || a.shelf === library.shelf;
-  const inCat = (a: Article) => library.cat === "all" || categoryOf(a.id) === library.cat;
+  const inCat = (a: Article) => (library.cat === "all" || categoryOf(a.id) === library.cat) && (!library.questsOnly || questable(a));
+  /** An active quest on this guide (any host), for the list badges. */
+  const questOn = (id: string) => questLog.active.some((q) => q.articleId === id);
   // Newer downloaded content, if any, before the first read; `rev` changes when the text does.
   $effect(() => {
     void kbContent.ensure();
@@ -61,7 +65,41 @@
     return m && url ? { url, alt: m[1].trim() } : null;
   });
   const objectives = $derived(cur ? parts(cur) : []);
-  const ticks = $derived(cur ? (library.progress[cur.id] ?? {}) : {});
+  let questHost = $state<number | null>(hosts.preferred("library")?.id ?? null);
+  $effect(() => {
+    if (questHost != null && !hosts.byId(questHost)) questHost = hosts.preferred("library")?.id ?? null;
+  });
+  /** The quest for this guide on the picked host, if one was started: its ticks replace the local ones. */
+  const quest = $derived(cur ? questLog.find(cur.id, questHost) : undefined);
+  const ticks = $derived(cur ? (quest ? Object.fromEntries(quest.ticks.map((k) => [k, true])) : (library.progress[cur.id] ?? {})) : {});
+  const canQuest = $derived(!!cur && questable(cur));
+  /** Opening a guide picks the host its quest runs on, when it has one. */
+  $effect(() => {
+    const id = cur?.id;
+    const want = questLog.want;
+    if (!id) return;
+    untrack(() => {
+      if (want && want.articleId === id) {
+        questHost = want.hostId;
+        questLog.want = null;
+        return;
+      }
+      const mine = questLog.forArticle(id);
+      if (mine.length && !mine.some((q) => q.hostId === questHost)) questHost = mine[0].hostId;
+    });
+  });
+  function tickStep(k: string, on: boolean) {
+    if (!cur) return;
+    if (quest) questLog.tick(quest, k, on);
+    else library.tick(cur.id, k, on);
+  }
+  async function startQuest() {
+    if (!cur) return;
+    // The first quest on a guide keeps the steps already ticked here.
+    const seed = questLog.forArticle(cur.id).length ? [] : Object.keys(library.progress[cur.id] ?? {});
+    const q = await questLog.begin(cur.id, cur.title, questHost, seed);
+    if (q && q.hostId != null && nCheckable) void questLog.verify(q);
+  }
 
   function done(keys: string[], t: Record<string, boolean>) {
     return keys.filter((k) => t[k]).length;
@@ -71,16 +109,14 @@
     if (!a || !tracked(a)) return null;
     const keys = parts(a).flatMap((p) => p.keys);
     if (!keys.length) return null;
-    return { done: done(keys, library.progress[id] ?? {}), total: keys.length };
+    const q = questLog.active.find((x) => x.articleId === id);
+    const t = q ? Object.fromEntries(q.ticks.map((k) => [k, true])) : (library.progress[id] ?? {});
+    return { done: done(keys, t), total: keys.length };
   }
   const total = $derived(objectives.reduce((n, p) => n + p.keys.length, 0));
   /** Steps a host check can verify, by block-item key. */
   const checkable = $derived(cur ? stepChecks(cur) : {});
   const nCheckable = $derived(Object.keys(checkable).length);
-  let questHost = $state<number | null>(hosts.preferred("library")?.id ?? null);
-  $effect(() => {
-    if (questHost != null && !hosts.byId(questHost)) questHost = hosts.preferred("library")?.id ?? null;
-  });
   const qrun = $derived(cur ? quests.run(cur.id, questHost) : null);
   const qsum = $derived(qrun ? questSummary(Object.values(qrun.results)) : null);
   const verified = $derived.by(() => {
@@ -95,6 +131,7 @@
   });
   function tickVerified() {
     if (!cur || !verified) return;
+    if (quest) return questLog.applyRun(quest.id);
     for (const [k, v] of Object.entries(verified)) if (v.state === "pass" && !ticks[k]) library.tick(cur.id, k, true);
   }
   const doneAll = $derived(objectives.reduce((n, p) => n + done(p.keys, ticks), 0));
@@ -128,6 +165,7 @@
       <input class="input" type="search" placeholder="Search the library" aria-label="Search the library" data-guide="library-search" bind:value={library.query} />
       <div class="tags" role="group" aria-label="Shelf">
         <button type="button" class="chip" class:on={library.shelf === "all"} aria-pressed={library.shelf === "all"} onclick={() => (library.shelf = "all")}>ALL</button>
+        <button type="button" class="chip quest" class:on={library.questsOnly} aria-pressed={library.questsOnly} title="Only guides with steps, which can be started as quests" onclick={() => (library.questsOnly = !library.questsOnly)}>◇ QUESTS</button>
         {#each SHELVES as s (s.id)}
           <button type="button" class="chip" class:on={library.shelf === s.id} aria-pressed={library.shelf === s.id} title={s.what} onclick={() => (library.shelf = s.id)}>{s.label} <span class="n">{shelfCount.get(s.id)}</span></button>
         {/each}
@@ -144,7 +182,7 @@
           <li>
             <button type="button" class="item" class:sel={a.id === library.current} onclick={() => library.read(a.id)}>
               <span class="t">{a.title}</span>
-              <span class="shelf">{shelfLabel(a.shelf)} · {catLabel(a.id)}{#if p && p.done} · {p.done}/{p.total}{/if}</span>
+              <span class="shelf">{#if questOn(a.id)}<b class="qtag on" title="Quest active">◆ QUEST ·</b>{:else if questable(a)}<b class="qtag" title="Can be started as a quest">◇ QUEST ·</b>{/if}{shelfLabel(a.shelf)} · {catLabel(a.id)}{#if p && p.done} · {p.done}/{p.total}{/if}</span>
               <span class="snip muted">{snippet}</span>
             </button>
           </li>
@@ -169,6 +207,34 @@
         {#if flash}<span class="flash" role="status">{flash}</span>{/if}
       </header>
 
+      {#if canQuest && cur}
+        <div class="qbar" class:live={quest && !quest.completedAt} data-guide="library-quest">
+          {#if quest}
+            {@const p = questLog.progress(quest)}
+            <span class="qlabel">{quest.completedAt ? "◆ QUEST COMPLETE" : "◆ ACTIVE QUEST"}</span>
+            <span class="qcount">{questHost != null ? `on ${hosts.byId(questHost)?.name ?? "?"}` : "no host"} · objective {Math.min(p.objectives.done + 1, p.objectives.total)}/{p.objectives.total}</span>
+            {#if p.current}<span class="qnow"><span class="muted">CURRENT</span> {p.current.text}</span>{/if}
+            <span class="sp"></span>
+            <button type="button" class="btn ghost tiny" onclick={() => (questLog.open = true)}>QUEST LOG</button>
+            <button type="button" class="btn ghost tiny" title="Stops tracking this quest; the guide stays" onclick={() => quest && void questLog.abandon(quest)}>ABANDON</button>
+          {:else}
+            <span class="qlabel">◇ QUEST AVAILABLE</span>
+            <span class="qcount">Track this guide in the quest log{nCheckable ? `; ${nCheckable} step${nCheckable === 1 ? "" : "s"} complete themselves when the host passes a read-only check` : ""}.</span>
+            <span class="sp"></span>
+          {/if}
+          {#if !quest || questLog.forArticle(cur.id).length > 1 || hosts.hosts.length}
+            <select class="input tiny" bind:value={questHost} aria-label="Host for this quest">
+              <option value={null}>No host</option>
+              {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}{questLog.find(cur.id, h.id) ? " ◆" : ""}</option>{/each}
+            </select>
+          {/if}
+          {#if !quest}
+            <button type="button" class="btn tiny start" onclick={() => void startQuest()}>▶ START QUEST</button>
+          {/if}
+        </div>
+        {#if questLog.error}<p class="error-text small">{questLog.error}</p>{/if}
+      {/if}
+
       {#if lead}
         <figure class="brief">
           <img src={lead.url} alt={lead.alt} decoding="async" draggable="false" />
@@ -182,7 +248,7 @@
             <span class="qlabel">OBJECTIVES</span>
             <span class="qcount">{doneAll}/{total}</span>
             <span class="bar" aria-hidden="true"><i style:width={`${total ? (doneAll / total) * 100 : 0}%`}></i></span>
-            {#if doneAll}<button type="button" class="btn ghost tiny" onclick={() => library.resetProgress(cur.id)}>RESET</button>{/if}
+            {#if doneAll}<button type="button" class="btn ghost tiny" onclick={() => (quest ? questLog.reset(quest) : library.resetProgress(cur.id))}>RESET</button>{/if}
           </div>
           <ol class="objs">
             {#each objectives as o (o.title)}
@@ -197,10 +263,11 @@
           {#if nCheckable && hosts.hosts.length}
             <div class="verify" data-guide="library-verify">
               <span class="qlabel">VERIFY ON</span>
-              <select class="input tiny" bind:value={questHost} aria-label="Host to check">
-                {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
-              </select>
-              <button type="button" class="btn tiny" disabled={questHost == null || quests.busy !== null} title="Runs {nCheckable} read-only checks on the host: nothing is changed and sudo is never used" onclick={() => cur && questHost != null && void quests.check(cur, questHost)}
+              {#if questHost == null}
+                <span class="muted small">Pick a host above to check {nCheckable} step{nCheckable === 1 ? "" : "s"} on it.</span>
+              {:else}
+              <span class="qcount">{hosts.byId(questHost)?.name}</span>
+              <button type="button" class="btn tiny" disabled={quests.busy !== null} title="Runs {nCheckable} read-only checks on the host: nothing is changed and sudo is never used{quest ? '. Steps that pass complete in the quest.' : ''}" onclick={() => cur && questHost != null && void (quest ? questLog.verify(quest) : quests.check(cur, questHost))}
                 >{quests.busy && cur && questHost != null && quests.busy === quests.key(cur.id, questHost) ? "Checking…" : qrun ? "Check again" : "Check"}</button
               >
               {#if qsum}
@@ -208,6 +275,7 @@
                 {#if qsum.pass}<button type="button" class="btn ghost tiny" onclick={tickVerified}>Tick verified</button>{/if}
               {:else}
                 <span class="muted small">{nCheckable} step{nCheckable === 1 ? "" : "s"} can be checked</span>
+              {/if}
               {/if}
             </div>
             {#if quests.error}<p class="error-text small">{quests.error}</p>{/if}
@@ -224,7 +292,7 @@
         hideLead={!!lead}
         {verified}
         ticks={tracked(cur) ? ticks : undefined}
-        ontick={tracked(cur) ? (k, on) => library.tick(cur.id, k, on) : undefined}
+        ontick={tracked(cur) ? tickStep : undefined}
       >
         {#snippet code(b)}
           <button type="button" class="btn ghost tiny" onclick={() => void copy(b.text)}>Copy</button>
@@ -257,6 +325,7 @@
                 {@const p = progressOf(a.id)}
                 <button type="button" class="card" onclick={() => library.read(a.id)}>
                   <span class="t">{a.title}</span>
+                  {#if questOn(a.id)}<b class="qtag on">◆ QUEST ACTIVE</b>{:else if questable(a)}<b class="qtag">◇ QUEST</b>{/if}
                   {#if s.id !== "nightgrid"}<span class="snip muted">{a.summary}</span>{/if}
                   {#if p && p.done}<span class="bar small" aria-label={`${p.done} of ${p.total} steps done`}><i style:width={`${(p.done / p.total) * 100}%`}></i></span>{/if}
                 </button>
@@ -549,6 +618,65 @@
   .small {
     font-size: var(--fs-xs);
   }
+  /* The quest strip: start a guide as a quest, or see where it stands. */
+  .qbar {
+    max-width: 78ch;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    border: 1px dashed color-mix(in srgb, var(--warn) 55%, var(--line));
+    background: color-mix(in srgb, var(--warn) 4%, transparent);
+  }
+  .qbar.live {
+    border-style: solid;
+    border-left: 3px solid var(--warn);
+  }
+  .qbar .sp {
+    flex: 1;
+  }
+  .qbar .input.tiny {
+    padding: 2px 6px;
+    font-size: var(--fs-xs);
+    max-width: 180px;
+  }
+  .qnow {
+    flex-basis: 100%;
+    font-size: var(--fs-xs);
+    color: var(--text-0);
+  }
+  .qnow .muted {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-label);
+    margin-right: 6px;
+  }
+  .start {
+    border-color: var(--warn);
+    color: var(--warn);
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-label);
+  }
+  .qtag {
+    font-weight: 400;
+    color: var(--text-2);
+    margin-right: 6px;
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+  }
+  .qtag.on {
+    color: var(--warn);
+  }
+  .chip.quest {
+    border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+    color: var(--warn);
+  }
+  .chip.quest.on {
+    background: var(--warn);
+    border-color: var(--warn);
+    color: var(--bg-0);
+  }
   .verify {
     display: flex;
     gap: 8px;
@@ -557,10 +685,5 @@
     margin-top: 8px;
     padding-top: 8px;
     border-top: 1px dashed var(--line);
-  }
-  .verify .input.tiny {
-    padding: 2px 6px;
-    font-size: var(--fs-xs);
-    max-width: 180px;
   }
 </style>

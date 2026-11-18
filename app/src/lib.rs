@@ -24,6 +24,7 @@ mod firewall_cmd;
 mod gitstack_cmd;
 mod helper_cmd;
 mod hosts_cmd;
+mod hub_cmd;
 mod integrations_cmd;
 mod jobs_cmd;
 mod journal_cmd;
@@ -44,9 +45,11 @@ mod powercost_cmd;
 mod proxmox_cmd;
 mod proxy_cmd;
 mod quest_cmd;
+mod questlog_cmd;
 mod replay_cmd;
 mod secrets_cmd;
 mod services_cmd;
+mod starters_cmd;
 mod state;
 mod status_cmd;
 mod system_cmd;
@@ -206,6 +209,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         blueprint_cmd::blueprint_close,
         blueprint_cmd::blueprint_plan,
         blueprint_cmd::blueprint_apply,
+        starters_cmd::starters_list,
+        starters_cmd::starter_target,
+        starters_cmd::starter_open,
         expiry_cmd::watch_list,
         expiry_cmd::watch_save,
         expiry_cmd::watch_delete,
@@ -331,6 +337,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         ups_cmd::ups_list,
         powercost_cmd::power_overview,
         quest_cmd::quest_check,
+        questlog_cmd::quests_list,
+        questlog_cmd::quest_start,
+        questlog_cmd::quest_ticks,
+        questlog_cmd::quest_abandon,
         node_cmd::node_list,
         node_cmd::node_check,
         node_cmd::node_sync_now,
@@ -338,6 +348,16 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         node_cmd::node_release,
         node_cmd::node_install,
         node_cmd::node_uninstall,
+        hub_cmd::node_setup,
+        hub_cmd::node_config_read,
+        hub_cmd::node_config_save,
+        hub_cmd::node_logs,
+        hub_cmd::hub_install,
+        hub_cmd::hub_uninstall,
+        hub_cmd::hub_join,
+        hub_cmd::hub_leave,
+        hub_cmd::hub_allow_networks,
+        hub_cmd::hub_members,
         powercost_cmd::power_profile_set,
         powercost_cmd::power_profile_clear,
         ups_cmd::ups_save,

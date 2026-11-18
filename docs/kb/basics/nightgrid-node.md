@@ -18,7 +18,7 @@ Close the laptop and nobody is watching. A container that crash-loops at 3 AM, a
 - **Optional.** Every Nightgrid feature works without it. It makes things gap-free and faster, never required.
 - **Tiny.** One static binary of about 2 MB for x86_64 and aarch64, about 2.5 MB of RAM, no measurable idle CPU.
 - **Offline by design.** The main service has no network access at all (`IPAddressDeny=any`, unix sockets only). No open ports, no outbound connections, no telemetry, no cloud. Clients reach it through a unix socket, `/run/nightgrid-node/node.sock`, over the SSH connection they already have.
-- **Least privilege.** It runs as its own `nightgrid-node` system account under a heavily sandboxed systemd unit. Anything beyond the basics (containers, the journal, health checks, actions) is a separate grant that root makes with `nightgrid-node allow <name>` and can take back with `deny`.
+- **Least privilege.** It runs as its own `nightgrid-node` system account under a heavily sandboxed systemd unit. Anything beyond the basics (containers, the journal, health checks, actions) is a separate grant that root makes with `nightgrid-node allow <name>` (or picks from the `nightgrid-node allow` menu) and can take back with `deny`. Fixes from `nightgrid-node fix` ask first and run only what root allowed.
 - **Off by default for anything that acts.** Self-healing, blocking addresses, UPS shutdown, the link between nodes and the phone status page all start switched off.
 - **Several clients at once.** The node keeps no per-client state, so more than one computer can sync from the same node.
 
@@ -34,7 +34,7 @@ your computer ──SSH──> server: sshd ──> nightgrid-node bridge ──
                                             └ SQLite history in /var/lib/nightgrid-node
 ```
 
-Clients speak a small, versioned JSON-lines protocol to the socket. The first request, `hello`, lists the node's capabilities, and a client only uses what's listed. On the server you talk to it with the same binary: `nightgrid-node status`, `nightgrid-node query <method>` and `nightgrid-node watch <stream>`.
+Clients speak a small, versioned JSON-lines protocol to the socket. The first request, `hello`, lists the node's capabilities, and a client only uses what's listed. On the server you talk to it with the same binary: `nightgrid-node` on its own opens a menu, `nightgrid-node fix` lists problems and fixes them after asking, and `nightgrid-node status`, `nightgrid-node query <method>` and `nightgrid-node watch <stream>` give plain answers.
 
 ## What it can do, by grant
 
@@ -55,6 +55,8 @@ Read [Choose what Nightgrid Node may do](kb:howto/node-grants) before granting a
 ## Where the app stands
 
 The node is developed as its own project and published separately. Since Nightgrid 0.10.88 the app uses it where it runs: **Fleet → NODE** installs, updates and removes it per host, and after a reconnect the node's history fills the app's charts, uptime bars, disk forecasts, timeline and alerts; while connected, events arrive as they happen and live tiles take the node's samples instead of polling over SSH. Its other abilities (containers, logins and file changes, the LAN watch, self-healing, service checks, status page and so on) are set up on the server for now ([Use Nightgrid Node from the command line](kb:howto/node-cli)) and come into the app later. Nightgrid's views keep working over SSH exactly as before, with or without the node.
+
+Since Nightgrid 1.3 the same tab also sets up a **hub**: one always-on server per network (Node 0.26 or newer) that pulls the other nodes' history read-only and notices a host going offline while the app is closed. **Make a hub…** installs it next to that server's node, **Add members…** links the other servers to it (a server only the hub can reach on its LAN gets its link moved to its LAN address), and each host's **HUB & LINK**, **CONFIG** and **LOGS** tabs show its role, edit `/etc/nightgrid-node/config.toml` (or the hub's) with a checked save that rolls back, and read the services' journal. Every node keeps working on its own when the hub is down.
 
 ## Scenarios
 

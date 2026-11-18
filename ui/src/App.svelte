@@ -4,6 +4,7 @@
   import { listen } from "@tauri-apps/api/event";
   import AlertsPanel from "./lib/components/alerts/AlertsPanel.svelte";
   import UpsCountdown from "./lib/components/alerts/UpsCountdown.svelte";
+  import QuestToasts from "./lib/components/quests/QuestToasts.svelte";
   import IntegrationEditor from "./lib/components/integrations/IntegrationEditor.svelte";
   import { alerts } from "./lib/stores/alerts.svelte";
   import "@xterm/xterm/css/xterm.css";
@@ -198,6 +199,7 @@
   <div class="main">
     <TopBar />
     <UpsCountdown />
+    <QuestToasts />
     <main class="content" class:fill={section.id === "terminal" || section.id === "files" || section.id === "docker" || section.id === "system" || section.id === "notes" || section.id === "library" || section.id === "network" || section.id === "nettools" || section.id === "fleet" || section.id === "security" || section.id === "desktops" || section.id === "proxmox"} aria-label={section.label}>
       <div class="heading">
         <h1 class="label">

@@ -1,0 +1,90 @@
+id: game-server
+title: Minecraft server
+summary: A Java Edition Minecraft server for friends and family, with automatic world backups.
+category: gaming
+purpose: |
+  Runs a Minecraft world that stays up when you log off. The server
+  downloads the version you choose on first start, and a backup container
+  saves a copy of the world every few hours (and keeps a week of them)
+  without stopping the game.
+
+  The world, settings and backups live in the stack's folder, so a
+  blueprint of this host or a restic job picks them up too.
+library: [apps/minecraft, guides/game-server-host, apps/crafty, apps/linuxgsm]
+stacks:
+  - name: minecraft
+    compose: |
+      services:
+        mc:
+          image: itzg/minecraft-server:latest
+          container_name: minecraft
+          restart: unless-stopped
+          tty: true
+          stdin_open: true
+          ports:
+            - "25565:25565"
+          environment:
+            EULA: ${MINECRAFT_EULA}
+            TYPE: ${SERVER_TYPE}
+            VERSION: ${MC_VERSION}
+            MEMORY: ${MEMORY}
+            MOTD: ${MOTD}
+            TZ: ${TZ}
+            RCON_PASSWORD: ${RCON_PASSWORD}
+          volumes:
+            - ./data:/data
+
+        backups:
+          image: itzg/mc-backup:latest
+          container_name: minecraft-backup
+          restart: unless-stopped
+          depends_on:
+            - mc
+          environment:
+            BACKUP_INTERVAL: 6h
+            PRUNE_BACKUPS_DAYS: 7
+            RCON_HOST: mc
+            RCON_PASSWORD: ${RCON_PASSWORD}
+            TZ: ${TZ}
+          volumes:
+            - ./data:/data:ro
+            - ./backups:/backups
+    env:
+      - name: MINECRAFT_EULA
+        label: Accept the Minecraft EULA (type TRUE)
+        default: "FALSE"
+        help: The server only starts once you accept Mojang's EULA at aka.ms/MinecraftEULA.
+      - name: SERVER_TYPE
+        label: Server type
+        default: PAPER
+        help: VANILLA, PAPER (faster, takes plugins), FABRIC or FORGE (mods).
+      - name: MC_VERSION
+        label: Minecraft version
+        default: LATEST
+        help: LATEST, or a version such as 1.21.4 to match your players.
+      - name: MEMORY
+        label: Memory for the server
+        default: 4G
+        help: 2G for a few friends; 6G or more for big modpacks. Leave the host some for itself.
+      - name: MOTD
+        label: Message in the server list
+        default: A Nightgrid server
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+      - name: RCON_PASSWORD
+        label: Remote console password
+        secret: true
+        generate: true
+        help: Used by the backup container to pause saving while it copies. Leave empty to generate one.
+    ports:
+      - { port: 25565/tcp, what: Minecraft }
+firewall:
+  allow: [25565/tcp]
+manual:
+  - title: Accept the EULA
+    detail: The server waits until MINECRAFT_EULA is TRUE. Change it in Docker → STACKS → minecraft → .env vault and restart the stack.
+  - title: Make yourself an operator
+    detail: Once it's up, run docker exec minecraft rcon-cli op <your player name> in a terminal on the host.
+  - title: Playing from outside your home
+    detail: Forward TCP 25565 on your router to this host, or have friends join your tailnet and connect to the host's tailnet name.

@@ -8,6 +8,43 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Short cyberpunk-style UI sounds**, all synthesized by Nightgrid itself (no sound files or packs): alerts firing (a sharper one for critical) and clearing, new inbox notices, actions you started working or failing (container actions, firewall applies, Proxmox actions, package runs, power), confirm dialogs (a darker one for destructive ones), DRIFT finishing a reply, quest steps and completed quests, and scans, test restores, drills and speed tests finishing. Never for terminal output or live numbers.
 - **Settings → SOUND**: master switch, volume, a switch per kind of sound with a ▶ test button for every sound, quiet hours, and mute while the window isn't focused. On at 40 % to start; the view-switch tick is off until you turn it on. Included in profile exports, and in Settings → Features as **UI sounds**.
 
+## [1.5.0] - 2026-11-18
+
+Starters: ready-made server setups and alert runbooks you can read, preview and use as they are.
+
+### Added: starter blueprints (Fleet → BLUEPRINTS → STARTERS)
+- **Nine starters** for common jobs: media server (Jellyfin with Sonarr, Radarr and Prowlarr), reverse proxy with HTTPS (Caddy), network-wide ad blocking (Pi-hole), file sync and sharing (Syncthing and File Browser), monitoring basics (Uptime Kuma and Dozzle), home automation (Home Assistant and Mosquitto), a Minecraft server with automatic world backups, a hardened Docker host and a backup target (restic REST server, append-only).
+- Each one explains in plain words what it's for, lists what it sets up (stacks, ports open on the LAN and ports kept on the host, firewall rules, timers, steps left to you), shows the exact files it writes and links its Library guides.
+- Pick a host and a folder, answer a few questions, and **Preview what it would do** shows the same step-by-step plan as a blueprint. **Apply ticked steps…** asks you to confirm before anything is written. Passwords go into the stack's `.env` vault and are generated when left empty; nothing on the host is deleted, and denying traffic or turning a firewall on stays a step for you in System → FIREWALL.
+- Your own blueprint files moved to **YOUR BLUEPRINTS** next to it, unchanged.
+
+### Added: starter runbooks (Knowledge → Starters)
+- **Seven runbooks** for disk full, a container down or crash-looping, a failed systemd unit, a certificate expiring, a host unreachable, high memory and a failed or stale backup: what it means, steps to tick and commands to send to a terminal, with Library links.
+- **Add to my runbooks…** makes one your note, shown as **▤ Runbook** on matching alerts. An alert with no runbook of yours offers **▤ Starter runbook** when one fits.
+- Library links in notes (`kb:`) now open the article.
+- **New how-to**: *Start from a ready-made setup*.
+
+## [1.4.0] - 2026-11-18
+
+### Added: quest log
+- **Start a quest** from any Library article with steps: the strip under the title says **◇ QUEST AVAILABLE**; pick the host it's for (or none) and press **▶ START QUEST**. Articles that can be quests are marked **◇ QUEST** in the list and on the shelves, and the **◇ QUESTS** chip shows only those. The same guide can run as separate quests on different hosts.
+- **QUESTS** in the top bar, beside INBOX: every active quest with its host, objective, progress bar and the step you're on. Click one to open the guide on that host; **Check now** runs its read-only checks; **Abandon** stops tracking it; finished quests are kept under **Completed**.
+- **Quest updates**: finishing a step shows **QUEST UPDATED** in the top right with what's next; finishing a part shows **OBJECTIVE COMPLETE** and the last step **QUEST COMPLETE**. The text decodes in, and the motion is off under reduce effects.
+- On a quest, steps that pass their read-only check complete by themselves, after **Check** and every few minutes while Nightgrid is already connected to the host.
+- Quests are kept in the database and travel in profile exports.
+
+## [1.3.0] - 2026-11-18
+
+### Fixed: installing Nightgrid Node
+- **Install… failed with "reading the response failed: length limit exceeded".** The download was cut at 4 MB and the node binary is 5.4 MB; release downloads may now be up to 64 MB, and a response over a limit says so in words.
+- A host whose CPU has no Node build (32-bit ARM on many NAS boxes) shows **no build for armv7l** instead of an Install button that can't work.
+- Client devices (laptops, handhelds) are left out of the NODE list unless they already run the node; **Show client devices** brings them back.
+
+### Added: hub setup in Fleet → NODE
+- **HUB card**: make one always-on server the network's hub (Nightgrid Node 0.26+). It pulls the other servers' history read-only and notices a host going offline while Nightgrid is closed. **Make a hub…** installs it next to the node, **Add members…** links the other servers (including LAN-only ones behind a jump host), and the card shows each member as the hub sees it, with **Leave**, the hub's events, config, logs and **Remove…**.
+- **ROLE** column: hub, reports to hub, or direct.
+- **Per-host tabs**: STATUS (services and `doctor`), HUB & LINK (role, join or leave, the link's address and peers), CONFIG (edit the node's or hub's config: checked first, the old file kept, services restarted, rolled back if they don't come up) and LOGS (the services' journal).
+
 ## [1.2.0] - 2026-11-18
 
 ### Added: Library content updates

@@ -53,6 +53,12 @@ import {
   type BpStepResult,
   type BpStepKind,
   type BpStepState,
+  type StarterCatalog_Serialize as StarterCatalog,
+  type StarterBlueprint_Serialize as StarterBlueprint,
+  type StarterRunbook_Serialize as StarterRunbook,
+  type StarterVar_Serialize as StarterVar,
+  type StarterTarget,
+  type StarterValue,
   type ChangeArea,
   type ChangeEntry_Serialize as ChangeEntry,
   type ChangeQuery_Deserialize as ChangeQuery,
@@ -103,11 +109,26 @@ import {
   type HostPower_Serialize as HostPower,
   type IdleWindow,
   type QuestResult,
+  type Quest_Serialize as Quest,
   type QuestState,
   type NodeView_Serialize as NodeView,
   type NodeState,
   type NodeInfoView_Serialize as NodeInfoView,
   type NodeInstallResult_Serialize as NodeInstallResult,
+  type NodeSetup_Serialize as NodeSetup,
+  type LinkView_Serialize as LinkView,
+  type HubView_Serialize as HubView,
+  type HubOverview_Serialize as HubOverview,
+  type HubMemberState_Serialize as HubMemberState,
+  type HubStepResult_Serialize as HubStepResult,
+  type HubReport_Serialize as HubReport,
+  type HubJoinResult,
+  type NodeConfigFile,
+  type ConfigSaveReport_Serialize as ConfigSaveReport,
+  type DoctorFinding_Serialize as DoctorFinding,
+  type NodePeer_Serialize as NodePeer,
+  type NodeUnit,
+  type NodePart,
   type InstallReport_Serialize as InstallReport,
   type SyncReport,
   type Release,
@@ -404,10 +425,11 @@ import { mockCapacity, mockCatalog, mockDrills, mockReplay } from "./mockFleet11
 import { mockSecrets } from "./mockSecrets";
 import { mockPosture } from "./mockPosture";
 import { mockNotify } from "./mockNotify";
-import { mockNode } from "./mockNode";
+import { mockHub, mockNode } from "./mockNode";
 import { mockMcp } from "./mockMcp";
-import { mockQuest } from "./mockQuest";
+import { mockQuest, mockQuestLog } from "./mockQuest";
 import { mockBlueprint } from "./mockBlueprint";
+import { mockStarters } from "./mockStarters";
 import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
 import { mockAccess } from "./mockAccess";
@@ -502,10 +524,25 @@ export type {
   IdleWindow,
   QuestResult,
   QuestState,
+  Quest,
   NodeView,
   NodeState,
   NodeInfoView,
   NodeInstallResult,
+  NodeSetup,
+  LinkView,
+  HubView,
+  HubOverview,
+  HubMemberState,
+  HubStepResult,
+  HubReport,
+  HubJoinResult,
+  NodeConfigFile,
+  ConfigSaveReport,
+  DoctorFinding,
+  NodePeer,
+  NodeUnit,
+  NodePart,
   InstallReport,
   SyncReport,
   Release,
@@ -544,6 +581,12 @@ export type {
   BpStepResult,
   BpStepKind,
   BpStepState,
+  StarterCatalog,
+  StarterBlueprint,
+  StarterRunbook,
+  StarterVar,
+  StarterTarget,
+  StarterValue,
   ChangeArea,
   ChangeEntry,
   ChangeQuery,
@@ -1390,6 +1433,10 @@ export const api = {
   blueprintPlan: (hostId: number, sudo: SudoInput | null): Promise<BpStep[]> => (T() ? commands.blueprintPlan(hostId, sudo) : mockBlueprint.plan()),
   blueprintApply: (hostId: number, steps: string[], sudo: SudoInput | null): Promise<BpStepResult[]> =>
     T() ? commands.blueprintApply(hostId, steps, sudo) : mockBlueprint.apply(hostId, steps),
+  startersList: (): Promise<StarterCatalog> => (T() ? commands.startersList() : mockStarters.list()),
+  starterTarget: (hostId: number): Promise<StarterTarget> => (T() ? commands.starterTarget(hostId) : mockStarters.target()),
+  starterOpen: (id: string, values: StarterValue[], parent: string): Promise<BlueprintSummary> =>
+    T() ? commands.starterOpen(id, values, parent) : mockStarters.open(id, values, parent).then((s) => (mockBlueprint.markOpened(), s)),
   journalQuery: (query: ChangeQuery): Promise<ChangeEntry[]> => (T() ? commands.journalQuery(query) : mockJournal.query(query)),
   journalStats: (): Promise<ChangeStats> => (T() ? commands.journalStats() : mockJournal.stats()),
   journalNote: (hostId: number | null, title: string, detail: string, at: number | null): Promise<ChangeEntry> =>
@@ -1481,6 +1528,11 @@ export const api = {
   pveCtCreate: (hostId: number, spec: PveCtSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveCtCreate(hostId, spec, sudo) : mockProxmox.ctCreate(spec)),
   pveClone: (hostId: number, spec: PveCloneSpec, sudo: SudoInput | null): Promise<string> => (T() ? commands.pveClone(hostId, spec, sudo) : mockProxmox.clone(spec)),
   questCheck: (hostId: number, checks: string[]): Promise<QuestResult[]> => (T() ? commands.questCheck(hostId, checks) : mockQuest.check(checks)),
+  questsList: (): Promise<Quest[]> => (T() ? commands.questsList() : mockQuestLog.list()),
+  questStart: (articleId: string, hostId: number | null, title: string, ticks: string[]): Promise<Quest> =>
+    T() ? commands.questStart(articleId, hostId, title, ticks) : mockQuestLog.start(articleId, hostId, title, ticks),
+  questTicks: (id: number, ticks: string[], complete: boolean): Promise<Quest> => (T() ? commands.questTicks(id, ticks, complete) : mockQuestLog.ticks(id, ticks, complete)),
+  questAbandon: (id: number): Promise<boolean> => (T() ? commands.questAbandon(id) : mockQuestLog.abandon(id)),
   nodeList: (): Promise<NodeView[]> => (T() ? commands.nodeList() : mockNode.list()),
   nodeCheck: (hostId: number): Promise<NodeView> => (T() ? commands.nodeCheck(hostId) : mockNode.check(hostId)),
   nodeSyncNow: (hostId: number): Promise<SyncReport> => (T() ? commands.nodeSyncNow(hostId) : mockNode.syncNow(hostId)),
@@ -1490,6 +1542,22 @@ export const api = {
     T() ? commands.nodeInstall(hostId, fromFile, sudo) : mockNode.install(hostId),
   nodeUninstall: (hostId: number, purge: boolean, sudo: SudoInput | null): Promise<NodeInstallResult> =>
     T() ? commands.nodeUninstall(hostId, purge, sudo) : mockNode.uninstall(hostId),
+  nodeSetup: (hostId: number): Promise<NodeSetup> => (T() ? commands.nodeSetup(hostId) : mockHub.setup(hostId)),
+  nodeConfigRead: (hostId: number, part: NodePart): Promise<NodeConfigFile> => (T() ? commands.nodeConfigRead(hostId, part) : mockHub.configRead(hostId, part)),
+  nodeConfigSave: (hostId: number, part: NodePart, text: string, sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.nodeConfigSave(hostId, part, text, sudo) : mockHub.configSave(hostId, part, text),
+  nodeLogs: (hostId: number, part: NodePart, lines: number, sudo: SudoInput | null): Promise<string> =>
+    T() ? commands.nodeLogs(hostId, part, lines, sudo) : mockHub.logs(part),
+  hubInstall: (hostId: number, fromFile: boolean, sudo: SudoInput | null): Promise<HubStepResult | null> =>
+    T() ? commands.hubInstall(hostId, fromFile, sudo) : mockHub.install(hostId),
+  hubUninstall: (hostId: number, purge: boolean, sudo: SudoInput | null): Promise<HubStepResult> =>
+    T() ? commands.hubUninstall(hostId, purge, sudo) : mockHub.uninstall(hostId),
+  hubJoin: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<HubJoinResult> =>
+    T() ? commands.hubJoin(memberId, hubHost, sudo) : mockHub.join(memberId, hubHost),
+  hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<HubJoinResult> =>
+    T() ? commands.hubLeave(memberId, hubHost, sudo) : mockHub.leave(memberId),
+  hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.hubAllowNetworks(hubHost, networks, sudo) : mockHub.allowNetworks(networks),
   powerOverview: (days: number, utcOffsetMins: number): Promise<PowerOverview> => (T() ? commands.powerOverview(days, utcOffsetMins) : mockPower.overview(days)),
   powerProfileSet: (hostId: number, idleW: number, maxW: number): Promise<null> => (T() ? commands.powerProfileSet(hostId, idleW, maxW) : mockPower.set(hostId, idleW, maxW)),
   powerProfileClear: (hostId: number): Promise<null> => (T() ? commands.powerProfileClear(hostId) : mockPower.clear(hostId)),

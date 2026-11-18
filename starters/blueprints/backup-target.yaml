@@ -1,0 +1,46 @@
+id: backup-target
+title: Backup target
+summary: A restic REST server where your other machines send encrypted, append-only backups.
+category: storage
+purpose: |
+  Gives the rest of your lab somewhere safe to back up to, ideally a
+  machine with big disks in another room. Your hosts run restic, which
+  encrypts everything before it leaves them; this server only stores the
+  encrypted chunks and can't read them.
+
+  It runs append-only: a client can add backups but can't delete or
+  change old ones, so ransomware or a mistake on one host can't wipe its
+  history. Each user gets a private repository. Prune old snapshots from
+  this host itself, where append-only doesn't apply.
+library: [apps/restic, howto/backups, howto/restore-drills, apps/backrest]
+stacks:
+  - name: backup
+    compose: |
+      services:
+        rest-server:
+          image: restic/rest-server:latest
+          container_name: rest-server
+          restart: unless-stopped
+          ports:
+            - "8000:8000"
+          environment:
+            OPTIONS: "--append-only --private-repos"
+          volumes:
+            - ${BACKUP_DIR}:/data
+    env:
+      - name: BACKUP_DIR
+        label: Folder for the backups
+        default: /srv/backups
+        path: true
+        help: On the big disk. Backups take roughly the size of what you back up, less after deduplication.
+    ports:
+      - { port: 8000/tcp, what: restic REST server }
+firewall:
+  allow: [8000/tcp]
+manual:
+  - title: Add a user per machine
+    detail: Run docker exec -it rest-server create_user <name> in a terminal on this host and type a password. With private repos each user only reaches /<name>/.
+  - title: Point restic at it
+    detail: On each client, set RESTIC_REPOSITORY=rest:http://<name>:<password>@<this host>:8000/<name>/ (keep the password in the client's .env vault or keychain), run restic init once, then schedule backups.
+  - title: Watch it from Nightgrid
+    detail: Fleet → BACKUPS shows each client's backup job and alerts when one fails or goes stale; run a test restore there now and then.
