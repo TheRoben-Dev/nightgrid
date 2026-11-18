@@ -109,6 +109,8 @@ pub struct AppSettings {
     pub profile_reminder_snooze: Option<f64>,
     /// Read-only phone status page served by the app. Machine-specific.
     pub status_page: StatusPageSettings,
+    /// Electricity price for Fleet → POWER.
+    pub power: PowerSettings,
     /// Background network scans with alerts (D-145).
     pub net_watch: NetWatchSettings,
     /// Overview dashboards (M10o). Empty means the built-in default.
@@ -146,6 +148,7 @@ pub const FEATURES: &[&str] = &[
     "fleet.speed",
     "fleet.journal",
     "fleet.blueprints",
+    "fleet.power",
     "desktops",
     "proxmox",
     "proxmox.sandbox",
@@ -157,6 +160,17 @@ pub const FEATURES: &[&str] = &[
 ];
 
 pub const STATUS_BINDS: &[&str] = &["lan", "tailscale", "all"];
+
+/// Power & cost (M12d): the electricity price for cost estimates.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(default, rename_all = "camelCase")]
+pub struct PowerSettings {
+    /// Price of one kWh; 0 shows energy only.
+    pub price_per_kwh: f64,
+    /// Shown with prices: `€`, `$`, `kr`, `£` … (up to 8 characters).
+    pub currency: String,
+}
 
 /// The phone status page (off by default; the token lives in the keychain).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -343,6 +357,7 @@ impl Default for AppSettings {
             last_profile_export: None,
             profile_reminder_snooze: None,
             status_page: StatusPageSettings::default(),
+            power: PowerSettings::default(),
             net_watch: NetWatchSettings::default(),
             handheld: false,
             controller_nav: true,
@@ -485,6 +500,12 @@ impl AppSettings {
         range("servicesIntervalSecs", self.services_interval_secs, 15, 3600)?;
         range("profileReminderDays", self.profile_reminder_days, 0, 90)?;
         range("statusPage.port", self.status_page.port, 1024, 65535)?;
+        if !self.power.price_per_kwh.is_finite() || !(0.0..=100.0).contains(&self.power.price_per_kwh) {
+            return Err(Error::Invalid { field: "power.pricePerKwh", reason: "a price from 0 to 100 per kWh".into() });
+        }
+        if self.power.currency.chars().count() > 8 || self.power.currency.chars().any(char::is_control) {
+            return Err(Error::Invalid { field: "power.currency", reason: "up to 8 characters".into() });
+        }
         range("netWatch.minutes", self.net_watch.minutes, 10, 1440)?;
         if !STATUS_BINDS.contains(&self.status_page.bind.as_str()) {
             return Err(Error::Invalid {

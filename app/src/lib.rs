@@ -31,6 +31,7 @@ mod netperf_cmd;
 mod netwatch_cmd;
 mod notes_cmd;
 mod platform;
+mod powercost_cmd;
 mod proxmox_cmd;
 mod proxy_cmd;
 mod services_cmd;
@@ -316,6 +317,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_deps_add,
         alerts_cmd::alerts_deps_delete,
         ups_cmd::ups_list,
+        powercost_cmd::power_overview,
+        powercost_cmd::power_profile_set,
+        powercost_cmd::power_profile_clear,
         ups_cmd::ups_save,
         ups_cmd::ups_delete,
         ups_cmd::ups_status,
