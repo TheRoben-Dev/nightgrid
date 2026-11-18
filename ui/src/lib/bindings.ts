@@ -633,6 +633,12 @@ export const commands = {
 	powerOverview: (days: number, utcOffsetMins: number, options?: InvokeOptions) => __TAURI_INVOKE<PowerOverview_Serialize>("power_overview", { days, utcOffsetMins }, options),
 	/**  Runs the checks on a host and judges each one. */
 	questCheck: (hostId: number, checks: string[], options?: InvokeOptions) => __TAURI_INVOKE<QuestResult[]>("quest_check", { hostId, checks }, options),
+	questsList: (options?: InvokeOptions) => __TAURI_INVOKE<Quest_Serialize[]>("quests_list", undefined, options),
+	/**  Starts a guide as a quest on a host (or none); an existing one is returned. */
+	questStart: (articleId: string, hostId: number | null, title: string, ticks: string[], options?: InvokeOptions) => __TAURI_INVOKE<Quest_Serialize>("quest_start", { articleId, hostId, title, ticks }, options),
+	/**  Saves a quest's done steps; `complete` marks it finished. */
+	questTicks: (id: number, ticks: string[], complete: boolean, options?: InvokeOptions) => __TAURI_INVOKE<Quest_Serialize>("quest_ticks", { id, ticks, complete }, options),
+	questAbandon: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<boolean>("quest_abandon", { id }, options),
 	/**  What's known about the node on every host, without connecting. */
 	nodeList: (options?: InvokeOptions) => __TAURI_INVOKE<NodeView_Serialize[]>("node_list", undefined, options),
 	/**
@@ -1940,6 +1946,8 @@ export type BackupSummary_Deserialize = {
 	notes?: number,
 	backupJobs?: number,
 	deviceLabels?: number,
+	/**  Library quests (1.4). */
+	quests?: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -1961,6 +1969,8 @@ export type BackupSummary_Serialize = {
 	notes: number,
 	backupJobs: number,
 	deviceLabels: number,
+	/**  Library quests (1.4). */
+	quests: number,
 	services: number,
 	tunnels: number,
 	integrations: number,
@@ -8081,6 +8091,8 @@ export type PveVolume = {
 	name: string,
 };
 
+export type Quest = Quest_Serialize | Quest_Deserialize;
+
 export type QuestResult = {
 	/**  The check as written in the guide (`ssh-no-password`, `container:caddy`). */
 	id: string,
@@ -8092,6 +8104,36 @@ export type QuestResult = {
 export type QuestState = "pass" | "fail" | 
 /**  Couldn't tell (needs root, tool missing, host didn't answer). */
 "unknown";
+
+export type Quest_Deserialize = {
+	id: number,
+	/**  Library article id (`guides/proxmox-media-server`). */
+	articleId: string,
+	hostId?: number | null,
+	/**  The guide's title when the quest was started. */
+	title: string,
+	/**  Done steps, as the Library's step keys (`"12-0"`). */
+	ticks: string[],
+	/**  Unix seconds. */
+	startedAt: number | null,
+	updatedAt: number | null,
+	completedAt?: number | null,
+};
+
+export type Quest_Serialize = {
+	id: number,
+	/**  Library article id (`guides/proxmox-media-server`). */
+	articleId: string,
+	hostId: number | null,
+	/**  The guide's title when the quest was started. */
+	title: string,
+	/**  Done steps, as the Library's step keys (`"12-0"`). */
+	ticks: string[],
+	/**  Unix seconds. */
+	startedAt: number | null,
+	updatedAt: number | null,
+	completedAt: number | null,
+};
 
 /**  The routers between the scanner and a routed range (first hop first). */
 export type RangePath = {

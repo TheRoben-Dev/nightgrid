@@ -45,6 +45,7 @@ mod powercost_cmd;
 mod proxmox_cmd;
 mod proxy_cmd;
 mod quest_cmd;
+mod questlog_cmd;
 mod replay_cmd;
 mod secrets_cmd;
 mod services_cmd;
@@ -332,6 +333,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         ups_cmd::ups_list,
         powercost_cmd::power_overview,
         quest_cmd::quest_check,
+        questlog_cmd::quests_list,
+        questlog_cmd::quest_start,
+        questlog_cmd::quest_ticks,
+        questlog_cmd::quest_abandon,
         node_cmd::node_list,
         node_cmd::node_check,
         node_cmd::node_sync_now,
