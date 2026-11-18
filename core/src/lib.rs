@@ -33,6 +33,7 @@ pub mod hosts;
 pub mod http;
 pub mod integrations;
 pub mod journal;
+pub mod kbpack;
 pub mod logsearch;
 pub mod logwatch;
 pub mod mcp;
