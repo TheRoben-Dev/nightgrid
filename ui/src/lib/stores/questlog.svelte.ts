@@ -10,6 +10,7 @@
 import { api, errorText, type Quest } from "../api";
 import { questEvents, questProgress, type QuestEvent, type QuestProgress, type QuestStep } from "../kb/quest";
 import { hosts } from "./hosts.svelte";
+import { kbContent } from "./kbcontent.svelte";
 import { library } from "./library.svelte";
 import { quests as checks } from "./quests.svelte";
 
@@ -42,6 +43,7 @@ class QuestLogStore {
   private started = false;
   private seq = 0;
   private steps = new Map<string, QuestStep[]>();
+  private stepsRev = -1;
   private timer: ReturnType<typeof setInterval> | null = null;
 
   get active(): Quest[] {
@@ -81,6 +83,11 @@ class QuestLogStore {
   stepsOf(articleId: string): QuestStep[] {
     const lib = this.lib;
     if (!lib) return [];
+    // Downloaded Library content (D-174) can change a guide's steps.
+    if (kbContent.rev !== this.stepsRev) {
+      this.steps.clear();
+      this.stepsRev = kbContent.rev;
+    }
     let s = this.steps.get(articleId);
     if (!s) {
       const a = lib.article(articleId);

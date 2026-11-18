@@ -30,7 +30,7 @@
     position: fixed;
     top: calc(var(--topbar-h) + 12px);
     right: 16px;
-    z-index: 80;
+    z-index: 55;
     display: flex;
     flex-direction: column;
     gap: 8px;

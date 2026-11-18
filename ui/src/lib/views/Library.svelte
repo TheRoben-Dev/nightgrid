@@ -30,8 +30,9 @@
   /** Shelves whose articles have `- [ ]` steps worth ticking. */
   const tracked = (a: Article) => a.shelf !== "nightgrid" && a.shelf !== "basics";
   const inShelf = (a: Article) => library.shelf === "all" || a.shelf === library.shelf;
-<<<<<<< HEAD
-  const inCat = (a: Article) => library.cat === "all" || categoryOf(a.id) === library.cat;
+  const inCat = (a: Article) => (library.cat === "all" || categoryOf(a.id) === library.cat) && (!library.questsOnly || questable(a));
+  /** An active quest on this guide (any host), for the list badges. */
+  const questOn = (id: string) => questLog.active.some((q) => q.articleId === id);
   // Newer downloaded content, if any, before the first read; `rev` changes when the text does.
   $effect(() => {
     void kbContent.ensure();
@@ -44,12 +45,6 @@
     void kbContent.rev;
     return library.query.trim() ? search(library.query, 60) : null;
   });
-=======
-  const inCat = (a: Article) => (library.cat === "all" || categoryOf(a.id) === library.cat) && (!library.questsOnly || questable(a));
-  /** An active quest on this guide (any host), for the list badges. */
-  const questOn = (id: string) => questLog.active.some((q) => q.articleId === id);
-  const hits = $derived(library.query.trim() ? search(library.query, 60) : null);
->>>>>>> db40b6f (1.3.0: quest log for Library guides)
   const listed = $derived(
     hits
       ? hits.filter((h) => inShelf(h.article) && inCat(h.article)).map((h) => ({ a: h.article, snippet: h.snippet }))
@@ -187,7 +182,7 @@
           <li>
             <button type="button" class="item" class:sel={a.id === library.current} onclick={() => library.read(a.id)}>
               <span class="t">{a.title}</span>
-              <span class="shelf">{#if questOn(a.id)}<b class="qtag on" title="Quest active">◆ QUEST</b>{:else if questable(a)}<b class="qtag" title="Can be started as a quest">◇ QUEST</b>{/if}{shelfLabel(a.shelf)} · {catLabel(a.id)}{#if p && p.done} · {p.done}/{p.total}{/if}</span>
+              <span class="shelf">{#if questOn(a.id)}<b class="qtag on" title="Quest active">◆ QUEST ·</b>{:else if questable(a)}<b class="qtag" title="Can be started as a quest">◇ QUEST ·</b>{/if}{shelfLabel(a.shelf)} · {catLabel(a.id)}{#if p && p.done} · {p.done}/{p.total}{/if}</span>
               <span class="snip muted">{snippet}</span>
             </button>
           </li>

@@ -215,7 +215,8 @@ export function stepList(a: Article): QuestStep[] {
           .map((t) => t.text)
           .join("")
           .replace(/\s+/g, " ")
-          .trim();
+          .trim()
+          .replace(/:$/, "");
         out.push({ key: `${bi}-${ii}`, text, part, partTitle, check: a.checks?.[n] ?? null });
         n++;
       });
