@@ -5,7 +5,10 @@
   import { formatBytes, isoNameFromUrl, OSTYPES, validCtIp, validGuestName, validIpv4, validIsoName, validSha256, validSshKeys, validUrl, vmidFree } from "../../proxmox";
   import { proxmox } from "../../stores/proxmox.svelte";
 
-  const m = $derived(proxmox.make);
+  const m = $derived.by(() => {
+    const x = proxmox.make;
+    return x && x.kind !== "sandbox" ? x : null;
+  });
   const o = $derived(proxmox.overview);
   const info = $derived(proxmox.createInfo);
   const node = $derived(proxmox.localNode ?? "");

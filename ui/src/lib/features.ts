@@ -34,6 +34,7 @@ export const FEATURES: Feature[] = [
   { id: "fleet.blueprints", parent: "fleet", label: "Blueprints", hint: "Save a host's setup as an encrypted file and rebuild it on another host." },
   { id: "desktops", label: "Desktops", hint: "VM screens over VNC and RDP." },
   { id: "proxmox", label: "Proxmox", hint: "Proxmox VE nodes, guests, storage, network and firewall." },
+  { id: "proxmox.sandbox", parent: "proxmox", label: "Sandboxes", hint: "Throwaway clones cut off from the network, destroyed when they expire." },
   { id: "network", label: "Network map", hint: "Hosts, containers and ports as a graph; LAN discovery." },
   { id: "nettools", label: "Network tools", hint: "Ping, path, DNS, port check, HTTP/TLS, Wake-on-LAN, subnet and MAC lookups." },
   { id: "automation", label: "Automation", hint: "Snippets and playbooks across hosts." },

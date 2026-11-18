@@ -29,7 +29,7 @@ Approved by Roben on 2026-11-17. One release each, in this order; the last one i
 | --- | --- |
 | ~~**M12a** · Homelab journal~~ | Done in 0.10.83: Fleet → JOURNAL, a searchable changelog of every change made from Nightgrid with line diffs, hand-written entries, Markdown export, and DRIFT answering "what changed before this broke?". |
 | ~~**M12b** · Lab blueprints~~ | Done in 0.10.84: Fleet → BLUEPRINTS saves a host's stacks, `.env` vault values, crontab, timers, firewall rules and proxy routes as one encrypted file, and rebuilds it on another host from a plan of additive steps. |
-| **M12c** · Sandbox clones | A throwaway Proxmox CT or VM copy of a guest to test an update in, then promote or discard it. Built against fixtures until a Proxmox host exists. |
+| ~~**M12c** · Sandbox clones~~ | Done in 0.10.85: Proxmox → SANDBOX copies a guest (now or from a snapshot) cut off from the network, without passthrough or bind mounts, and the node destroys it when it expires; keep or destroy it any time. |
 | **M12d** · Power & cost | Estimated watts and cost per host from UPS readings and CPU load, with idle-hour hints for scheduled power. |
 | **M12e** · Library quests | Guides become checklists DRIFT verifies read-only against your real hosts ("Harden SSH: 3 of 5 steps done on server01"). |
 | **M12f** · Nightgrid Node pairing | The Nightgrid side of hosts pushing data through Nightgrid Node instead of being polled over SSH; what Node needs is written up for its own project. |

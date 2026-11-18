@@ -20,7 +20,7 @@ describe("proxmox helpers", async () => {
   });
 
   it("counts and filters guests", () => {
-    expect(counts(o.guests)).toEqual({ running: 3, stopped: 2, templates: 1, vms: 3, cts: 2 });
+    expect(counts(o.guests)).toEqual({ running: 4, stopped: 2, templates: 1, vms: 4, cts: 2 });
     expect(filterGuests(o.guests, "#dns", null).map((g) => g.vmid)).toEqual([200]);
     expect(filterGuests(o.guests, "ct", null).map((g) => g.vmid)).toEqual([200, 201]);
     expect(filterGuests(o.guests, "", "pve2").length).toBe(2);

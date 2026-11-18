@@ -15,6 +15,7 @@ pub mod create;
 pub mod firewall;
 pub mod hardware;
 pub mod network;
+pub mod sandbox;
 
 /// Marks each `pvesh` answer in a batched script's output.
 pub(crate) const MARK: &str = "@@pve";

@@ -61,7 +61,7 @@ impl From<ConnectError> for SystemCmdError {
 pub(crate) type SysResult<T> = Result<T, SystemCmdError>;
 
 /// The sudo password typed into the prompt. Never logged.
-#[derive(Deserialize, Type)]
+#[derive(Deserialize, Type, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SudoInput {
     pub password: String,
