@@ -32,6 +32,7 @@ import { settings } from "./settings.svelte";
 import { system } from "./system.svelte";
 import { terms } from "./terms.svelte";
 import { ui } from "./ui.svelte";
+import { kbContent } from "./kbcontent.svelte";
 
 setFeatureCheck((id) => settings.on(id));
 
@@ -386,6 +387,8 @@ class HelperStore {
     this.pendingChecks = [];
     if (wantsSummary(q)) checks.unshift(summaryCheck(this.summaryInput()));
     // The Library's error reference: entries whose message is in the question or the attached text.
+    // Newer downloaded Library content first, so the index below is rebuilt from it (D-174).
+    await kbContent.ensure().catch(() => undefined);
     const errRef = await import("../kb/errorref");
     errRef.addErrorRefs(checks, errRef.matchErrors(`${q}\n${ctx.selection ?? ""}`, 3));
     ctx.checks = checks.length ? checksText(checks) : null;

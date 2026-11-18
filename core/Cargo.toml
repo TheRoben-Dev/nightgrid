@@ -16,6 +16,7 @@ bollard = { version = "0.21", default-features = false }
 bytes = "1"
 des = "0.9"
 flate2 = "1"
+minisign-verify = "0.3"
 futures-util = "0.3"
 regex = "1"
 getrandom = { version = "0.4", features = ["sys_rng"] }

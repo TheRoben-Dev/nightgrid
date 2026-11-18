@@ -7,6 +7,10 @@
  *
  * This module holds the article text, so only the Library view and DRIFT's
  * retrieval load it (lazily); the palette uses the small catalog instead.
+ *
+ * A verified content pack (D-174, stores/kbcontent) can replace the docs/kb
+ * shelves with newer text through `applyPack`; the arrays and maps here are
+ * updated in place so every importer sees the same Library.
  */
 import guideMd from "../../../../docs/USER_GUIDE.md?raw";
 import { chunkMarkdown, Index, type Chunk } from "../helper/knowledge";
@@ -129,18 +133,42 @@ export function fromFile(path: string, raw: string): Article | null {
   return art;
 }
 
+let index: Index | null = null;
+
 const SHELF_ORDER: Shelf[] = ["nightgrid", "howto", "basics", "linux", "apps", "guides", "errors"];
 
-export const ARTICLES: Article[] = [
-  ...fromGuide(guideMd),
-  ...Object.entries(FILES)
-    .map(([p, raw]) => fromFile(p, raw))
-    .filter((a): a is Article => a !== null)
-    .sort((a, b) => SHELF_ORDER.indexOf(a.shelf) - SHELF_ORDER.indexOf(b.shelf) || a.title.localeCompare(b.title)),
-];
+function build(files: Record<string, string>): Article[] {
+  return [
+    ...fromGuide(guideMd),
+    ...Object.entries(files)
+      .map(([p, raw]) => fromFile(p, raw))
+      .filter((a): a is Article => a !== null)
+      .sort((a, b) => SHELF_ORDER.indexOf(a.shelf) - SHELF_ORDER.indexOf(b.shelf) || a.title.localeCompare(b.title)),
+  ];
+}
+
+export const ARTICLES: Article[] = build(FILES);
 
 const BY_ID = new Map(ARTICLES.map((a) => [a.id, a]));
 export const article = (id: string): Article | undefined => BY_ID.get(id);
+
+let generation = 0;
+/** Bumped whenever the articles change, so caches built from them (search, the error reference) rebuild. */
+export const contentGeneration = (): number => generation;
+
+/**
+ * Swaps the docs/kb shelves for a content pack's markdown (keys like
+ * `apps/x.md`), or back to the bundled files with null. The "Using
+ * Nightgrid" shelf always comes from the app's own user guide.
+ */
+export function applyPack(files: Record<string, string> | null): void {
+  const md = files ? Object.fromEntries(Object.entries(files).filter(([k]) => k.endsWith(".md")).map(([k, v]) => [`/docs/kb/${k}`, v])) : FILES;
+  ARTICLES.splice(0, ARTICLES.length, ...build(md));
+  BY_ID.clear();
+  for (const a of ARTICLES) BY_ID.set(a.id, a);
+  index = null;
+  generation++;
+}
 
 /** A guide's progress: its `- [ ]` steps (Markdown's `block-item` keys), by `##` part. */
 export interface Part {
@@ -177,8 +205,7 @@ export function articleChunks(a: Article): (Chunk & { articleId: string })[] {
   }));
 }
 
-let index: Index | null = null;
-/** Full-text index over every article (built on first use). */
+/** Full-text index over every article (built on first use, again after a content update). */
 export function libraryIndex(): Index {
   return (index ??= new Index(ARTICLES.flatMap(articleChunks)));
 }

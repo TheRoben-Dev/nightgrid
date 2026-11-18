@@ -450,9 +450,30 @@ export const CATALOG: CatalogEntry[] = [
   // errors:end
 ];
 
+const BUNDLED = [...CATALOG];
 const CAT_OF = new Map(CATALOG.map((c) => [c.id, c.cat]));
 /** An article's category (articles missing from the catalog fail a test). */
 export const categoryOf = (id: string): Category => CAT_OF.get(id) ?? "start";
+
+const CAT_IDS = new Set(CATEGORIES.map((c) => c.id as string));
+const SHELF_IDS = new Set(SHELVES.map((s) => s.id as string));
+
+/**
+ * Swaps the docs/kb lines for a content pack's catalog (D-174), or back to
+ * the bundled list with null. Updated in place, so the palette and help
+ * links see it; "Using Nightgrid" lines always stay the app's own.
+ */
+export function applyCatalog(entries: { id: string; shelf: string; title: string; cat: string }[] | null): void {
+  const own = BUNDLED.filter((c) => c.shelf === "nightgrid");
+  const next = entries
+    ? entries
+        .filter((e) => e.shelf !== "nightgrid" && SHELF_IDS.has(e.shelf) && e.id.startsWith(`${e.shelf}/`))
+        .map((e) => ({ id: e.id, shelf: e.shelf as Shelf, title: e.title, cat: (CAT_IDS.has(e.cat) ? e.cat : "start") as Category }))
+    : BUNDLED.filter((c) => c.shelf !== "nightgrid");
+  CATALOG.splice(0, CATALOG.length, ...own, ...next);
+  CAT_OF.clear();
+  for (const c of CATALOG) CAT_OF.set(c.id, c.cat);
+}
 
 /** The article behind each view's "?" link. */
 export const VIEW_HELP: Record<SectionId, string> = {

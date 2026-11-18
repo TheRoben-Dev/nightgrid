@@ -28,6 +28,7 @@
   import { ui } from "./lib/stores/ui.svelte";
   import { library } from "./lib/stores/library.svelte";
   import { CATALOG, VIEW_HELP } from "./lib/kb/catalog";
+  import { kbContent } from "./lib/stores/kbcontent.svelte";
   import Overview from "./lib/views/Overview.svelte";
   import Placeholder from "./lib/views/Placeholder.svelte";
   import LazyView from "./lib/components/LazyView.svelte";
@@ -81,6 +82,7 @@
       metrics.start();
       alerts.start();
       updates.startLaunchCheck();
+      void kbContent.start();
       mcp.start();
     });
     // Tray menu: quick connect and "open alerts".

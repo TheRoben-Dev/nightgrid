@@ -35,6 +35,8 @@ pub struct Request {
     pub body: Vec<u8>,
     pub allow_untrusted: bool,
     pub timeout: Duration,
+    /// Largest response body accepted ([`MAX_BODY`] unless raised).
+    pub max_body: usize,
 }
 
 impl Request {
@@ -46,6 +48,7 @@ impl Request {
             body: Vec::new(),
             allow_untrusted: false,
             timeout: DEFAULT_TIMEOUT,
+            max_body: MAX_BODY,
         }
     }
 
@@ -79,6 +82,12 @@ impl Request {
 
     pub fn timeout(mut self, t: Duration) -> Self {
         self.timeout = t;
+        self
+    }
+
+    /// Accepts a larger body (downloads such as the Library's content pack).
+    pub fn max_body(mut self, n: usize) -> Self {
+        self.max_body = n;
         self
     }
 }
@@ -219,7 +228,7 @@ where
             .iter()
             .filter_map(|(k, v)| Some((k.as_str().to_ascii_lowercase(), v.to_str().ok()?.to_owned())))
             .collect();
-        let body = Limited::new(res.into_body(), MAX_BODY).collect().await;
+        let body = Limited::new(res.into_body(), req.max_body).collect().await;
         driver.abort();
         let body = body.map_err(|e| format!("reading the response failed: {e}"))?.to_bytes().to_vec();
         Ok::<_, String>(Response { status, headers, body })

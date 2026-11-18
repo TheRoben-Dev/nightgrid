@@ -4,7 +4,8 @@
    * (Using Nightgrid, How-tos, Homelab basics, Linux skills, Self-hosted
    * apps, Guides), topics across them, full-text search, and step-by-step
    * articles read like a quest log: parts are objectives, ticks are kept.
-   * Everything is bundled; nothing is fetched.
+   * Everything is bundled and works offline; newer signed content can
+   * replace the bundled shelves between releases (D-174, stores/kbcontent).
    */
   import { writeClipboard } from "../clipboard";
   import Markdown from "../components/Markdown.svelte";
@@ -18,6 +19,7 @@
   import { hosts } from "../stores/hosts.svelte";
   import { quests } from "../stores/quests.svelte";
   import { scramble } from "../scramble";
+  import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
   import { library } from "../stores/library.svelte";
   import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
@@ -27,17 +29,31 @@
   const tracked = (a: Article) => a.shelf !== "nightgrid" && a.shelf !== "basics";
   const inShelf = (a: Article) => library.shelf === "all" || a.shelf === library.shelf;
   const inCat = (a: Article) => library.cat === "all" || categoryOf(a.id) === library.cat;
-  const hits = $derived(library.query.trim() ? search(library.query, 60) : null);
+  // Newer downloaded content, if any, before the first read; `rev` changes when the text does.
+  $effect(() => {
+    void kbContent.ensure();
+  });
+  const all = $derived.by(() => {
+    void kbContent.rev;
+    return [...ARTICLES];
+  });
+  const hits = $derived.by(() => {
+    void kbContent.rev;
+    return library.query.trim() ? search(library.query, 60) : null;
+  });
   const listed = $derived(
     hits
       ? hits.filter((h) => inShelf(h.article) && inCat(h.article)).map((h) => ({ a: h.article, snippet: h.snippet }))
-      : ARTICLES.filter((a) => inShelf(a) && inCat(a)).map((a) => ({ a, snippet: a.summary })),
+      : all.filter((a) => inShelf(a) && inCat(a)).map((a) => ({ a, snippet: a.summary })),
   );
   /** Counts beside each filter, given the other filter. */
-  const shelfCount = $derived(new Map(SHELVES.map((s) => [s.id, ARTICLES.filter((a) => a.shelf === s.id && inCat(a)).length])));
-  const catCount = $derived(new Map(CATEGORIES.map((c) => [c.id, ARTICLES.filter((a) => categoryOf(a.id) === c.id && inShelf(a)).length])));
+  const shelfCount = $derived(new Map(SHELVES.map((s) => [s.id, all.filter((a) => a.shelf === s.id && inCat(a)).length])));
+  const catCount = $derived(new Map(CATEGORIES.map((c) => [c.id, all.filter((a) => categoryOf(a.id) === c.id && inShelf(a)).length])));
   const catLabel = (id: string) => CATEGORIES.find((c) => c.id === categoryOf(id))?.label ?? "";
-  const cur = $derived(library.current ? (article(library.current) ?? null) : null);
+  const cur = $derived.by(() => {
+    void kbContent.rev;
+    return library.current ? (article(library.current) ?? null) : null;
+  });
   /** A figure on the article's first line is its briefing banner, shown above the objectives. */
   const lead = $derived.by(() => {
     const m = cur ? FIG_LINE.exec(cur.body.split("\n", 1)[0]) : null;
@@ -219,8 +235,11 @@
       <div class="shelves">
         <h1>THE LIBRARY</h1>
         <p class="muted">Built in and offline: how each part of Nightgrid works, how-tos for common jobs, the Linux and homelab background they assume, install guides for self-hosted apps, and step-by-step guides for whole setups. Search covers every article; DRIFT reads them too.</p>
+        <p class="muted small" data-guide="library-version">
+          Content {kbVersionLabel(kbContent.version)} · {kbContent.source === "update" ? "updated since this app was released" : "bundled with this app"}{#if kbContent.checking} · checking for newer content…{/if}
+        </p>
         <section class="shelfcard">
-          <h2>TOPICS <span class="muted small">· {ARTICLES.length} articles</span></h2>
+          <h2>TOPICS <span class="muted small">· {all.length} articles</span></h2>
           <div class="topics">
             <button type="button" class="chip" class:on={library.cat === "all"} aria-pressed={library.cat === "all"} onclick={() => (library.cat = "all")}>ALL</button>
             {#each CATEGORIES as c (c.id)}
@@ -229,7 +248,7 @@
           </div>
         </section>
         {#each SHELVES.filter((s) => library.shelf === "all" || library.shelf === s.id) as s (s.id)}
-          {@const shelfArticles = ARTICLES.filter((a) => a.shelf === s.id && inCat(a))}
+          {@const shelfArticles = all.filter((a) => a.shelf === s.id && inCat(a))}
           {#if shelfArticles.length}
           <section class="shelfcard">
             <h2>{s.label} <span class="muted small">· {s.what} · {shelfArticles.length}</span></h2>

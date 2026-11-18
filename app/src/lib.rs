@@ -27,6 +27,7 @@ mod hosts_cmd;
 mod integrations_cmd;
 mod jobs_cmd;
 mod journal_cmd;
+mod kbpack_cmd;
 mod keys_cmd;
 mod logging;
 mod logsearch_cmd;
@@ -455,6 +456,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         mcp_cmd::mcp_answer,
         update_cmd::update_check,
         update_cmd::update_install,
+        kbpack_cmd::kb_pack_status,
+        kbpack_cmd::kb_pack_check,
+        kbpack_cmd::kb_pack_load,
+        kbpack_cmd::kb_pack_remove,
     ])
 }
 
@@ -490,6 +495,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().pubkey(update_cmd::PUBKEY.trim()).build())
         .manage(update_cmd::PendingUpdate::default())
+        .manage(kbpack_cmd::KbPacks::default())
         .manage(helper_cmd::Helper::default())
         .manage(desktop_cmd::Desktops::default())
         .manage(webui_cmd::WebWindows::default())
