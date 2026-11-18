@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Knowledge → Starters (D-175): ready-made runbooks for common alerts.
+   * Knowledge → Starters (D-177): ready-made runbooks for common alerts.
    * Read one, then add it as a runbook note (it's yours to edit after).
    */
   import type { StarterRunbook } from "../../api";

@@ -28,7 +28,7 @@
   }
 
   /** A new runbook for this kind of alert, on this host or service, with a step list to fill in. */
-  /** Opens Knowledge → Starters on one starter runbook (D-175). */
+  /** Opens Knowledge → Starters on one starter runbook (D-177). */
   function openStarter(id: string) {
     notes.cancel();
     starters.focus = id;

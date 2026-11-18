@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
-## [1.3.0] - 2026-11-18
+## [1.5.0] - 2026-11-18
 
 Starters: ready-made server setups and alert runbooks you can read, preview and use as they are.
 

@@ -1,4 +1,4 @@
-//! Starter blueprints and runbooks (D-175): ready-made setups for common
+//! Starter blueprints and runbooks (D-177): ready-made setups for common
 //! homelab jobs, kept as data files in `starters/` at the repository root.
 //!
 //! A starter blueprint is a blueprint (D-161) written by hand instead of read

@@ -118,7 +118,7 @@ pub struct BpTraefik {
     pub routes: Vec<TraefikRoute>,
 }
 
-/// A step only a person can do (from a starter, D-175): shown in the plan,
+/// A step only a person can do (from a starter, D-177): shown in the plan,
 /// never applied.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

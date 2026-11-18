@@ -1,4 +1,4 @@
-/** The starter catalog (D-175), read once from the app and shared by Fleet, Knowledge and alerts. */
+/** The starter catalog (D-177), read once from the app and shared by Fleet, Knowledge and alerts. */
 import { api, errorText, type StarterCatalog } from "../api";
 
 class StartersStore {

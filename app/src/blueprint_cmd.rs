@@ -296,7 +296,7 @@ fn opened() -> SysResult<Blueprint> {
     OPENED.lock().expect("poisoned").clone().ok_or_else(|| other("open a blueprint first").into())
 }
 
-/// Replaces the opened blueprint (a starter built for a host, D-175).
+/// Replaces the opened blueprint (a starter built for a host, D-177).
 pub(crate) fn set_opened(bp: Blueprint) {
     *OPENED.lock().expect("poisoned") = Some(bp);
 }

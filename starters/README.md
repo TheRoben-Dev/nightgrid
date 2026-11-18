@@ -1,6 +1,6 @@
 # Starters
 
-Ready-made setups and runbooks shown in Nightgrid under **Fleet → BLUEPRINTS → STARTERS** and **Knowledge → Starters** (D-175). They are data, read by `core/src/starters.rs`; every file here must be listed in `BLUEPRINT_FILES` or `RUNBOOK_FILES` there (a test checks).
+Ready-made setups and runbooks shown in Nightgrid under **Fleet → BLUEPRINTS → STARTERS** and **Knowledge → Starters** (D-177). They are data, read by `core/src/starters.rs`; every file here must be listed in `BLUEPRINT_FILES` or `RUNBOOK_FILES` there (a test checks).
 
 Rules for every starter:
 

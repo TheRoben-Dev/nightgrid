@@ -1,4 +1,4 @@
-/** Browser-only stand-in for starter blueprints and runbooks (D-175). The real set lives in starters/ and is read by the app. */
+/** Browser-only stand-in for starter blueprints and runbooks (D-177). The real set lives in starters/ and is read by the app. */
 import type { BlueprintSummary_Serialize as BlueprintSummary, StarterCatalog_Serialize as StarterCatalog, StarterTarget, StarterValue } from "./bindings";
 
 const catalog: StarterCatalog = {

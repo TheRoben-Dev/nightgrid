@@ -1,6 +1,6 @@
 <script lang="ts">
   /**
-   * Fleet → BLUEPRINTS → STARTERS (D-175): ready-made setups for common jobs.
+   * Fleet → BLUEPRINTS → STARTERS (D-177): ready-made setups for common jobs.
    * Pick one, read what it does, fill in its questions, preview the plan on a
    * host, and apply only after confirming. Uses the blueprint plan/apply code.
    */

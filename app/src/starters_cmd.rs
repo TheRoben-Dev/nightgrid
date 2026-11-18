@@ -1,4 +1,4 @@
-//! Starter blueprints and runbooks (D-175). A starter is built into an
+//! Starter blueprints and runbooks (D-177). A starter is built into an
 //! ordinary blueprint for one host, then planned and applied by
 //! `blueprint_cmd` like a blueprint file. See `core/src/starters.rs`.
 

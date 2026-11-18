@@ -1,4 +1,4 @@
-/** Starter blueprints and runbooks (D-175): form values, wording and runbook notes. */
+/** Starter blueprints and runbooks (D-177): form values, wording and runbook notes. */
 import type { AlertKind, Note, NoteInput, StarterBlueprint, StarterRunbook, StarterValue, StarterVar } from "./api";
 
 /** Library topic ids used by starters, as shown on the cards. */
