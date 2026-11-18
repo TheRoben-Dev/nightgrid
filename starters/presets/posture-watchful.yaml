@@ -1,0 +1,25 @@
+id: posture-watchful
+kind: posture
+title: Watchful security
+summary: Daily security scores, rotation reminders, a network watch every hour and certificate warnings a month ahead.
+category: security
+library: [howto/security-score, howto/network-map]
+purpose: |
+  For a homelab with services reachable from outside, or many devices on the network. Every
+  connected host is re-scored daily, and a quiet network scan every hour alerts on new devices,
+  devices that went missing and risky open ports.
+
+  The scan runs from this computer unless you pick a host in Settings; it never touches anything
+  outside your network.
+security:
+  postureDaily: true
+  rotationNotices: true
+netWatch:
+  enabled: true
+  minutes: 60
+  alertNew: true
+  alertMissing: true
+  alertRisks: true
+alerts:
+  certExpiring: true
+  certDays: 30

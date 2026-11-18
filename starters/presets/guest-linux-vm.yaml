@@ -1,0 +1,20 @@
+id: guest-linux-vm
+kind: guests
+title: General Linux VM
+summary: A UEFI Linux VM with 2 cores, 4 GB of memory and 32 GB of disk, ready for an Ubuntu or Debian ISO.
+category: linux
+library: [howto/proxmox]
+purpose: |
+  A full VM for anything that needs its own kernel: Docker hosts that want full isolation,
+  Kubernetes nodes, or apps that don't like containers.
+
+  Opens Proxmox → Create VM with these values filled in; pick an ISO there. Nothing is created
+  until you press Create.
+guest:
+  kind: vm
+  name: linux
+  cores: 2
+  memoryMb: 4096
+  diskGb: 32
+  ostype: l26
+  uefi: true

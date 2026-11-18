@@ -80,7 +80,31 @@
       bridge = "";
       vmid = 0;
       idTouched = false;
+      const g = (m.kind === "vm" || m.kind === "ct") && m.preset ? m.preset : null;
+      if (g) {
+        name = g.name;
+        cores = g.cores;
+        memoryMb = g.memoryMb;
+        diskGb = g.diskGb;
+        if (m.kind === "vm") {
+          ostype = g.ostype || "l26";
+          uefi = g.uefi;
+        } else {
+          swapMb = g.swapMb;
+          unprivileged = g.unprivileged;
+          nesting = g.nesting;
+        }
+      }
     } else if (!m) openedFor = null;
+  });
+
+  // A starter names a template by its start (debian-12): pick the newest that matches once the list loads.
+  $effect(() => {
+    const hint = m?.kind === "ct" && m.preset ? m.preset.template : "";
+    if (hint && !template) {
+      const match = templates.filter((t) => t.name.split("/").pop()!.startsWith(hint)).sort((a, b) => a.name.localeCompare(b.name)).pop();
+      if (match) template = match.volid;
+    }
   });
 
   const content = $derived(m?.kind === "ct" ? "rootdir" : m?.kind === "iso" ? "iso" : m?.kind === "appliance" ? "vztmpl" : "images");

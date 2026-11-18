@@ -7115,6 +7115,51 @@ export type PowerSettings_Serialize = {
 	currency: string,
 };
 
+/**  Drills added for each backup job that has none yet. */
+export type PresetDrills = {
+	/**  0 (by hand), 7, 14, 30 or 90. */
+	everyDays: number,
+};
+
+/**  A guest shape for Proxmox → Create. */
+export type PresetGuest = PresetGuest_Serialize | PresetGuest_Deserialize;
+
+/**  A guest shape for Proxmox → Create. */
+export type PresetGuest_Deserialize = {
+	/**  `vm` or `ct`. */
+	kind: string,
+	name: string,
+	cores: number,
+	memoryMb: number,
+	diskGb: number,
+	swapMb?: number,
+	/**  VMs: `l26`, `win11`, `win10`, `other`. */
+	ostype?: string,
+	uefi?: boolean,
+	/**  Containers: the first template whose name starts with this is picked. */
+	template?: string,
+	unprivileged?: boolean,
+	nesting?: boolean,
+};
+
+/**  A guest shape for Proxmox → Create. */
+export type PresetGuest_Serialize = {
+	/**  `vm` or `ct`. */
+	kind: string,
+	name: string,
+	cores: number,
+	memoryMb: number,
+	diskGb: number,
+	swapMb: number,
+	/**  VMs: `l26`, `win11`, `win10`, `other`. */
+	ostype: string,
+	uefi: boolean,
+	/**  Containers: the first template whose name starts with this is picked. */
+	template: string,
+	unprivileged: boolean,
+	nesting: boolean,
+};
+
 /**  Which shelf of the gallery a preset is on. */
 export type PresetKind = 
 /**  Alert switches and thresholds. */
@@ -7124,7 +7169,40 @@ export type PresetKind =
 /**  An Overview dashboard (may bring its own tiles). */
 "dashboard" | 
 /**  Saved log searches. */
-"searches";
+"searches" | 
+/**  Reverse proxy routes for Caddy or Traefik. */
+"routes" | 
+/**  A Proxmox VM or container shape for the create dialog. */
+"guests" | 
+/**  Restore drills for every backup job. */
+"drills" | 
+/**  Security posture and network watch settings. */
+"posture";
+
+/**  One proxy route: `<sub>.<your domain>` to an upstream. */
+export type PresetRoute = PresetRoute_Serialize | PresetRoute_Deserialize;
+
+/**  One proxy route: `<sub>.<your domain>` to an upstream. */
+export type PresetRoute_Deserialize = {
+	/**  Route name (Traefik) and the app's name. */
+	name: string,
+	/**  Subdomain, put in front of the domain the user types. */
+	sub: string,
+	/**  `app:8080`: a container name on the proxy's network, or host:port. */
+	upstream: string,
+	what?: string,
+};
+
+/**  One proxy route: `<sub>.<your domain>` to an upstream. */
+export type PresetRoute_Serialize = {
+	/**  Route name (Traefik) and the app's name. */
+	name: string,
+	/**  Subdomain, put in front of the domain the user types. */
+	sub: string,
+	/**  `app:8080`: a container name on the proxy's network, or host:port. */
+	upstream: string,
+	what: string,
+};
 
 /**  A saved log search over every host. */
 export type PresetSearch = PresetSearch_Serialize | PresetSearch_Deserialize;
@@ -9373,6 +9451,13 @@ export type StarterPreset_Deserialize = {
 	/**  Widgets may be `tile:<n>`: the preset's n-th tile, once added. */
 	dashboard?: Dashboard | null,
 	searches?: PresetSearch_Deserialize[],
+	routes?: PresetRoute_Deserialize[],
+	guest?: PresetGuest_Deserialize | null,
+	drills?: PresetDrills | null,
+	/**  Security view settings to change (`postureDaily`). */
+	security?: { [key in string]: AlertValue },
+	/**  Network watch settings to change (`alertRisks`). */
+	netWatch?: { [key in string]: AlertValue },
 };
 
 export type StarterPreset_Serialize = {
@@ -9389,6 +9474,13 @@ export type StarterPreset_Serialize = {
 	/**  Widgets may be `tile:<n>`: the preset's n-th tile, once added. */
 	dashboard: Dashboard | null,
 	searches: PresetSearch_Serialize[],
+	routes: PresetRoute_Serialize[],
+	guest: PresetGuest_Serialize | null,
+	drills: PresetDrills | null,
+	/**  Security view settings to change (`postureDaily`). */
+	security: { [key in string]: AlertValue },
+	/**  Network watch settings to change (`alertRisks`). */
+	netWatch: { [key in string]: AlertValue },
 };
 
 export type StarterRunbook = StarterRunbook_Serialize | StarterRunbook_Deserialize;

@@ -1,0 +1,18 @@
+id: routes-media
+kind: routes
+title: Media server routes
+summary: Names like jellyfin.your-domain for Jellyfin, Sonarr, Radarr and Prowlarr, added to your Caddy or Traefik.
+category: media
+library: [howto/proxy-routes, basics/reverse-proxies]
+purpose: |
+  Lets you open the media apps by name with HTTPS instead of remembering ports. Uses the
+  container names from the Media server starter.
+
+  The proxy reaches each app by its container name, so the apps and the proxy need to be on
+  the same Docker network. If they aren't, change an upstream to the host's address and port
+  in the proxy editor afterwards.
+routes:
+  - { name: jellyfin, sub: jellyfin, upstream: "jellyfin:8096", what: Jellyfin }
+  - { name: sonarr, sub: sonarr, upstream: "sonarr:8989", what: Sonarr }
+  - { name: radarr, sub: radarr, upstream: "radarr:7878", what: Radarr }
+  - { name: prowlarr, sub: prowlarr, upstream: "prowlarr:9696", what: Prowlarr }

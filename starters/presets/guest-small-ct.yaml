@@ -1,0 +1,21 @@
+id: guest-small-ct
+kind: guests
+title: Small service container (LXC)
+summary: A tiny Debian container for one light service such as Pi-hole, a DNS resolver or a bastion.
+category: network
+library: [howto/proxmox]
+purpose: |
+  One small job per container keeps things easy to back up and restore. 1 core, 512 MB of memory
+  and 4 GB of disk fits Pi-hole, Unbound, WireGuard or an SSH jump host.
+
+  Opens Proxmox → Create container with these values filled in; nothing is created until you press Create.
+guest:
+  kind: ct
+  name: service
+  cores: 1
+  memoryMb: 512
+  swapMb: 256
+  diskGb: 4
+  template: debian-12
+  unprivileged: true
+  nesting: false

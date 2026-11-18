@@ -1,0 +1,22 @@
+id: guest-docker-ct
+kind: guests
+title: Docker container (LXC)
+summary: A Debian container sized for a handful of compose stacks, with nesting on so Docker runs inside.
+category: docker
+library: [howto/proxmox]
+purpose: |
+  The usual way to run Docker on Proxmox without a full VM: an unprivileged Debian container
+  with nesting turned on. 2 cores, 2 GB of memory and 16 GB of disk is enough for a few apps.
+
+  Opens Proxmox → Create container with these values filled in; you pick the ID, storage and
+  network there and nothing is created until you press Create.
+guest:
+  kind: ct
+  name: docker
+  cores: 2
+  memoryMb: 2048
+  swapMb: 512
+  diskGb: 16
+  template: debian-12
+  unprivileged: true
+  nesting: true

@@ -1,0 +1,14 @@
+id: routes-documents
+kind: routes
+title: Files and photos routes
+summary: Names for Nextcloud, Immich and Paperless-ngx, added to your Caddy or Traefik.
+category: storage
+library: [howto/proxy-routes, basics/reverse-proxies]
+purpose: |
+  HTTPS names for the file, photo and document apps. Phone apps for Nextcloud and Immich
+  work much better with a real name and certificate than with an IP and port. Uses the
+  container names from the app starters; the apps and the proxy need to share a Docker network.
+routes:
+  - { name: nextcloud, sub: cloud, upstream: "nextcloud:80", what: Nextcloud }
+  - { name: immich, sub: photos, upstream: "immich_server:2283", what: Immich }
+  - { name: paperless, sub: docs, upstream: "paperless:8000", what: Paperless-ngx }

@@ -1,0 +1,14 @@
+id: routes-monitoring
+kind: routes
+title: Monitoring routes
+summary: Names for Uptime Kuma, Dozzle, Homepage and Forgejo.
+category: monitoring
+library: [howto/proxy-routes, basics/reverse-proxies]
+purpose: |
+  HTTPS names for the dashboards and admin tools. Dozzle shows every container's logs, so keep
+  its name off the internet: only add it to a proxy that serves your LAN or tailnet.
+routes:
+  - { name: uptime-kuma, sub: status, upstream: "uptime-kuma:3001", what: Uptime Kuma }
+  - { name: dozzle, sub: logs, upstream: "dozzle:8080", what: Dozzle }
+  - { name: homepage, sub: home, upstream: "homepage:3000", what: Homepage }
+  - { name: forgejo, sub: git, upstream: "forgejo:3000", what: Forgejo }

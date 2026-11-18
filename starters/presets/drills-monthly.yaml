@@ -1,0 +1,14 @@
+id: drills-monthly
+kind: drills
+title: Monthly restore drills
+summary: A restore drill every 30 days for each backup job that doesn't have one yet.
+category: storage
+library: [howto/restore-drills, basics/backups]
+purpose: |
+  A backup only counts once it has been restored. Each drill restores one random file from the
+  job's latest snapshot into a temporary folder, checks it and deletes it.
+
+  Monthly is a good default for home data: often enough to catch a broken job, rare enough to
+  stay out of the way. Proxmox guest drills need a guest picked, so add those in Fleet → DRILLS.
+drills:
+  everyDays: 30

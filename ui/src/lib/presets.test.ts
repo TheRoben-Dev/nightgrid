@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AlertSettings, StarterPreset } from "./api";
-import { alertChanges, alertWords, dashboardRoom, isPresetShelf, presetMeta, resolveDashboard, tileWidget, withAlerts } from "./presets";
+import { alertChanges, alertWords, dashboardRoom, drillsFor, isPresetShelf, presetMeta, resolveDashboard, routeDomain, tileWidget, withAlerts, withTraefikRoutes } from "./presets";
 
 const base = { diskPercent: 90, quietHours: false, quietStart: 1320, logAnomaly: false } as unknown as AlertSettings;
 
@@ -16,6 +16,11 @@ const preset = (p: Partial<StarterPreset>): StarterPreset => ({
   tiles: [],
   dashboard: null,
   searches: [],
+  routes: [],
+  guest: null,
+  drills: null,
+  security: {},
+  netWatch: {},
   ...p,
 });
 
@@ -30,9 +35,9 @@ describe("presets", () => {
     const p = preset({ alerts: { diskPercent: 80, quietHours: true, logAnomaly: false } });
     const c = alertChanges(p, base);
     expect(c.map((x) => [x.key, x.from, x.to, x.same])).toEqual([
-      ["diskPercent", "90 %", "80 %", false],
-      ["quietHours", "off", "on", false],
-      ["logAnomaly", "off", "off", true],
+      ["alerts.diskPercent", "90 %", "80 %", false],
+      ["alerts.quietHours", "off", "on", false],
+      ["alerts.logAnomaly", "off", "off", true],
     ]);
     const out = withAlerts(p, base) as unknown as Record<string, unknown>;
     expect(out.diskPercent).toBe(80);
@@ -55,5 +60,25 @@ describe("presets", () => {
     expect(dashboardRoom(2)).toBeNull();
     expect(isPresetShelf("searches")).toBe(true);
     expect(isPresetShelf("app")).toBe(false);
+  });
+
+  it("builds proxy routes under the user's domain and skips ones already there", () => {
+    const r = { name: "jellyfin", sub: "jellyfin", upstream: "jellyfin:8096", what: "" };
+    expect(routeDomain(r, " Home.Example.com. ")).toBe("jellyfin.home.example.com");
+    expect(routeDomain(r, "not a domain")).toBeNull();
+    expect(routeDomain(r, "localhost")).toBeNull();
+    const existing = [{ name: "jellyfin", domains: ["x.home.example.com"], upstream: "a:1", entrypoints: [], tls: true, certResolver: null }];
+    const two = [r, { ...r, name: "sonarr", sub: "sonarr", upstream: "sonarr:8989" }];
+    const out = withTraefikRoutes(existing, two, "home.example.com", "le");
+    expect(out.added).toEqual(["sonarr.home.example.com"]);
+    expect(out.routes.at(-1)).toMatchObject({ tls: true, certResolver: "le", upstream: "sonarr:8989" });
+  });
+
+  it("adds one drill per backup job without one", () => {
+    const jobs = [{ id: 1, hostId: 2, name: "photos" }, { id: 2, hostId: 2, name: "docs" }] as unknown as Parameters<typeof drillsFor>[0];
+    const have = [{ kind: "job", jobId: 1 }] as unknown as Parameters<typeof drillsFor>[1];
+    const d = drillsFor(jobs, have, 7);
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ jobId: 2, hostId: 2, name: "docs restore", everyDays: 7, kind: "job", enabled: true });
   });
 });
