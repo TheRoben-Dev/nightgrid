@@ -3,13 +3,15 @@
    * Fleet → NODE (M12f): where the optional Nightgrid Node agent runs, what
    * it has handed over, and installing, updating or removing it.
    */
-  import { api, errorText, type InstallReport, type NodeView, type Release } from "../../api";
-  import { ACCESS_TEXT, bytesText, capsText, installAction, RES_TEXT, spanText, STATE_TEXT, stateTone, syncText } from "../../node";
+  import { api, errorText, type InstallReport, type NodePart, type NodeSetup, type NodeView, type Release } from "../../api";
+  import { ACCESS_TEXT, bytesText, capsText, installAction, RES_TEXT, ROLE_TEXT, roleOf, spanText, STATE_TEXT, stateTone, syncText, unsupportedArch } from "../../node";
   import { hosts } from "../../stores/hosts.svelte";
   import { library } from "../../stores/library.svelte";
   import { system } from "../../stores/system.svelte";
   import { ui } from "../../stores/ui.svelte";
   import Modal from "../Modal.svelte";
+  import NodeHub from "./NodeHub.svelte";
+  import NodeTools from "./NodeTools.svelte";
 
   let views = $state<NodeView[]>([]);
   let release = $state<Release | null>(null);
@@ -22,10 +24,18 @@
   let confirm = $state<{ kind: "install" | "uninstall"; v: NodeView; label: string; fromFile: boolean; purge: boolean } | null>(null);
   let report = $state<{ title: string; r: InstallReport } | null>(null);
 
+  let showClients = $state(false);
+  let setups = $state<Record<number, NodeSetup>>({});
+  let setupsLoading = $state(true);
+  let tab = $state<"status" | "link" | "config" | "logs">("status");
+  let part = $state<NodePart>("node");
+
   const nameOf = (id: number) => hosts.hosts.find((h) => h.id === id)?.name ?? `host ${id}`;
+  const isClient = (id: number) => hosts.hosts.find((h) => h.id === id)?.role === "client";
+  const clients = $derived(views.filter((v) => isClient(v.hostId)).length);
   const rows = $derived(
     views
-      .filter((v) => hosts.hosts.some((h) => h.id === v.hostId))
+      .filter((v) => hosts.hosts.some((h) => h.id === v.hostId) && (showClients || !isClient(v.hostId) || v.state === "ready"))
       .sort((a, b) => Number(b.state === "ready") - Number(a.state === "ready") || nameOf(a.hostId).localeCompare(nameOf(b.hostId))),
   );
   const ready = $derived(rows.filter((v) => v.state === "ready").length);
@@ -38,6 +48,76 @@
       error = errorText(e);
     }
   }
+
+  /** Link, hub and status details for these hosts (default: every connected server). */
+  async function loadSetups(ids?: number[]) {
+    const want = ids ?? views.filter((v) => v.state === "ready" && !isClient(v.hostId)).map((v) => v.hostId);
+    await Promise.all(
+      want.map(async (id) => {
+        try {
+          setups = { ...setups, [id]: await api.nodeSetup(id) };
+        } catch {
+          // Not reachable right now: keep what we had.
+        }
+      }),
+    );
+    setupsLoading = false;
+  }
+
+  async function refresh(ids?: number[]) {
+    await load();
+    await loadSetups(ids);
+  }
+
+  const hubInfo = $derived.by(() => {
+    const s = Object.values(setups).find((x) => x.hub?.overview);
+    return s?.hub?.overview ? { hostId: s.hostId, hubId: s.hub.overview.hubId } : null;
+  });
+  const roleFor = (v: NodeView) => roleOf(v, setups[v.hostId], hubInfo);
+
+  async function joinOne(id: number) {
+    const h = hubInfo;
+    if (!h) return;
+    busy = `join-${id}`;
+    try {
+      const r = await system.withSudo("join the Nightgrid hub", (sudo) => api.hubJoin(id, h.hostId, sudo), nameOf(id));
+      if (r.hubNetworks.length) await system.withSudo("let the hub reach its members", (sudo) => api.hubAllowNetworks(h.hostId, r.hubNetworks, sudo), nameOf(h.hostId));
+      notice = { text: `${nameOf(id)} now reports to the hub on ${nameOf(h.hostId)}.${r.warnings.length ? ` ${r.warnings.join(" ")}` : ""}`, tone: "ok" };
+    } catch (e) {
+      notice = { text: `${nameOf(id)}: ${errorText(e)}`, tone: "err" };
+    } finally {
+      busy = null;
+      await loadSetups([id, h.hostId]);
+    }
+  }
+
+  async function leaveOne(id: number) {
+    const hubHost = hubInfo?.hostId ?? id;
+    busy = `leave-${id}`;
+    try {
+      await system.withSudo("leave the Nightgrid hub", (sudo) => api.hubLeave(id, hubHost, sudo), nameOf(id));
+      notice = { text: `${nameOf(id)} no longer reports to a hub.`, tone: "ok" };
+    } catch (e) {
+      notice = { text: `${nameOf(id)}: ${errorText(e)}`, tone: "err" };
+    } finally {
+      busy = null;
+      await loadSetups([id, hubHost]);
+    }
+  }
+
+  function openTool(id: number, t: "config" | "logs", p: NodePart) {
+    tab = t;
+    part = p;
+    void check(id);
+  }
+
+  let first = true;
+  $effect(() => {
+    if (first && views.length) {
+      first = false;
+      void loadSetups();
+    }
+  });
 
   $effect(() => {
     void load();
@@ -61,6 +141,7 @@
       const v = await api.nodeCheck(id);
       detail = v;
       put(v);
+      if (v.state === "ready") void loadSetups([id]);
     } catch (e) {
       notice = { text: `${nameOf(id)}: ${errorText(e)}`, tone: "err" };
     } finally {
@@ -135,19 +216,23 @@
       <button type="button" class="link" onclick={() => (library.open("basics/nightgrid-node"), ui.go("library"))}>What it is ▤</button>
     </p>
     <span class="muted small">{ready} of {rows.length} connected · latest {release ? release.tag : releaseErr ? "unknown" : "…"}</span>
-    <button type="button" class="btn tiny" onclick={load}>Refresh</button>
+    <button type="button" class="btn tiny" onclick={() => refresh()}>Refresh</button>
   </div>
+  <NodeHub {views} {setups} loading={setupsLoading} onchange={(ids) => refresh(ids)} onopen={openTool} />
   {#if error}<p class="error-text small">{error}</p>{/if}
   {#if notice}<p class="small {notice.tone === 'err' ? 'error-text' : 'ok-text'}">{notice.text}</p>{/if}
 
   <div class="body">
     <div class="list">
-      <div class="trow head" aria-hidden="true"><span>HOST</span><span>NODE</span><span>VERSION</span><span>LAST SYNC</span><span></span></div>
+      <div class="trow head" aria-hidden="true"><span>HOST</span><span>NODE</span><span>ROLE</span><span>VERSION</span><span>LAST SYNC</span><span></span></div>
       {#each rows as v (v.hostId)}
         {@const act = installAction(v, release)}
+        {@const noBuild = v.state === "notInstalled" ? unsupportedArch(v) : null}
+        {@const role = roleFor(v)}
         <div class="trow" class:sel={selected === v.hostId} data-guide="node-host">
           <button type="button" class="name link" onclick={() => check(v.hostId)} title="Look for the node and show its details">{nameOf(v.hostId)}</button>
-          <span class="state {stateTone(v.state)}">● {STATE_TEXT[v.state]}{#if v.state === "ready" && v.metricsLive}<span class="muted">&nbsp;· live</span>{/if}</span>
+          <span class="state {noBuild ? 'muted' : stateTone(v.state)}" title={noBuild ? `Nightgrid Node is built for x86_64 and aarch64 only; this host is ${noBuild}` : undefined}>● {noBuild ? `no build for ${noBuild}` : STATE_TEXT[v.state]}{#if v.state === "ready" && v.metricsLive}<span class="muted">&nbsp;· live</span>{/if}</span>
+          <span class="small {role === 'hub' ? 'role-hub' : role === 'member' ? 'ok-text' : 'muted'}">{ROLE_TEXT[role]}</span>
           <span class="data">{v.version ?? "–"}</span>
           <span class="muted small">{v.syncing ? "syncing…" : ago(v.syncedAt)}</span>
           <span class="acts">
@@ -158,6 +243,9 @@
       {:else}
         <p class="muted small pad">No hosts yet.</p>
       {/each}
+      {#if clients}
+        <label class="small check pad"><input type="checkbox" bind:checked={showClients} /> Show client devices ({clients}): laptops and handhelds don't need the node, so they're hidden unless they already run it</label>
+      {/if}
       <p class="muted small pad">Hosts are checked when Nightgrid connects to them; nothing is installed without you. Turn off the whole thing in Settings → Features → Fleet → Nightgrid Node.</p>
     </div>
 
@@ -167,7 +255,27 @@
         <h3 class="hd">{nameOf(v.hostId).toUpperCase()}</h3>
         <p class="state {stateTone(v.state)}">● {STATE_TEXT[v.state]}</p>
         {#if v.message}<p class="muted small">{v.message}</p>{/if}
-        {#if v.state === "ready"}
+        {#if v.state !== "notInstalled" && v.state !== "unknown" && v.state !== "off"}
+          <div class="tabs" role="tablist">
+            {#each [["status", "STATUS"], ["link", "HUB & LINK"], ["config", "CONFIG"], ["logs", "LOGS"]] as [id, label] (id)}
+              <button type="button" role="tab" aria-selected={tab === id} class:on={tab === id} onclick={() => (tab = id as typeof tab)}>{label}</button>
+            {/each}
+          </div>
+        {/if}
+        {#if tab !== "status" && v.state !== "notInstalled" && v.state !== "unknown" && v.state !== "off"}
+          <NodeTools
+            hostId={v.hostId}
+            name={nameOf(v.hostId)}
+            setup={setups[v.hostId]}
+            role={roleFor(v)}
+            hubName={hubInfo ? nameOf(hubInfo.hostId) : null}
+            {tab}
+            bind:part
+            onjoin={() => joinOne(v.hostId)}
+            onleave={() => leaveOne(v.hostId)}
+            onchange={() => loadSetups([v.hostId])}
+          />
+        {:else if v.state === "ready"}
           <dl>
             <dt>Version</dt><dd class="data">{v.version} · protocol {v.proto} · id {v.nodeId}</dd>
             <dt>Uses</dt><dd>{capsText(v.caps)}</dd>
@@ -195,6 +303,9 @@
             <h4 class="sub">ALERTS ON THE NODE</h4>
             {#each v.info.alerts as a (a.key)}<p class="small {a.severity === 'critical' ? 'error-text' : 'warn-text'}">{a.title}: {a.detail}</p>{:else}<p class="muted small">None active.</p>{/each}
           {/if}
+          <NodeTools hostId={v.hostId} name={nameOf(v.hostId)} setup={setups[v.hostId]} role={roleFor(v)} hubName={null} tab="status" bind:part onjoin={() => {}} onleave={() => {}} onchange={() => {}} />
+        {:else if v.state !== "notInstalled" && v.state !== "unknown" && v.state !== "off"}
+          <NodeTools hostId={v.hostId} name={nameOf(v.hostId)} setup={setups[v.hostId]} role={roleFor(v)} hubName={null} tab="status" bind:part onjoin={() => {}} onleave={() => {}} onchange={() => {}} />
         {/if}
         <div class="row foot">
           {#if v.state === "ready"}<button type="button" class="btn tiny" disabled={!!busy} onclick={() => syncNow(v.hostId)}>{busy === `sync-${v.hostId}` ? "Syncing…" : "Sync now"}</button>{/if}
@@ -277,7 +388,7 @@
   }
   .trow {
     display: grid;
-    grid-template-columns: minmax(110px, 1fr) minmax(150px, 1.2fr) 80px 100px minmax(120px, auto);
+    grid-template-columns: minmax(110px, 1fr) minmax(150px, 1.2fr) minmax(90px, 0.8fr) 70px 90px minmax(110px, auto);
     gap: 10px;
     align-items: center;
     padding: 5px 4px;
@@ -352,6 +463,30 @@
     gap: 8px;
     font-size: var(--fs-xs);
     padding: 2px 0;
+  }
+  .tabs {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--line);
+    margin: 8px 0 4px;
+  }
+  .tabs button {
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--text-2);
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.08em;
+    padding: 4px 8px;
+    cursor: pointer;
+  }
+  .tabs button.on {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .role-hub {
+    color: var(--cyan);
   }
   .foot {
     margin-top: 12px;
