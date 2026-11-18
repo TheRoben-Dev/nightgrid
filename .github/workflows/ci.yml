@@ -151,6 +151,20 @@ jobs:
           go build -tags ts_omit_logtail -trimpath -ldflags "-s -w" -o "../app/binaries/nightgrid-tailnet-$triple$ext" .
           ls -la ../app/binaries
 
+      # A runner CMake upgrade breaks cached C/C++ build dirs (llama.cpp):
+      # their CMakeCache points at the old CMake's modules. Drop those dirs.
+      - name: Drop stale CMake build dirs
+        shell: bash
+        run: |
+          ver=$(cmake --version | sed -n 's/^cmake version \([0-9]*\.[0-9]*\).*/\1/p')
+          for c in target/*/build/*/out/build/CMakeCache.txt; do
+            [ -f "$c" ] || continue
+            if ! grep -q "^CMAKE_ROOT:INTERNAL=.*cmake-$ver" "$c" && ! grep -q "^CMAKE_ROOT:INTERNAL=.*/share/cmake$" "$c"; then
+              echo "dropping $(dirname "$c") (not CMake $ver)"
+              rm -rf "$(dirname "$c")"
+            fi
+          done
+
       - name: Tauri build
         shell: bash
         env:
