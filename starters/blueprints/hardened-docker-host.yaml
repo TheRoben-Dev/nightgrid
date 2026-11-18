@@ -1,0 +1,34 @@
+id: hardened-docker-host
+title: Hardened Docker host
+summary: A safe baseline for any server that runs containers - firewall with SSH rate-limited, weekly image cleanup, and a checklist for the rest.
+category: security
+purpose: |
+  A checklist-plus for a fresh server before you put apps on it. Nightgrid
+  adds an SSH rule with ufw's rate limit (slows down password guessing) and
+  a weekly timer that removes container images unused for a week, so the
+  disk doesn't fill up with old versions.
+
+  Closing everything else and turning the firewall on are left to you in
+  System → FIREWALL, which arms a rollback first so a wrong rule can't lock
+  you out. The other steps (SSH keys only, automatic security updates, log
+  limits for Docker) each have a Library guide and a Security → POSTURE
+  check that confirms they're done.
+library: [apps/docker-host, howto/firewall, guides/security-posture, apps/unattended-upgrades, linux/docker-cleanup]
+firewall:
+  limit: [22/tcp]
+  denyIncoming: true
+  enable: true
+timers:
+  - name: docker-image-prune
+    command: docker image prune -af --filter until=168h
+    calendar: Sun *-*-* 04:30:00
+    persistent: true
+manual:
+  - title: Log in with SSH keys only
+    detail: Push your key from Settings → SSH keys, check that it logs in, then set PasswordAuthentication no in sshd's config and reload sshd.
+  - title: Turn on automatic security updates
+    detail: unattended-upgrades on Debian and Ubuntu, dnf-automatic on Fedora and RHEL. Fleet → UPDATES shows what's still pending.
+  - title: Cap Docker's container logs
+    detail: Put {"log-driver":"local","log-opts":{"max-size":"10m","max-file":"3"}} in /etc/docker/daemon.json and restart Docker, so one chatty container can't fill the disk.
+  - title: Check the score
+    detail: Run Security → POSTURE on this host; each failed check links the guide that fixes it.

@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [1.5.0] - 2026-11-18
+
+Starters: ready-made server setups and alert runbooks you can read, preview and use as they are.
+
+### Added: starter blueprints (Fleet → BLUEPRINTS → STARTERS)
+- **Nine starters** for common jobs: media server (Jellyfin with Sonarr, Radarr and Prowlarr), reverse proxy with HTTPS (Caddy), network-wide ad blocking (Pi-hole), file sync and sharing (Syncthing and File Browser), monitoring basics (Uptime Kuma and Dozzle), home automation (Home Assistant and Mosquitto), a Minecraft server with automatic world backups, a hardened Docker host and a backup target (restic REST server, append-only).
+- Each one explains in plain words what it's for, lists what it sets up (stacks, ports open on the LAN and ports kept on the host, firewall rules, timers, steps left to you), shows the exact files it writes and links its Library guides.
+- Pick a host and a folder, answer a few questions, and **Preview what it would do** shows the same step-by-step plan as a blueprint. **Apply ticked steps…** asks you to confirm before anything is written. Passwords go into the stack's `.env` vault and are generated when left empty; nothing on the host is deleted, and denying traffic or turning a firewall on stays a step for you in System → FIREWALL.
+- Your own blueprint files moved to **YOUR BLUEPRINTS** next to it, unchanged.
+
+### Added: starter runbooks (Knowledge → Starters)
+- **Seven runbooks** for disk full, a container down or crash-looping, a failed systemd unit, a certificate expiring, a host unreachable, high memory and a failed or stale backup: what it means, steps to tick and commands to send to a terminal, with Library links.
+- **Add to my runbooks…** makes one your note, shown as **▤ Runbook** on matching alerts. An alert with no runbook of yours offers **▤ Starter runbook** when one fits.
+- Library links in notes (`kb:`) now open the article.
+- **New how-to**: *Start from a ready-made setup*.
+
 ## [1.4.0] - 2026-11-18
 
 ### Added: quest log

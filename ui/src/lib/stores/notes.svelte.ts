@@ -66,6 +66,8 @@ class NotesStore {
   query = $state("");
   tag = $state<string | null>(null);
   host = $state<HostFilter>("all");
+  /** The starter runbooks gallery is open in the reading pane. */
+  starters = $state(false);
 
   readonly visible = $derived(this.notes.filter((n) => matches(n, this.query.trim(), this.tag, this.host)));
   readonly tags = $derived(
@@ -125,6 +127,19 @@ class NotesStore {
       return false;
     } finally {
       this.saving = false;
+    }
+  }
+
+  /** Adds a ready-made note (a starter runbook) and selects it. */
+  async add(input: NoteInput): Promise<Note | null> {
+    try {
+      const n = await api.noteSave(null, input);
+      await this.load();
+      this.selected = n.id;
+      return n;
+    } catch (e) {
+      this.error = errorText(e);
+      return null;
     }
   }
 

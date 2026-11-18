@@ -15,11 +15,17 @@ const sample = (host: string, inc?: BpInclude): BlueprintSummary => ({
   firewallRules: inc?.firewall === false ? 0 : 5,
   proxies: inc?.proxy === false ? [] : ["Caddy (host): /etc/caddy/Caddyfile"],
   notes: [],
+  manual: [],
 });
 
 let opened = false;
 
+
 export const mockBlueprint = {
+  /** A starter was built into the opened blueprint (mockStarters). */
+  markOpened(): void {
+    opened = true;
+  },
   async capture(hostId: number, include: BpInclude): Promise<BlueprintSummary> {
     await new Promise((r) => setTimeout(r, 400));
     return sample(`host ${hostId}`, include);

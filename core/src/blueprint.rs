@@ -118,6 +118,15 @@ pub struct BpTraefik {
     pub routes: Vec<TraefikRoute>,
 }
 
+/// A step only a person can do (from a starter, D-177): shown in the plan,
+/// never applied.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BpManual {
+    pub title: String,
+    pub detail: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Blueprint {
@@ -137,6 +146,9 @@ pub struct Blueprint {
     pub traefik: Vec<BpTraefik>,
     /// What couldn't be read when it was made.
     pub notes: Vec<String>,
+    /// Steps done by hand (starters only; files made from a host have none).
+    #[serde(default)]
+    pub manual: Vec<BpManual>,
 }
 
 impl Blueprint {
@@ -154,6 +166,7 @@ impl Blueprint {
             caddy: Vec::new(),
             traefik: Vec::new(),
             notes: Vec::new(),
+            manual: Vec::new(),
         }
     }
 }
@@ -285,6 +298,8 @@ pub struct BlueprintSummary {
     /// "Caddy (host): /etc/caddy/Caddyfile", "Traefik (traefik): 4 routes".
     pub proxies: Vec<String>,
     pub notes: Vec<String>,
+    /// Titles of the steps done by hand.
+    pub manual: Vec<String>,
 }
 
 /// Cron lines that are jobs or settings (not comments or blanks).
@@ -328,6 +343,7 @@ impl Blueprint {
                 .chain(self.traefik.iter().map(|t| format!("Traefik ({}): {} routes", t.proxy_name, t.routes.len())))
                 .collect(),
             notes: self.notes.clone(),
+            manual: self.manual.iter().map(|m| m.title.clone()).collect(),
         }
     }
 }
@@ -382,6 +398,8 @@ pub enum BpStepKind {
     Firewall,
     Caddy,
     Traefik,
+    /// Done by hand (a starter's checklist item).
+    Manual,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -681,6 +699,15 @@ pub fn plan(bp: &Blueprint, t: &BpTarget) -> Vec<BpStep> {
             (BpStepState::New, format!("adds {missing} route{}; existing routes stay", plural(missing)))
         };
         out.push(step(id, BpStepKind::Traefik, title, detail, state));
+    }
+    for (i, m) in bp.manual.iter().enumerate() {
+        out.push(step(
+            format!("manual:{i}"),
+            BpStepKind::Manual,
+            m.title.clone(),
+            m.detail.clone(),
+            BpStepState::Manual,
+        ));
     }
     out
 }

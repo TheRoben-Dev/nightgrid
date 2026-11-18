@@ -53,6 +53,12 @@ import {
   type BpStepResult,
   type BpStepKind,
   type BpStepState,
+  type StarterCatalog_Serialize as StarterCatalog,
+  type StarterBlueprint_Serialize as StarterBlueprint,
+  type StarterRunbook_Serialize as StarterRunbook,
+  type StarterVar_Serialize as StarterVar,
+  type StarterTarget,
+  type StarterValue,
   type ChangeArea,
   type ChangeEntry_Serialize as ChangeEntry,
   type ChangeQuery_Deserialize as ChangeQuery,
@@ -422,6 +428,7 @@ import { mockHub, mockNode } from "./mockNode";
 import { mockMcp } from "./mockMcp";
 import { mockQuest, mockQuestLog } from "./mockQuest";
 import { mockBlueprint } from "./mockBlueprint";
+import { mockStarters } from "./mockStarters";
 import { mockUptime } from "./mockUptime";
 import { mockLogs } from "./mockLogs";
 import { mockAccess } from "./mockAccess";
@@ -573,6 +580,12 @@ export type {
   BpStepResult,
   BpStepKind,
   BpStepState,
+  StarterCatalog,
+  StarterBlueprint,
+  StarterRunbook,
+  StarterVar,
+  StarterTarget,
+  StarterValue,
   ChangeArea,
   ChangeEntry,
   ChangeQuery,
@@ -1417,6 +1430,10 @@ export const api = {
   blueprintPlan: (hostId: number, sudo: SudoInput | null): Promise<BpStep[]> => (T() ? commands.blueprintPlan(hostId, sudo) : mockBlueprint.plan()),
   blueprintApply: (hostId: number, steps: string[], sudo: SudoInput | null): Promise<BpStepResult[]> =>
     T() ? commands.blueprintApply(hostId, steps, sudo) : mockBlueprint.apply(hostId, steps),
+  startersList: (): Promise<StarterCatalog> => (T() ? commands.startersList() : mockStarters.list()),
+  starterTarget: (hostId: number): Promise<StarterTarget> => (T() ? commands.starterTarget(hostId) : mockStarters.target()),
+  starterOpen: (id: string, values: StarterValue[], parent: string): Promise<BlueprintSummary> =>
+    T() ? commands.starterOpen(id, values, parent) : mockStarters.open(id, values, parent).then((s) => (mockBlueprint.markOpened(), s)),
   journalQuery: (query: ChangeQuery): Promise<ChangeEntry[]> => (T() ? commands.journalQuery(query) : mockJournal.query(query)),
   journalStats: (): Promise<ChangeStats> => (T() ? commands.journalStats() : mockJournal.stats()),
   journalNote: (hostId: number | null, title: string, detail: string, at: number | null): Promise<ChangeEntry> =>

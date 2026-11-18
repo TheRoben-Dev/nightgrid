@@ -122,6 +122,7 @@ export const CATALOG: CatalogEntry[] = [
   { id: "howto/service-checks", shelf: "howto", title: "Watch services and expiry dates", cat: "monitoring" },
   { id: "howto/alerts", shelf: "howto", title: "Tune alerts so only real problems notify", cat: "monitoring" },
   { id: "howto/runbooks", shelf: "howto", title: "Write runbooks for alerts", cat: "monitoring" },
+  { id: "howto/starters", shelf: "howto", title: "Start from a ready-made setup", cat: "start" },
   { id: "howto/backups", shelf: "howto", title: "Monitor backups and test restores", cat: "storage" },
   { id: "howto/disks", shelf: "howto", title: "Keep an eye on disks and pools", cat: "storage" },
   { id: "howto/fleet-updates", shelf: "howto", title: "Patch every host from one place", cat: "security" },

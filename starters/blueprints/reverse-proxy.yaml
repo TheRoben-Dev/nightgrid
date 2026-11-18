@@ -1,0 +1,65 @@
+id: reverse-proxy
+title: Reverse proxy with HTTPS
+summary: Caddy in front of your apps, with free certificates fetched and renewed for you.
+category: network
+purpose: |
+  Gives your apps proper names and HTTPS. Caddy listens on ports 80 and 443,
+  gets a certificate from Let's Encrypt for your domain and renews it before
+  it expires, then forwards each name to the app behind it.
+
+  The starter routes one name to one app. Add more sites later in
+  Docker → PROXY, which edits this Caddyfile, checks it with caddy validate
+  and puts the old one back if Caddy can't load it.
+library: [apps/caddy, howto/proxy-routes, linux/acme-certs, apps/traefik]
+stacks:
+  - name: proxy
+    compose: |
+      services:
+        caddy:
+          image: caddy:2
+          container_name: caddy
+          restart: unless-stopped
+          ports:
+            - "80:80"
+            - "443:443"
+            - "443:443/udp"
+          environment:
+            DOMAIN: ${DOMAIN}
+            ACME_EMAIL: ${ACME_EMAIL}
+            UPSTREAM: ${UPSTREAM}
+          volumes:
+            - ./Caddyfile:/etc/caddy/Caddyfile:ro
+            - ./data:/data
+            - ./config:/config
+    files:
+      - path: Caddyfile
+        text: |
+          {
+          	email {$ACME_EMAIL}
+          }
+
+          {$DOMAIN} {
+          	reverse_proxy {$UPSTREAM}
+          }
+    env:
+      - name: DOMAIN
+        label: Domain name for your app
+        help: Such as photos.example.com. Its DNS record must point at this host before Caddy can get a certificate.
+      - name: ACME_EMAIL
+        label: Email for certificate notices
+        help: Let's Encrypt writes here only if a certificate can't be renewed.
+      - name: UPSTREAM
+        label: Where the app answers
+        default: http://127.0.0.1:8080
+        help: The address Caddy forwards to, such as http://192.168.1.20:8096. For an app in another stack, use host.docker.internal or the host's LAN address.
+    ports:
+      - { port: 80/tcp, what: HTTP (redirects to HTTPS and answers certificate checks) }
+      - { port: 443/tcp, what: HTTPS }
+      - { port: 443/udp, what: HTTP/3 }
+firewall:
+  allow: [80/tcp, 443/tcp, 443/udp]
+manual:
+  - title: Point the domain at this host
+    detail: Add a DNS A record (and AAAA for IPv6) for the domain, pointing at this host's public address, or at its LAN address for a name used only at home with a DNS challenge.
+  - title: Forward ports 80 and 443 on your router
+    detail: Only if the app should be reachable from the internet. For tailnet-only access, skip this and see the Library guide on remote access.

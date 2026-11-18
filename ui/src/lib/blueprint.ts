@@ -13,6 +13,7 @@ export const KIND_LABEL: Record<BpStepKind, string> = {
   firewall: "Firewall",
   caddy: "Proxy",
   traefik: "Proxy",
+  manual: "By hand",
 };
 
 /** Steps grouped by section, in plan order. */
