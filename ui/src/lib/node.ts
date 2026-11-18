@@ -1,5 +1,5 @@
 // Nightgrid Node pairing (M12f): words and tones for Fleet → NODE.
-import type { NodeState, NodeView, Release, SyncReport } from "./api";
+import type { NodeSetup, NodeState, NodeView, Release, SyncReport } from "./api";
 
 export const STATE_TEXT: Record<NodeState, string> = {
   unknown: "not checked yet",
@@ -46,9 +46,18 @@ export function newer(a: string, b: string): boolean {
   return false;
 }
 
+/** Node is built for these `uname -m` names only. */
+const BUILT_FOR = ["x86_64", "amd64", "aarch64", "arm64"];
+
+/** The host's CPU has no Node build ("armv7l" on many NAS boxes), or null when it has one or isn't known yet. */
+export function unsupportedArch(v: Pick<NodeView, "arch">): string | null {
+  const a = v.arch.trim();
+  return a && !BUILT_FOR.includes(a) ? a : null;
+}
+
 /** The install button's label for this host, or null when there's nothing to do. */
 export function installAction(v: NodeView, release: Release | null): "Install" | "Update" | "Fix access" | null {
-  if (v.state === "notInstalled") return "Install";
+  if (v.state === "notInstalled") return unsupportedArch(v) ? null : "Install";
   if (v.state === "noAccess") return "Fix access";
   if (v.state === "incompatible" || v.state === "notRunning") return "Update";
   if (v.state === "ready" && release && v.version && newer(release.tag, v.version)) return "Update";
@@ -103,4 +112,40 @@ export function capsText(caps: readonly string[]): string {
   const used = USED_CAPS.filter((c) => caps.includes(c));
   const rest = caps.length - used.length;
   return used.join(", ") + (rest > 0 ? ` +${rest} more` : "");
+}
+
+// ---- hub and roles (D-175) ----
+
+export type NodeRole = "hub" | "member" | "otherHub" | "direct" | "none";
+
+export const ROLE_TEXT: Record<NodeRole, string> = {
+  hub: "hub",
+  member: "reports to hub",
+  otherHub: "reports to another hub",
+  direct: "direct",
+  none: "–",
+};
+
+/** A host's part in the network: the hub, a member of it, or synced directly. */
+export function roleOf(v: Pick<NodeView, "hostId" | "state">, setup: NodeSetup | undefined, hub: { hostId: number; hubId: string } | null): NodeRole {
+  if (hub && v.hostId === hub.hostId) return "hub";
+  const named = setup?.link?.hubId;
+  if (named) return hub && named === hub.hubId ? "member" : "otherHub";
+  return v.state === "ready" ? "direct" : "none";
+}
+
+/** What a member's state on the hub means. */
+export const MEMBER_TEXT: Record<string, string> = {
+  new: "not pulled yet",
+  ok: "pulled",
+  stale: "behind",
+  unreachable: "unreachable",
+  consent: "refused (no consent)",
+  version: "needs Node 0.26+",
+};
+
+export function memberTone(state: string): Tone {
+  if (state === "ok") return "ok";
+  if (state === "new" || state === "stale") return "warn";
+  return "bad";
 }

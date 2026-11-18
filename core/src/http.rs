@@ -230,7 +230,16 @@ where
             .collect();
         let body = Limited::new(res.into_body(), req.max_body).collect().await;
         driver.abort();
-        let body = body.map_err(|e| format!("reading the response failed: {e}"))?.to_bytes().to_vec();
+        let body = body
+            .map_err(|e| {
+                if e.downcast_ref::<http_body_util::LengthLimitError>().is_some() {
+                    format!("the response is larger than {} MB", req.max_body >> 20)
+                } else {
+                    format!("reading the response failed: {e}")
+                }
+            })?
+            .to_bytes()
+            .to_vec();
         Ok::<_, String>(Response { status, headers, body })
     };
     tokio::time::timeout(timeout, work).await.map_err(|_| "timed out waiting for a response".to_owned())?
@@ -275,6 +284,17 @@ mod tests {
             String::from_utf8_lossy(&got).to_string()
         });
         (port, h)
+    }
+
+    #[tokio::test]
+    async fn body_limit_is_per_request() {
+        const RESP: &str = "HTTP/1.1 200 OK\r\ncontent-length: 20\r\n\r\n01234567890123456789";
+        let (port, _) = serve_once(RESP).await;
+        let e = send(Request::get(format!("http://127.0.0.1:{port}/")).max_body(10)).await.unwrap_err();
+        assert!(e.contains("larger than"), "{e}");
+        let (port, _) = serve_once(RESP).await;
+        let r = send(Request::get(format!("http://127.0.0.1:{port}/")).max_body(20)).await.unwrap();
+        assert_eq!(r.body.len(), 20);
     }
 
     #[tokio::test]

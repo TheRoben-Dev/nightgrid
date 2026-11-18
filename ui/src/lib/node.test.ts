@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { NodeView } from "./api";
-import { capsText, installAction, newer, spanText, stateTone, syncText } from "./node";
+import { capsText, installAction, newer, roleOf, spanText, stateTone, syncText, unsupportedArch } from "./node";
+import type { NodeSetup } from "./api";
 
 const view = (over: Partial<NodeView>): NodeView =>
   ({
@@ -40,6 +41,11 @@ describe("node", () => {
     expect(installAction(view({ version: "0.24.0" }), rel)).toBeNull();
     expect(installAction(view({}), null)).toBeNull();
     expect(installAction(view({ state: "off" }), rel)).toBeNull();
+    // A NAS on 32-bit ARM has no build: no Install button.
+    expect(installAction(view({ state: "notInstalled", version: null, arch: "armv7l" }), rel)).toBeNull();
+    expect(unsupportedArch(view({ arch: "armv7l" }))).toBe("armv7l");
+    expect(unsupportedArch(view({ arch: "aarch64" }))).toBeNull();
+    expect(unsupportedArch(view({ arch: "" }))).toBeNull();
   });
 
   it("describes syncs, spans and caps", () => {
@@ -50,5 +56,15 @@ describe("node", () => {
     expect(spanText(5 * 3600)).toBe("5 h");
     expect(capsText(["metrics", "events", "net", "logs"])).toBe("metrics, events +2 more");
     expect(stateTone("noAccess")).toBe("warn");
+  });
+
+  it("tells hub, members and direct hosts apart", () => {
+    const hub = { hostId: 1, hubId: "h1" };
+    const setup = (hubId: string | null) => ({ link: { hubId } }) as unknown as NodeSetup;
+    expect(roleOf(view({ hostId: 1 }), setup("h1"), hub)).toBe("hub");
+    expect(roleOf(view({ hostId: 2 }), setup("h1"), hub)).toBe("member");
+    expect(roleOf(view({ hostId: 3 }), setup("other"), hub)).toBe("otherHub");
+    expect(roleOf(view({ hostId: 4 }), setup(null), hub)).toBe("direct");
+    expect(roleOf(view({ hostId: 5, state: "notInstalled" }), undefined, null)).toBe("none");
   });
 });

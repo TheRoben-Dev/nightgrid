@@ -670,6 +670,60 @@ export const commands = {
 	 *  `purge`), and forgets its sync cursors.
 	 */
 	nodeUninstall: (hostId: number, purge: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<NodeInstallResult_Serialize>("node_uninstall", { hostId, purge, sudo }, options),
+	/**
+	 *  Everything about the node and hub on one host: link and hub
+	 *  membership, the hub (if this host runs one), units and `doctor`.
+	 */
+	nodeSetup: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<NodeSetup_Serialize>("node_setup", { hostId }, options),
+	/**  The program's config file (both are world-readable; no sudo). */
+	nodeConfigRead: (hostId: number, part: NodePart, options?: InvokeOptions) => __TAURI_INVOKE<NodeConfigFile>("node_config_read", { hostId, part }, options),
+	/**
+	 *  Saves the program's config as root: checked first (the node's own
+	 *  `doctor`, TOML and sections for the hub), the old file kept as `.bak`,
+	 *  services restarted, `allow` run again where networks changed, and the
+	 *  old file put back if the main service doesn't stay up.
+	 */
+	nodeConfigSave: (hostId: number, part: NodePart, text: string, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("node_config_save", { hostId, part, text, sudo }, options),
+	/**
+	 *  The last journal lines of the program's units (as root: the journal is
+	 *  usually closed to plain users).
+	 */
+	nodeLogs: (hostId: number, part: NodePart, lines: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<string>("node_logs", { hostId, part, lines, sudo }, options),
+	/**
+	 *  Makes `host_id` the hub of its network: installs (or updates)
+	 *  `nightgrid-hub` from the same release as the node (checked against
+	 *  SHA256SUMS, or a file the person picks), turns on this host's own link
+	 *  and the hub's collector. Needs the node running on the host.
+	 */
+	hubInstall: (hostId: number, fromFile: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<HubStepResult_Serialize | null>("hub_install", { hostId, fromFile, sudo }, options),
+	/**
+	 *  Removes the hub from `host_id` (its store and config too with `purge`).
+	 *  The node stays. Members should leave first.
+	 */
+	hubUninstall: (hostId: number, purge: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<HubStepResult_Serialize>("hub_uninstall", { hostId, purge, sudo }, options),
+	/**
+	 *  Makes `member_id`'s node report to the hub on `hub_host` (spec 0020 §2):
+	 *  turns on its link if needed, moves the link to its LAN address when it
+	 *  has no tailnet one, allows the hub's address, pairs it with the hub's
+	 *  collector, names the hub, lets root serve it (`serve add sync`), and
+	 *  adds it to the hub's member list. `sudo` is for the member.
+	 */
+	hubJoin: (memberId: number, hubHost: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<HubJoinResult>("hub_join", { memberId, hubHost, sudo }, options),
+	/**
+	 *  Takes `member_id` out of the hub on `hub_host`: off the hub's list,
+	 *  unnamed and unpaired on the member, and `serve remove sync`.
+	 */
+	hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<HubJoinResult>("hub_leave", { memberId, hubHost, sudo }, options),
+	/**
+	 *  Lets the hub's collector reach these addresses (`[collect] networks`),
+	 *  then runs `allow collect` again. `sudo` is for the hub host.
+	 */
+	hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_allow_networks", { hubHost, networks, sudo }, options),
+	/**
+	 *  Members of the hub on `hub_host` as the hub sees them (for the Fleet
+	 *  list's role column).
+	 */
+	hubMembers: (hubHost: number, options?: InvokeOptions) => __TAURI_INVOKE<HubMemberState_Serialize[]>("hub_members", { hubHost }, options),
 	powerProfileSet: (hostId: number, idleW: number | null, maxW: number | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_profile_set", { hostId, idleW, maxW }, options),
 	powerProfileClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("power_profile_clear", { hostId }, options),
 	upsSave: (input: UpsInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<UpsWatch_Serialize>("ups_save", { input }, options),
@@ -2529,6 +2583,24 @@ export type ComposeOp = "up" | "pull" | "restart" | "down" |
 /**  `pull` then `up -d`, reporting which services got a new image. */
 "update";
 
+export type ConfigSaveReport = ConfigSaveReport_Serialize | ConfigSaveReport_Deserialize;
+
+export type ConfigSaveReport_Deserialize = {
+	ok: boolean,
+	steps: string[],
+	warnings: string[],
+	/**  Why it was rolled back, with the service's last log lines. */
+	failure?: string | null,
+};
+
+export type ConfigSaveReport_Serialize = {
+	ok: boolean,
+	steps: string[],
+	warnings: string[],
+	/**  Why it was rolled back, with the service's last log lines. */
+	failure: string | null,
+};
+
 export type ConflictInfo = ConflictInfo_Serialize | ConflictInfo_Deserialize;
 
 export type ConflictInfo_Deserialize = {
@@ -3167,6 +3239,25 @@ export type DockerCmdError_Serialize = {
 };
 
 export type DockerError = { kind: "notInstalled" } | { kind: "permissionDenied"; socket: string; user: string } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
+
+/**  One finding of `nightgrid-node doctor --json`. */
+export type DoctorFinding = DoctorFinding_Serialize | DoctorFinding_Deserialize;
+
+/**  One finding of `nightgrid-node doctor --json`. */
+export type DoctorFinding_Deserialize = {
+	check?: string,
+	/**  `ok`, `info`, `warn` or `fail`. */
+	level?: string,
+	detail?: string,
+};
+
+/**  One finding of `nightgrid-node doctor --json`. */
+export type DoctorFinding_Serialize = {
+	check: string,
+	/**  `ok`, `info`, `warn` or `fail`. */
+	level: string,
+	detail: string,
+};
 
 export type DomainCount = {
 	domain: string,
@@ -4422,6 +4513,142 @@ export type Host_Serialize = {
 	alertOffline: boolean,
 };
 
+export type HubEventView = {
+	at: number | null,
+	level: string,
+	title: string,
+};
+
+export type HubJoinResult = {
+	steps: string[],
+	warnings: string[],
+	/**
+	 *  Addresses the hub's `[collect] networks` must allow before it can
+	 *  reach this member: pass them to `hub_allow_networks` on the hub host.
+	 */
+	hubNetworks: string[],
+};
+
+/**  A member in `fleet.overview`. */
+export type HubMemberState = HubMemberState_Serialize | HubMemberState_Deserialize;
+
+/**  A member in `fleet.overview`. */
+export type HubMemberState_Deserialize = {
+	id?: string,
+	name?: string,
+	/**  `new`, `ok`, `stale`, `unreachable`, `consent` or `version`. */
+	state?: string,
+	lastContact?: number | null,
+	version?: string | null,
+	hostname?: string | null,
+	alerts?: number,
+	error?: string | null,
+};
+
+/**  A member in `fleet.overview`. */
+export type HubMemberState_Serialize = {
+	id: string,
+	name: string,
+	/**  `new`, `ok`, `stale`, `unreachable`, `consent` or `version`. */
+	state: string,
+	lastContact: number | null,
+	version: string | null,
+	hostname: string | null,
+	alerts: number,
+	error: string | null,
+};
+
+/**  `fleet.overview` result. */
+export type HubOverview = HubOverview_Serialize | HubOverview_Deserialize;
+
+/**  `fleet.overview` result. */
+export type HubOverview_Deserialize = {
+	hubId?: string,
+	fingerprint?: string | null,
+	listening?: string | null,
+	/**  `ok`, `off` (never ran: `allow collect`) or `denied` (stopped). */
+	collector?: string,
+	storeBytes?: number | null,
+	members?: HubMemberState_Deserialize[],
+};
+
+/**  `fleet.overview` result. */
+export type HubOverview_Serialize = {
+	hubId: string,
+	fingerprint: string | null,
+	listening: string | null,
+	/**  `ok`, `off` (never ran: `allow collect`) or `denied` (stopped). */
+	collector: string,
+	storeBytes: number | null,
+	members: HubMemberState_Serialize[],
+};
+
+export type HubProbe = {
+	installed: boolean,
+	socket: boolean,
+	writable: boolean,
+	member: boolean,
+	/**  `systemctl is-active` of the hub and its collector. */
+	unit: string,
+	collect: string,
+	version: string,
+};
+
+/**  The `--json` report of `nightgrid-hub install` / `allow collect`. */
+export type HubReport = HubReport_Serialize | HubReport_Deserialize;
+
+/**  The `--json` report of `nightgrid-hub install` / `allow collect`. */
+export type HubReport_Deserialize = {
+	action?: string,
+	version?: string,
+	steps?: string[],
+	users?: string[],
+	warnings?: string[],
+	hubId?: string | null,
+	fingerprint?: string | null,
+	listening?: string | null,
+};
+
+/**  The `--json` report of `nightgrid-hub install` / `allow collect`. */
+export type HubReport_Serialize = {
+	action: string,
+	version: string,
+	steps: string[],
+	users: string[],
+	warnings: string[],
+	hubId: string | null,
+	fingerprint: string | null,
+	listening: string | null,
+};
+
+export type HubStepResult = HubStepResult_Serialize | HubStepResult_Deserialize;
+
+export type HubStepResult_Deserialize = {
+	report: HubReport_Deserialize,
+	setup: NodeSetup_Deserialize,
+};
+
+export type HubStepResult_Serialize = {
+	report: HubReport_Serialize,
+	setup: NodeSetup_Serialize,
+};
+
+export type HubView = HubView_Serialize | HubView_Deserialize;
+
+export type HubView_Deserialize = {
+	probe: HubProbe,
+	overview?: HubOverview_Deserialize | null,
+	events: HubEventView[],
+	error?: string | null,
+};
+
+export type HubView_Serialize = {
+	probe: HubProbe,
+	overview: HubOverview_Serialize | null,
+	events: HubEventView[],
+	error: string | null,
+};
+
 /**  Hours of the day (local time) a host is reliably idle. */
 export type IdleWindow = {
 	/**  First idle hour, 0–23. */
@@ -5053,6 +5280,36 @@ export type LayoutEntry_Serialize = {
 export type Level = "info" | 
 /**  Something went back to normal. */
 "ok" | "warn" | "critical";
+
+export type LinkView = LinkView_Serialize | LinkView_Deserialize;
+
+export type LinkView_Deserialize = {
+	/**  `ok`, `off` (root hasn't allowed the link) or `denied`. */
+	access: string,
+	fingerprint?: string | null,
+	listening?: string | null,
+	serve: string[],
+	peers: NodePeer_Deserialize[],
+	readings: NodePeerReading_Deserialize[],
+	/**  The hub this node names (`hub.member`), if any. */
+	hubId?: string | null,
+	/**  The node can be a hub member (0.26.0 or newer). */
+	canJoin: boolean,
+};
+
+export type LinkView_Serialize = {
+	/**  `ok`, `off` (root hasn't allowed the link) or `denied`. */
+	access: string,
+	fingerprint: string | null,
+	listening: string | null,
+	serve: string[],
+	peers: NodePeer_Serialize[],
+	readings: NodePeerReading_Serialize[],
+	/**  The hub this node names (`hub.member`), if any. */
+	hubId: string | null,
+	/**  The node can be a hub member (0.26.0 or newer). */
+	canJoin: boolean,
+};
 
 /**  One listening socket. */
 export type Listener = Listener_Serialize | Listener_Deserialize;
@@ -5941,6 +6198,13 @@ export type NodeAccess = {
 	state: string,
 };
 
+export type NodeConfigFile = {
+	path: string,
+	text: string,
+	/**  The file is there (a missing one means the defaults apply). */
+	exists: boolean,
+};
+
 export type NodeCoverage = NodeCoverage_Serialize | NodeCoverage_Deserialize;
 
 export type NodeCoverage_Deserialize = {
@@ -5993,6 +6257,83 @@ export type NodeInstallResult_Serialize = {
 	view: NodeView_Serialize,
 };
 
+/**  Which program a config, log or status belongs to. */
+export type NodePart = "node" | "hub";
+
+/**  `peers.get` / `peers.set` entry, and a hub member. */
+export type NodePeer = NodePeer_Serialize | NodePeer_Deserialize;
+
+/**  One reading in `peers.latest`. */
+export type NodePeerReading = NodePeerReading_Serialize | NodePeerReading_Deserialize;
+
+/**  One reading in `peers.latest`. */
+export type NodePeerReading_Deserialize = {
+	id?: string,
+	at?: number | null,
+	ok?: boolean,
+	rttMs?: number | null,
+	version?: string | null,
+	hostname?: string | null,
+	error?: string | null,
+};
+
+/**  One reading in `peers.latest`. */
+export type NodePeerReading_Serialize = {
+	id: string,
+	at: number | null,
+	ok: boolean,
+	rttMs: number | null,
+	version: string | null,
+	hostname: string | null,
+	error: string | null,
+};
+
+/**  `peers.get` / `peers.set` entry, and a hub member. */
+export type NodePeer_Deserialize = {
+	id?: string,
+	name?: string,
+	address?: string,
+	fingerprint?: string,
+	/**  Only on peers: this host follows that peer's UPS shutdown. */
+	followUps?: boolean,
+};
+
+/**  `peers.get` / `peers.set` entry, and a hub member. */
+export type NodePeer_Serialize = {
+	id: string,
+	name: string,
+	address: string,
+	fingerprint: string,
+	/**  Only on peers: this host follows that peer's UPS shutdown. */
+	followUps?: boolean,
+};
+
+export type NodeSetup = NodeSetup_Serialize | NodeSetup_Deserialize;
+
+export type NodeSetup_Deserialize = {
+	hostId: number,
+	/**  Full node id (for matching members), when the node is connected. */
+	nodeId?: string | null,
+	link?: LinkView_Deserialize | null,
+	hub?: HubView_Deserialize | null,
+	units: NodeUnit[],
+	doctor: DoctorFinding_Deserialize[],
+	/**  Problems reading parts of this (the rest is still shown). */
+	notes: string[],
+};
+
+export type NodeSetup_Serialize = {
+	hostId: number,
+	/**  Full node id (for matching members), when the node is connected. */
+	nodeId: string | null,
+	link: LinkView_Serialize | null,
+	hub: HubView_Serialize | null,
+	units: NodeUnit[],
+	doctor: DoctorFinding_Serialize[],
+	/**  Problems reading parts of this (the rest is still shown). */
+	notes: string[],
+};
+
 export type NodeState = 
 /**  Not looked yet (the host hasn't been connected). */
 "unknown" | 
@@ -6004,6 +6345,15 @@ export type NodeState =
 "noAccess" | 
 /**  No protocol version in common: the node needs an update. */
 "incompatible" | "ready" | "error";
+
+export type NodeUnit = {
+	unit: string,
+	/**
+	 *  `active`, `inactive`, `failed`, … Units that were never installed
+	 *  are left out.
+	 */
+	state: string,
+};
 
 export type NodeView = NodeView_Serialize | NodeView_Deserialize;
 

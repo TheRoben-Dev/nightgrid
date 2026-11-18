@@ -18,6 +18,17 @@ Starters: ready-made server setups and alert runbooks you can read, preview and 
 - Library links in notes (`kb:`) now open the article.
 - **New how-to**: *Start from a ready-made setup*.
 
+## [1.3.0] - 2026-11-18
+
+### Fixed: installing Nightgrid Node
+- **Install… failed with "reading the response failed: length limit exceeded".** The download was cut at 4 MB and the node binary is 5.4 MB; release downloads may now be up to 64 MB, and a response over a limit says so in words.
+- A host whose CPU has no Node build (32-bit ARM on many NAS boxes) shows **no build for armv7l** instead of an Install button that can't work.
+- Client devices (laptops, handhelds) are left out of the NODE list unless they already run the node; **Show client devices** brings them back.
+
+### Added: hub setup in Fleet → NODE
+- **HUB card**: make one always-on server the network's hub (Nightgrid Node 0.26+). It pulls the other servers' history read-only and notices a host going offline while Nightgrid is closed. **Make a hub…** installs it next to the node, **Add members…** links the other servers (including LAN-only ones behind a jump host), and the card shows each member as the hub sees it, with **Leave**, the hub's events, config, logs and **Remove…**.
+- **ROLE** column: hub, reports to hub, or direct.
+- **Per-host tabs**: STATUS (services and `doctor`), HUB & LINK (role, join or leave, the link's address and peers), CONFIG (edit the node's or hub's config: checked first, the old file kept, services restarted, rolled back if they don't come up) and LOGS (the services' journal).
 ## [1.2.0] - 2026-11-18
 
 ### Added: Library content updates
