@@ -56,6 +56,8 @@ Read [Choose what Nightgrid Node may do](kb:howto/node-grants) before granting a
 
 The node is developed as its own project and published separately. Since Nightgrid 0.10.88 the app uses it where it runs: **Fleet → NODE** installs, updates and removes it per host, and after a reconnect the node's history fills the app's charts, uptime bars, disk forecasts, timeline and alerts; while connected, events arrive as they happen and live tiles take the node's samples instead of polling over SSH. Its other abilities (containers, logins and file changes, the LAN watch, self-healing, service checks, status page and so on) are set up on the server for now ([Use Nightgrid Node from the command line](kb:howto/node-cli)) and come into the app later. Nightgrid's views keep working over SSH exactly as before, with or without the node.
 
+Since Nightgrid 1.3 the same tab also sets up a **hub**: one always-on server per network (Node 0.26 or newer) that pulls the other nodes' history read-only and notices a host going offline while the app is closed. **Make a hub…** installs it next to that server's node, **Add members…** links the other servers to it (a server only the hub can reach on its LAN gets its link moved to its LAN address), and each host's **HUB & LINK**, **CONFIG** and **LOGS** tabs show its role, edit `/etc/nightgrid-node/config.toml` (or the hub's) with a checked save that rolls back, and read the services' journal. Every node keeps working on its own when the hub is down.
+
 ## Scenarios
 
 - [Keep watching with the laptop closed](kb:guides/node-always-watching): one server, history and alerts while you're away.

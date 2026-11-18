@@ -124,7 +124,7 @@ fn allowed(app: &AppHandle, host: HostId) -> bool {
     AppSettings::load(&store).unwrap_or_default().feature("fleet.node") && store.node_use(host).unwrap_or(true)
 }
 
-fn host_name(app: &AppHandle, host: HostId) -> String {
+pub(crate) fn host_name(app: &AppHandle, host: HostId) -> String {
     app.state::<AppState>()
         .store()
         .get_host(host)
@@ -388,6 +388,25 @@ pub(crate) fn rules_changed(app: &AppHandle) {
     }
 }
 
+/// Drops the node connection and finds the node again (after a step that
+/// restarted it, such as a config save or `serve add`).
+pub(crate) async fn reconnect(app: &AppHandle, host: HostId) -> Option<Arc<NodeClient>> {
+    with_link(host, |l| {
+        l.drop_client();
+        l.state = None;
+        l.checked = 0;
+    });
+    for _ in 0..10 {
+        if let Some(c) = ensure(app, host).await {
+            return Some(c);
+        }
+        // The socket comes back a moment after the service restarts.
+        tokio::time::sleep(Duration::from_millis(700)).await;
+        with_link(host, |l| l.checked = 0);
+    }
+    None
+}
+
 /// What the metrics poller gets from the node this round.
 pub(crate) enum NodeSample {
     /// No usable node: sample over SSH as before.
@@ -633,7 +652,7 @@ pub fn node_set_use(app: AppHandle, host_id: HostId, on: bool) -> CmdResult<Node
     Ok(view(&app, host_id))
 }
 
-fn err(e: impl std::fmt::Display) -> SystemCmdError {
+pub(crate) fn err(e: impl std::fmt::Display) -> SystemCmdError {
     SystemError::other(e).into()
 }
 
@@ -641,7 +660,8 @@ async fn fetch(url: &str) -> Result<Vec<u8>, String> {
     let req = nightgrid_core::http::Request::get(url)
         .header("User-Agent", "nightgrid")
         .header("Accept", "application/octet-stream, application/json")
-        .timeout(Duration::from_secs(120));
+        .timeout(Duration::from_secs(120))
+        .max_body(install::MAX_BINARY);
     let r = nightgrid_core::http::send_following(req, 5).await?;
     if !r.ok() {
         return Err(format!("GitHub answered {} for {url}", r.status));
@@ -672,11 +692,12 @@ pub async fn node_release() -> Result<Release, CommandError> {
     latest_release().await.map_err(CommandError::msg)
 }
 
-/// The verified binary for `arch` from the latest release, cached in the
-/// app's data folder.
-async fn release_binary(app: &AppHandle, arch: &str) -> Result<(String, Vec<u8>), String> {
+/// The verified binary `<program>-<tag>-<arch>-linux` from the latest
+/// release (`nightgrid-node` or `nightgrid-hub`), cached in the app's data
+/// folder.
+pub(crate) async fn release_binary(app: &AppHandle, program: &str, arch: &str) -> Result<(String, Vec<u8>), String> {
     let rel = latest_release().await?;
-    let name = install::asset_name(&rel.tag, arch);
+    let name = format!("{program}-{}-{arch}-linux", rel.tag);
     let dir = app.state::<AppState>().data_dir.join("node").join(&rel.tag);
     let cached = dir.join(&name);
     let sums_path = dir.join("SHA256SUMS");
@@ -697,7 +718,7 @@ async fn release_binary(app: &AppHandle, arch: &str) -> Result<(String, Vec<u8>)
     Ok((rel.version().to_owned(), bin))
 }
 
-async fn pick_binary(app: &AppHandle) -> Option<std::path::PathBuf> {
+pub(crate) async fn pick_binary(app: &AppHandle) -> Option<std::path::PathBuf> {
     use tauri_plugin_dialog::DialogExt;
     let (tx, rx) = tokio::sync::oneshot::channel();
     app.dialog().file().set_title("Pick a nightgrid-node binary").pick_file(move |p| {
@@ -737,7 +758,7 @@ pub async fn node_install(
         install::looks_like_binary(&bin).map_err(err)?;
         (String::new(), bin)
     } else {
-        release_binary(&app, arch).await.map_err(err)?
+        release_binary(&app, "nightgrid-node", arch).await.map_err(err)?
     };
     let (code, out, e) = conn.exec("mktemp -d /tmp/nightgrid-node.XXXXXX").await?;
     let dir = String::from_utf8_lossy(&out).trim().to_owned();
