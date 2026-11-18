@@ -24,6 +24,7 @@ mod firewall_cmd;
 mod gitstack_cmd;
 mod helper_cmd;
 mod hosts_cmd;
+mod hub_cmd;
 mod integrations_cmd;
 mod jobs_cmd;
 mod journal_cmd;
@@ -338,6 +339,16 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         node_cmd::node_release,
         node_cmd::node_install,
         node_cmd::node_uninstall,
+        hub_cmd::node_setup,
+        hub_cmd::node_config_read,
+        hub_cmd::node_config_save,
+        hub_cmd::node_logs,
+        hub_cmd::hub_install,
+        hub_cmd::hub_uninstall,
+        hub_cmd::hub_join,
+        hub_cmd::hub_leave,
+        hub_cmd::hub_allow_networks,
+        hub_cmd::hub_members,
         powercost_cmd::power_profile_set,
         powercost_cmd::power_profile_clear,
         ups_cmd::ups_save,

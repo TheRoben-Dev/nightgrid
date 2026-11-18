@@ -12,6 +12,7 @@
 //! node never breaks an older app.
 
 pub mod client;
+pub mod hub;
 pub mod install;
 pub mod store;
 pub mod sync;
