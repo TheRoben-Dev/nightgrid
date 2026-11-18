@@ -33,6 +33,7 @@ export const FEATURES: Feature[] = [
   { id: "fleet.journal", parent: "fleet", label: "Journal", hint: "A changelog of every change made from Nightgrid, plus your own entries. Off: nothing is recorded." },
   { id: "fleet.blueprints", parent: "fleet", label: "Blueprints", hint: "Save a host's setup as an encrypted file and rebuild it on another host." },
   { id: "fleet.power", parent: "fleet", label: "Power & cost", hint: "Estimated watts, kWh and cost per host from power profiles and CPU history; idle-hour hints." },
+  { id: "fleet.node", parent: "fleet", label: "Nightgrid Node", hint: "Use the optional Nightgrid Node agent where it's installed: history without gaps, alerts while the app was closed, live samples without SSH polling. Off: never looked for." },
   { id: "desktops", label: "Desktops", hint: "VM screens over VNC and RDP." },
   { id: "proxmox", label: "Proxmox", hint: "Proxmox VE nodes, guests, storage, network and firewall." },
   { id: "proxmox.sandbox", parent: "proxmox", label: "Sandboxes", hint: "Throwaway clones cut off from the network, destroyed when they expire." },

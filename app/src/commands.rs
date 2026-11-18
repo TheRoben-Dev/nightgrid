@@ -101,10 +101,14 @@ pub fn settings_set(
     settings.tailnet_accept_routes = current.tailnet_accept_routes;
     settings.tailnet_hostname = current.tailnet_hostname;
     settings.tailnet_control_url = current.tailnet_control_url;
+    let rules_changed = current.alerts != settings.alerts;
     settings.save(&store)?;
     drop(store);
     crate::tray::apply(&app);
     state.alerts.wake();
+    if rules_changed {
+        crate::node_cmd::rules_changed(&app);
+    }
     tracing::debug!(theme = %settings.theme, "settings saved");
     Ok(settings)
 }

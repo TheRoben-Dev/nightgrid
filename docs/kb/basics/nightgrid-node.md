@@ -54,7 +54,7 @@ Read [Choose what Nightgrid Node may do](kb:howto/node-grants) before granting a
 
 ## Where the app stands
 
-The node is developed as its own project and published separately. Nightgrid's own integration (an Install button per host, syncing the node's history into the app's charts, timeline and alerts) is planned, and specified in the node's `docs/app-integration` folder. Until it lands, you install and configure the node on the server and use it from the command line ([Use Nightgrid Node from the command line](kb:howto/node-cli)). Nightgrid's views keep working over SSH exactly as before, with or without the node.
+The node is developed as its own project and published separately. Since Nightgrid 0.10.88 the app uses it where it runs: **Fleet → NODE** installs, updates and removes it per host, and after a reconnect the node's history fills the app's charts, uptime bars, disk forecasts, timeline and alerts; while connected, events arrive as they happen and live tiles take the node's samples instead of polling over SSH. Its other abilities (containers, logins and file changes, the LAN watch, self-healing, service checks, status page and so on) are set up on the server for now ([Use Nightgrid Node from the command line](kb:howto/node-cli)) and come into the app later. Nightgrid's views keep working over SSH exactly as before, with or without the node.
 
 ## Scenarios
 

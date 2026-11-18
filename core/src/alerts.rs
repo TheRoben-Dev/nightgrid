@@ -259,6 +259,38 @@ impl Tracker {
         Some(a)
     }
 
+    /// Takes alerts another evaluator recorded (Nightgrid Node, while the app
+    /// was closed or between rounds). Resolved ones go into the history once;
+    /// an unresolved one becomes active unless the key already is. Returns the
+    /// alerts that became active, for one summary notification.
+    pub fn import(&mut self, alerts: Vec<Alert>) -> Vec<Alert> {
+        let mut fired = Vec::new();
+        for mut a in alerts {
+            a.caused_by = None;
+            if a.resolved.is_some() {
+                // Active in the app too: its own next round decides.
+                if self.active.contains_key(&a.key) || self.history.iter().any(|h| h.key == a.key && h.since == a.since)
+                {
+                    continue;
+                }
+                self.next_id = self.next_id.wrapping_add(1);
+                a.id = self.next_id;
+                self.push_history(a);
+            } else if !self.active.contains_key(&a.key) {
+                self.pending.remove(&a.key);
+                self.next_id = self.next_id.wrapping_add(1);
+                a.id = self.next_id;
+                self.active.insert(a.key.clone(), a.clone());
+                fired.push(a);
+            }
+        }
+        // Keep the history newest first.
+        let mut h: Vec<Alert> = self.history.drain(..).collect();
+        h.sort_by_key(|x| std::cmp::Reverse(x.resolved.unwrap_or(x.since)));
+        self.history = h.into();
+        fired
+    }
+
     /// Forgets active and pending alerts without recording them (alerts were
     /// turned off).
     pub fn drop_active(&mut self) {
@@ -925,5 +957,29 @@ mod tests {
         let v: serde_json::Value = serde_json::from_slice(&r.body).unwrap();
         assert_eq!((v["state"].as_str(), v["alert"]["kind"].as_str()), (Some("critical"), Some("hostOffline")));
         assert!(webhook_request("none", "x", &a).is_none());
+    }
+    #[test]
+    fn imported_alerts_go_to_history_or_active_once() {
+        let mut t = Tracker::new();
+        let a = |key: &str, since: i64, resolved: Option<i64>| Alert {
+            id: 0,
+            key: key.into(),
+            kind: AlertKind::DiskFull,
+            severity: Severity::Warn,
+            title: "server01".into(),
+            detail: "91%".into(),
+            host_id: Some(1),
+            since,
+            resolved,
+            caused_by: None,
+        };
+        let fired = t.import(vec![a("disk:1:/srv", 10, Some(20)), a("disk:1:/data", 30, None)]);
+        assert_eq!(fired.len(), 1);
+        assert_eq!(t.active().len(), 1);
+        assert_eq!(t.history().len(), 1);
+        // A second sync brings the same alerts: nothing changes.
+        assert!(t.import(vec![a("disk:1:/srv", 10, Some(20)), a("disk:1:/data", 30, None)]).is_empty());
+        assert_eq!((t.active().len(), t.history().len()), (1, 1));
+        assert_ne!(t.active()[0].id, t.history()[0].id);
     }
 }

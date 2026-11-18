@@ -4,6 +4,8 @@ Put the optional [Nightgrid Node](kb:basics/nightgrid-node) on a Linux server: g
 
 ![From download to a running node.](fig:ng-node-install)
 
+The quick way: **Fleet → NODE → Install…** on the host does Parts 1 and 2 for you (download, checksum, upload, install as root, your login user added to the group) and shows the installer's report. The steps below are the same by hand.
+
 ## What you end up with
 
 - `nightgrid-node.service` running as the unprivileged `nightgrid-node` account

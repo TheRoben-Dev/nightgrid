@@ -54,7 +54,7 @@ pub enum EventKind {
 }
 
 impl EventKind {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             EventKind::Alert => "alert",
             EventKind::Recovered => "recovered",
