@@ -18,7 +18,7 @@ Close the laptop and nobody is watching. A container that crash-loops at 3 AM, a
 - **Optional.** Every Nightgrid feature works without it. It makes things gap-free and faster, never required.
 - **Tiny.** One static binary of about 2 MB for x86_64 and aarch64, about 2.5 MB of RAM, no measurable idle CPU.
 - **Offline by design.** The main service has no network access at all (`IPAddressDeny=any`, unix sockets only). No open ports, no outbound connections, no telemetry, no cloud. Clients reach it through a unix socket, `/run/nightgrid-node/node.sock`, over the SSH connection they already have.
-- **Least privilege.** It runs as its own `nightgrid-node` system account under a heavily sandboxed systemd unit. Anything beyond the basics (containers, the journal, health checks, actions) is a separate grant that root makes with `nightgrid-node allow <name>` and can take back with `deny`.
+- **Least privilege.** It runs as its own `nightgrid-node` system account under a heavily sandboxed systemd unit. Anything beyond the basics (containers, the journal, health checks, actions) is a separate grant that root makes with `nightgrid-node allow <name>` (or picks from the `nightgrid-node allow` menu) and can take back with `deny`. Fixes from `nightgrid-node fix` ask first and run only what root allowed.
 - **Off by default for anything that acts.** Self-healing, blocking addresses, UPS shutdown, the link between nodes and the phone status page all start switched off.
 - **Several clients at once.** The node keeps no per-client state, so more than one computer can sync from the same node.
 
@@ -34,7 +34,7 @@ your computer ──SSH──> server: sshd ──> nightgrid-node bridge ──
                                             └ SQLite history in /var/lib/nightgrid-node
 ```
 
-Clients speak a small, versioned JSON-lines protocol to the socket. The first request, `hello`, lists the node's capabilities, and a client only uses what's listed. On the server you talk to it with the same binary: `nightgrid-node status`, `nightgrid-node query <method>` and `nightgrid-node watch <stream>`.
+Clients speak a small, versioned JSON-lines protocol to the socket. The first request, `hello`, lists the node's capabilities, and a client only uses what's listed. On the server you talk to it with the same binary: `nightgrid-node` on its own opens a menu, `nightgrid-node fix` lists problems and fixes them after asking, and `nightgrid-node status`, `nightgrid-node query <method>` and `nightgrid-node watch <stream>` give plain answers.
 
 ## What it can do, by grant
 

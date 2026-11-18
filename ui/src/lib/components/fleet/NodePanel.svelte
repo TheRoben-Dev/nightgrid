@@ -297,7 +297,8 @@
             {#each v.info.access as a (a.name)}
               <div class="kv"><span>{a.name} <span class="muted">({ACCESS_TEXT[a.name] ?? "optional"})</span></span><span class={a.state === "ok" ? "ok-text" : "muted"}>{a.state}</span></div>
             {/each}
-            <p class="muted small">Grant more on the host with <code>sudo nightgrid-node allow &lt;name&gt;</code>.</p>
+            <p class="muted small">Grant more on the host with <code>sudo nightgrid-node allow &lt;name&gt;</code>, or run <code>sudo nightgrid-node allow</code> for a menu.</p>
+            <p class="muted small">Fix things on the host: <code>nightgrid-node fix</code></p>
           {/if}
           {#if v.info}
             <h4 class="sub">ALERTS ON THE NODE</h4>
