@@ -8,6 +8,8 @@
   import { sshKeys } from "../../stores/sshkeys.svelte";
   import { ago, bannedNow, keyName, limits, reportText, shortFp, worstTone } from "../../access";
   import ExplainButton from "../helper/ExplainButton.svelte";
+  import PlatformNote from "../PlatformNote.svelte";
+  import { platform } from "../../stores/platform.svelte";
 
   let open = $state<number | null>(null);
 
@@ -59,15 +61,18 @@
         {#if st?.error}<p class="bad small err" role="alert">{st.error}</p>{/if}
         {#if open === h.id && r}
           {@const lim = limits(r)}
+          {@const win = platform.isWindows(h)}
+          {@const winNote = platform.note(h, "fleet.access")}
           <div class="detail">
+            {#if winNote}<PlatformNote note={winNote} host={h.name} />{/if}
             <div class="acts">
-              <span class="muted small">Read {r.asRoot ? "as root" : `as ${r.loginUser}`} · logins from {SRC[r.logSource]}</span>
+              <span class="muted small">Read {r.asRoot ? (win ? "as an administrator" : "as root") : `as ${r.loginUser}`} · logins from {win && r.logSource === "journal" ? "the OpenSSH event log" : win && r.logSource === "none" ? "nothing (needs an administrator)" : SRC[r.logSource]}</span>
               <span class="spacer"></span>
               <ExplainButton source="access audit" text={() => reportText(r, h.name)} question="Is anything in this access audit worrying, and what should I tighten first?" />
               <button type="button" class="btn ghost tiny" disabled={st?.busy} onclick={() => void access.audit(h.id)}>Audit again</button>
-              {#if !r.asRoot}<button type="button" class="btn tiny" data-guide="access-root" disabled={st?.busy} onclick={() => void access.audit(h.id, true)}>Read as root…</button>{/if}
+              {#if !r.asRoot && !win}<button type="button" class="btn tiny" data-guide="access-root" disabled={st?.busy} onclick={() => void access.audit(h.id, true)}>Read as root…</button>{/if}
             </div>
-            {#if lim.length}<p class="note small">Without root this can't see {lim.join(", ")}.</p>{/if}
+            {#if lim.length && !win}<p class="note small">Without root this can't see {lim.join(", ")}.</p>{:else if win && !r.asRoot}<p class="note small">Log in as an administrator to see the OpenSSH event log and sshd's settings.</p>{/if}
 
             {#if r.findings.length}
               <ul class="findings">
