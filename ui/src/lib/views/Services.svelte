@@ -16,6 +16,7 @@
     return integrations.watch();
   });
   const pendingAmp = $derived(integrations.pendingAmp);
+  const pendingAction = $derived(integrations.pendingAction);
 
   const sum = $derived(services.summary);
   const groups = $derived(services.groups);
@@ -127,6 +128,20 @@
     <button type="button" class="btn danger" onclick={() => pendingAmp && integrations.amp(pendingAmp)}>
       {pendingAmp ? `${pendingAmp.action === "stop" ? "Stop" : "Restart"} ${pendingAmp.friendly || pendingAmp.instance}` : ""}
     </button>
+  {/snippet}
+</Modal>
+
+<Modal
+  open={!!pendingAction}
+  title={pendingAction ? pendingAction.action.label.toUpperCase() : ""}
+  tone="danger"
+  width={480}
+  onclose={() => (integrations.pendingAction = null)}
+>
+  {#if pendingAction}<p>{pendingAction.action.confirm}</p>{/if}
+  {#snippet footer()}
+    <button type="button" class="btn ghost" onclick={() => (integrations.pendingAction = null)}>Cancel</button>
+    <button type="button" class="btn danger" onclick={() => pendingAction && integrations.runAction(pendingAction)}>{pendingAction?.action.label ?? ""}</button>
   {/snippet}
 </Modal>
 

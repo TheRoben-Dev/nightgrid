@@ -1,4 +1,4 @@
--- 0050 (1.7.x): clean up uptime history recorded before downs had to be
+-- 0051 (1.8.2): clean up uptime history recorded before downs had to be
 -- confirmed (D-181). Two kinds of false downtime are removed:
 --
 -- 1. Client devices (role 'client', D-133) going away isn't downtime: their

@@ -508,7 +508,7 @@ mod tests {
                ('service', 5, 3550, 3650, 'blip'), ('service', 5, 100, 600, 'real'), ('host', {deck}, 0, 900, 'away');"
         ))
         .unwrap();
-        c.execute_batch(include_str!("store/migrations/0050_uptime_cleanup.sql")).unwrap();
+        c.execute_batch(include_str!("store/migrations/0051_uptime_cleanup.sql")).unwrap();
         let rows: Vec<(String, i64, i64, i64, i64)> = c
             .prepare("SELECT kind, hour, up, down, asleep FROM uptime_hours ORDER BY kind, hour")
             .unwrap()

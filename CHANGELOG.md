@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
-## [1.7.4] - 2026-11-19
+## [1.8.2] - 2026-11-19
 
 ### Fixed: false downtime in Fleet → UPTIME
 - **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
@@ -12,6 +12,22 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Self-signed services**: a service that answers but whose certificate this computer doesn't trust counts as up in uptime history (the Services view still shows the certificate problem).
 - **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
 - **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
+
+## [1.8.0] - 2026-11-19
+
+Ten more integrations for the media stack, on a shared integration card.
+
+### Added
+- **Jellyfin** and **Emby**: what's playing, transcodes, library counts and **Scan libraries**.
+- **Tautulli**: Plex activity with quality, transcode decisions and bandwidth.
+- **Sonarr**, **Radarr** and **Lidarr**: download queue with progress and import problems, missing items, the app's health warnings, **RSS sync**, **Search missing** and **Remove** on queue items.
+- **Prowlarr**: indexers, failing and disabled ones, **Test indexers**.
+- **Bazarr**: missing subtitles and throttled providers.
+- **Overseerr** and **Jellyseerr**: request counts and pending requests with **Approve** and **Decline**.
+- The integration type picker is grouped (Media, Media automation, Network, Monitoring, Docker, Games) and has a filter.
+
+### Changed
+- Integration types are checked by the app instead of a database constraint (migration 0050), so new types never need a table change again (D-182).
 
 ## [1.7.2] - 2026-11-19
 
