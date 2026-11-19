@@ -83,7 +83,7 @@ struct Task {
 }
 
 /// PowerShell 5.1 writes a one-item array as the item itself.
-fn one_or_many<'de, D, T>(d: D) -> Result<Vec<T>, D::Error>
+pub(crate) fn one_or_many<'de, D, T>(d: D) -> Result<Vec<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
     T: serde::de::DeserializeOwned,

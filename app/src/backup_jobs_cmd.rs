@@ -113,6 +113,12 @@ pub async fn backup_test_restore(
     }
     let cmd = backup_restore::test_command(&job).ok_or_else(|| SystemError::other("can't be tested"))?;
     let conn = connect_posix(&app, job.host_id, "fleet.backups").await?;
+    if conn.is_windows() {
+        return Err(SystemError::other(
+            "test restores run restic, borg or rsync through a POSIX shell, which Windows hosts don't have: restore a file by hand with the tool's own command to check it",
+        )
+        .into());
+    }
     let auth = crate::system_cmd::resolve_sudo(&app, job.host_id, &conn, sudo).await?;
     tracing::info!(host = %job.host_id, job = job.id, tool = job.tool.as_str(), "test restore");
     let out = tokio::time::timeout(std::time::Duration::from_secs(20 * 60), sudo::run(&conn, &auth, &cmd))

@@ -13,6 +13,7 @@
 //! there).
 
 pub mod access;
+pub mod backups;
 pub mod disks;
 pub mod events;
 pub mod firewall;

@@ -81,7 +81,7 @@ pub const WINDOWS: &[Support] = &[
         Planned,
         "Stacks are listed from their containers, but starting, updating and stopping them runs docker compose through a POSIX shell. A PowerShell version is coming.",
     ),
-    s("fleet.backups", "Fleet → BACKUPS", Planned, "Backup checks run restic, borg and rsync through a POSIX shell. Windows support is coming."),
+    s("fleet.backups", "Fleet → BACKUPS", Partial, "A unit job is a Task Scheduler task (Windows Server Backup included) and a path job a folder such as D:\\Backups. Test restores need a POSIX shell, so they only run on Linux and macOS hosts."),
     s("fleet.logs", "Fleet → LOGS", Partial, "Searches the System and Application event logs instead of the journal (the newest 5 000 events per log); the unit filter matches the event source."),
     s("fleet.access", "Fleet → ACCESS", Partial, "Logins come from the OpenSSH/Operational event log (administrators only), local accounts stand in for users and the Administrators group for sudo. Fail2ban and CrowdSec don't run on Windows, so there are no bans to show."),
     s("fleet.speed", "Fleet → SPEED", Partial, "Windows has no iperf3 of its own and Nightgrid installs nothing on hosts: put iperf3.exe on the PATH or in C:\\iperf3. Ping runs through .NET instead of ping."),
@@ -177,7 +177,7 @@ mod tests {
     fn messages() {
         assert_eq!(unavailable("terminal"), Option::None);
         assert!(unavailable("proxmox").unwrap().starts_with("Proxmox can't work on Windows hosts."));
-        assert!(unavailable("fleet.backups").unwrap().contains("yet"));
+        assert!(unavailable("docker.compose").unwrap().contains("yet"));
         assert_eq!(unavailable("no.such"), Option::None);
     }
 }
