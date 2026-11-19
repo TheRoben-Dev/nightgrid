@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { IntegrationView } from "../../api";
   import { openExternal } from "../../clipboard";
-  import { integrations, KIND_LABEL, summary, toneOf } from "../../stores/integrations.svelte";
+  import { integrations, KIND_META, summary, toneOf } from "../../stores/integrations.svelte";
 
   interface Props {
     view: IntegrationView;
@@ -13,12 +13,14 @@
   const e = $derived(integrations.entries[i.id]);
   const s = $derived(e?.status ?? null);
   const tone = $derived(toneOf(e));
-  const needsSecret = $derived(i.kind !== "kuma" && i.kind !== "portainer" && !view.hasSecret);
+  const meta = $derived(KIND_META[i.kind]);
+  const needsSecret = $derived(!!meta?.secret && !meta.secret.optional && !view.hasSecret);
+  const busy = (target: string, action: string) => integrations.acting === `${i.id}:${target}:${action}`;
 </script>
 
 <article class="card {tone}">
   <header>
-    <span class="kind">{KIND_LABEL[i.kind]}</span>
+    <span class="kind">{meta?.label ?? i.kind.toUpperCase()}</span>
     <button type="button" class="name" title="Open {i.baseUrl}" onclick={() => openExternal(i.baseUrl)}>{i.name}</button>
     <span class="spacer"></span>
     <button type="button" class="icon" title="Refresh" aria-label="Refresh {i.name}" disabled={e?.loading} onclick={() => integrations.refresh(i.id)}>↻</button>
@@ -26,7 +28,7 @@
   </header>
 
   {#if needsSecret}
-    <p class="muted small">No {i.kind === "plex" ? "token" : "password"} saved. <button type="button" class="link" onclick={() => (integrations.editing = i.id)}>Add it</button></p>
+    <p class="muted small">No {(meta?.secret?.label ?? "password").replace("Plex ", "").toLowerCase()} saved. <button type="button" class="link" onclick={() => (integrations.editing = i.id)}>Add it</button></p>
   {:else if e?.error}
     <p class="err small" title={e.error}>{e.error}</p>
   {:else if !s}
@@ -96,6 +98,48 @@
         {#if !s.blocking}<button type="button" class="btn ghost tiny" disabled={integrations.dnsBusy} onclick={() => void integrations.dns(i.id, { op: "setBlocking", enabled: true, seconds: null }, `Blocking is on again on ${i.name}.`)}>Turn on</button>{/if}
         <button type="button" class="btn ghost tiny" data-guide="dns-manage" onclick={() => (integrations.dnsOpen = i.id)}>Manage…</button>
       </div>
+    {:else if s.kind === "app"}
+      {#if s.tiles.length}
+        <div class="tiles">
+          {#each s.tiles as t (t.label)}<span><b>{t.value}</b> {t.label.toLowerCase()}</span>{/each}
+        </div>
+      {/if}
+      {#if s.notes.length}
+        <ul class="notes">
+          {#each s.notes.slice(0, 4) as n, k (k)}<li title={n}>{n}</li>{/each}
+          {#if s.notes.length > 4}<li class="muted">+{s.notes.length - 4} more</li>{/if}
+        </ul>
+      {/if}
+      {#if s.rows.length}
+        <p class="rows-title muted">{s.rowsTitle}</p>
+        <ul class="rows">
+          {#each s.rows as r, n (r.id || n)}
+            <li class:acted={r.actions.length > 0}>
+              <span class="dot r-{r.state}" aria-hidden="true"></span>
+              <span class="main" title={r.title}>{r.title}</span>
+              {#if r.meta}<span class="meta" title={r.meta}>{r.meta}</span>{/if}
+              {#if r.progress != null}<span class="bar" aria-hidden="true"><i style:width="{r.progress}%"></i></span>{/if}
+              {#if r.actions.length}
+                <span class="acts">
+                  {#each r.actions as a (a.id)}
+                    <button type="button" class="btn ghost tiny" disabled={busy(r.id, a.id)} onclick={() => integrations.requestAction({ id: i.id, target: r.id, action: a, subject: r.title })}>{a.label}</button>
+                  {/each}
+                </span>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+        {#if s.more}<p class="foot muted">+{s.more} more in {i.name}</p>{/if}
+      {/if}
+      {#if s.actions.length || s.version}
+        <div class="dnsacts">
+          {#if s.version}<span class="muted small">v{s.version.replace(/^v/, "")}</span>{/if}
+          <span class="spacer"></span>
+          {#each s.actions as a (a.id)}
+            <button type="button" class="btn ghost tiny" disabled={busy("", a.id)} onclick={() => integrations.requestAction({ id: i.id, target: "", action: a, subject: i.name })}>{a.label}</button>
+          {/each}
+        </div>
+      {/if}
     {:else if s.kind === "portainer"}
       <p class="muted small">
         {i.hostId != null ? "Containers on the linked host get an Open in Portainer link in Docker." : "Link a host in its settings to get container links in Docker."}
@@ -107,7 +151,8 @@
 <style>
   .tiles {
     display: flex;
-    gap: 14px;
+    flex-wrap: wrap;
+    gap: 4px 14px;
     font-size: var(--fs-xs);
     color: var(--text-1);
   }
@@ -216,6 +261,28 @@
     grid-template-columns: minmax(0, 1fr) auto;
     font-size: var(--fs-xs);
   }
+  .rows li.acted {
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+  }
+  .rows-title {
+    font-size: var(--fs-xs);
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-label);
+  }
+  .notes {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 2px;
+    font-size: var(--fs-xs);
+    color: var(--warn);
+  }
+  .notes li {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .rows li.amp {
     grid-template-columns: 8px minmax(0, 1fr) auto;
   }
@@ -261,17 +328,24 @@
     background: var(--text-1);
   }
   .dot.playing,
+  .dot.r-active,
+  .dot.r-ok,
   .dot.k-up {
     background: var(--ok);
   }
   .dot.paused,
   .dot.buffering,
   .dot.k-pending,
+  .dot.r-warn,
   .dot.k-maintenance {
     background: var(--warn);
   }
-  .dot.k-down {
+  .dot.k-down,
+  .dot.r-bad {
     background: var(--danger);
+  }
+  .dot.r-idle {
+    background: var(--text-1);
   }
   .dot.off {
     background: var(--line);

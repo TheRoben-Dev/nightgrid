@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [1.8.0] - 2026-11-19
+
+Ten more integrations for the media stack, on a shared integration card.
+
+### Added
+- **Jellyfin** and **Emby**: what's playing, transcodes, library counts and **Scan libraries**.
+- **Tautulli**: Plex activity with quality, transcode decisions and bandwidth.
+- **Sonarr**, **Radarr** and **Lidarr**: download queue with progress and import problems, missing items, the app's health warnings, **RSS sync**, **Search missing** and **Remove** on queue items.
+- **Prowlarr**: indexers, failing and disabled ones, **Test indexers**.
+- **Bazarr**: missing subtitles and throttled providers.
+- **Overseerr** and **Jellyseerr**: request counts and pending requests with **Approve** and **Decline**.
+- The integration type picker is grouped (Media, Media automation, Network, Monitoring, Docker, Games) and has a filter.
+
+### Changed
+- Integration types are checked by the app instead of a database constraint (migration 0050), so new types never need a table change again (D-181).
+
 ## [1.7.1] - 2026-11-19
 
 ### Fixed
