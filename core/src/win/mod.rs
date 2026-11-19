@@ -12,9 +12,11 @@
 //! stdin belongs to the script (the metrics sampler reads its requests
 //! there).
 
+pub mod disks;
 pub mod events;
 pub mod keys;
 pub mod metrics;
+pub mod security;
 pub mod services;
 pub mod support;
 pub mod tasks;

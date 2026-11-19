@@ -63,10 +63,10 @@ pub const WINDOWS: &[Support] = &[
     s("system.journal", "System → JOURNAL", Partial, "Shows the Windows Event Log (System and Application; Read all adds Security for administrators). The unit filter matches an event source such as Service Control Manager, and times like -1h, today or 2026-11-14 08:00 work as on Linux."),
     s("system.schedules", "System → SCHEDULES", Partial, "Lists your Task Scheduler tasks (not the ones Windows ships under \\Microsoft\\) with triggers, next and last runs and results; run, enable or disable them. Creating tasks from Nightgrid isn't there yet, and system tasks need an administrator."),
     s("system.config", "System → CONFIG", Planned, "Config drift reads files under /etc and Linux package lists. A Windows version comparing files you pick and installed programs is coming."),
-    s("system.security", "System → SECURITY", Planned, "These checks read Linux settings (sshd, sudo, ufw). Windows checks (Defender, firewall profiles, RDP, SMBv1, updates, administrators) are coming."),
+    s("system.security", "System → SECURITY", Full, "Windows checks: Defender, firewall profiles, SSH password logins, Remote Desktop and NLA, SMBv1, how recent updates are, UAC, the Guest account, databases open to the network, and who is an administrator. Some need an administrator account to read."),
     s("system.firewall", "System → FIREWALL", Planned, "This tab edits ufw or firewalld. A Windows Defender Firewall version is coming."),
     s("system.updates", "System → UPDATES", Planned, "This tab runs apt, dnf or pacman. A Windows Update version is coming."),
-    s("system.disks", "System → DISKS", Planned, "This tab reads SMART with smartctl and lsblk. A Windows version using Storage health (Get-PhysicalDisk) is coming."),
+    s("system.disks", "System → DISKS", Partial, "Reads disk health from Windows' Storage module and Storage Spaces pools, with no smartctl needed. Temperature, wear, power-on hours and error counts show only for administrator accounts, and raw SMART attributes aren't available."),
     s("system.vms", "System → VMS", Planned, "This tab reads libvirt. A Hyper-V version is coming."),
     s("power.schedules", "Power schedules", Planned, "Schedules are systemd timers on the host. A Task Scheduler version is coming."),
     s(
@@ -91,7 +91,7 @@ pub const WINDOWS: &[Support] = &[
         No,
         "UPS support talks to Network UPS Tools (upsc) on the host. NUT doesn't run as a service on Windows: UPSes there use the vendor's software. Watch the UPS from a Linux host that NUT can reach.",
     ),
-    s("security.posture", "Security posture", Planned, "Posture scores Linux settings. Windows scoring (Defender, firewall, RDP, SMBv1, updates) is coming."),
+    s("security.posture", "Security posture", Partial, "Scores the Windows checks from System → SECURITY. The two extra Linux checks posture adds (fresh container images and security updates) are left out."),
     s("network.scan", "Network scans from this host", Planned, "Scans use ip neigh, ping and nmap through a POSIX shell. A PowerShell version (Get-NetNeighbor, ping sweep) is coming."),
     s("nettools", "Network tools from this host", Planned, "The tools run Linux commands. PowerShell versions (Test-Connection, Resolve-DnsName, Test-NetConnection) are coming."),
     s(

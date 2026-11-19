@@ -197,6 +197,9 @@ pub async fn system_units(app: AppHandle, host_id: HostId) -> SysResult<Vec<Unit
 #[specta::specta]
 pub async fn system_security(app: AppHandle, host_id: HostId) -> SysResult<SecurityReport> {
     let conn = connect_posix(&app, host_id, "system.security").await?;
+    if conn.is_windows() {
+        return Ok(nightgrid_core::win::security::audit(&conn).await?);
+    }
     Ok(security::audit(&conn).await?)
 }
 
@@ -1054,6 +1057,9 @@ pub async fn power_schedule_remove(
 #[specta::specta]
 pub async fn system_disks(app: AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<DisksReport> {
     let conn = connect_posix(&app, host_id, "system.disks").await?;
+    if conn.is_windows() {
+        return Ok(nightgrid_core::win::disks::disks(&conn).await?);
+    }
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     Ok(smart::scan(&conn, &auth).await?)
 }
@@ -1063,6 +1069,9 @@ pub async fn system_disks(app: AppHandle, host_id: HostId, sudo: Option<SudoInpu
 #[specta::specta]
 pub async fn system_pools(app: AppHandle, host_id: HostId) -> SysResult<nightgrid_core::system::pools::PoolsReport> {
     let conn = connect_posix(&app, host_id, "system.disks").await?;
+    if conn.is_windows() {
+        return Ok(nightgrid_core::win::disks::pools(&conn).await?);
+    }
     Ok(nightgrid_core::system::pools::scan(&conn).await?)
 }
 

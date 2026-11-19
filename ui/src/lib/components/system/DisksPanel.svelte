@@ -2,6 +2,9 @@
   import type { Disk } from "../../api";
   import { formatSize } from "../../files/util";
   import { formatHours, HEALTH_WORD, system } from "../../stores/system.svelte";
+  import { platform } from "../../stores/platform.svelte";
+
+  const onWindows = $derived(platform.isWindows(system.host));
 
   const r = $derived(system.disks);
   let open = $state<string | null>(null);
@@ -26,12 +29,18 @@
   <div class="grid">
     {#if !r && !system.disksLoading && !system.errors.disks}
       <div class="empty">
-        <p class="label">SMART NEEDS ROOT</p>
-        <p class="muted">Disk health comes from <code>smartctl</code> (smartmontools) run with sudo on the host.</p>
-        <button type="button" class="btn primary" onclick={() => system.loadDisks()}>Read SMART</button>
+        {#if onWindows}
+          <p class="label">DISK HEALTH</p>
+          <p class="muted">Disk health comes from Windows' own Storage module (Get-PhysicalDisk). Details need an administrator account.</p>
+          <button type="button" class="btn primary" onclick={() => system.loadDisks()}>Read disks</button>
+        {:else}
+          <p class="label">SMART NEEDS ROOT</p>
+          <p class="muted">Disk health comes from <code>smartctl</code> (smartmontools) run with sudo on the host.</p>
+          <button type="button" class="btn primary" onclick={() => system.loadDisks()}>Read SMART</button>
+        {/if}
       </div>
     {:else if r && !r.disks.length}
-      <p class="muted">smartctl found no disks (virtual machines and some RAID controllers hide them).</p>
+      <p class="muted">{onWindows ? "Windows listed no physical disks" : "smartctl found no disks"} (virtual machines and some RAID controllers hide them).</p>
     {/if}
     {#each r?.disks ?? [] as d (d.name)}
       <article class="card {d.health}">

@@ -7053,7 +7053,9 @@ export type PoolDevice_Serialize = {
 	errors: string | null,
 };
 
-export type PoolKind = "zfs" | "mdraid" | "btrfs";
+export type PoolKind = "zfs" | "mdraid" | "btrfs" | 
+/**  Windows Storage Spaces. */
+"storageSpaces";
 
 export type Pool_Deserialize = {
 	kind: PoolKind,

@@ -32,6 +32,11 @@ async fn read(app: &AppHandle, host_id: HostId) -> PostureRun {
         Err(e) => return posture::failed(host_id, now, e.to_string()),
     };
     let work = async {
+        if conn.is_windows() {
+            // The quest checks are Linux commands; Windows scores its own checks.
+            let report = nightgrid_core::win::security::audit(&conn).await.map_err(|e| e.to_string())?;
+            return Ok(posture::combine(host_id, now, &report, &[]));
+        }
         let report = security::audit(&conn).await.map_err(|e| e.to_string())?;
         let (planned, _) = quest::plan(&posture::EXTRA_CHECKS.map(String::from));
         let extras = match conn.exec(&quest::script(&planned)).await {
@@ -111,21 +116,8 @@ pub(crate) fn due(app: &AppHandle, cfg: &AppSettings, connected: &[HostId], now:
         return;
     }
     let last = app.state::<AppState>().store().posture_last_at().unwrap_or_default();
-    // Windows hosts aren't scored yet (win::support "security.posture").
-    let windows: Vec<HostId> = app
-        .state::<AppState>()
-        .store()
-        .list_hosts()
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|h| h.is_windows())
-        .map(|h| h.id)
-        .collect();
-    let ids: Vec<HostId> = connected
-        .iter()
-        .copied()
-        .filter(|h| !windows.contains(h) && !last.iter().any(|(id, at)| id == h && now - at < DAILY))
-        .collect();
+    let ids: Vec<HostId> =
+        connected.iter().copied().filter(|h| !last.iter().any(|(id, at)| id == h && now - at < DAILY)).collect();
     if ids.is_empty() || AUTO_RUNNING.swap(true, Ordering::SeqCst) {
         return;
     }

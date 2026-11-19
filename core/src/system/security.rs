@@ -168,7 +168,7 @@ pub fn service_name(port: u16) -> Option<&'static str> {
     SERVICES.iter().find(|(p, _, _)| *p == port).map(|(_, n, _)| *n)
 }
 
-fn is_sensitive(port: u16) -> bool {
+pub(crate) fn is_sensitive(port: u16) -> bool {
     SERVICES.iter().any(|(p, _, s)| *p == port && *s)
 }
 
