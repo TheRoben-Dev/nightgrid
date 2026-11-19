@@ -716,6 +716,9 @@ pub fn system_stream_stop(state: State<'_, AppState>, run: SystemRunId) -> CmdRe
 #[specta::specta]
 pub async fn system_updates(app: AppHandle, host_id: HostId) -> SysResult<UpdatesReport> {
     let conn = connect_posix(&app, host_id, "system.updates").await?;
+    if conn.is_windows() {
+        return Ok(nightgrid_core::win::updates::check(&conn).await?);
+    }
     Ok(packages::check(&conn).await?)
 }
 
@@ -741,9 +744,17 @@ pub async fn system_upgrade_run(
     sudo: Option<SudoInput>,
     on_event: Channel<RunEvent>,
 ) -> SysResult<SystemRunId> {
-    let cmd = packages::upgrade_command(manager, op)?;
     let conn = connect_posix(&app, host_id, "system.updates").await?;
-    let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
+    let windows = manager == Manager::WindowsUpdate;
+    if windows != conn.is_windows() {
+        return Err(SystemError::other(format!("{} doesn't run on this host", manager.label())).into());
+    }
+    if windows && op != UpgradeOp::Upgrade {
+        return Err(SystemError::other("Windows Update refreshes while checking; no separate refresh needed").into());
+    }
+    let cmd =
+        if windows { nightgrid_core::win::updates::install_script() } else { packages::upgrade_command(manager, op)? };
+    let auth = if windows { SudoAuth::User } else { resolve_sudo(&app, host_id, &conn, sudo).await? };
     tracing::info!(host = %host_id, manager = manager.label(), op = ?op, "package run");
     let id = state.next_term_id();
     let cancel = state.system_runs.add(id);
@@ -767,7 +778,11 @@ pub async fn system_upgrade_run(
             let _ = tx.send(line);
             true
         };
-        let r = sudo::stream(&conn, &auth, &cmd, Some(cancel), &mut on_line).await;
+        let r = if windows {
+            nightgrid_core::win::stream(&conn, &cmd, Some(cancel), &mut on_line).await.map_err(SystemError::other)
+        } else {
+            sudo::stream(&conn, &auth, &cmd, Some(cancel), &mut on_line).await
+        };
         drop(tx);
         let _ = forward.await;
         let (level, detail) = match &r {

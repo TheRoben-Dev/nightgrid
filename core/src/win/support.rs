@@ -65,7 +65,7 @@ pub const WINDOWS: &[Support] = &[
     s("system.config", "System → CONFIG", Planned, "Config drift reads files under /etc and Linux package lists. A Windows version comparing files you pick and installed programs is coming."),
     s("system.security", "System → SECURITY", Full, "Windows checks: Defender, firewall profiles, SSH password logins, Remote Desktop and NLA, SMBv1, how recent updates are, UAC, the Guest account, databases open to the network, and who is an administrator. Some need an administrator account to read."),
     s("system.firewall", "System → FIREWALL", Planned, "This tab edits ufw or firewalld. A Windows Defender Firewall version is coming."),
-    s("system.updates", "System → UPDATES", Planned, "This tab runs apt, dnf or pacman. A Windows Update version is coming."),
+    s("system.updates", "System → UPDATES", Partial, "Checks Windows Update and installs everything it offers. Windows won't install updates for an SSH login, so Nightgrid runs the install as a one-off SYSTEM scheduled task and streams its progress; that needs an administrator account, and Stop leaves an install already under way to finish. Picking single updates isn't there yet."),
     s("system.disks", "System → DISKS", Partial, "Reads disk health from Windows' Storage module and Storage Spaces pools, with no smartctl needed. Temperature, wear, power-on hours and error counts show only for administrator accounts, and raw SMART attributes aren't available."),
     s("system.vms", "System → VMS", Planned, "This tab reads libvirt. A Hyper-V version is coming."),
     s("power.schedules", "Power schedules", Planned, "Schedules are systemd timers on the host. A Task Scheduler version is coming."),

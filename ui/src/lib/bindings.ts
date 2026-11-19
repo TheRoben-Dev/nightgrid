@@ -5876,7 +5876,9 @@ export type Manager = "apt" | "dnf" | "pacman" |
  *  Image-based OS (Fedora Atomic, Bazzite, ...): updated as one image
  *  with rpm-ostree, which stages it for the next boot.
  */
-"ostree";
+"ostree" | 
+/**  Windows Update (Windows hosts). */
+"windowsUpdate";
 
 /**  A secret kept outside Nightgrid, listed by hand. No value is stored. */
 export type ManualSecret = ManualSecret_Serialize | ManualSecret_Deserialize;

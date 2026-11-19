@@ -26,7 +26,7 @@ export interface ImageRow {
   update: ImageUpdate;
 }
 
-export const MANAGER_WORD: Record<PackageManager, string> = { apt: "APT", dnf: "DNF", pacman: "PACMAN", ostree: "RPM-OSTREE" };
+export const MANAGER_WORD: Record<PackageManager, string> = { apt: "APT", dnf: "DNF", pacman: "PACMAN", ostree: "RPM-OSTREE", windowsUpdate: "WINDOWS UPDATE" };
 
 export type RowTone = "bad" | "warn" | "ok" | "unknown" | "busy";
 

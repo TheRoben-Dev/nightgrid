@@ -20,6 +20,7 @@ pub mod security;
 pub mod services;
 pub mod support;
 pub mod tasks;
+pub mod updates;
 
 use base64::Engine as _;
 use russh::ChannelMsg;

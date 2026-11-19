@@ -17,6 +17,8 @@ pub enum Manager {
     /// Image-based OS (Fedora Atomic, Bazzite, ...): updated as one image
     /// with rpm-ostree, which stages it for the next boot.
     Ostree,
+    /// Windows Update (Windows hosts).
+    WindowsUpdate,
 }
 
 impl Manager {
@@ -26,6 +28,7 @@ impl Manager {
             Self::Dnf => "dnf",
             Self::Pacman => "pacman",
             Self::Ostree => "rpm-ostree",
+            Self::WindowsUpdate => "Windows Update",
         }
     }
 }
@@ -225,7 +228,7 @@ pub fn parse_check(out: &str) -> UpdatesReport {
         Some(Manager::Dnf) => parse_dnf(&body),
         Some(Manager::Pacman) => parse_pacman(&body),
         Some(Manager::Ostree) => ostree_updates,
-        None => Vec::new(),
+        Some(Manager::WindowsUpdate) | None => Vec::new(),
     };
     let note = match manager {
         Some(Manager::Apt) => list
@@ -294,6 +297,9 @@ pub fn upgrade_command(manager: Manager, op: UpgradeOp) -> SystemResult<String> 
         (Manager::Dnf, UpgradeOp::Upgrade) => "LANG=C dnf -y upgrade --refresh 2>&1".to_owned(),
         (Manager::Pacman, UpgradeOp::Upgrade) => "LANG=C pacman -Syu --noconfirm 2>&1".to_owned(),
         (Manager::Ostree, UpgradeOp::Upgrade) => "LANG=C rpm-ostree upgrade 2>&1".to_owned(),
+        (Manager::WindowsUpdate, UpgradeOp::Upgrade) => {
+            return Err(SystemError::other("Windows Update runs through PowerShell (win::updates), not a shell command"))
+        }
         (m, UpgradeOp::Refresh) => {
             return Err(SystemError::other(format!(
                 "{} refreshes its lists while checking; no separate refresh needed",
