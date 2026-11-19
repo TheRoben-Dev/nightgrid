@@ -15,6 +15,12 @@ Nine more integrations: download clients, files and photos, notifications and ca
 - **Gotify**: health, apps and latest messages; delete one or all.
 - **Frigate**: cameras with frame rates, detector speed, recording storage and latest detections.
 
+## [1.8.1] - 2026-11-19
+
+### Fixed
+- **Library shelf filters** are all the same size again. The ◇ QUESTS chip had picked up the Objectives panel's frame (notched corner, thick left edge, extra margin), which stretched ALL and USING NIGHTGRID into tall boxes. QUESTS keeps its amber look at the normal chip size, and the chips wrap evenly at any width.
+- **Sidebar collapse button** no longer gets clipped or overlaps Settings when the sidebar is narrow. The decorative barcode beside Settings shrinks first and hides below about 216 px.
+
 ## [1.8.0] - 2026-11-19
 
 Ten more integrations for the media stack, on a shared integration card.
