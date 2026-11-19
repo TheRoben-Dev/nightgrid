@@ -38,6 +38,7 @@ Unraid runs its array, Docker containers and VMs from its own web UI. Nightgrid 
 ## In Nightgrid
 
 - [Fleet](view:fleet) → **Disks** reads SMART for the array disks; parity checks and array state stay in Unraid's UI.
+- [Services](view:services) → **Add integration** → **Unraid** (7.2 or newer, or the Unraid Connect plugin) with an API key from Settings → Management Access: array state and capacity, each disk's status, temperature and errors, and containers and VMs running (see [Add app cards](kb:howto/integrations)).
 - [Fleet](view:fleet) → **Updates** doesn't apply to Unraid; update the OS and plugins from Unraid's own **Tools → Update OS** and **Plugins** pages.
 - Unraid has no systemd journal, so [Fleet](view:fleet) → **Logs** finds container logs there but not the system log; read `/var/log/syslog` in the [Terminal](view:terminal).
 

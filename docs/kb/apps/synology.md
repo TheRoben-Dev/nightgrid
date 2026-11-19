@@ -47,6 +47,7 @@ sudo chown root:docker /var/run/docker.sock
 ## In Nightgrid
 
 - [Services](view:services): add DSM's web UI (`https://nas:5001`) and the apps you publish from it.
+- [Services](view:services) → **Add integration** → **Synology DSM** with a separate administrator account without 2-step verification: volumes, disks with SMART problems, CPU, memory and temperature on a card (see [Add app cards](kb:howto/integrations)).
 - [Fleet](view:fleet) → **Updates** doesn't apply to DSM; update DSM and packages from its own Control Panel.
 - Shared folders live under `/volume1/<share>`. Mount them on other hosts with NFS or SMB (see [Mount a Windows or NAS share on Linux](kb:linux/mount-smb)).
 

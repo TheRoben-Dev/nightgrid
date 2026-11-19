@@ -1,6 +1,6 @@
 # Add app cards: Plex, Jellyfin, the *arr apps and more
 
-Bring other apps' live status into Nightgrid's Services board: what's playing on Plex, Jellyfin or Emby, the Sonarr and Radarr download queues, pending Overseerr requests, torrent and Usenet downloads, Immich, Nextcloud and Syncthing, Frigate cameras, Gotify messages, game servers in AMP, Uptime Kuma monitors and links into Portainer. Keys and passwords stay in the OS keychain.
+Bring other apps' live status into Nightgrid's Services board: what's playing on Plex, Jellyfin or Emby, the Sonarr and Radarr download queues, pending Overseerr requests, torrent and Usenet downloads, Immich, Nextcloud and Syncthing, NAS pools on TrueNAS, Synology and Unraid, your router and proxy, Grafana and Prometheus alerts, Frigate cameras, Gotify messages, game servers in AMP, Uptime Kuma monitors and links into Portainer. Keys and passwords stay in the OS keychain.
 
 ![Integrations feeding the Services board.](fig:ng-integrations)
 
@@ -17,7 +17,7 @@ Bring other apps' live status into Nightgrid's Services board: what's playing on
 
 ## Part 1 · Add an integration
 
-- [ ] [Services](view:services) → **Add integration**. The **NEW INTEGRATION** dialog groups types under Media, Media automation, Downloads, Files & photos, Network, Monitoring, Cameras, Docker and Games; **Find an app…** filters them.
+- [ ] [Services](view:services) → **Add integration**. The **NEW INTEGRATION** dialog groups types under Media, Media automation, Downloads, Files & photos, Storage, Network, Monitoring, Cameras, Docker and Games; **Find an app…** filters them.
 - [ ] Pick the app. Fill in **URL** (the placeholder shows its usual port) and the **API key**, **Password** or token it asks for. **Name** is optional.
 - [ ] Self-signed or internal certificate? Tick **Allow untrusted certificate**.
 - [ ] **Test** reads the app once without saving; **Add** saves it.
@@ -50,7 +50,19 @@ Bring other apps' live status into Nightgrid's Services board: what's playing on
 - [ ] **Frigate**: port 5000 needs no login; the authenticated port 8971 needs a Frigate login. Cameras with frame rates (offline ones in red), detector speed, recording storage and the latest detections. See [Frigate NVR](kb:apps/frigate).
 - [ ] **Gotify**: a **Client token** (Clients → Create client), not an app token. Health, apps and the latest messages with priority; **Delete** one, or **Delete all** (asks first).
 
-## Part 6 · Games, monitoring and Docker
+## Part 6 · Storage, network and monitoring
+
+- [ ] **TrueNAS** (top-right user menu → API Keys → Add): pools with health and how full they are, TrueNAS's own alerts, uptime, load and memory. See [Run a TrueNAS box alongside Nightgrid](kb:apps/truenas).
+- [ ] **Synology DSM**: an administrator **Login name** and password, on an account without 2-step verification (make a separate one for Nightgrid). Volumes, disks with SMART problems, CPU, memory and temperature. See [A Synology NAS alongside Nightgrid](kb:apps/synology).
+- [ ] **Unraid** 7.2 or newer, or the Unraid Connect plugin (Settings → Management Access → API Keys): array state and capacity, each disk with status, temperature and errors, and containers and VMs running. See [An Unraid server alongside Nightgrid](kb:apps/unraid).
+- [ ] **Proxmox Backup Server**: an API token (Configuration → Access Control → API Token → Add) with Datastore.Audit and Sys.Audit; enter its **Token id** (like `root@pam!nightgrid`) and **Token secret**. Datastores with usage and when they'll be full, and tasks that failed in the last day. See [Proxmox Backup Server](kb:apps/proxmox-backup-server).
+- [ ] **OPNsense**: an **API key** and **API secret** (System → Access → Users → API keys). Gateways with delay and loss, firmware updates, and stopped services with **Start**. See [OPNsense firewall in a VM](kb:apps/opnsense).
+- [ ] **UniFi Network** 9.0 or newer, with an API key (Network → Settings → Control Plane → Integrations → Create API Key) and optionally a **Site**. Devices (offline first) and clients, with **Restart** for a device (asks first). See [UniFi Network Application in Docker](kb:apps/unifi-network).
+- [ ] **Nginx Proxy Manager**: its **Email** login and password. Proxy hosts with where they point, nginx errors and certificates expiring within two weeks; **Disable** (asks first) or **Enable** a host. See [Nginx Proxy Manager](kb:apps/nginx-proxy-manager).
+- [ ] **Grafana**: a **Service account token** (Administration → Service accounts) with the Viewer role. Health, dashboards and alert rules firing or pending.
+- [ ] **Prometheus**: scrape targets up and down with their errors, and alerts firing or pending. A login only if it sits behind basic auth; a password with no login is sent as a bearer token. See [Prometheus and Grafana](kb:apps/prometheus-grafana).
+
+## Part 7 · Games, monitoring and Docker
 
 - [ ] **AMP**: the panel address, **Login name** and password of an AMP user allowed to manage instances. The card lists instances with players, and start, stop and restart (stop and restart confirm by name). More in [Game server host](kb:guides/game-server-host).
 - [ ] **Uptime Kuma**: no key needed. Make a status page in Kuma and enter its **Status page slug**. The card lists that page's monitors. See [Uptime Kuma](kb:apps/uptime-kuma).

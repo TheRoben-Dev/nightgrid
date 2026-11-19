@@ -21,6 +21,7 @@ TrueNAS SCALE (now "TrueNAS Community Edition") is a full NAS operating system b
 - [ ] [Fleet](view:fleet) → **Disks**: pool health, scrub progress and the full-in-N-days forecast per dataset mount.
 - [ ] [Overview](view:overview): CPU, memory (ZFS ARC makes "used" look high; that's normal), network and temperatures.
 - [ ] [Services](view:services): add the TrueNAS web UI and any apps you run on it.
+- [ ] [Services](view:services) → **Add integration** → **TrueNAS** with an API key (user menu → API Keys): pool health and fill, TrueNAS's own alerts, load and memory on a card, no sudo needed (see [Add app cards](kb:howto/integrations)).
 
 ## Part 3 · Leave alone
 
