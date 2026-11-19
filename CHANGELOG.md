@@ -14,11 +14,8 @@ Faster updates: interface fixes between releases, batched releases and quicker r
 - **Fixes merged close together now ship as one release** instead of one after another, and the release picks its own version number.
 - **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
 
-## [1.12.0] - 2026-11-19
-
-Nine more integrations for storage, network and monitoring: 34 integration types in all.
-
-### Added
+### Added: storage, network and monitoring integrations
+Nine more integration types, 34 in all.
 - **TrueNAS**: pools with health and fill level, alerts, uptime, load and memory.
 - **Synology DSM**: volumes, disks with SMART problems, CPU, memory and temperature.
 - **Unraid** (7.2+): array state and capacity, disks with temperature and errors, containers and VMs.

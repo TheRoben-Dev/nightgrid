@@ -16,7 +16,7 @@
 //!   **Immich**, **Nextcloud**, **Syncthing**, **Gotify**, **Frigate** (1.11.0);
 //!   **TrueNAS**, **Synology DSM**, **Unraid**, **Proxmox Backup Server**,
 //!   **OPNsense**, **UniFi Network**, **Nginx Proxy Manager**, **Grafana** and
-//!   **Prometheus** (1.12.0).
+//!   **Prometheus** (after 1.11.0).
 //!
 //! The database stores the kind as text with no CHECK on it (0050): a kind is
 //! valid when [`IntegrationKind::parse`] knows it.
