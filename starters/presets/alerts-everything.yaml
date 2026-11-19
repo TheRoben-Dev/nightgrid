@@ -1,0 +1,22 @@
+id: alerts-everything
+kind: alerts
+title: Every alert on
+summary: Every alert Nightgrid has, with certificates flagged a month before they expire.
+category: alerts
+library: [howto/alerts]
+purpose: |
+  For when you want to know about everything and tune down later. Turns on every alert
+  type, including log alerts, and keeps dependent alerts folded under their cause.
+alerts:
+  hostOffline: true
+  containerDown: true
+  diskFull: true
+  serviceDown: true
+  certExpiring: true
+  certDays: 30
+  smartWarning: true
+  backupStale: true
+  diskForecast: true
+  poolDegraded: true
+  logAnomaly: true
+  foldDependent: true

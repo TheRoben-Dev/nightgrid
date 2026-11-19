@@ -4,21 +4,24 @@
    * Pick one, read what it does, fill in its questions, preview the plan on a
    * host, and apply only after confirming. Uses the blueprint plan/apply code.
    */
-  import { api, errorText, type BpStep, type BpStepResult, type StarterBlueprint } from "../../api";
+  import { api, errorText, type BpStep, type BpStepResult, type PresetKind, type StarterBlueprint, type StarterKind, type StarterPreset } from "../../api";
   import { initialPick, resultsLine } from "../../blueprint";
   import { CATALOG } from "../../kb/catalog";
-  import { categoryLabel, confirmLine, images, initialValues, portsOf, toValues, valueKey, valuesProblem } from "../../starters";
+  import { cardMeta, categoryLabel, confirmLine, firewallWords, images, initialValues, KINDS, portsOf, toValues, valueKey, valuesProblem, VARS } from "../../starters";
   import { hosts } from "../../stores/hosts.svelte";
   import { library } from "../../stores/library.svelte";
   import { notes } from "../../stores/notes.svelte";
   import { starters } from "../../stores/starters.svelte";
   import { system } from "../../stores/system.svelte";
   import { ui } from "../../stores/ui.svelte";
+  import { isPresetShelf, PRESET_SHELVES, presetMeta } from "../../presets";
   import PlanSteps from "./PlanSteps.svelte";
+  import PresetDetail from "./PresetDetail.svelte";
 
   const catalog = $derived(starters.catalog);
   const loadErr = $derived(starters.error);
   let sel = $state<StarterBlueprint | null>(null);
+  let selPreset = $state<StarterPreset | null>(null);
   let showFiles = $state(false);
 
   let hostId = $state<number | null>(null);
@@ -37,10 +40,16 @@
   const servers = $derived(hosts.hosts.filter((h) => h.role !== "client"));
   const nameOf = (id: number | null) => hosts.hosts.find((h) => h.id === id)?.name ?? "";
   const articleTitle = (id: string) => CATALOG.find((e) => e.id === id)?.title ?? id;
-  function containers(s: StarterBlueprint): string {
-    const n = s.stacks.flatMap((st) => images(st.compose)).length;
-    return n ? `${n} container${n === 1 ? "" : "s"}` : "no containers";
-  }
+  let shelf = $state<StarterKind | PresetKind>("setup");
+  const SHELF_WHAT: Record<StarterKind | PresetKind, string> = {
+    ...Object.fromEntries(PRESET_SHELVES.map((p) => [p.id, p.what])),
+    setup: "A whole server's job: several apps, firewall ports and a checklist.",
+    app: "One app as a compose stack, with its secrets in the .env vault.",
+    jobs: "Scheduled jobs installed as Nightgrid timers (systemd), visible in System → SCHEDULES.",
+    firewall: "Firewall profiles. Allow rules are added for you; refusing the rest and turning the firewall on stay in System → FIREWALL, behind its rollback.",
+  } as Record<StarterKind | PresetKind, string>;
+  const SHELVES = [...KINDS, ...PRESET_SHELVES];
+  const countOf = (k: StarterKind | PresetKind) => (isPresetShelf(k) ? (catalog?.presets ?? []).filter((p) => p.kind === k) : (catalog?.blueprints ?? []).filter((b) => b.kind === k)).length;
   const problem = $derived(sel ? valuesProblem(sel, values, parent) : null);
 
   $effect(() => {
@@ -119,17 +128,33 @@
 </script>
 
 <div class="gal" data-guide="fleet-starters">
-  {#if !sel}
+  {#if selPreset}
+    <PresetDetail preset={selPreset} onback={() => (selPreset = null)} />
+  {:else if !sel}
     <p class="muted small intro">Ready-made setups for common jobs. Each one explains what it's for, asks a few questions (secrets go into the <code>.env</code> vault, never into the starter), shows exactly what it would do on a host, and changes nothing until you confirm. Starter runbooks for alerts are in <button type="button" class="link" onclick={() => ((notes.starters = true), ui.go("notes"))}>Knowledge → Starters</button>.</p>
     {#if loadErr}<p class="bad small" role="alert">{loadErr}</p>{/if}
     {#if !catalog && !loadErr}<p class="muted small">Loading…</p>{/if}
+    <div class="shelves" role="tablist" aria-label="Kinds of starter">
+      {#each SHELVES as k (k.id)}
+        <button type="button" role="tab" class="shelf" class:on={shelf === k.id} aria-selected={shelf === k.id} onclick={() => (shelf = k.id)}>{k.label} <span class="n">{countOf(k.id)}</span></button>
+      {/each}
+    </div>
+    <p class="muted small">{SHELF_WHAT[shelf]}</p>
     <div class="cards">
-      {#each catalog?.blueprints ?? [] as s (s.id)}
+      {#each (catalog?.blueprints ?? []).filter((b) => b.kind === shelf) as s (s.id)}
         <button type="button" class="card" onclick={() => pick(s)}>
           <span class="cat">{categoryLabel(s.category).toUpperCase()}</span>
           <span class="ttl">{s.title}</span>
           <span class="sum">{s.summary}</span>
-          <span class="meta">{containers(s)}{#if s.firewall}&nbsp;· firewall{/if}{#if s.timers.length}&nbsp;· {s.timers.length} timer{s.timers.length === 1 ? "" : "s"}{/if}</span>
+          <span class="meta">{cardMeta(s)}</span>
+        </button>
+      {/each}
+      {#each (catalog?.presets ?? []).filter((p) => p.kind === shelf) as p (p.id)}
+        <button type="button" class="card" onclick={() => (selPreset = p)}>
+          <span class="cat">{categoryLabel(p.category).toUpperCase()}</span>
+          <span class="ttl">{p.title}</span>
+          <span class="sum">{p.summary}</span>
+          <span class="meta">{presetMeta(p)}</span>
         </button>
       {/each}
     </div>
@@ -152,7 +177,7 @@
           {#if ports.lan.length}<li><span class="k">ON LAN</span> {ports.lan.join(" · ")}</li>{/if}
           {#if ports.local.length}<li><span class="k">HOST ONLY</span> {ports.local.join(" · ")} <span class="muted">(open from Docker → web UIs)</span></li>{/if}
           {#if sel.firewall}
-            <li><span class="k">FIREWALL</span> {[...sel.firewall.allow.map((p) => `allow ${p}`), ...sel.firewall.limit.map((p) => `limit ${p}`)].join(", ") || "no ports"}{#if sel.firewall.denyIncoming || sel.firewall.enable}<span class="muted"> · deny-by-default and turning it on stay manual, behind System → FIREWALL's rollback</span>{/if}</li>
+            <li><span class="k">FIREWALL</span> {firewallWords(sel)}{#if sel.firewall.denyIncoming || sel.firewall.enable}<span class="muted"> · deny-by-default and turning it on stay manual, behind System → FIREWALL's rollback</span>{/if}</li>
           {/if}
           {#each sel.timers as t (t.name)}<li><span class="k">TIMER</span> {t.name} <span class="muted">{t.calendar} · {t.command}</span></li>{/each}
           {#each sel.manual as m (m.title)}<li><span class="k">BY HAND</span> {m.title}</li>{/each}
@@ -205,6 +230,13 @@
               </label>
             {/each}
           {/each}
+          {#each sel.vars as v (v.name)}
+            {@const key = valueKey(VARS, v)}
+            <label class="field">{v.label}
+              <input class="input" bind:value={values[key]} oninput={resetPlan} placeholder={v.default} autocomplete="off" spellcheck="false" />
+              <span class="hint"><code>{`{{${v.name}}}`}</code>{#if v.help}&nbsp;· {v.help}{/if}</span>
+            </label>
+          {/each}
           {#if problem}<p class="warn small">{problem}</p>{/if}
           <button type="button" class="btn primary" disabled={!!problem || busy} onclick={() => void preview()}>{busy && !plan ? "Reading the host…" : plan ? "Preview again" : "Preview what it would do"}</button>
           <p class="muted small">Previewing reads {nameOf(hostId)} and lists each step. Nothing is written until you confirm.</p>
@@ -248,7 +280,32 @@
     margin-bottom: 12px;
     line-height: 1.5;
   }
+  .shelves {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .shelf {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-1);
+    padding: 3px 8px;
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    cursor: pointer;
+  }
+  .shelf.on {
+    color: var(--text-0);
+    border-bottom-color: var(--magenta);
+  }
+  .shelf .n {
+    color: var(--cyan);
+  }
   .cards {
+    margin-top: 8px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 10px;

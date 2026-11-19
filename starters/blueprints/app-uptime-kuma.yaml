@@ -1,0 +1,35 @@
+id: app-uptime-kuma
+kind: app
+title: Uptime Kuma
+summary: Checks your websites and services every minute and shows a status page.
+category: monitoring
+purpose: |
+  A friendly uptime monitor: HTTP, TCP, ping, DNS and Docker checks with
+  response-time graphs, notifications and public or private status pages.
+  It keeps watching while your computer (and Nightgrid) is off.
+library: [apps/uptime-kuma, howto/status-page]
+stacks:
+  - name: uptime-kuma
+    compose: |
+      services:
+        uptime-kuma:
+          image: louislam/uptime-kuma:1
+          container_name: uptime-kuma
+          restart: unless-stopped
+          ports:
+            - "3001:3001"
+          environment:
+            TZ: ${TZ}
+          volumes:
+            - ./data:/app/data
+    env:
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+    ports:
+      - { port: 3001/tcp, what: Uptime Kuma }
+firewall:
+  allow: [3001/tcp]
+manual:
+  - title: Create the admin account
+    detail: Open http://<host>:3001, create the admin, then add a monitor per site or service.

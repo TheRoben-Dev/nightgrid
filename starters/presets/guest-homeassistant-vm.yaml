@@ -1,0 +1,20 @@
+id: guest-homeassistant-vm
+kind: guests
+title: Home Assistant OS VM
+summary: The VM shape Home Assistant OS expects - UEFI, 2 cores, 4 GB of memory and 32 GB of disk.
+category: smarthome
+library: [howto/proxmox]
+purpose: |
+  Home Assistant OS (with add-ons) runs as its own VM. It needs UEFI and at least 32 GB of disk.
+  Home Assistant ships it as a disk image rather than an ISO: create the VM without an ISO, then
+  import the image as its disk by hand (qm importdisk), as Home Assistant's own guide describes.
+
+  Opens Proxmox → Create VM with these values filled in; nothing is created until you press Create.
+guest:
+  kind: vm
+  name: homeassistant
+  cores: 2
+  memoryMb: 4096
+  diskGb: 32
+  ostype: l26
+  uefi: true

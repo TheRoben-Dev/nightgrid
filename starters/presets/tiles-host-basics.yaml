@@ -1,0 +1,36 @@
+id: tiles-host-basics
+kind: tiles
+title: Host basics
+summary: Uptime, load, free space on / and whether a reboot is waiting, as Overview tiles.
+category: linux
+library: [howto/command-widgets]
+purpose: |
+  Four small tiles for one host that answer "is this box OK?" at a glance.
+  They only read and refresh on their own.
+tiles:
+  - name: Uptime
+    what: Days since the last boot.
+    command: "awk '{print int($1/86400)}' /proc/uptime"
+    parse: number
+    unit: d
+    intervalSecs: 3600
+  - name: Load
+    what: One-minute load average. Warns above 4, critical above 8.
+    command: "cut -d' ' -f1 /proc/loadavg"
+    parse: number
+    warn: 4
+    crit: 8
+    intervalSecs: 60
+  - name: Free on /
+    what: Percent free on the root filesystem. Warns at 15 %, critical at 5 %.
+    command: "df -P / | awk 'NR==2{gsub(\"%\",\"\",$5); print 100-$5}'"
+    parse: number
+    unit: "%"
+    warn: 15
+    crit: 5
+    below: true
+  - name: Reboot needed
+    what: Whether updates are waiting for a reboot (Debian and Ubuntu).
+    command: "if [ -f /var/run/reboot-required ]; then echo YES; else echo no; fi"
+    parse: text
+    intervalSecs: 1800

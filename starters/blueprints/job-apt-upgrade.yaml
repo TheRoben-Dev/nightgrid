@@ -1,0 +1,24 @@
+id: job-apt-upgrade
+kind: jobs
+title: Weekly package upgrade (Debian, Ubuntu)
+summary: Installs every pending package update once a week, at a time you pick.
+category: linux
+purpose: |
+  Keeps a Debian or Ubuntu host up to date without logging in. Once a week
+  it refreshes the package lists and installs all upgrades, keeping your
+  changed config files. It doesn't reboot: Fleet → UPDATES shows hosts that
+  want one, and scheduled power can do it at night.
+
+  Prefer only security updates? Use unattended-upgrades instead (see the
+  Library guide).
+library: [apps/unattended-upgrades, howto/fleet-updates, linux/packages]
+vars:
+  - name: WHEN
+    label: When to run it
+    default: Sun
+    help: A day such as Sun or Mon..Fri; it runs at 04:00 that day.
+timers:
+  - name: apt-upgrade
+    command: "apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get -y -q -o Dpkg::Options::=--force-confold upgrade"
+    calendar: "{{WHEN}} *-*-* 04:00:00"
+    persistent: true

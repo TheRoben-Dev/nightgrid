@@ -1,0 +1,90 @@
+id: app-paperless
+kind: app
+title: Paperless-ngx
+summary: Scan your paperwork once, then find any letter, bill or receipt in seconds.
+category: productivity
+purpose: |
+  Drop scans or PDFs into a folder (or email them) and Paperless reads the
+  text, tags and files them by correspondent and type, and makes everything
+  searchable. The originals are kept untouched next to the searchable copy.
+library: [apps/paperless-ngx, apps/stirling-pdf]
+stacks:
+  - name: paperless
+    compose: |
+      services:
+        broker:
+          image: docker.io/library/redis:7
+          container_name: paperless-redis
+          restart: unless-stopped
+
+        db:
+          image: docker.io/library/postgres:16
+          container_name: paperless-db
+          restart: unless-stopped
+          environment:
+            POSTGRES_DB: paperless
+            POSTGRES_USER: paperless
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+          volumes:
+            - ./pgdata:/var/lib/postgresql/data
+
+        webserver:
+          image: ghcr.io/paperless-ngx/paperless-ngx:latest
+          container_name: paperless
+          restart: unless-stopped
+          depends_on:
+            - db
+            - broker
+          ports:
+            - "8000:8000"
+          environment:
+            PAPERLESS_REDIS: redis://broker:6379
+            PAPERLESS_DBHOST: db
+            PAPERLESS_DBPASS: ${DB_PASSWORD}
+            PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
+            PAPERLESS_TIME_ZONE: ${TZ}
+            PAPERLESS_OCR_LANGUAGE: ${OCR_LANGUAGE}
+            USERMAP_UID: ${PUID}
+            USERMAP_GID: ${PGID}
+          volumes:
+            - ./data:/usr/src/paperless/data
+            - ./media:/usr/src/paperless/media
+            - ./export:/usr/src/paperless/export
+            - ${CONSUME_DIR}:/usr/src/paperless/consume
+    env:
+      - name: CONSUME_DIR
+        label: Folder your scanner saves into
+        default: /srv/paperless/consume
+        path: true
+        help: Anything placed here is imported and then removed from it.
+      - name: OCR_LANGUAGE
+        label: Language of your documents
+        default: eng
+        help: Tesseract codes joined with +, such as eng+swe or deu.
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+      - name: PUID
+        label: User id that owns the files
+        default: "1000"
+      - name: PGID
+        label: Group id that owns the files
+        default: "1000"
+      - name: DB_PASSWORD
+        label: Database password
+        secret: true
+        generate: true
+      - name: PAPERLESS_SECRET_KEY
+        label: Session signing key
+        secret: true
+        generate: true
+        help: Leave empty to generate one.
+    ports:
+      - { port: 8000/tcp, what: Paperless-ngx }
+firewall:
+  allow: [8000/tcp]
+manual:
+  - title: Create the admin user
+    detail: In a terminal on the host run docker exec -it paperless python3 manage.py createsuperuser, then sign in at http://<host>:8000.
+  - title: Point your scanner at the consume folder
+    detail: Share the consume folder over SMB or have the scanner email or upload into it; Paperless picks files up within a minute.

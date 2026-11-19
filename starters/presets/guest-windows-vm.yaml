@@ -1,0 +1,20 @@
+id: guest-windows-vm
+kind: guests
+title: Windows 11 VM
+summary: A Windows 11 VM with UEFI and a TPM, 4 cores, 8 GB of memory and 64 GB of disk.
+category: dev
+library: [howto/proxmox, howto/vm-desktops]
+purpose: |
+  Windows 11 needs UEFI, Secure Boot and a TPM; the win11 OS type adds them. Open its screen from
+  Desktops while installing; afterwards RDP is smoother.
+
+  Opens Proxmox → Create VM with these values filled in; pick the Windows ISO there. Nothing is
+  created until you press Create.
+guest:
+  kind: vm
+  name: windows
+  cores: 4
+  memoryMb: 8192
+  diskGb: 64
+  ostype: win11
+  uefi: true

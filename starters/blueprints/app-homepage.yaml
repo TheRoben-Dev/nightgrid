@@ -1,0 +1,45 @@
+id: app-homepage
+kind: app
+title: Homepage
+summary: A start page with every service in your lab, live status and widgets.
+category: monitoring
+purpose: |
+  One page with a tile for each of your apps, showing whether they're up and
+  live numbers from them (downloads, streams, disk space). It reads Docker
+  labels, so new containers can add themselves.
+library: [apps/homepage, apps/homarr]
+stacks:
+  - name: homepage
+    compose: |
+      services:
+        homepage:
+          image: ghcr.io/gethomepage/homepage:latest
+          container_name: homepage
+          restart: unless-stopped
+          ports:
+            - "3000:3000"
+          environment:
+            HOMEPAGE_ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+            PUID: ${PUID}
+            PGID: ${PGID}
+          volumes:
+            - ./config:/app/config
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+    env:
+      - name: ALLOWED_HOSTS
+        label: Addresses you'll open it at
+        help: Host and port, comma-separated, such as server01:3000,192.168.1.20:3000. Homepage refuses other names.
+      - name: PUID
+        label: User id that owns the config
+        default: "1000"
+      - name: PGID
+        label: Group id with Docker access
+        default: "1000"
+        help: The docker group's id (getent group docker) lets it read container status.
+    ports:
+      - { port: 3000/tcp, what: Homepage }
+firewall:
+  allow: [3000/tcp]
+manual:
+  - title: Add your services
+    detail: Edit config/services.yaml in the stack folder (Files, or Docker → STACKS → edit), or Nightgrid's Services view can import from it.

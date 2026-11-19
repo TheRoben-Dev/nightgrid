@@ -1,0 +1,14 @@
+id: posture-relaxed
+kind: posture
+title: Relaxed security
+summary: Daily security scores and rotation reminders, without network scans or alerts for every new phone.
+category: security
+library: [howto/security-score]
+purpose: |
+  For a small LAN-only homelab where new devices come and go all the time. Hosts are still
+  re-scored daily and you still hear about expiring secrets, but there are no network scans.
+security:
+  postureDaily: true
+  rotationNotices: true
+netWatch:
+  enabled: false

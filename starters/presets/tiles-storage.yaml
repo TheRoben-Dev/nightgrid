@@ -1,0 +1,38 @@
+id: tiles-storage
+kind: tiles
+title: Storage health
+summary: Fullest mount, inode use, ZFS pool health and degraded RAID arrays, as Overview tiles.
+category: storage
+library: [howto/command-widgets, howto/disks, linux/mdadm-raid]
+purpose: |
+  Tiles for a NAS or any host with several disks. Tiles for ZFS or RAID show
+  "none" when the host has neither.
+tiles:
+  - name: Fullest mount
+    what: Percent used on the fullest real filesystem. Warns at 80 %, critical at 90 %.
+    command: "df -P -x tmpfs -x devtmpfs -x overlay -x squashfs | awk 'NR!=1{gsub(\"%\",\"\",$5); if (m<$5+0) m=$5+0} END{print m+0}'"
+    parse: number
+    unit: "%"
+    warn: 80
+    crit: 90
+    intervalSecs: 600
+  - name: Inodes on /
+    what: Percent of inodes used on /. Running out stops new files even with space free.
+    command: "df -Pi / | awk 'NR==2{gsub(\"%\",\"\",$5); print $5+0}'"
+    parse: number
+    unit: "%"
+    warn: 80
+    crit: 95
+    intervalSecs: 3600
+  - name: ZFS pools
+    what: Health of every ZFS pool (ONLINE is good).
+    command: "zpool list -H -o health 2>/dev/null | sort -u | paste -sd, - | grep . || echo none"
+    parse: text
+    intervalSecs: 600
+  - name: Degraded RAID
+    what: Software RAID arrays missing a disk.
+    command: "cat /proc/mdstat 2>/dev/null | grep -c '\\[[U_]*_[U_]*\\]'"
+    parse: number
+    warn: 1
+    crit: 1
+    intervalSecs: 600

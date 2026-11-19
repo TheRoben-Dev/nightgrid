@@ -1,0 +1,88 @@
+id: app-nextcloud
+kind: app
+title: Nextcloud
+summary: Files, calendars, contacts and office documents in your own cloud.
+category: productivity
+purpose: |
+  A self-hosted alternative to Dropbox and Google Drive: sync folders to
+  your computers and phones, share links, and keep calendars and contacts in
+  sync. Apps add notes, tasks, photos and online office editing.
+
+  This starter runs Nextcloud with PostgreSQL and Redis. For use outside
+  your home, put it behind HTTPS with the reverse proxy starter.
+library: [apps/nextcloud, apps/collabora]
+stacks:
+  - name: nextcloud
+    compose: |
+      services:
+        app:
+          image: nextcloud:apache
+          container_name: nextcloud
+          restart: unless-stopped
+          ports:
+            - "8080:80"
+          environment:
+            POSTGRES_HOST: db
+            POSTGRES_DB: nextcloud
+            POSTGRES_USER: nextcloud
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+            REDIS_HOST: redis
+            NEXTCLOUD_TRUSTED_DOMAINS: ${TRUSTED_DOMAINS}
+          volumes:
+            - ./html:/var/www/html
+            - ${DATA_DIR}:/var/www/html/data
+          depends_on:
+            - db
+            - redis
+
+        cron:
+          image: nextcloud:apache
+          container_name: nextcloud-cron
+          restart: unless-stopped
+          entrypoint: /cron.sh
+          volumes:
+            - ./html:/var/www/html
+            - ${DATA_DIR}:/var/www/html/data
+          depends_on:
+            - db
+            - redis
+
+        db:
+          image: postgres:16-alpine
+          container_name: nextcloud-db
+          restart: unless-stopped
+          environment:
+            POSTGRES_DB: nextcloud
+            POSTGRES_USER: nextcloud
+            POSTGRES_PASSWORD: ${DB_PASSWORD}
+          volumes:
+            - ./db:/var/lib/postgresql/data
+
+        redis:
+          image: redis:7-alpine
+          container_name: nextcloud-redis
+          restart: unless-stopped
+    env:
+      - name: TRUSTED_DOMAINS
+        label: Names you'll open it at
+        default: localhost
+        help: Space-separated, such as "server01 192.168.1.20 cloud.example.com". Nextcloud refuses other names.
+      - name: DATA_DIR
+        label: Folder for users' files
+        default: /srv/nextcloud
+        path: true
+      - name: DB_PASSWORD
+        label: Database password
+        secret: true
+        generate: true
+    ports:
+      - { port: 8080/tcp, what: Nextcloud }
+firewall:
+  allow: [8080/tcp]
+manual:
+  - title: Let the web server own the data folder
+    detail: sudo mkdir -p /srv/nextcloud && sudo chown -R 33:33 /srv/nextcloud (www-data is uid 33 in the image; use your folder).
+  - title: Create the admin account
+    detail: Open http://<host>:8080 and create the admin; the database is already filled in from the environment.
+  - title: Switch background jobs to cron
+    detail: Administration settings → Basic settings → Background jobs → Cron (the cron container runs them every 5 minutes).

@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [1.7.0] - 2026-11-19
+
+Ten more starter shelves: apps, scheduled jobs, firewall profiles, alert rules, Overview tiles and dashboards, log searches, proxy routes, Proxmox shapes, restore drills and security posture.
+
+### Added: starter shelves (Fleet → BLUEPRINTS → STARTERS)
+- **APPS**: twelve single-app stacks: Vaultwarden, Immich, Nextcloud, Uptime Kuma, Paperless-ngx, Homepage, Forgejo, Navidrome, Audiobookshelf, Mealie, FreshRSS and Actual Budget. Secrets go into the `.env` vault and are generated when left empty.
+- **JOBS**: six scheduled jobs installed as Nightgrid timers: Docker cleanup, unattended upgrades, weekly SMART self-tests, a nightly backup kick-off, weekly TRIM and monthly ZFS scrubs. Jobs that need a disk, pool or unit ask for it as one plain word.
+- **FIREWALL**: four allow-rule profiles: SSH only, web server, LAN and tailnet only, and Docker host. On firewalld, trusting a network becomes a step for you.
+- **ALERTS**: four alert rule sets (quiet nights, strict storage watch, calm log alerts, every alert on), shown as a table of each setting now and after. Where alerts are sent stays your choice.
+- **TILES** and **DASHBOARDS**: four sets of read-only command tiles (host basics, Docker, storage health, network) and three dashboards (media box, NAS watch, network ops) that bring their own tiles for a host you pick. Dashboards are added beside yours, never over them.
+- **LOG SEARCHES**: five saved searches across every host: SSH logins, out-of-memory kills, disk errors, container errors and failed services. Disk errors and OOM kills alert on new matches.
+- **PROXY ROUTES**: four route sets for the app starters, saved to a Caddy or Traefik proxy Nightgrid found on a host under your own domain. You see the Caddyfile diff (or the Traefik routes) and confirm; Caddy validates before loading and keeps the old file.
+- **PROXMOX**: five VM and container shapes (Docker LXC, small service LXC, Linux VM, Home Assistant OS VM, Windows 11 VM) that open Proxmox → Create filled in, picking the newest matching container template.
+- **DRILLS**: weekly or monthly restore drills added for each backup job that has none.
+- **POSTURE**: two sets of Security view and network watch settings (watchful, relaxed).
+
 ## [1.6.0] - 2026-11-18
 
 ### Added: UI sounds

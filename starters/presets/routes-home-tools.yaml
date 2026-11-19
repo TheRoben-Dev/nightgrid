@@ -1,0 +1,16 @@
+id: routes-home-tools
+kind: routes
+title: Home tools routes
+summary: Names for Vaultwarden, Mealie, FreshRSS, Actual Budget and Audiobookshelf.
+category: productivity
+library: [howto/proxy-routes, basics/reverse-proxies]
+purpose: |
+  HTTPS names for the everyday apps. Vaultwarden in particular needs HTTPS: browsers refuse
+  its web vault over plain HTTP. Uses the container names from the app starters; the apps and
+  the proxy need to share a Docker network.
+routes:
+  - { name: vaultwarden, sub: vault, upstream: "vaultwarden:80", what: Vaultwarden }
+  - { name: mealie, sub: recipes, upstream: "mealie:9000", what: Mealie }
+  - { name: freshrss, sub: rss, upstream: "freshrss:80", what: FreshRSS }
+  - { name: actual, sub: budget, upstream: "actual:5006", what: Actual Budget }
+  - { name: audiobookshelf, sub: books, upstream: "audiobookshelf:80", what: Audiobookshelf }

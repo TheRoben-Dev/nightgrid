@@ -4,7 +4,7 @@
  * the task's log is followed until it ends, then the view reloads.
  */
 import { sound } from "./sound.svelte";
-import { api, errorText, type PveFirewall, type PveFwRun, type PveFwRuleSpec, type PveFwScope, type PveIfaceSpec, type PveNetwork, type PveAppliance, type PveCloneSpec, type PveSandboxSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec } from "../api";
+import { api, errorText, type PveFirewall, type PveFwRun, type PveFwRuleSpec, type PveFwScope, type PveIfaceSpec, type PveNetwork, type PveAppliance, type PveCloneSpec, type PveSandboxSpec, type PveCreateInfo, type PveCtSpec, type PveOverview, type PveTaskDetail, type PveVmSpec, type PresetGuest } from "../api";
 import { ACTION_WORD, backupTargets, type PveConfig, type PveHostDevices, type PveSetting, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
@@ -22,7 +22,8 @@ export interface PveConfirm {
 }
 
 /** Which "make something" dialog is open. */
-export type PveMake = { kind: "vm" } | { kind: "ct" } | { kind: "clone"; guest: PveGuest } | { kind: "sandbox"; guest: PveGuest | null } | { kind: "iso" } | { kind: "appliance" };
+/** `preset` fills the create form from a starter (PresetGuest). */
+export type PveMake = { kind: "vm"; preset?: PresetGuest } | { kind: "ct"; preset?: PresetGuest } | { kind: "clone"; guest: PveGuest } | { kind: "sandbox"; guest: PveGuest | null } | { kind: "iso" } | { kind: "appliance" };
 
 export interface GuestDetail {
   guest: PveGuest;

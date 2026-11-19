@@ -1,0 +1,13 @@
+id: alerts-quiet-nights
+kind: alerts
+title: Quiet nights
+summary: No alert sounds or pop-ups from 23:00 to 07:00. Alerts still collect and show when you look.
+category: alerts
+library: [howto/alerts]
+purpose: |
+  For a homelab that shouldn't wake you up. Alerts still fire and wait in the inbox;
+  only notifications are held during quiet hours.
+alerts:
+  quietHours: true
+  quietStart: 1380
+  quietEnd: 420

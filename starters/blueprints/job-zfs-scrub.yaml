@@ -1,0 +1,20 @@
+id: job-zfs-scrub
+kind: jobs
+title: Monthly ZFS scrub
+summary: Reads every block of a pool once a month and repairs what it can from redundancy.
+category: storage
+purpose: |
+  A scrub reads all data in a ZFS pool and checks it against its checksums,
+  fixing bad blocks from the mirror or parity copy before a second fault
+  makes them unrecoverable. Fleet → DISKS shows the result and alerts on
+  errors.
+library: [apps/zfs, howto/disks]
+vars:
+  - name: POOL
+    label: Pool to scrub
+    default: tank
+timers:
+  - name: zfs-scrub-{{POOL}}
+    command: zpool scrub {{POOL}}
+    calendar: "*-*-01 01:00:00"
+    persistent: true

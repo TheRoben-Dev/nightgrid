@@ -1,5 +1,5 @@
 /** Starter blueprints and runbooks (D-177): form values, wording and runbook notes. */
-import type { AlertKind, Note, NoteInput, StarterBlueprint, StarterRunbook, StarterValue, StarterVar } from "./api";
+import type { AlertKind, Note, NoteInput, StarterBlueprint, StarterKind, StarterRunbook, StarterValue, StarterVar } from "./api";
 
 /** Library topic ids used by starters, as shown on the cards. */
 export const CATEGORY_LABEL: Record<string, string> = {
@@ -10,9 +10,14 @@ export const CATEGORY_LABEL: Record<string, string> = {
   storage: "Storage",
   monitoring: "Monitoring",
   security: "Security",
+  linux: "Linux",
+  hardware: "Hardware",
+  dev: "Development",
   smarthome: "Smart home",
   gaming: "Gaming",
   productivity: "Productivity",
+  alerts: "Alerts",
+  logs: "Logs",
 };
 
 export const categoryLabel = (c: string): string => CATEGORY_LABEL[c] ?? c;
@@ -24,8 +29,23 @@ export const valueKey = (stack: string, v: StarterVar): string => `${stack}/${v.
 export function initialValues(s: StarterBlueprint): Record<string, string> {
   const out: Record<string, string> = {};
   for (const st of s.stacks) for (const v of st.env) out[valueKey(st.name, v)] = v.default;
+  for (const v of s.vars) out[valueKey(VARS, v)] = v.default;
   return out;
 }
+
+/** The key group of a starter's `{{vars}}` (timers, firewall). */
+export const VARS = "vars";
+
+/** A `{{var}}` value: one word, since it goes on a command line. */
+export const wordOk = (v: string): boolean => /^[A-Za-z0-9/._:@+-]+$/.test(v);
+
+/** Gallery shelves, in order. */
+export const KINDS: { id: StarterKind; label: string }[] = [
+  { id: "setup", label: "SETUPS" },
+  { id: "app", label: "APPS" },
+  { id: "jobs", label: "JOBS" },
+  { id: "firewall", label: "FIREWALL" },
+];
 
 /** What still needs filling in, in form order (null when ready). Mirrors the app's checks. */
 export function valuesProblem(s: StarterBlueprint, values: Record<string, string>, parent: string): string | null {
@@ -38,6 +58,11 @@ export function valuesProblem(s: StarterBlueprint, values: Record<string, string
       if (val && v.path && !val.startsWith("/")) return `“${v.label}” must be an absolute folder such as /srv/data.`;
     }
   }
+  for (const v of s.vars) {
+    const val = (values[valueKey(VARS, v)] ?? "").trim();
+    if (!val && !v.default && !v.generate) return `Fill in “${v.label}”.`;
+    if (val && !wordOk(val)) return `“${v.label}” must be one word: letters, digits and / . _ : @ + -`;
+  }
   return null;
 }
 
@@ -46,6 +71,23 @@ export function toValues(values: Record<string, string>): StarterValue[] {
   return Object.entries(values)
     .map(([key, value]) => ({ key, value: value.trim() }))
     .filter((v) => v.value !== "");
+}
+
+/** The firewall rules a starter adds, as words. */
+export function firewallWords(s: StarterBlueprint): string {
+  const f = s.firewall;
+  if (!f) return "";
+  return [...f.allowFrom.map((a) => `allow from ${a}`), ...f.allow.map((p) => `allow ${p}`), ...f.limit.map((p) => `limit ${p}`)].join(", ") || "no rules";
+}
+
+/** The card's last line: containers, firewall, timers. */
+export function cardMeta(s: StarterBlueprint): string {
+  const n = s.stacks.flatMap((st) => images(st.compose)).length;
+  const parts: string[] = [];
+  if (n) parts.push(`${n} container${n === 1 ? "" : "s"}`);
+  if (s.firewall) parts.push("firewall");
+  if (s.timers.length) parts.push(`${s.timers.length} timer${s.timers.length === 1 ? "" : "s"}`);
+  return parts.join(" · ");
 }
 
 /** Ports a starter opens, split by who can reach them. */

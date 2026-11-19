@@ -1,0 +1,41 @@
+id: app-mealie
+kind: app
+title: Mealie
+summary: A recipe box that imports recipes from any website, with meal plans and shopping lists.
+category: productivity
+purpose: |
+  Paste a recipe link and Mealie keeps just the recipe, without the life
+  story and ads. Plan the week's meals and turn them into a shared shopping
+  list for the household.
+library: [apps/mealie]
+stacks:
+  - name: mealie
+    compose: |
+      services:
+        mealie:
+          image: ghcr.io/mealie-recipes/mealie:latest
+          container_name: mealie
+          restart: unless-stopped
+          ports:
+            - "9925:9000"
+          environment:
+            ALLOW_SIGNUP: "false"
+            TZ: ${TZ}
+            BASE_URL: ${BASE_URL}
+          volumes:
+            - ./data:/app/data
+    env:
+      - name: BASE_URL
+        label: Address you'll open it at
+        default: http://localhost:9925
+        help: Used in invite links and emails, such as http://server01:9925.
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+    ports:
+      - { port: 9925/tcp, what: Mealie }
+firewall:
+  allow: [9925/tcp]
+manual:
+  - title: Sign in and change the default login
+    detail: Open http://<host>:9925 and sign in with changeme@example.com / MyPassword, then change the email and password right away.

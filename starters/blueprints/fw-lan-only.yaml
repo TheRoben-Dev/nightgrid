@@ -1,0 +1,27 @@
+id: fw-lan-only
+kind: firewall
+title: "Firewall: home network only"
+summary: Everything is reachable from your LAN and your tailnet, nothing from anywhere else.
+category: security
+purpose: |
+  For a server that should never be reachable from the internet, even if a
+  port is forwarded by mistake: devices on your home network and on your
+  tailnet can reach every port, everyone else is refused.
+
+  Check the network before applying: if you manage this host from outside
+  both networks, you'd lock yourself out (the firewall's rollback would
+  undo it after 90 seconds).
+library: [howto/firewall, apps/tailscale-subnet-router]
+vars:
+  - name: LAN
+    label: Your home network
+    default: 192.168.0.0/16
+    help: Such as 192.168.1.0/24. Run ip route on the host to see it.
+  - name: TAILNET
+    label: Your tailnet's addresses
+    default: 100.64.0.0/10
+    help: Tailscale's range; leave as it is unless you use something else.
+firewall:
+  allowFrom: ["{{LAN}}", "{{TAILNET}}"]
+  denyIncoming: true
+  enable: true

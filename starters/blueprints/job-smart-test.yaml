@@ -1,0 +1,32 @@
+id: job-smart-test
+kind: jobs
+title: SMART self-tests for a disk
+summary: A short self-test every week and a long one every month, so a failing disk shows up early.
+category: hardware
+purpose: |
+  Disks test themselves when asked. A short test (a couple of minutes)
+  catches obvious faults; a long test reads the whole surface. Nightgrid's
+  Fleet → DISKS reads the results and alerts on a failure. Add one starter
+  per disk.
+library: [linux/disk-testing, howto/disks]
+vars:
+  - name: DISK
+    label: Disk to test
+    default: /dev/sda
+    help: Prefer a stable name from /dev/disk/by-id/ so it can't point at another disk after a reboot.
+  - name: NAME
+    label: Short name for the timers
+    default: sda
+    help: Letters, digits and dashes, such as sda or nas-disk1.
+timers:
+  - name: smart-short-{{NAME}}
+    command: smartctl -t short {{DISK}}
+    calendar: "Sun *-*-* 02:00:00"
+    persistent: true
+  - name: smart-long-{{NAME}}
+    command: smartctl -t long {{DISK}}
+    calendar: "*-*-01 02:30:00"
+    persistent: true
+manual:
+  - title: Install smartmontools
+    detail: sudo apt install smartmontools (or dnf install smartmontools) if smartctl isn't there yet.

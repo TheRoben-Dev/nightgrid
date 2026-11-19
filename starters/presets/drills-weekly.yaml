@@ -1,0 +1,11 @@
+id: drills-weekly
+kind: drills
+title: Weekly restore drills
+summary: A restore drill every week for each backup job that doesn't have one yet.
+category: storage
+library: [howto/restore-drills, basics/backups]
+purpose: |
+  For data you can't lose: photos, documents and password vaults. Each drill restores one random
+  file from the job's latest snapshot into a temporary folder, checks it and deletes it.
+drills:
+  everyDays: 7

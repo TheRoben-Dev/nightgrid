@@ -1,0 +1,43 @@
+id: app-forgejo
+kind: app
+title: Forgejo
+summary: Your own Git server with issues, pull requests and CI, like a small GitHub.
+category: dev
+purpose: |
+  Hosts your Git repositories at home: browse code, track issues, review
+  pull requests and mirror repositories from GitHub. Forgejo is a light,
+  community-run fork of Gitea; SQLite is enough for a household.
+library: [apps/forgejo, guides/dev-git-deploy-lab]
+stacks:
+  - name: forgejo
+    compose: |
+      services:
+        forgejo:
+          image: codeberg.org/forgejo/forgejo:11
+          container_name: forgejo
+          restart: unless-stopped
+          environment:
+            USER_UID: ${PUID}
+            USER_GID: ${PGID}
+          ports:
+            - "3002:3000"
+            - "2222:22"
+          volumes:
+            - ./data:/data
+            - /etc/timezone:/etc/timezone:ro
+            - /etc/localtime:/etc/localtime:ro
+    env:
+      - name: PUID
+        label: User id that owns the repositories
+        default: "1000"
+      - name: PGID
+        label: Group id
+        default: "1000"
+    ports:
+      - { port: 3002/tcp, what: Forgejo web }
+      - { port: 2222/tcp, what: Git over SSH }
+firewall:
+  allow: [3002/tcp, 2222/tcp]
+manual:
+  - title: Run the installer
+    detail: Open http://<host>:3002, keep SQLite, set the SSH port to 2222 and the base URL to how you'll reach it, and create the admin account.

@@ -1322,6 +1322,9 @@ export type AlertSettings_Serialize = {
 	webhookResolved: boolean,
 };
 
+/**  An alert setting's new value. */
+export type AlertValue = boolean | number;
+
 export type Alert_Deserialize = {
 	id: number,
 	key: string,
@@ -7116,6 +7119,149 @@ export type PowerSettings_Serialize = {
 	currency: string,
 };
 
+/**  Drills added for each backup job that has none yet. */
+export type PresetDrills = {
+	/**  0 (by hand), 7, 14, 30 or 90. */
+	everyDays: number,
+};
+
+/**  A guest shape for Proxmox → Create. */
+export type PresetGuest = PresetGuest_Serialize | PresetGuest_Deserialize;
+
+/**  A guest shape for Proxmox → Create. */
+export type PresetGuest_Deserialize = {
+	/**  `vm` or `ct`. */
+	kind: string,
+	name: string,
+	cores: number,
+	memoryMb: number,
+	diskGb: number,
+	swapMb?: number,
+	/**  VMs: `l26`, `win11`, `win10`, `other`. */
+	ostype?: string,
+	uefi?: boolean,
+	/**  Containers: the first template whose name starts with this is picked. */
+	template?: string,
+	unprivileged?: boolean,
+	nesting?: boolean,
+};
+
+/**  A guest shape for Proxmox → Create. */
+export type PresetGuest_Serialize = {
+	/**  `vm` or `ct`. */
+	kind: string,
+	name: string,
+	cores: number,
+	memoryMb: number,
+	diskGb: number,
+	swapMb: number,
+	/**  VMs: `l26`, `win11`, `win10`, `other`. */
+	ostype: string,
+	uefi: boolean,
+	/**  Containers: the first template whose name starts with this is picked. */
+	template: string,
+	unprivileged: boolean,
+	nesting: boolean,
+};
+
+/**  Which shelf of the gallery a preset is on. */
+export type PresetKind = 
+/**  Alert switches and thresholds. */
+"alerts" | 
+/**  Command tiles for the Overview. */
+"tiles" | 
+/**  An Overview dashboard (may bring its own tiles). */
+"dashboard" | 
+/**  Saved log searches. */
+"searches" | 
+/**  Reverse proxy routes for Caddy or Traefik. */
+"routes" | 
+/**  A Proxmox VM or container shape for the create dialog. */
+"guests" | 
+/**  Restore drills for every backup job. */
+"drills" | 
+/**  Security posture and network watch settings. */
+"posture";
+
+/**  One proxy route: `<sub>.<your domain>` to an upstream. */
+export type PresetRoute = PresetRoute_Serialize | PresetRoute_Deserialize;
+
+/**  One proxy route: `<sub>.<your domain>` to an upstream. */
+export type PresetRoute_Deserialize = {
+	/**  Route name (Traefik) and the app's name. */
+	name: string,
+	/**  Subdomain, put in front of the domain the user types. */
+	sub: string,
+	/**  `app:8080`: a container name on the proxy's network, or host:port. */
+	upstream: string,
+	what?: string,
+};
+
+/**  One proxy route: `<sub>.<your domain>` to an upstream. */
+export type PresetRoute_Serialize = {
+	/**  Route name (Traefik) and the app's name. */
+	name: string,
+	/**  Subdomain, put in front of the domain the user types. */
+	sub: string,
+	/**  `app:8080`: a container name on the proxy's network, or host:port. */
+	upstream: string,
+	what: string,
+};
+
+/**  A saved log search over every host. */
+export type PresetSearch = PresetSearch_Serialize | PresetSearch_Deserialize;
+
+/**  A saved log search over every host. */
+export type PresetSearch_Deserialize = {
+	name: string,
+	query: LogSearchQuery_Deserialize,
+	alert?: boolean,
+	/**  What it finds, in plain words. */
+	what?: string,
+};
+
+/**  A saved log search over every host. */
+export type PresetSearch_Serialize = {
+	name: string,
+	query: LogSearchQuery_Serialize,
+	alert: boolean,
+	/**  What it finds, in plain words. */
+	what: string,
+};
+
+/**  A command tile without its host (picked when it is added). */
+export type PresetTile = PresetTile_Serialize | PresetTile_Deserialize;
+
+/**  A command tile without its host (picked when it is added). */
+export type PresetTile_Deserialize = {
+	name: string,
+	command: string,
+	parse?: string,
+	pattern?: string,
+	unit?: string,
+	warn?: number | null,
+	crit?: number | null,
+	below?: boolean,
+	intervalSecs?: number,
+	/**  What the tile shows, in plain words. */
+	what?: string,
+};
+
+/**  A command tile without its host (picked when it is added). */
+export type PresetTile_Serialize = {
+	name: string,
+	command: string,
+	parse: string,
+	pattern: string,
+	unit: string,
+	warn: number | null,
+	crit: number | null,
+	below: boolean,
+	intervalSecs: number,
+	/**  What the tile shows, in plain words. */
+	what: string,
+};
+
 export type PromptKind = "password" | "passphrase";
 
 export type Proto = "tcp" | "udp" | "any";
@@ -9198,6 +9344,7 @@ export type StarterBlueprint = StarterBlueprint_Serialize | StarterBlueprint_Des
 
 export type StarterBlueprint_Deserialize = {
 	id: string,
+	kind?: StarterKind,
 	title: string,
 	/**  One line for the card. */
 	summary: string,
@@ -9211,10 +9358,17 @@ export type StarterBlueprint_Deserialize = {
 	firewall?: StarterFirewall_Deserialize | null,
 	timers?: TimerJob_Deserialize[],
 	manual?: StarterManual[],
+	/**
+	 *  Prompts used as `{{NAME}}` in timers and firewall entries (a disk,
+	 *  a unit, a network). Values are single words: no spaces or shell
+	 *  characters, since they end up on a command line.
+	 */
+	vars?: StarterVar_Deserialize[],
 };
 
 export type StarterBlueprint_Serialize = {
 	id: string,
+	kind: StarterKind,
 	title: string,
 	/**  One line for the card. */
 	summary: string,
@@ -9228,6 +9382,12 @@ export type StarterBlueprint_Serialize = {
 	firewall: StarterFirewall_Serialize | null,
 	timers: TimerJob_Serialize[],
 	manual: StarterManual[],
+	/**
+	 *  Prompts used as `{{NAME}}` in timers and firewall entries (a disk,
+	 *  a unit, a network). Values are single words: no spaces or shell
+	 *  characters, since they end up on a command line.
+	 */
+	vars: StarterVar_Serialize[],
 };
 
 export type StarterCatalog = StarterCatalog_Serialize | StarterCatalog_Deserialize;
@@ -9236,12 +9396,16 @@ export type StarterCatalog_Deserialize = {
 	format: number,
 	blueprints: StarterBlueprint_Deserialize[],
 	runbooks: StarterRunbook_Deserialize[],
+	/**  App settings ready to add (alert rules, tiles, dashboards, log searches). */
+	presets: StarterPreset_Deserialize[],
 };
 
 export type StarterCatalog_Serialize = {
 	format: number,
 	blueprints: StarterBlueprint_Serialize[],
 	runbooks: StarterRunbook_Serialize[],
+	/**  App settings ready to add (alert rules, tiles, dashboards, log searches). */
+	presets: StarterPreset_Serialize[],
 };
 
 export type StarterFile = {
@@ -9255,6 +9419,8 @@ export type StarterFirewall = StarterFirewall_Serialize | StarterFirewall_Deseri
 export type StarterFirewall_Deserialize = {
 	/**  Ports to allow (`8096/tcp`). */
 	allow?: string[],
+	/**  Addresses or networks allowed to reach everything (`192.168.1.0/24`). */
+	allowFrom?: string[],
 	/**  Ports to allow with ufw's rate limit (SSH). */
 	limit?: string[],
 	/**  Suggest denying other incoming traffic (always done by hand). */
@@ -9266,6 +9432,8 @@ export type StarterFirewall_Deserialize = {
 export type StarterFirewall_Serialize = {
 	/**  Ports to allow (`8096/tcp`). */
 	allow: string[],
+	/**  Addresses or networks allowed to reach everything (`192.168.1.0/24`). */
+	allowFrom: string[],
 	/**  Ports to allow with ufw's rate limit (SSH). */
 	limit: string[],
 	/**  Suggest denying other incoming traffic (always done by hand). */
@@ -9273,6 +9441,17 @@ export type StarterFirewall_Serialize = {
 	/**  Suggest turning the firewall on (always done by hand). */
 	enable: boolean,
 };
+
+/**  Which shelf of the gallery a starter is on. */
+export type StarterKind = 
+/**  A whole server's job: several stacks, firewall, checklist. */
+"setup" | 
+/**  One app as a compose stack. */
+"app" | 
+/**  Scheduled jobs (Nightgrid timers). */
+"jobs" | 
+/**  A firewall profile. */
+"firewall";
 
 export type StarterManual = {
 	title: string,
@@ -9297,6 +9476,54 @@ export type StarterPort_Serialize = {
 	what: string,
 	/**  Bound to 127.0.0.1 only: open it through Nightgrid's web UI window. */
 	local: boolean,
+};
+
+export type StarterPreset = StarterPreset_Serialize | StarterPreset_Deserialize;
+
+export type StarterPreset_Deserialize = {
+	id: string,
+	kind: PresetKind,
+	title: string,
+	summary: string,
+	purpose: string,
+	category?: string,
+	library?: string[],
+	/**  Alert settings to change, by their Settings name (`diskPercent`). */
+	alerts?: { [key in string]: AlertValue },
+	tiles?: PresetTile_Deserialize[],
+	/**  Widgets may be `tile:<n>`: the preset's n-th tile, once added. */
+	dashboard?: Dashboard | null,
+	searches?: PresetSearch_Deserialize[],
+	routes?: PresetRoute_Deserialize[],
+	guest?: PresetGuest_Deserialize | null,
+	drills?: PresetDrills | null,
+	/**  Security view settings to change (`postureDaily`). */
+	security?: { [key in string]: AlertValue },
+	/**  Network watch settings to change (`alertRisks`). */
+	netWatch?: { [key in string]: AlertValue },
+};
+
+export type StarterPreset_Serialize = {
+	id: string,
+	kind: PresetKind,
+	title: string,
+	summary: string,
+	purpose: string,
+	category: string,
+	library: string[],
+	/**  Alert settings to change, by their Settings name (`diskPercent`). */
+	alerts: { [key in string]: AlertValue },
+	tiles: PresetTile_Serialize[],
+	/**  Widgets may be `tile:<n>`: the preset's n-th tile, once added. */
+	dashboard: Dashboard | null,
+	searches: PresetSearch_Serialize[],
+	routes: PresetRoute_Serialize[],
+	guest: PresetGuest_Serialize | null,
+	drills: PresetDrills | null,
+	/**  Security view settings to change (`postureDaily`). */
+	security: { [key in string]: AlertValue },
+	/**  Network watch settings to change (`alertRisks`). */
+	netWatch: { [key in string]: AlertValue },
 };
 
 export type StarterRunbook = StarterRunbook_Serialize | StarterRunbook_Deserialize;

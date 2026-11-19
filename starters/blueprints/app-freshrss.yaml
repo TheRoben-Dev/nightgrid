@@ -1,0 +1,37 @@
+id: app-freshrss
+kind: app
+title: FreshRSS
+summary: Follow blogs, news and YouTube channels in one feed reader, synced to your apps.
+category: productivity
+purpose: |
+  A feed reader you host: subscribe to sites and channels, read everything
+  in one place without algorithms, and sync with mobile RSS apps through
+  its Google Reader and Fever APIs.
+library: [apps/freshrss, apps/miniflux]
+stacks:
+  - name: freshrss
+    compose: |
+      services:
+        freshrss:
+          image: freshrss/freshrss:latest
+          container_name: freshrss
+          restart: unless-stopped
+          ports:
+            - "8082:80"
+          environment:
+            TZ: ${TZ}
+            CRON_MIN: "1,31"
+          volumes:
+            - ./data:/var/www/FreshRSS/data
+            - ./extensions:/var/www/FreshRSS/extensions
+    env:
+      - name: TZ
+        label: Time zone
+        default: Etc/UTC
+    ports:
+      - { port: 8082/tcp, what: FreshRSS }
+firewall:
+  allow: [8082/tcp]
+manual:
+  - title: Run the installer
+    detail: Open http://<host>:8082, keep SQLite and create your user. Feeds refresh at minutes 1 and 31 of every hour.

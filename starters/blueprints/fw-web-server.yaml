@@ -1,0 +1,19 @@
+id: fw-web-server
+kind: firewall
+title: "Firewall: web server"
+summary: HTTP and HTTPS open to everyone, SSH rate-limited, everything else closed.
+category: security
+purpose: |
+  For a host that serves websites or runs the reverse proxy: ports 80 and
+  443 (including HTTP/3 over UDP) are open, SSH is allowed with a rate
+  limit, and everything else coming in is refused.
+library: [howto/firewall, apps/caddy]
+vars:
+  - name: SSH_PORT
+    label: SSH port
+    default: "22"
+firewall:
+  allow: [80/tcp, 443/tcp, 443/udp]
+  limit: ["{{SSH_PORT}}/tcp"]
+  denyIncoming: true
+  enable: true

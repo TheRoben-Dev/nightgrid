@@ -1,0 +1,43 @@
+id: dash-media-box
+kind: dashboard
+title: Media box dashboard
+summary: An Overview page for a streaming server - services, GPU, disks and Docker tiles for one host.
+category: media
+library: [howto/look-and-feel, howto/command-widgets]
+purpose: |
+  Adds a "Media box" dashboard to the Overview: service checks for your apps, the GPU
+  doing transcodes, disk space for the library and Docker tiles for the media host.
+  Your other dashboards are left alone.
+tiles:
+  - name: Containers
+    what: Containers running on the media host.
+    command: "docker ps -q | wc -l"
+    parse: number
+    intervalSecs: 120
+  - name: Restarting
+    what: Containers stuck restarting.
+    command: "docker ps -q --filter status=restarting | wc -l"
+    parse: number
+    warn: 1
+    crit: 1
+    intervalSecs: 120
+  - name: Fullest mount
+    what: Percent used on the fullest filesystem, usually the media library.
+    command: "df -P -x tmpfs -x devtmpfs -x overlay -x squashfs | awk 'NR!=1{gsub(\"%\",\"\",$5); if (m<$5+0) m=$5+0} END{print m+0}'"
+    parse: number
+    unit: "%"
+    warn: 85
+    crit: 95
+    intervalSecs: 600
+dashboard:
+  name: Media box
+  widgets:
+    - { id: services, kind: services, x: 0, y: 0, w: 6, h: 3 }
+    - { id: gpus, kind: gpus, x: 6, y: 0, w: 6, h: 3 }
+    - { id: t0, kind: "tile:0", x: 0, y: 3, w: 3, h: 2 }
+    - { id: t1, kind: "tile:1", x: 3, y: 3, w: 3, h: 2 }
+    - { id: t2, kind: "tile:2", x: 6, y: 3, w: 3, h: 2 }
+    - { id: alerts, kind: alerts, x: 0, y: 5, w: 6, h: 3 }
+    - { id: disks, kind: disks, x: 6, y: 5, w: 6, h: 3 }
+    - { id: updates, kind: updates, x: 0, y: 8, w: 6, h: 3 }
+    - { id: backups, kind: backups, x: 6, y: 8, w: 6, h: 3 }

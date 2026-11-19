@@ -1,0 +1,20 @@
+id: job-fstrim
+kind: jobs
+title: Weekly SSD trim and journal cleanup
+summary: Tells SSDs which blocks are free and trims the system journal to 30 days.
+category: linux
+purpose: |
+  Two small housekeeping jobs. fstrim tells SSDs which blocks are free so
+  they stay fast (many distributions already ship a timer for it; this one
+  is harmless next to it). The journal cleanup keeps 30 days of system logs
+  so they can't slowly fill the disk.
+library: [linux/journald, linux/disk-full]
+timers:
+  - name: fstrim-all
+    command: fstrim -av
+    calendar: "Sat *-*-* 05:00:00"
+    persistent: true
+  - name: journal-vacuum
+    command: journalctl --vacuum-time=30d
+    calendar: "Sat *-*-* 05:15:00"
+    persistent: true

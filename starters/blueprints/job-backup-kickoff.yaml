@@ -1,0 +1,25 @@
+id: job-backup-kickoff
+kind: jobs
+title: Nightly backup kick-off
+summary: Starts an existing backup service every night, so Fleet → BACKUPS can track it.
+category: storage
+purpose: |
+  Most backup tools come as a systemd service that runs once (restic,
+  borgmatic, rsync scripts). This timer starts that service every night.
+  Because it's a unit, Fleet → BACKUPS sees each run, alerts when one fails
+  or stops running, and can test a restore.
+library: [howto/backups, apps/restic, apps/borgmatic]
+vars:
+  - name: UNIT
+    label: Backup service to start
+    default: backup.service
+    help: The service's unit name, such as restic-backup.service.
+  - name: AT
+    label: Time to run
+    default: "02:00"
+    help: 24-hour time, such as 02:00.
+timers:
+  - name: backup-kickoff
+    command: systemctl start {{UNIT}}
+    calendar: "*-*-* {{AT}}:00"
+    persistent: true

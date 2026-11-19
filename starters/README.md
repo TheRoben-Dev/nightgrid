@@ -62,3 +62,31 @@ library: [linux/disk-full]
 ---
 What the alert means, then the steps.
 ```
+
+## Blueprint kinds and `{{vars}}`
+
+`kind:` puts a blueprint on a shelf: `setup` (default), `app`, `jobs` or `firewall`. `vars:` are prompts like `env` entries, used as `{{NAME}}` in timer names, commands and calendars and in firewall entries; their values must be one plain word (letters, digits and `/ . _ : @ + -`). `firewall.allowFrom` lists addresses or networks (`192.168.1.0/24`) to allow everything from.
+
+## Presets (`presets/<id>.yaml`)
+
+Presets change only the app, never a host. `kind:` is one of `alerts`, `tiles`, `dashboard`, `searches`, `routes`, `guests`, `drills` or `posture`, and the file holds only what that kind uses:
+
+```yaml
+id: alerts-strict-storage
+kind: alerts
+title: Strict storage watch
+summary: One line for the card.
+purpose: |
+  What it's for, in plain words.
+category: storage
+library: [howto/alerts]
+alerts: { diskPercent: 80 }          # alerts/posture: named settings (security:, netWatch: too)
+# tiles: [{ name, command, parse, unit, warn, crit, below, intervalSecs, what }]   read-only commands
+# dashboard: { name, widgets: [{ id, kind, x, y, w, h }] }   kind may be tile:<n> (this file's n-th tile)
+# searches: [{ name, what, alert, query: { text, regex, journal, containers, sinceMins } }]
+# routes: [{ name, sub, upstream, what }]   sub.<the user's domain> → upstream
+# guest: { kind: vm|ct, name, cores, memoryMb, diskGb, swapMb, ostype, uefi, template, unprivileged, nesting }
+# drills: { everyDays: 30 }
+```
+
+Each preset is checked with the editors' own validators (`core/src/starter_presets.rs`); list new files in `PRESET_FILES`.

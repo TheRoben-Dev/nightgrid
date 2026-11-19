@@ -1,0 +1,16 @@
+id: alerts-calm-logs
+kind: alerts
+title: Calm log alerts
+summary: Turns on log alerts but only for errors that keep coming back, with a longer grace period after restarts.
+category: logs
+library: [howto/alerts, basics/reading-logs]
+purpose: |
+  Log alerts catch problems early but some apps are chatty. This setting alerts on a new
+  error only after it has happened 10 times in 30 minutes, and ignores errors in the first
+  15 minutes after a container restarts. Crashes and FATAL lines still alert at once.
+alerts:
+  logAnomaly: true
+  logRepeatCount: 10
+  logRepeatMinutes: 30
+  logGraceMinutes: 15
+  logNotFoundNoise: true

@@ -1,0 +1,35 @@
+id: tiles-docker
+kind: tiles
+title: Docker at a glance
+summary: Running, unhealthy and restarting containers, plus leftover images, as Overview tiles.
+category: docker
+library: [howto/command-widgets, linux/docker-cleanup]
+purpose: |
+  Tiles for one Docker host. Unhealthy or restarting containers turn the tile red,
+  so a crash loop is visible without opening the Docker view.
+tiles:
+  - name: Running
+    what: Containers running now.
+    command: "docker ps -q | wc -l"
+    parse: number
+    intervalSecs: 120
+  - name: Unhealthy
+    what: Containers whose health check fails.
+    command: "docker ps -q --filter health=unhealthy | wc -l"
+    parse: number
+    warn: 1
+    crit: 1
+    intervalSecs: 120
+  - name: Restarting
+    what: Containers stuck restarting.
+    command: "docker ps -q --filter status=restarting | wc -l"
+    parse: number
+    warn: 1
+    crit: 1
+    intervalSecs: 120
+  - name: Dangling images
+    what: Untagged images left behind by updates. Prune them from the Docker view.
+    command: "docker images -q --filter dangling=true | wc -l"
+    parse: number
+    warn: 20
+    intervalSecs: 3600

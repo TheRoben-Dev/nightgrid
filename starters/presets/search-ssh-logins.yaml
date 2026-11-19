@@ -1,0 +1,26 @@
+id: search-ssh-logins
+kind: searches
+title: SSH logins
+summary: Two saved searches across every host - failed SSH logins and successful ones, over the last day.
+category: security
+library: [howto/log-search, basics/sshd-hardening]
+purpose: |
+  Who tried to get in, and who did. A flood of failures means a port is exposed to the
+  internet; a login you don't recognise is worth a closer look in Fleet → ACCESS.
+searches:
+  - name: SSH failed logins
+    what: Wrong passwords, unknown users and refused keys.
+    query:
+      text: "Failed password|Invalid user|authentication failure|Connection closed by authenticating user"
+      regex: true
+      journal: true
+      containers: false
+      sinceMins: 1440
+  - name: SSH logins accepted
+    what: Every successful SSH login.
+    query:
+      text: "Accepted (publickey|password|keyboard-interactive)"
+      regex: true
+      journal: true
+      containers: false
+      sinceMins: 1440
