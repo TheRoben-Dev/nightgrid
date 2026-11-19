@@ -96,6 +96,15 @@ pub(crate) async fn connect_host(app: &AppHandle, host_id: HostId) -> Result<Arc
     let res = state.pool.get(host_id, || client::connect(&hop.target, &jump_targets, &opts)).await;
     // Done waiting either way: the prompt goes away.
     state.auth_notices.lock().expect("poisoned").remove(&host_id);
+    if let Err(e) = &res {
+        // Into the log too, so exported diagnostics say why a host won't connect.
+        match e {
+            ConnectError::HostKeyUnknown { .. } | ConnectError::PasswordRequired { retry: false, .. } => {
+                tracing::info!(host_id, "connect needs the user: {e}")
+            }
+            _ => tracing::warn!(host_id, "connect failed: {e}"),
+        }
+    }
     let conn = res?;
     crate::tunnels_cmd::host_connected(app, host_id, &conn);
     Ok(conn)
@@ -167,6 +176,17 @@ pub async fn term_open_ssh(
         Some(t) if edit_hook::valid_token(&t) && opts.any() => Some(edit_hook::bootstrap_command(&t, opts)),
         Some(_) if opts.any() => return Err(CommandError::msg("invalid session token")),
         _ => None,
+    };
+    // The hook is POSIX sh. OpenSSH for Windows runs cmd or PowerShell, where
+    // it would fail and end the session at once: plain shell there.
+    let command = match command {
+        Some(c) => match connect_host(&app, host_id).await {
+            Ok(conn) if conn.is_windows() => None,
+            Ok(_) => Some(c),
+            Err(e) if e.needs_user() => return Ok(TermOpen::NeedsUser { error: e }),
+            Err(e) => return Err(CommandError::msg(e.to_string())),
+        },
+        None => None,
     };
     let connector = connector_for(app.clone(), host_id);
     match term::spawn_ssh(connector, command, cols, rows, sink_for(on_event)).await {

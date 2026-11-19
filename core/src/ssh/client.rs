@@ -29,13 +29,22 @@ use crate::secrets::Secret;
 pub enum Auth {
     /// SSH agent. `identity_file` (if set) is tried first: its `.pub` picks the
     /// agent identity, and the private key is the fallback if the agent lacks it.
+    ///
+    /// With no `identity_file`, the `default_keys` (OpenSSH's `~/.ssh/id_*`)
+    /// are tried after the agent. When nothing key-based works and the server
+    /// takes passwords, `password` is used (or asked for), like OpenSSH does.
     Agent {
         identity_file: Option<PathBuf>,
         passphrase: Option<Arc<Secret>>,
+        default_keys: Vec<PathBuf>,
+        password: Option<Arc<Secret>>,
     },
+    /// Key file; `password` is the fallback when the key is refused and the
+    /// server takes passwords.
     Key {
         path: PathBuf,
         passphrase: Option<Arc<Secret>>,
+        password: Option<Arc<Secret>>,
     },
     Password {
         password: Option<Arc<Secret>>,
@@ -183,6 +192,68 @@ pub struct Verifier {
     tailscale: Arc<AtomicBool>,
 }
 
+/// Wraps the transport to note the server's first bytes, which hold its
+/// version line (`SSH-2.0-OpenSSH_for_Windows_9.5`). russh keeps that line
+/// to itself until a banner arrives, and most servers send none.
+struct SniffId<S> {
+    inner: S,
+    seen: Arc<Mutex<Vec<u8>>>,
+}
+
+/// Enough for the version line (255 bytes max) plus any lines before it.
+const SNIFF_MAX: usize = 1024;
+
+impl<S: AsyncRead + Unpin> AsyncRead for SniffId<S> {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        let before = buf.filled().len();
+        let res = std::pin::Pin::new(&mut self.inner).poll_read(cx, buf);
+        if res.is_ready() {
+            let mut seen = self.seen.lock().expect("poisoned");
+            if seen.len() < SNIFF_MAX {
+                let new = &buf.filled()[before..];
+                let take = new.len().min(SNIFF_MAX - seen.len());
+                seen.extend_from_slice(&new[..take]);
+            }
+        }
+        res
+    }
+}
+
+impl<S: AsyncWrite + Unpin> AsyncWrite for SniffId<S> {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        std::pin::Pin::new(&mut self.inner).poll_write(cx, buf)
+    }
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_flush(cx)
+    }
+    fn poll_shutdown(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        std::pin::Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+/// The `SSH-...` version line among the server's first bytes.
+fn version_line(seen: &[u8]) -> String {
+    String::from_utf8_lossy(seen)
+        .lines()
+        .find(|l| l.starts_with("SSH-"))
+        .map(|l| l.trim().to_owned())
+        .unwrap_or_default()
+}
+
 impl client::Handler for Verifier {
     type Error = russh::Error;
 
@@ -263,10 +334,24 @@ pub struct Connection {
     pub label: String,
     /// Active remote forwards (see [`RemoteForwards`]).
     pub forwards: RemoteForwards,
+    /// The server's SSH version string (`SSH-2.0-...`).
+    pub server_id: String,
     _jumps: Vec<Arc<SshHandle>>,
 }
 
+/// Whether an SSH version string is OpenSSH for Windows (Win32-OpenSSH,
+/// the one Windows Server and Windows 10/11 ship). Its default shell is cmd
+/// or PowerShell, so POSIX shell snippets must not be sent to it.
+pub fn is_windows_server_id(id: &str) -> bool {
+    id.to_ascii_lowercase().contains("windows")
+}
+
 impl Connection {
+    /// The server is OpenSSH for Windows (cmd / PowerShell, no POSIX shell).
+    pub fn is_windows(&self) -> bool {
+        is_windows_server_id(&self.server_id)
+    }
+
     pub fn is_closed(&self) -> bool {
         self.handle.is_closed() || self._jumps.iter().any(|j| j.is_closed())
     }
@@ -351,12 +436,14 @@ async fn handshake<S>(
     t: &Target,
     opts: &ConnectOptions,
     forwards: RemoteForwards,
-) -> Result<(SshHandle, Arc<AtomicBool>), ConnectError>
+) -> Result<(SshHandle, Arc<AtomicBool>, String), ConnectError>
 where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     let issue = Arc::new(Mutex::new(None));
     let tailscale = Arc::new(AtomicBool::new(false));
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let stream = SniffId { inner: stream, seen: seen.clone() };
     let verifier = Verifier {
         host: t.host.clone(),
         port: t.port,
@@ -371,7 +458,10 @@ where
         .await
         .map_err(|_| ConnectError::Network { host: t.host.clone(), message: "SSH handshake timed out".into() })?;
     match res {
-        Ok(h) => Ok((h, tailscale)),
+        Ok(h) => {
+            let id = version_line(&seen.lock().expect("poisoned"));
+            Ok((h, tailscale, id))
+        }
         Err(e) => {
             if let Some(issue) = issue.lock().expect("poisoned").take() {
                 return Err(issue);
@@ -535,6 +625,54 @@ async fn try_password(
     Ok(false)
 }
 
+/// The password step after keys failed: uses the known password, or asks.
+async fn password_fallback(
+    h: &mut SshHandle,
+    t: &Target,
+    password: Option<&Secret>,
+    methods: &MethodSet,
+) -> Result<(), ConnectError> {
+    let ask =
+        |retry| ConnectError::PasswordRequired { target: t.label(), host: t.host.clone(), user: t.user.clone(), retry };
+    match password {
+        None => Err(ask(false)),
+        Some(pw) if try_password(h, t, pw, methods).await? => Ok(()),
+        Some(_) => Err(ask(true)),
+    }
+}
+
+/// One of OpenSSH's default keys (`~/.ssh/id_*`), tried quietly: a key that
+/// can't be read or needs a passphrase we don't have is skipped (`None`).
+async fn try_default_key(
+    h: &mut SshHandle,
+    t: &Target,
+    path: &std::path::Path,
+    passphrase: Option<&Secret>,
+) -> Result<Option<Step>, ConnectError> {
+    let key = match russh::keys::load_secret_key(path, passphrase.map(Secret::expose)) {
+        Ok(k) => k,
+        Err(e) => {
+            tracing::debug!(path = %path.display(), "default key skipped: {e}");
+            return Ok(None);
+        }
+    };
+    let hash = rsa_hash(h, key.public_key()).await;
+    let res = h
+        .authenticate_publickey(&t.user, PrivateKeyWithHashAlg::new(Arc::new(key), hash))
+        .await
+        .map_err(ConnectError::other)?;
+    Ok(Some(match res {
+        r if r.success() => Step::Done,
+        russh::client::AuthResult::Failure { remaining_methods, .. } => Step::Failed(remaining_methods),
+        _ => Step::Failed(MethodSet::empty()),
+    }))
+}
+
+/// OpenSSH's default identity files under `home`, in its order, that exist.
+pub fn default_identity_files(home: &std::path::Path) -> Vec<PathBuf> {
+    ["id_ed25519", "id_ecdsa", "id_rsa"].iter().map(|n| home.join(".ssh").join(n)).filter(|p| p.is_file()).collect()
+}
+
 fn mins(d: Duration) -> String {
     match d.as_secs() {
         s if s >= 120 => format!("{} minutes", s / 60),
@@ -657,43 +795,55 @@ async fn authenticate(
         }
     }
     let res = match &t.auth {
-        Auth::Agent { identity_file, passphrase } => {
+        Auth::Agent { identity_file, passphrase, default_keys, password } => {
             let preferred = identity_file.as_deref().and_then(read_pubkey);
-            let agent_res = try_agent(h, t, preferred.as_ref(), opts.agent_path.as_deref()).await;
-            match agent_res {
+            let mut agent_err = None;
+            match try_agent(h, t, preferred.as_ref(), opts.agent_path.as_deref()).await {
                 Ok(Step::Done) => return Ok(()),
-                Ok(Step::Failed(m)) => methods = m,
+                // An empty agent says nothing about what the server takes.
+                Ok(Step::Failed(m)) if !m.is_empty() => methods = m,
+                Ok(Step::Failed(_)) => {}
                 Err(msg) => {
-                    tracing::info!("{msg}");
-                    if identity_file.is_none() && !is_ts() {
-                        return Err(ConnectError::AuthFailed {
-                            host: t.host.clone(),
-                            user: t.user.clone(),
-                            message: msg,
-                        });
-                    }
+                    // No agent is normal (Windows ships with it off): go on to
+                    // key files and passwords like OpenSSH does.
+                    tracing::debug!("{msg}");
+                    agent_err = Some(msg);
                 }
             };
             if let Some(path) = identity_file {
                 if path.exists() {
                     match try_key(h, t, path, passphrase.as_deref()).await? {
                         Step::Done => return Ok(()),
-                        Step::Failed(m) => methods = m,
+                        Step::Failed(m) if !m.is_empty() => methods = m,
+                        Step::Failed(_) => {}
+                    }
+                }
+            } else {
+                for path in default_keys {
+                    match try_default_key(h, t, path, passphrase.as_deref()).await? {
+                        Some(Step::Done) => return Ok(()),
+                        Some(Step::Failed(m)) if !m.is_empty() => methods = m,
+                        _ => {}
                     }
                 }
             }
             if wants_password(&methods) && !is_ts() {
-                return Err(user_err(false));
+                return password_fallback(h, t, password.as_deref(), &methods).await;
             }
-            Err(ConnectError::AuthFailed {
-                host: t.host.clone(),
-                user: t.user.clone(),
-                message: "no agent identity was accepted".into(),
-            })
+            let message = match agent_err {
+                Some(e) if identity_file.is_none() && default_keys.is_empty() => {
+                    format!("{e}, and no key file is set for this host")
+                }
+                _ => "no key was accepted".into(),
+            };
+            Err(ConnectError::AuthFailed { host: t.host.clone(), user: t.user.clone(), message })
         }
-        Auth::Key { path, passphrase } => match try_key(h, t, path, passphrase.as_deref()).await? {
+        Auth::Key { path, passphrase, password } => match try_key(h, t, path, passphrase.as_deref()).await? {
             Step::Done => return Ok(()),
-            Step::Failed(m) if wants_password(&m) && !is_ts() => Err(user_err(false)),
+            Step::Failed(m) if !is_ts() && (wants_password(&m) || (m.is_empty() && wants_password(&methods))) => {
+                let m = if m.is_empty() { methods } else { m };
+                return password_fallback(h, t, password.as_deref(), &m).await;
+            }
             Step::Failed(_) => Err(ConnectError::AuthFailed {
                 host: t.host.clone(),
                 user: t.user.clone(),
@@ -730,8 +880,9 @@ pub async fn connect(target: &Target, jumps: &[Target], opts: &ConnectOptions) -
     let forwards = RemoteForwards::default();
     let hops: Vec<&Target> = jumps.iter().chain(std::iter::once(target)).collect();
     let fwd_for = |i: usize| if i + 1 == hops.len() { forwards.clone() } else { RemoteForwards::default() };
+    let mut last_id = String::new();
     for (i, hop) in hops.iter().enumerate() {
-        let (mut handle, ts) = if i == 0 {
+        let (mut handle, ts, server_id) = if i == 0 {
             handshake(tcp_connect(hop, opts).await?, hop, opts, fwd_for(i)).await?
         } else {
             let via = chain.last().expect("previous hop");
@@ -745,12 +896,13 @@ pub async fn connect(target: &Target, jumps: &[Target], opts: &ConnectOptions) -
         tokio::time::timeout(opts.auth_wait + opts.connect_timeout * 3, authenticate(&mut handle, hop, opts, &ts))
             .await
             .map_err(|_| waited_too_long(hop, opts, &ts))??;
-        tracing::info!(hop = %hop.label(), "authenticated");
+        tracing::info!(hop = %hop.label(), server = %server_id, "authenticated");
+        last_id = server_id;
         chain.push(Arc::new(handle));
     }
     let last = chain.pop().expect("at least one hop");
     let handle = Arc::try_unwrap(last).unwrap_or_else(|_| unreachable!("no other references"));
-    Ok(Connection { handle, label: target.label(), forwards, _jumps: chain })
+    Ok(Connection { handle, label: target.label(), forwards, server_id: last_id, _jumps: chain })
 }
 
 /// Lightweight reachability check: TCP connect to host:port, returns latency.
@@ -770,6 +922,32 @@ mod tests {
         assert_eq!(first_url("see (https://example.com/x), thanks").as_deref(), Some("https://example.com/x"));
         assert_eq!(first_url("no link here, http://plain.example only"), None);
         assert_eq!(first_url("https://"), None);
+    }
+
+    #[test]
+    fn windows_servers_by_version_line() {
+        let seen = b"SSH-2.0-OpenSSH_for_Windows_9.5\r\n\0\0\x01junk";
+        assert_eq!(version_line(seen), "SSH-2.0-OpenSSH_for_Windows_9.5");
+        assert!(is_windows_server_id(&version_line(seen)));
+        assert_eq!(version_line(b"hello\r\nSSH-2.0-OpenSSH_9.6p1 Ubuntu-3\r\n"), "SSH-2.0-OpenSSH_9.6p1 Ubuntu-3");
+        assert!(!is_windows_server_id("SSH-2.0-OpenSSH_9.6p1 Ubuntu-3"));
+        assert!(!is_windows_server_id("SSH-2.0-Tailscale"));
+        assert_eq!(version_line(b"no version"), "");
+    }
+
+    #[test]
+    fn default_identities_in_openssh_order() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(default_identity_files(dir.path()).is_empty());
+        std::fs::create_dir(dir.path().join(".ssh")).unwrap();
+        for n in ["id_rsa", "id_ed25519", "id_dsa"] {
+            std::fs::write(dir.path().join(".ssh").join(n), "x").unwrap();
+        }
+        let names: Vec<_> = default_identity_files(dir.path())
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(names, ["id_ed25519", "id_rsa"]);
     }
 
     #[test]
