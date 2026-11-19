@@ -44,6 +44,7 @@ networks:
 
 - [ ] [Docker](view:docker) → **Routes** lists NPM's hosts, where they forward and certificate days. Editing stays in NPM's UI.
 - [ ] Add each site to [Services](view:services) for checks and expiry alerts.
+- [ ] [Services](view:services) → **Add integration** → **Nginx Proxy Manager** with your NPM email and password: proxy hosts with nginx errors and certificates expiring within two weeks, and **Disable** or **Enable** per host (see [Add app cards](kb:howto/integrations)).
 
 #### Check
 

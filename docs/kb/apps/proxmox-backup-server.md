@@ -49,6 +49,7 @@ pvesh create /cluster/backup --schedule "02:00" --storage pbs-store1 --all 1 --m
 
 - [ ] [Proxmox](view:proxmox) → **BACKUPS** lists the PBS backups with ages, flags uncovered guests, and restores (as new or over the guest).
 - [ ] [Fleet](view:fleet) → **Disks** on the PBS host forecasts when the datastore fills.
+- [ ] [Services](view:services) → **Add integration** → **Proxmox Backup Server** with an API token that has Datastore.Audit and Sys.Audit: datastore usage, when each fills up, and tasks that failed in the last day (see [Add app cards](kb:howto/integrations)).
 
 #### Check
 

@@ -79,6 +79,7 @@ services:
 
 - Copy the autobackup folder off the host with your backup job; [Fleet](view:fleet) → **Backups** watches its age.
 - The [Network](view:network) map's LLDP support shows which switch port a host is on; UniFi switches send LLDP.
+- [Services](view:services) → **Add integration** → **UniFi Network** (9.0 or newer) with an API key from Settings → Control Plane → Integrations: devices (offline first), clients, and **Restart** for a device (see [Add app cards](kb:howto/integrations)).
 
 ## Limits and gotchas
 
