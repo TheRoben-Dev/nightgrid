@@ -1,6 +1,6 @@
 name: Release train
 
-# Batched releases (D-183). Every push to main starts this run and cancels
+# Batched releases (D-185). Every push to main starts this run and cancels
 # the one before it, so it only goes past the quiet window once main has
 # been still for a while. Then, if main's version has no release yet, it
 # starts the CI release run for it. Fixes merged close together (or while a

@@ -1,5 +1,5 @@
 /**
- * Signed interface patches (D-183). Interface-only fixes between releases
+ * Signed interface patches (D-185). Interface-only fixes between releases
  * arrive as a small signed pack built for this exact app version; the
  * backend fetches and verifies it and the app switches to it on the next
  * start. Without one (offline, turned off, nothing newer) the interface

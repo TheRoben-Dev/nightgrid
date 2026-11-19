@@ -1,4 +1,4 @@
-//! Signed interface patches (D-183). CI publishes the built frontend as a
+//! Signed interface patches (D-185). CI publishes the built frontend as a
 //! signed pack (rolling `ui-latest` release) when main has interface-only
 //! changes since its version's release. The app downloads and verifies it,
 //! and on the next start serves it in place of the interface built into the

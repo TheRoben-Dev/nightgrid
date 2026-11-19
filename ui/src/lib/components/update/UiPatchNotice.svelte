@@ -1,5 +1,5 @@
 <script lang="ts">
-  /** A downloaded interface patch is ready: restart now or on the next start (D-183). */
+  /** A downloaded interface patch is ready: restart now or on the next start (D-185). */
   import { uiPatch } from "../../stores/uipatch.svelte";
 </script>
 

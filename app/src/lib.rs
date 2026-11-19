@@ -514,7 +514,7 @@ pub fn run() {
     #[cfg(debug_assertions)]
     export_bindings(&builder);
 
-    // Interface patches (D-183): chosen before the window loads anything.
+    // Interface patches (D-185): chosen before the window loads anything.
     let mut context = tauri::generate_context!();
     let patches = std::sync::Arc::new(uipatch_cmd::UiPatches::load(&context.config().identifier));
     let bundled = context.set_assets(Box::new(uipatch_cmd::NoAssets));

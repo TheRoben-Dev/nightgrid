@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
-## [1.9.0] - 2026-11-19
+## [1.11.0] - 2026-11-19
 
 Faster updates: interface fixes between releases, batched releases and quicker release builds.
 
@@ -13,6 +13,11 @@ Faster updates: interface fixes between releases, batched releases and quicker r
 ### Changed: releases
 - **Fixes merged close together now ship as one release** instead of one after another. Some version numbers are skipped this way; their notes are in this changelog under the release that carried them.
 - **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
+
+## [1.7.2] - 2026-11-19
+
+### Fixed
+- **Adding a Pi-hole or AdGuard Home integration failed** with "CHECK constraint failed: kind IN ('plex','amp','kuma','portainer')". The integrations table never learned the two DNS kinds from 0.10.36; migration 0049 rebuilds it with every kind and keeps your existing integrations (same ids, so saved passwords and tokens still match).
 
 ## [1.7.1] - 2026-11-19
 

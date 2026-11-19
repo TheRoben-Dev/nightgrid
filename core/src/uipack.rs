@@ -1,4 +1,4 @@
-//! Signed interface patches (D-183): the built frontend (`dist/`) as one
+//! Signed interface patches (D-185): the built frontend (`dist/`) as one
 //! signed file, published by CI when main has interface-only changes since
 //! the release of its version, so UI fixes reach installed apps without a
 //! full app release. The app serves a verified pack in place of the UI built

@@ -93,7 +93,7 @@ pub struct AppSettings {
     pub update_skip_version: Option<String>,
     /// Fetch signed Library content packs between app releases (D-174).
     pub kb_updates: bool,
-    /// Fetch signed interface patches for this exact version (D-183); off
+    /// Fetch signed interface patches for this exact version (D-185); off
     /// also stops a downloaded one from being used.
     pub ui_patches: bool,
     /// Alert rules and delivery.

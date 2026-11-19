@@ -1566,7 +1566,7 @@ export type AppSettings_Deserialize = {
 	/**  Fetch signed Library content packs between app releases (D-174). */
 	kbUpdates?: boolean,
 	/**
-	 *  Fetch signed interface patches for this exact version (D-183); off
+	 *  Fetch signed interface patches for this exact version (D-185); off
 	 *  also stops a downloaded one from being used.
 	 */
 	uiPatches?: boolean,
@@ -1706,7 +1706,7 @@ export type AppSettings_Serialize = {
 	/**  Fetch signed Library content packs between app releases (D-174). */
 	kbUpdates: boolean,
 	/**
-	 *  Fetch signed interface patches for this exact version (D-183); off
+	 *  Fetch signed interface patches for this exact version (D-185); off
 	 *  also stops a downloaded one from being used.
 	 */
 	uiPatches: boolean,

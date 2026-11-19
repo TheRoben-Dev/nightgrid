@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds a signed-interface patch (D-183): the built frontend (dist/) as
+// Builds a signed-interface patch (D-185): the built frontend (dist/) as
 // gzipped JSON, pinned to the app version in Cargo.toml and the hash of the
 // typed command interface (ui/src/lib/bindings.ts). CI signs the .gz with the
 // release key and publishes it to the rolling `ui-latest` release. Usage:

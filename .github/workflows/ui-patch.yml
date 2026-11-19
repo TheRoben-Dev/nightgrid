@@ -1,6 +1,6 @@
 name: Interface patch
 
-# Signed interface patches (D-183): when everything main changed since the
+# Signed interface patches (D-185): when everything main changed since the
 # release of its version is interface-only, publish the built frontend as a
 # signed pack to the rolling `ui-latest` release. Installed apps of exactly
 # that version fetch it, verify it with the release key and switch to it on

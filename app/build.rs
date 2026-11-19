@@ -3,7 +3,7 @@ use std::process::Command;
 fn main() {
     // Commit time of the source this app (and its bundled interface) is built
     // from: an interface patch is only used when it was built from a later
-    // commit (D-183). 0 outside a git checkout.
+    // commit (D-185). 0 outside a git checkout.
     let built = Command::new("git")
         .args(["log", "-1", "--format=%ct"])
         .output()
