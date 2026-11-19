@@ -9,16 +9,27 @@
 //! - **Portainer**: version check plus deep links into its UI.
 //! - **Pi-hole** and **AdGuard Home**: DNS stats, blocking on/off, lists and
 //!   local records (M10v).
+//! - Kinds that report the shared [`app::AppStatus`] (summary, tiles, rows,
+//!   actions): **Jellyfin**, **Emby**, **Tautulli**, **Sonarr**, **Radarr**,
+//!   **Lidarr**, **Prowlarr**, **Bazarr**, **Overseerr** and **Jellyseerr**.
+//!
+//! The database stores the kind as text with no CHECK on it (0050): a kind is
+//! valid when [`IntegrationKind::parse`] knows it.
 //!
 //! Every client goes through [`crate::http`], so certificates are verified
 //! unless the integration allows untrusted ones, and nothing is sent anywhere
 //! but the configured URL.
 
 pub mod amp;
+pub mod app;
+pub mod arr;
 pub mod dns;
+pub mod jellyfin;
 pub mod kuma;
 pub mod plex;
 pub mod portainer;
+pub mod seerr;
+pub mod tautulli;
 
 use rusqlite::{params, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
@@ -39,9 +50,47 @@ pub enum IntegrationKind {
     Portainer,
     Pihole,
     Adguard,
+    Jellyfin,
+    Emby,
+    Tautulli,
+    Sonarr,
+    Radarr,
+    Lidarr,
+    Prowlarr,
+    Bazarr,
+    Overseerr,
+    Jellyseerr,
+}
+
+/// Whether a kind uses a token, password or API key from the keychain.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecretUse {
+    None,
+    Optional,
+    Required,
 }
 
 impl IntegrationKind {
+    /// Every kind (tests save each one).
+    pub const ALL: [Self; 16] = [
+        Self::Plex,
+        Self::Amp,
+        Self::Kuma,
+        Self::Portainer,
+        Self::Pihole,
+        Self::Adguard,
+        Self::Jellyfin,
+        Self::Emby,
+        Self::Tautulli,
+        Self::Sonarr,
+        Self::Radarr,
+        Self::Lidarr,
+        Self::Prowlarr,
+        Self::Bazarr,
+        Self::Overseerr,
+        Self::Jellyseerr,
+    ];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Plex => "plex",
@@ -50,10 +99,42 @@ impl IntegrationKind {
             Self::Portainer => "portainer",
             Self::Pihole => "pihole",
             Self::Adguard => "adguard",
+            Self::Jellyfin => "jellyfin",
+            Self::Emby => "emby",
+            Self::Tautulli => "tautulli",
+            Self::Sonarr => "sonarr",
+            Self::Radarr => "radarr",
+            Self::Lidarr => "lidarr",
+            Self::Prowlarr => "prowlarr",
+            Self::Bazarr => "bazarr",
+            Self::Overseerr => "overseerr",
+            Self::Jellyseerr => "jellyseerr",
         }
     }
 
-    fn parse(s: &str) -> Option<Self> {
+    /// The name a new integration of this kind gets.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Plex => "Plex",
+            Self::Amp => "AMP",
+            Self::Kuma => "Uptime Kuma",
+            Self::Portainer => "Portainer",
+            Self::Pihole => "Pi-hole",
+            Self::Adguard => "AdGuard Home",
+            Self::Jellyfin => "Jellyfin",
+            Self::Emby => "Emby",
+            Self::Tautulli => "Tautulli",
+            Self::Sonarr => "Sonarr",
+            Self::Radarr => "Radarr",
+            Self::Lidarr => "Lidarr",
+            Self::Prowlarr => "Prowlarr",
+            Self::Bazarr => "Bazarr",
+            Self::Overseerr => "Overseerr",
+            Self::Jellyseerr => "Jellyseerr",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
         Some(match s {
             "plex" => Self::Plex,
             "amp" => Self::Amp,
@@ -61,13 +142,39 @@ impl IntegrationKind {
             "portainer" => Self::Portainer,
             "pihole" => Self::Pihole,
             "adguard" => Self::Adguard,
+            "jellyfin" => Self::Jellyfin,
+            "emby" => Self::Emby,
+            "tautulli" => Self::Tautulli,
+            "sonarr" => Self::Sonarr,
+            "radarr" => Self::Radarr,
+            "lidarr" => Self::Lidarr,
+            "prowlarr" => Self::Prowlarr,
+            "bazarr" => Self::Bazarr,
+            "overseerr" => Self::Overseerr,
+            "jellyseerr" => Self::Jellyseerr,
             _ => return None,
         })
     }
 
-    /// Whether this kind needs a secret (token or password) to work.
+    pub fn secret_use(self) -> SecretUse {
+        match self {
+            Self::Kuma | Self::Portainer => SecretUse::None,
+            _ => SecretUse::Required,
+        }
+    }
+
+    /// Whether this kind uses a secret (token, password or API key).
     pub fn needs_secret(self) -> bool {
-        matches!(self, Self::Plex | Self::Amp | Self::Pihole | Self::Adguard)
+        self.secret_use() != SecretUse::None
+    }
+
+    /// The login field's meaning when the kind uses one, and whether it's required.
+    pub fn username_use(self) -> Option<(&'static str, bool)> {
+        match self {
+            Self::Amp => Some(("AMP needs a login name", true)),
+            Self::Adguard => Some(("AdGuard Home needs its login name", true)),
+            _ => None,
+        }
     }
 }
 
@@ -136,33 +243,20 @@ pub fn normalize(i: &IntegrationInput) -> Result<(IntegrationKind, IntegrationIn
     n.username = n.username.trim().to_owned();
     n.slug = n.slug.trim().trim_matches('/').to_owned();
     if n.name.is_empty() {
-        n.name = match kind {
-            IntegrationKind::Plex => "Plex",
-            IntegrationKind::Amp => "AMP",
-            IntegrationKind::Kuma => "Uptime Kuma",
-            IntegrationKind::Portainer => "Portainer",
-            IntegrationKind::Pihole => "Pi-hole",
-            IntegrationKind::Adguard => "AdGuard Home",
-        }
-        .into();
+        n.name = kind.label().into();
     }
-    match kind {
-        IntegrationKind::Amp if n.username.is_empty() => return Err(inv("username", "AMP needs a login name")),
-        IntegrationKind::Adguard if n.username.is_empty() => {
-            return Err(inv("username", "AdGuard Home needs its login name"))
-        }
-        IntegrationKind::Kuma => {
-            if n.slug.is_empty() {
-                return Err(inv("slug", "the status page slug, e.g. \"home\" from /status/home"));
-            }
-            if !n.slug.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_')) {
-                return Err(inv("slug", "letters, digits, - and _ only"));
-            }
-        }
+    match kind.username_use() {
+        Some((why, true)) if n.username.is_empty() => return Err(inv("username", why)),
+        None => n.username.clear(),
         _ => {}
     }
-    if !matches!(kind, IntegrationKind::Amp | IntegrationKind::Adguard) {
-        n.username.clear();
+    if kind == IntegrationKind::Kuma {
+        if n.slug.is_empty() {
+            return Err(inv("slug", "the status page slug, e.g. \"home\" from /status/home"));
+        }
+        if !n.slug.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_')) {
+            return Err(inv("slug", "letters, digits, - and _ only"));
+        }
     }
     if kind != IntegrationKind::Kuma {
         n.slug.clear();
@@ -187,6 +281,8 @@ pub enum IntegrationStatus {
     Portainer(portainer::PortainerStatus),
     Pihole(dns::DnsStatus),
     Adguard(dns::DnsStatus),
+    /// Every kind that reports the shared shape.
+    App(app::AppStatus),
 }
 
 /// Reads an integration's status. `secret` is the token/password from the
@@ -207,6 +303,45 @@ pub async fn status(i: &Integration, secret: Option<&str>) -> std::result::Resul
         IntegrationKind::Adguard => {
             dns::status(i, secret.ok_or("no AdGuard Home password saved")?).await.map(IntegrationStatus::Adguard)
         }
+        kind => {
+            let key = secret.filter(|s| !s.is_empty());
+            if kind.secret_use() == SecretUse::Required && key.is_none() {
+                return Err(format!("no {} API key saved", kind.label()));
+            }
+            app_status(i, key.unwrap_or("")).await.map(IntegrationStatus::App)
+        }
+    }
+}
+
+async fn app_status(i: &Integration, key: &str) -> std::result::Result<app::AppStatus, String> {
+    use IntegrationKind as K;
+    match i.kind {
+        K::Jellyfin | K::Emby => jellyfin::status(i, key).await,
+        K::Tautulli => tautulli::status(i, key).await,
+        K::Sonarr | K::Radarr | K::Lidarr | K::Prowlarr | K::Bazarr => arr::status(i, key).await,
+        K::Overseerr | K::Jellyseerr => seerr::status(i, key).await,
+        K::Plex | K::Amp | K::Kuma | K::Portainer | K::Pihole | K::Adguard => {
+            Err("this integration has its own status".into())
+        }
+    }
+}
+
+/// Runs one of the actions an [`app::AppStatus`] offered. `target` is the
+/// row's id, empty for card-level actions.
+pub async fn act(i: &Integration, secret: Option<&str>, target: &str, action: &str) -> std::result::Result<(), String> {
+    use IntegrationKind as K;
+    let key = secret.unwrap_or("");
+    if i.kind.secret_use() == SecretUse::Required && key.is_empty() {
+        return Err(format!("no {} API key saved", i.kind.label()));
+    }
+    if !target.is_empty() && !app::valid_target(target) {
+        return Err("that item id isn't valid".into());
+    }
+    match i.kind {
+        K::Jellyfin | K::Emby => jellyfin::act(i, key, action).await,
+        K::Sonarr | K::Radarr | K::Lidarr | K::Prowlarr => arr::act(i, key, target, action).await,
+        K::Overseerr | K::Jellyseerr => seerr::act(i, key, target, action).await,
+        _ => Err(format!("{} has no action {action}", i.kind.label())),
     }
 }
 
@@ -361,5 +496,82 @@ mod tests {
         s.delete_integration(plex.id).unwrap();
         assert!(s.get_integration(plex.id).is_err());
         assert!(s.delete_integration(plex.id).is_err());
+    }
+
+    fn input_for(kind: IntegrationKind) -> IntegrationInput {
+        IntegrationInput {
+            kind: Some(kind),
+            base_url: "http://x.lan".into(),
+            username: "admin".into(),
+            slug: "home".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn every_kind_can_be_saved() {
+        // A new variant must be added to ALL (this match won't compile otherwise
+        // without touching it), and the table must accept it.
+        for k in IntegrationKind::ALL {
+            match k {
+                IntegrationKind::Plex
+                | IntegrationKind::Amp
+                | IntegrationKind::Kuma
+                | IntegrationKind::Portainer
+                | IntegrationKind::Pihole
+                | IntegrationKind::Adguard
+                | IntegrationKind::Jellyfin
+                | IntegrationKind::Emby
+                | IntegrationKind::Tautulli
+                | IntegrationKind::Sonarr
+                | IntegrationKind::Radarr
+                | IntegrationKind::Lidarr
+                | IntegrationKind::Prowlarr
+                | IntegrationKind::Bazarr
+                | IntegrationKind::Overseerr
+                | IntegrationKind::Jellyseerr => {}
+            }
+        }
+        let mut s = Store::open_in_memory().unwrap();
+        for k in IntegrationKind::ALL {
+            let i = s.create_integration(&input_for(k)).unwrap_or_else(|e| panic!("{k:?}: {e}"));
+            assert_eq!(i.kind, k);
+            assert_eq!(IntegrationKind::parse(k.as_str()), Some(k));
+        }
+        assert_eq!(s.list_integrations().unwrap().len(), IntegrationKind::ALL.len());
+    }
+
+    #[test]
+    fn migration_keeps_existing_integrations() {
+        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        let m = crate::store::migrations();
+        m.to_version(&mut conn, 48).unwrap();
+        conn.execute_batch(
+            "INSERT INTO integrations (id, kind, name, base_url, username, endpoint_id, allow_untrusted)
+                 VALUES (7, 'amp', 'Games', 'http://amp.lan', 'admin', 0, 1),
+                        (9, 'portainer', 'Docker', 'https://p.lan:9443', '', 2, 0);",
+        )
+        .unwrap();
+        assert!(
+            conn.execute("INSERT INTO integrations (kind, base_url) VALUES ('pihole', 'http://pi.lan')", []).is_err(),
+            "the old constraint rejected pihole"
+        );
+        m.to_latest(&mut conn).unwrap();
+        let rows: Vec<(i64, String, String, i64, i64)> = conn
+            .prepare("SELECT id, kind, username, endpoint_id, allow_untrusted FROM integrations ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(rows, vec![(7, "amp".into(), "admin".into(), 0, 1), (9, "portainer".into(), "".into(), 2, 0)]);
+        for k in IntegrationKind::ALL {
+            conn.execute("INSERT INTO integrations (kind, base_url) VALUES (?1, 'http://x')", [k.as_str()]).unwrap();
+        }
+        // 0050 dropped the CHECK on kind: Rust validates it instead.
+        conn.execute("INSERT INTO integrations (kind, base_url) VALUES ('newkind', 'http://x')", []).unwrap();
+        assert!(conn.execute("INSERT INTO integrations (kind, base_url) VALUES ('', 'http://x')", []).is_err());
+        assert_eq!(IntegrationKind::parse("newkind"), None);
     }
 }

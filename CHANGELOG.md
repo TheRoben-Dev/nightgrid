@@ -2,11 +2,32 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
-## [1.7.3] - 2026-11-19
+## [1.8.1] - 2026-11-19
 
 ### Fixed
 - **Library shelf filters** are all the same size again. The ◇ QUESTS chip had picked up the Objectives panel's frame (notched corner, thick left edge, extra margin), which stretched ALL and USING NIGHTGRID into tall boxes. QUESTS keeps its amber look at the normal chip size, and the chips wrap evenly at any width.
 - **Sidebar collapse button** no longer gets clipped or overlaps Settings when the sidebar is narrow. The decorative barcode beside Settings shrinks first and hides below about 216 px.
+
+## [1.8.0] - 2026-11-19
+
+Ten more integrations for the media stack, on a shared integration card.
+
+### Added
+- **Jellyfin** and **Emby**: what's playing, transcodes, library counts and **Scan libraries**.
+- **Tautulli**: Plex activity with quality, transcode decisions and bandwidth.
+- **Sonarr**, **Radarr** and **Lidarr**: download queue with progress and import problems, missing items, the app's health warnings, **RSS sync**, **Search missing** and **Remove** on queue items.
+- **Prowlarr**: indexers, failing and disabled ones, **Test indexers**.
+- **Bazarr**: missing subtitles and throttled providers.
+- **Overseerr** and **Jellyseerr**: request counts and pending requests with **Approve** and **Decline**.
+- The integration type picker is grouped (Media, Media automation, Network, Monitoring, Docker, Games) and has a filter.
+
+### Changed
+- Integration types are checked by the app instead of a database constraint (migration 0050), so new types never need a table change again (D-182).
+
+## [1.7.2] - 2026-11-19
+
+### Fixed
+- **Adding a Pi-hole or AdGuard Home integration failed** with "CHECK constraint failed: kind IN ('plex','amp','kuma','portainer')". The integrations table never learned the two DNS kinds from 0.10.36; migration 0049 rebuilds it with every kind and keeps your existing integrations (same ids, so saved passwords and tokens still match).
 
 ## [1.7.1] - 2026-11-19
 

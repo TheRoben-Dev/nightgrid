@@ -1,0 +1,43 @@
+{
+  "page": 1,
+  "pageSize": 50,
+  "totalRecords": 3,
+  "records": [
+    {
+      "id": 101,
+      "title": "Example.Show.S02E05.1080p",
+      "status": "downloading",
+      "trackedDownloadStatus": "ok",
+      "trackedDownloadState": "downloading",
+      "size": 1073741824,
+      "sizeleft": 268435456,
+      "timeleft": "00:12:30",
+      "series": { "title": "Example Show" },
+      "episode": { "seasonNumber": 2, "episodeNumber": 5, "title": "The Fifth One" },
+      "statusMessages": []
+    },
+    {
+      "id": 102,
+      "title": "Example.Show.S02E06.1080p",
+      "status": "completed",
+      "trackedDownloadStatus": "warning",
+      "trackedDownloadState": "importPending",
+      "size": 1073741824,
+      "sizeleft": 0,
+      "series": { "title": "Example Show" },
+      "episode": { "seasonNumber": 2, "episodeNumber": 6, "title": "Six" },
+      "statusMessages": [
+        { "title": "Example.Show.S02E06.1080p", "messages": ["No files found are eligible for import"] }
+      ]
+    },
+    {
+      "id": 103,
+      "title": "Some.Release.Name.S01E01",
+      "status": "queued",
+      "trackedDownloadStatus": "ok",
+      "trackedDownloadState": "downloading",
+      "size": 0,
+      "sizeleft": 0
+    }
+  ]
+}
