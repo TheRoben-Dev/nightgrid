@@ -7,6 +7,7 @@ Move around Nightgrid without the mouse, and make it look and sound the way you 
 - [ ] `Mod` is Cmd on macOS, Ctrl elsewhere. Views: Overview `Mod+1` … Network `Mod+0`, Fleet `Mod+Shift+U`, Proxmox `Mod+Shift+P`, Library `Mod+Shift+L`, Settings `Mod+,`.
 - [ ] `Mod+K` opens the command palette: hosts, views, snippets, playbooks, actions and Library articles. Inside a terminal it's `Ctrl+Shift+K`.
 - [ ] `Mod+J` opens DRIFT; `Mod+B` collapses the sidebar.
+- [ ] **Back and forward**: the mouse side buttons, `Cmd+[` / `Cmd+]` on macOS, `Alt+Left` / `Alt+Right` on Windows and Linux, the **‹ ›** buttons at the top left, or a two-finger sideways swipe on a trackpad. Every view, tab, host pick and Library article is a step, so an accidental click is one button away from undone. The keys are left alone while you type in a field or editor, and in a terminal on Windows and Linux (shells use `Alt+Left` / `Alt+Right` to move by word); the mouse buttons work everywhere. **Settings → APPEARANCE → DISPLAY → Swipe to go back** turns the swipe off.
 - [ ] **Settings → Terminal → Keybindings** lists everything.
 
 ## Part 2 · Themes
