@@ -8,8 +8,8 @@ pub fn install(app: &tauri::AppHandle) {
     use std::ptr::NonNull;
 
     use block2::RcBlock;
-    use objc2::MainThreadMarker;
     use objc2::rc::Retained;
+    use objc2::MainThreadMarker;
     use objc2_app_kit::{NSEvent, NSEventMask, NSEventType};
     use tauri::{Emitter, Manager};
 
@@ -40,7 +40,12 @@ pub fn install(app: &tauri::AppHandle) {
     });
     // SAFETY: the block has the handler signature AppKit expects; AppKit
     // copies it, and the monitor lives as long as the app.
-    let monitor = unsafe { NSEvent::addLocalMonitorForEventsMatchingMask_handler(NSEventMask::OtherMouseDown | NSEventMask::OtherMouseUp, &block) };
+    let monitor = unsafe {
+        NSEvent::addLocalMonitorForEventsMatchingMask_handler(
+            NSEventMask::OtherMouseDown | NSEventMask::OtherMouseUp,
+            &block,
+        )
+    };
     match monitor {
         Some(m) => std::mem::forget(m),
         None => tracing::warn!("mouse side buttons: event monitor not installed"),
