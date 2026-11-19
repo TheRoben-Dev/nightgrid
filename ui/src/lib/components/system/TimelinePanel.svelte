@@ -34,7 +34,7 @@
 
 <div class="timeline">
   <div class="bar">
-    <span class="ranges" role="group" aria-label="Time range" data-guide="timeline-range">
+    <span class="ranges tabstrip sm" role="group" aria-label="Time range" data-guide="timeline-range">
       {#each RANGES as r (r.days)}
         <button type="button" class:on={system.timelineDays === r.days} aria-pressed={system.timelineDays === r.days} onclick={() => system.loadTimeline(r.days)}
           >{r.label}</button
@@ -145,23 +145,18 @@
   .chips {
     gap: 4px;
   }
-  .ranges {
-    display: inline-flex;
-  }
-  .ranges button,
   .chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--chip-h);
     border: 1px solid var(--line);
     background: none;
     color: var(--text-1);
     font-size: var(--fs-xs);
-    padding: 2px 8px;
+    padding: 0 var(--chip-px);
     cursor: pointer;
     letter-spacing: 0.08em;
   }
-  .ranges button + button {
-    border-left: none;
-  }
-  .ranges button.on,
   .chip.on {
     border-color: var(--accent);
     color: var(--accent);

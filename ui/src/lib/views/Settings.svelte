@@ -86,7 +86,7 @@
   const customTokens = $derived(resolveCustom(settings.value.customTheme));
 </script>
 
-<div class="tabs" role="tablist" aria-label="Settings">
+<div class="tabstrip" role="tablist" aria-label="Settings">
   {#each SETTINGS_TABS as t (t.id)}
     <button type="button" role="tab" data-guide="settings-tab-{t.id}" title={t.what} class:on={ui.settingsTab === t.id} aria-selected={ui.settingsTab === t.id} onclick={() => (ui.settingsTab = t.id)}>{t.label}</button>
   {/each}
@@ -435,34 +435,15 @@
 {/if}
 
 <style>
+  .tabstrip {
+    margin-bottom: var(--sp-6);
+  }
   .diag {
     display: flex;
     gap: 12px;
     align-items: center;
     flex-wrap: wrap;
     margin-top: 10px;
-  }
-  .tabs {
-    display: inline-flex;
-    border: 1px solid var(--line);
-    margin-bottom: 12px;
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 12px;
-    cursor: pointer;
-  }
-  .tabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .grid {
     display: grid;

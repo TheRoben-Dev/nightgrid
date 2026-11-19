@@ -75,7 +75,7 @@
 
 <div class="fleet">
   <div class="toolbar">
-    <div class="tabs" role="tablist" aria-label="Fleet view">
+    <div class="tabstrip" role="tablist" aria-label="Fleet view">
       {#each tabs as t (t.id)}
         <button type="button" role="tab" data-guide="fleet-tab-{t.id}" class:on={fleet.tab === t.id} aria-selected={fleet.tab === t.id} onclick={() => open(t.id)}>
           {t.label}{#if t.id === "updates" && pending}<span class="badge">{pending}</span>{/if}{#if t.id === "disks" && diskBad !== "ok"}<span class="badge {diskBad}">!</span>{/if}{#if t.id === "backups" && backupBad}<span class="badge bad">{backupBad}</span>{/if}{#if t.id === "ups" && upsBad}<span class="badge bad">!</span>{/if}
@@ -150,40 +150,7 @@
   }
   .small {
     font-size: var(--fs-xs);
-  }
-  .tabs {
-    display: flex;
-    flex-wrap: wrap;
-    border: 1px solid var(--line);
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .tabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
-  .badge {
-    margin-left: 6px;
-    padding: 0 4px;
-    color: var(--bg-0);
-    background: var(--cyan);
-  }
-  .badge.warn {
-    background: var(--warn);
-  }
-  .badge.bad {
-    background: var(--danger);
+    white-space: nowrap;
   }
   .pane {
     flex: 1;

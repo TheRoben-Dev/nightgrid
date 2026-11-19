@@ -144,7 +144,7 @@
 </script>
 
 <div class="wrap">
-<div class="modes" role="tablist" aria-label="Blueprints">
+<div class="modes tabstrip sm" role="tablist" aria-label="Blueprints">
   <button type="button" role="tab" class="mode" class:on={mode === "starters"} aria-selected={mode === "starters"} onclick={() => (mode = "starters")}>STARTERS</button>
   <button type="button" role="tab" class="mode" class:on={mode === "files"} aria-selected={mode === "files"} onclick={() => (mode = "files")}>YOUR BLUEPRINTS</button>
 </div>
@@ -261,23 +261,8 @@
     min-height: 0;
   }
   .modes {
-    display: flex;
-    gap: 4px;
     flex: none;
-  }
-  .mode {
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--text-1);
-    padding: 3px 12px;
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    cursor: pointer;
-  }
-  .mode.on {
-    color: var(--text-0);
-    border-color: var(--cyan);
+    align-self: flex-start;
   }
   .bp {
     flex: 1;
@@ -367,10 +352,15 @@
     background: none;
     border: 1px solid var(--line);
     color: var(--text-1);
-    padding: 1px 8px;
+    padding: 0 var(--chip-px);
     font: inherit;
     font-size: var(--fs-xs);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--chip-h);
+    white-space: nowrap;
   }
   .chip.on {
     color: var(--text-0);

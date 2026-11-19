@@ -266,9 +266,4 @@
   .mint {
     color: var(--mint);
   }
-  .tiny {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
-  }
 </style>

@@ -250,7 +250,7 @@
   }
   .timers .head,
   .timers .row {
-    grid-template-columns: minmax(180px, 1.3fr) minmax(120px, 1fr) 100px 140px 260px;
+    grid-template-columns: minmax(130px, 1.3fr) minmax(90px, 1fr) 90px 120px fit-content(300px);
   }
   .cron .head,
   .cron .row {
@@ -327,9 +327,9 @@
   }
   .acts {
     display: flex;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
     justify-content: flex-end;
-    white-space: nowrap;
   }
   .periodic {
     padding: 6px 10px 0;

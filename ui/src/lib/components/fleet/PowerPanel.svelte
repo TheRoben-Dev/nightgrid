@@ -118,7 +118,7 @@
 
 <div class="power" data-guide="fleet-power">
   <div class="row">
-    <div class="seg" role="group" aria-label="History used">
+    <div class="seg tabstrip sm" role="group" aria-label="History used">
       {#each RANGES as r (r)}
         <button type="button" class:on={days === r} aria-pressed={days === r} onclick={() => (days = r)}>{r} DAYS</button>
       {/each}
@@ -230,26 +230,6 @@
   .sp {
     flex: 1;
   }
-  .seg {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    border: 0;
-    background: none;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    padding: 3px 8px;
-    cursor: pointer;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--line);
-  }
-  .seg button.on {
-    background: var(--accent);
-    color: var(--bg-0);
-  }
   .field {
     display: flex;
     flex-direction: column;
@@ -293,7 +273,7 @@
   }
   .trow {
     display: grid;
-    grid-template-columns: minmax(120px, 1.2fr) minmax(140px, 1fr) 60px 90px 80px 110px 110px;
+    grid-template-columns: minmax(100px, 1.2fr) minmax(110px, 1fr) 50px 80px 70px 90px 90px;
     gap: 10px;
     align-items: center;
     padding: 5px 4px;

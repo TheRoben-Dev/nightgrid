@@ -102,7 +102,7 @@
     {/if}
 
     {#if proxyEdit.targets}
-      <div class="seg" role="group" aria-label="Proxy">
+      <div class="seg tabstrip sm" role="group" aria-label="Proxy">
         {#each proxyEdit.targets.caddy as c (c.proxyName)}
           <button type="button" class:on={proxyEdit.selected === targetKey("caddy", c.proxyName)} onclick={() => pick(targetKey("caddy", c.proxyName))}>CADDY · {c.proxyName}</button>
         {/each}
@@ -248,24 +248,8 @@
     gap: 8px;
   }
   .seg {
-    display: inline-flex;
     flex-wrap: wrap;
-    border: 1px solid var(--line);
     align-self: flex-start;
-  }
-  .seg button {
-    background: none;
-    border: 0;
-    color: var(--text-1);
-    padding: 3px 10px;
-    font: inherit;
-    font-size: var(--fs-xs);
-    letter-spacing: 0.08em;
-    cursor: pointer;
-  }
-  .seg button.on {
-    color: var(--text-0);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .list {
     border: 1px solid var(--line);

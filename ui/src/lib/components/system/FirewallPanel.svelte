@@ -375,7 +375,10 @@
     letter-spacing: 0.08em;
     border: 1px solid var(--line);
     color: var(--text-1);
-    padding: 0 4px;
+    padding: 0 var(--tag-px);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .tag.ok {
     border-color: var(--ok);

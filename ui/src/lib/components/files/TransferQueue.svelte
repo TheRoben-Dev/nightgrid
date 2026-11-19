@@ -302,8 +302,4 @@
     gap: 4px;
     align-items: center;
   }
-  .tiny {
-    padding: 2px 10px;
-    font-size: var(--fs-xs);
-  }
 </style>

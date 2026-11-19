@@ -284,8 +284,4 @@
     color: var(--mint);
     letter-spacing: 0.1em;
   }
-  .tiny {
-    padding: 2px 10px;
-    font-size: var(--fs-xs);
-  }
 </style>

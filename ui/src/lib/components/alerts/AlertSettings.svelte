@@ -202,7 +202,7 @@
 
   <div class="row">
     <span class="label">WEBHOOK</span>
-    <div class="seg" role="radiogroup" aria-label="Webhook">
+    <div class="seg tabstrip sm" role="radiogroup" aria-label="Webhook">
       {#each WEBHOOKS as w (w.id)}
         <button type="button" role="radio" aria-checked={a.webhook === w.id} class:on={a.webhook === w.id} onclick={() => set({ webhook: w.id })}>{w.label}</button>
       {/each}
@@ -277,26 +277,6 @@
     flex: 1;
     min-width: 200px;
   }
-  .seg {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.08em;
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--line);
-  }
-  .seg button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
   .logrules {
     display: flex;
     flex-direction: column;
@@ -349,10 +329,5 @@
     color: var(--danger);
     margin: 6px 0 0;
     font-size: var(--fs-sm);
-  }
-  .tiny {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
   }
 </style>

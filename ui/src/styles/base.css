@@ -54,6 +54,8 @@ a {
 /* Handheld preset: finger-sized targets (Apple/Material guidance is 44-48px). */
 :root[data-handheld="on"] {
   --hit: 44px;
+  --ctl-h-sm: 34px;
+  --chip-h: 30px;
 }
 :root[data-handheld="on"] .btn {
   padding: 0 18px;

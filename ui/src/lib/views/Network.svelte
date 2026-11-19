@@ -401,7 +401,7 @@
   <div class="body">
     <div class="canvas" class:graph={netmap.mode === "graph"} data-guide="netmap-graph">
       <div class="maptools">
-        <div class="seg" role="group" aria-label="Map style" data-guide="netmap-mode">
+        <div class="seg tabstrip sm" role="group" aria-label="Map style" data-guide="netmap-mode">
           <button type="button" class:on={netmap.mode === "graph"} aria-pressed={netmap.mode === "graph"} onclick={() => netmap.setMode("graph")}>GRAPH</button>
           <button type="button" class:on={netmap.mode === "list"} aria-pressed={netmap.mode === "list"} onclick={() => netmap.setMode("list")}>LIST</button>
         </div>
@@ -709,24 +709,6 @@
   .maptools .hint {
     margin-left: 4px;
   }
-  .seg {
-    display: inline-flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    padding: 2px 10px;
-    border: 0;
-    background: none;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    cursor: pointer;
-  }
-  .seg button.on {
-    background: color-mix(in srgb, var(--cyan) 18%, transparent);
-    color: var(--text-0);
-  }
   .risks li.bad {
     border-left-color: var(--danger);
   }
@@ -824,10 +806,13 @@
     gap: 4px;
   }
   .chip {
-    padding: 0 6px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     font-size: var(--fs-xs);
     color: var(--cyan);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .labelled li {
     display: flex;
@@ -849,6 +834,7 @@
     gap: 10px;
     height: 100%;
     min-height: 0;
+    overflow-y: auto;
   }
   .bar {
     display: flex;
@@ -874,7 +860,7 @@
     padding: 0;
   }
   .sweep {
-    max-width: 320px;
+    flex: 1 1 100%;
   }
   .legend {
     margin-left: auto;
@@ -962,6 +948,11 @@
     border: 1px solid var(--line);
     padding: 1px 6px;
   }
+  .nets .netchip label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
   .nets .netchip.cur {
     border-color: var(--cyan);
   }
@@ -989,8 +980,8 @@
     margin: 0;
   }
   .body {
-    flex: 1;
-    min-height: 0;
+    flex: 1 0 360px;
+    min-height: 360px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 320px;
     gap: 12px;

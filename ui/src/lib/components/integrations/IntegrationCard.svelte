@@ -358,9 +358,4 @@
     padding: 0;
     font: inherit;
   }
-  .tiny {
-    min-height: 20px;
-    padding: 0 6px;
-    font-size: var(--fs-xs);
-  }
 </style>

@@ -124,7 +124,7 @@
         {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
       </select>
     </label>
-    <div class="tabs" role="tablist" aria-label="Docker view">
+    <div class="tabstrip" role="tablist" aria-label="Docker view">
       <button type="button" role="tab" data-guide="docker-containers" class:on={docker.tab === "containers"} aria-selected={docker.tab === "containers"} onclick={() => (docker.tab = "containers")}
         >CONTAINERS</button
       >
@@ -410,27 +410,6 @@
     color: var(--magenta);
     letter-spacing: 0.12em;
   }
-  .tabs {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .tabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
   .hostpick {
     display: flex;
     gap: 8px;
@@ -500,7 +479,7 @@
   }
   .row {
     display: grid;
-    grid-template-columns: 26px minmax(140px, 1.3fr) minmax(120px, 1.2fr) minmax(170px, 1.3fr) minmax(70px, 0.8fr) 56px 70px 120px;
+    grid-template-columns: 26px minmax(110px, 1.3fr) minmax(0, 1.2fr) minmax(140px, 1.3fr) minmax(0, 0.8fr) 56px 70px 120px;
     align-items: center;
     gap: 8px;
     padding: 0 8px;
@@ -758,9 +737,5 @@
     margin-top: 8px;
     color: var(--text-0);
     font-size: var(--fs-sm);
-  }
-  .tiny {
-    padding: 2px 10px;
-    font-size: var(--fs-xs);
   }
 </style>

@@ -336,8 +336,11 @@
   .chip {
     font-size: var(--fs-xs);
     letter-spacing: 0.08em;
-    padding: 0 6px;
+    padding: 0 var(--tag-px);
     border: 1px solid currentColor;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .chip.ok {
     color: var(--ok);
