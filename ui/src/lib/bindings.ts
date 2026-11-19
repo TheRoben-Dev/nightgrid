@@ -18,6 +18,11 @@ export const commands = {
 	settingsGet: (options?: InvokeOptions) => __TAURI_INVOKE<AppSettings_Serialize>("settings_get", undefined, options),
 	settingsSet: (settings: AppSettings_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<AppSettings_Serialize>("settings_set", { settings }, options),
 	hostsList: (options?: InvokeOptions) => __TAURI_INVOKE<Host_Serialize[]>("hosts_list", undefined, options),
+	/**
+	 *  What works on Windows hosts and why the rest doesn't (one table for the
+	 *  whole app, see `nightgrid_core::win::support`).
+	 */
+	platformWindowsSupport: (options?: InvokeOptions) => __TAURI_INVOKE<Support[]>("platform_windows_support", undefined, options),
 	hostCreate: (input: HostInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Host_Serialize>("host_create", { input }, options),
 	hostUpdate: (id: number, input: HostInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Host_Serialize>("host_update", { id, input }, options),
 	hostDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("host_delete", { id }, options),
@@ -4598,6 +4603,11 @@ export type Host_Deserialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**
+	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
+	 *  Not user-edited (not in [`HostInput`]).
+	 */
+	os?: string,
 };
 
 export type Host_Serialize = {
@@ -4637,6 +4647,11 @@ export type Host_Serialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**
+	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
+	 *  Not user-edited (not in [`HostInput`]).
+	 */
+	os: string,
 };
 
 export type HubEventView = {
@@ -9839,6 +9854,26 @@ export type SudoState =
 "password" | 
 /**  sudo isn't installed. */
 "missing";
+
+export type Support = {
+	/**  Feature id (`system.units`, `docker`, ...). */
+	feature: string,
+	/**  What the user calls it. */
+	label: string,
+	level: SupportLevel,
+	/**  One or two sentences for the user. */
+	why: string,
+};
+
+export type SupportLevel = 
+/**  Works the same as on Linux. */
+"full" | 
+/**  Works, with differences explained in `why`. */
+"partial" | 
+/**  Not yet: a Windows version is planned (`why` says what it will use). */
+"planned" | 
+/**  Can't work on Windows (`why` says why, and what to do instead). */
+"none";
 
 /**  What one sync brought in. */
 export type SyncReport = {

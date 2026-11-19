@@ -12,7 +12,7 @@ use tauri::AppHandle;
 
 use crate::journal_cmd::{record, Change};
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 async fn crontab_auth(
     app: &AppHandle,
@@ -44,7 +44,7 @@ pub async fn cron_read(
     sudo: Option<SudoInput>,
 ) -> SysResult<Crontab> {
     let user = user.filter(|u| !u.trim().is_empty());
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.cron").await?;
     let auth = crontab_auth(&app, host_id, &conn, user.as_deref(), sudo).await?;
     read(&conn, &auth, user.as_deref()).await
 }
@@ -63,7 +63,7 @@ pub async fn cron_apply(
     sudo: Option<SudoInput>,
 ) -> SysResult<Crontab> {
     let user = user.filter(|u| !u.trim().is_empty());
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.cron").await?;
     let auth = crontab_auth(&app, host_id, &conn, user.as_deref(), sudo).await?;
     let cur = read(&conn, &auth, user.as_deref()).await?;
     if cur.hash != hash {
@@ -97,7 +97,7 @@ pub(crate) async fn cron_merge(
     sudo: Option<SudoInput>,
 ) -> SysResult<u32> {
     let user = user.filter(|u| !u.trim().is_empty());
-    let conn = connect_host(app, host_id).await?;
+    let conn = connect_posix(app, host_id, "system.cron").await?;
     let auth = crontab_auth(app, host_id, &conn, user.as_deref(), sudo).await?;
     let cur = read(&conn, &auth, user.as_deref()).await?;
     let added = nightgrid_core::blueprint::missing_cron_lines(src, &cur.text).len() as u32;
@@ -130,7 +130,7 @@ pub fn cron_describe(schedule: String) -> Option<String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn timer_jobs(app: AppHandle, host_id: HostId) -> SysResult<Vec<InstalledJob>> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.cron").await?;
     let (_, out, _) = conn.exec(jobs::LIST_COMMAND).await.map_err(SystemError::other)?;
     Ok(jobs::parse_list(&String::from_utf8_lossy(&out)))
 }
@@ -147,7 +147,7 @@ pub async fn timer_job_save(
 ) -> SysResult<InstalledJob> {
     let job = job.normalized().map_err(SystemError::other)?;
     let cmd = jobs::install_command(&job, replaces.as_deref()).map_err(SystemError::other)?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.cron").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     tracing::info!(host = %host_id, unit = %job.unit(), "install timer job");
     let o = sudo::run(&conn, &auth, &cmd).await?;
@@ -166,7 +166,7 @@ pub async fn timer_job_save(
 #[specta::specta]
 pub async fn timer_job_remove(app: AppHandle, host_id: HostId, unit: String, sudo: Option<SudoInput>) -> SysResult<()> {
     let cmd = jobs::remove_command(&unit).map_err(SystemError::other)?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.cron").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     tracing::info!(host = %host_id, unit = %unit, "remove timer job");
     let o = sudo::run(&conn, &auth, &cmd).await?;
@@ -182,7 +182,7 @@ pub async fn timer_job_remove(app: AppHandle, host_id: HostId, unit: String, sud
 #[specta::specta]
 pub async fn timer_calendar_preview(app: AppHandle, host_id: HostId, calendar: String) -> SysResult<CalendarPreview> {
     let cmd = jobs::preview_command(&calendar).map_err(SystemError::other)?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.cron").await?;
     let (_, out, _) = conn.exec(&cmd).await.map_err(SystemError::other)?;
     Ok(jobs::parse_preview(&String::from_utf8_lossy(&out)))
 }

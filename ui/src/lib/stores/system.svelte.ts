@@ -1,3 +1,4 @@
+import { platform } from "./platform.svelte";
 import { sound } from "./sound.svelte";
 import {
   api,
@@ -232,6 +233,8 @@ class SystemStore {
   async openTab(tab: SystemTab) {
     this.tab = tab;
     if (this.hostId === null || this.prompt) return;
+    // Tabs that can't run on this host (Windows) show their note instead of loading.
+    if (platform.blocked(hosts.byId(this.hostId), `system.${tab}`)) return;
     if (tab === "units" && !this.unitsLoaded) await this.loadUnits();
     else if (tab === "journal" && this.journalRun === null && !this.journal.length) await this.startJournal();
     else if (tab === "schedules" && !this.schedules) await Promise.all([this.loadSchedules(), this.loadPowerSchedules()]);

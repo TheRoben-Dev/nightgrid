@@ -29,7 +29,7 @@ use tokio::io::AsyncWriteExt;
 use crate::journal_cmd::{record, Change};
 use crate::node_cmd::{ensure, err, host_name, pick_binary, reconnect, release_binary};
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 async fn exec(conn: &Connection, cmd: &str) -> SysResult<(i32, String, String)> {
     let (code, out, e) = tokio::time::timeout(Duration::from_secs(30), conn.exec(cmd))
@@ -174,7 +174,7 @@ async fn hub_view(conn: &Connection) -> SysResult<Option<HubView>> {
 #[tauri::command]
 #[specta::specta]
 pub async fn node_setup(app: AppHandle, host_id: HostId) -> SysResult<NodeSetup> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "node").await?;
     let mut notes = Vec::new();
     let client = ensure(&app, host_id).await;
     let link = match &client {
@@ -226,7 +226,7 @@ async fn read_config(conn: &Connection, part: NodePart) -> SysResult<NodeConfigF
 #[tauri::command]
 #[specta::specta]
 pub async fn node_config_read(app: AppHandle, host_id: HostId, part: NodePart) -> SysResult<NodeConfigFile> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "node").await?;
     read_config(&conn, part).await
 }
 
@@ -315,7 +315,7 @@ pub async fn node_config_save(
     text: String,
     sudo: Option<SudoInput>,
 ) -> SysResult<ConfigSaveReport> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "node").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     let title = format!("Edited the {} config", part.binary());
     let r = save_config(&app, host_id, &conn, &auth, part, &text, &title).await?;
@@ -336,7 +336,7 @@ pub async fn node_logs(
     lines: u32,
     sudo: Option<SudoInput>,
 ) -> SysResult<String> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "node").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     let o = sudo::run(&conn, &auth, &hub::logs_command(part, lines)).await?;
     Ok(o.stdout)
@@ -392,7 +392,7 @@ pub async fn hub_install(
     from_file: bool,
     sudo: Option<SudoInput>,
 ) -> SysResult<Option<HubStepResult>> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "node").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     let c = ensure(&app, host_id)
         .await
@@ -449,7 +449,7 @@ pub async fn hub_uninstall(
     purge: bool,
     sudo: Option<SudoInput>,
 ) -> SysResult<HubStepResult> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "node").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     let report = root_report(&conn, &auth, &hub::uninstall_command(purge), "removing the hub").await?;
     record(
@@ -507,8 +507,8 @@ pub async fn hub_join(
     hub_host: HostId,
     sudo: Option<SudoInput>,
 ) -> SysResult<HubJoinResult> {
-    let hconn = connect_host(&app, hub_host).await?;
-    let mconn = connect_host(&app, member_id).await?;
+    let hconn = connect_posix(&app, hub_host, "node").await?;
+    let mconn = connect_posix(&app, member_id, "node").await?;
     let auth = resolve_sudo(&app, member_id, &mconn, sudo).await?;
     let mut res = HubJoinResult { steps: vec![], warnings: vec![], hub_networks: vec![] };
     let member_name = host_name(&app, member_id);
@@ -674,14 +674,14 @@ pub async fn hub_leave(
     hub_host: HostId,
     sudo: Option<SudoInput>,
 ) -> SysResult<HubJoinResult> {
-    let mconn = connect_host(&app, member_id).await?;
+    let mconn = connect_posix(&app, member_id, "node").await?;
     let auth = resolve_sudo(&app, member_id, &mconn, sudo).await?;
     let mut res = HubJoinResult { steps: vec![], warnings: vec![], hub_networks: vec![] };
     let c = ensure(&app, member_id).await.ok_or_else(|| err("Nightgrid Node isn't running on this host"))?;
     let node_id = c.welcome().node.node_id.clone();
     let mine: hub::HubMember = node_call(&c, "hub.member.get", json!({})).await.unwrap_or_default();
     // The hub's list (if it's still there).
-    if let Ok(hconn) = connect_host(&app, hub_host).await {
+    if let Ok(hconn) = connect_posix(&app, hub_host, "node").await {
         if let Ok(p) = hub_probe(&hconn).await {
             if let Ok(v) = hub_call(&hconn, &p, "fleet.members.get", Value::Null).await {
                 let mut m: hub::Members = serde_json::from_value(v).unwrap_or_default();
@@ -723,7 +723,7 @@ pub async fn hub_allow_networks(
     networks: Vec<String>,
     sudo: Option<SudoInput>,
 ) -> SysResult<ConfigSaveReport> {
-    let conn = connect_host(&app, hub_host).await?;
+    let conn = connect_posix(&app, hub_host, "node").await?;
     let auth = resolve_sudo(&app, hub_host, &conn, sudo).await?;
     let cfg = read_config(&conn, NodePart::Hub).await?;
     let mut doc = hub::parse_config(&cfg.text).map_err(err)?;
@@ -747,7 +747,7 @@ pub async fn hub_allow_networks(
 #[tauri::command]
 #[specta::specta]
 pub async fn hub_members(app: AppHandle, hub_host: HostId) -> SysResult<Vec<HubMemberState>> {
-    let conn = connect_host(&app, hub_host).await?;
+    let conn = connect_posix(&app, hub_host, "node").await?;
     let p = hub_probe(&conn).await?;
     let o: HubOverview =
         serde_json::from_value(hub_call(&conn, &p, "fleet.overview", Value::Null).await?).map_err(err)?;

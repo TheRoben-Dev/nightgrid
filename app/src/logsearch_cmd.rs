@@ -61,7 +61,7 @@ async fn search_host(
     let mut hits = Vec::new();
     let mut journal_err = None;
     if q.journal {
-        match crate::term_cmd::connect_host(app, id).await {
+        match crate::term_cmd::connect_posix(app, id, "fleet.logs").await {
             Ok(conn) => match conn.exec(&logsearch::journal_command(q, since)).await {
                 Ok((_, out, _)) => hits.extend(logsearch::journal_hits(id, &String::from_utf8_lossy(&out), m)),
                 Err(e) => journal_err = Some(e.to_string()),

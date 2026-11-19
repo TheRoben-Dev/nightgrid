@@ -36,7 +36,7 @@ async fn job_paths(app: &AppHandle, host_id: HostId, units: &[(String, String)])
         .enumerate()
         .map(|(i, (_, unit))| format!("echo '{MARK}{i}'; systemctl cat -- {} 2>/dev/null; ", shell_quote(unit)))
         .collect();
-    let Ok(conn) = crate::term_cmd::connect_host(app, host_id).await else { return Vec::new() };
+    let Ok(conn) = crate::term_cmd::connect_posix(app, host_id, "system.cron").await else { return Vec::new() };
     let Ok(Ok((_, out, _))) = tokio::time::timeout(Duration::from_secs(20), conn.exec(&script)).await else {
         return Vec::new();
     };

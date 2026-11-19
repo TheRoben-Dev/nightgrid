@@ -70,6 +70,7 @@ const toHost = (id: number, i: HostInput): Host => ({
   wakeRelayId: i.wakeRelayId,
   sleepWindow: i.sleepWindow?.trim() || null,
   role: i.role === "client" ? "client" : "server",
+  os: "",
   tags: [...new Set(i.tags.map((t) => t.trim()).filter(Boolean))],
 });
 

@@ -80,9 +80,22 @@ pub struct Host {
     pub role: String,
     /// A client raises offline alerts only when this is on (servers always do).
     pub alert_offline: bool,
+    /// OS family learned on connect: "" (not yet), "posix" or "windows".
+    /// Not user-edited (not in [`HostInput`]).
+    #[serde(default)]
+    pub os: String,
 }
 
+/// Host OS families ([`Host::os`]).
+pub const OS_POSIX: &str = "posix";
+pub const OS_WINDOWS: &str = "windows";
+
 impl Host {
+    /// Runs OpenSSH for Windows (cmd / PowerShell, no POSIX shell).
+    pub fn is_windows(&self) -> bool {
+        self.os == OS_WINDOWS
+    }
+
     /// A client (laptop, handheld, desktop) that doesn't answer is just away:
     /// no offline alert, not counted as down, unless it opted in.
     pub fn away_when_unreachable(&self) -> bool {
@@ -271,7 +284,7 @@ impl HostInput {
 }
 
 const HOST_COLS: &str = "id, name, hostname, port, username, group_id, color, icon, favorite, notes, \
-     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths, alert_offline";
+     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths, alert_offline, os";
 
 fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
     Ok(Host {
@@ -300,6 +313,7 @@ fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
         drift_lookups: r.get(21)?,
         drift_paths: r.get(22)?,
         alert_offline: r.get(23)?,
+        os: r.get(24)?,
     })
 }
 
@@ -450,6 +464,13 @@ impl Store {
         self.get_host(id)?.ok_or(Error::NotFound("host"))
     }
 
+    /// Records the host's OS family. Returns whether it changed.
+    pub fn set_host_os(&mut self, id: HostId, os: &str) -> Result<bool> {
+        let n =
+            self.conn().execute("UPDATE hosts SET os = ?2 WHERE id = ?1 AND os <> ?2", rusqlite::params![id, os])?;
+        Ok(n > 0)
+    }
+
     /// Sets only the "remember secret in keychain" flag (from an auth prompt).
     pub fn set_remember_secret(&mut self, id: HostId, remember: bool) -> Result<()> {
         let n = self.conn().execute(
@@ -527,6 +548,21 @@ mod tests {
 
     fn input(name: &str) -> HostInput {
         HostInput { name: name.into(), hostname: format!("{name}.lan"), ..Default::default() }
+    }
+
+    #[test]
+    fn os_is_learned_not_edited() {
+        let mut store = Store::open_in_memory().unwrap();
+        let h =
+            store.create_host(&HostInput { name: "w".into(), hostname: "w.lan".into(), ..Default::default() }).unwrap();
+        assert_eq!(h.os, "");
+        assert!(!h.is_windows());
+        assert!(store.set_host_os(h.id, OS_WINDOWS).unwrap());
+        assert!(!store.set_host_os(h.id, OS_WINDOWS).unwrap());
+        let i = HostInput { name: "w2".into(), hostname: "w.lan".into(), ..Default::default() };
+        let after = store.update_host(h.id, &i).unwrap();
+        assert!(after.is_windows(), "an edit keeps the learned OS");
+        assert!(store.list_hosts().unwrap()[0].is_windows());
     }
 
     #[test]

@@ -83,6 +83,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         commands::settings_get,
         commands::settings_set,
         hosts_cmd::hosts_list,
+        hosts_cmd::platform_windows_support,
         hosts_cmd::host_create,
         hosts_cmd::host_update,
         hosts_cmd::host_delete,

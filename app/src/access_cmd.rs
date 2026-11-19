@@ -11,7 +11,7 @@ use nightgrid_core::system::SystemError;
 use tauri::AppHandle;
 
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 /// Reads `host_id`'s access report. With `elevate` false, root is used only
 /// when it needs no prompt (root login, NOPASSWD or a remembered password);
@@ -24,7 +24,7 @@ pub async fn access_audit(
     elevate: bool,
     sudo: Option<SudoInput>,
 ) -> SysResult<AccessReport> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "fleet.access").await?;
     let auth = if elevate {
         resolve_sudo(&app, host_id, &conn, sudo).await?
     } else {

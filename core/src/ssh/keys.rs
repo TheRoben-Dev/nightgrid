@@ -300,14 +300,21 @@ fn safe_comment(c: &str) -> String {
         .to_owned()
 }
 
-/// Shell command that appends `key` to `~/.ssh/authorized_keys` unless the
-/// same key (any comment) is already there. Creates `~/.ssh` (0700) and the
-/// file (0600) when missing. Prints `added` or `present`.
-pub fn add_command(public: &str) -> Result<String> {
+/// A key's `algorithm base64` blob and the line to add (blob plus a safe
+/// comment): both fit inside single quotes in sh and PowerShell.
+pub fn key_line(public: &str) -> Result<(String, String)> {
     let key = &PublicKey::from_openssh(public.trim()).map_err(key_err)?;
     let blob = key_blob(key)?;
     let comment = safe_comment(key.comment().as_str_lossy());
     let line = if comment.is_empty() { blob.clone() } else { format!("{blob} {comment}") };
+    Ok((blob, line))
+}
+
+/// Shell command that appends `key` to `~/.ssh/authorized_keys` unless the
+/// same key (any comment) is already there. Creates `~/.ssh` (0700) and the
+/// file (0600) when missing. Prints `added` or `present`.
+pub fn add_command(public: &str) -> Result<String> {
+    let (blob, line) = key_line(public)?;
     Ok(format!(
         "umask 077; mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && \
 if grep -qF '{blob}' ~/.ssh/authorized_keys; then echo present; else \

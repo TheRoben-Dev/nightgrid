@@ -15,7 +15,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::commands::CmdResult;
 use crate::docker_cmd::{docker_for, take_snapshot, DockerCmdError, DockerResult};
 use crate::state::AppState;
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 fn env_path(stack: &Stack) -> String {
     format!("{}/.env", stack.dir.trim_end_matches('/'))
@@ -173,7 +173,7 @@ pub async fn env_deploy(app: AppHandle, host_id: HostId, stack: Stack) -> Docker
         Ok(_) => (true, None),
         Err(e) => (false, Some(e.message)),
     };
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "docker.compose").await?;
     let fs = Fs::Remote(
         app.state::<AppState>().sftp.get(host_id, conn).await.map_err(|e| DockerCmdError::msg(e.to_string()))?,
     );

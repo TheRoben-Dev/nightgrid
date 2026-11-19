@@ -28,7 +28,7 @@ use zeroize::Zeroizing;
 use crate::journal_cmd::{record, Change};
 use crate::state::AppState;
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 /// The blueprint just captured (waiting to be saved) and the one opened
 /// from a file (waiting to be applied). Held in memory only, never on disk
@@ -104,7 +104,7 @@ pub async fn blueprint_capture(
     sudo: Option<SudoInput>,
 ) -> SysResult<BlueprintSummary> {
     let name = host_name(&app, host_id);
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "blueprints").await?;
     let mut bp = Blueprint::new(&name, now_unix());
     if let Ok((_, out, _)) = conn.exec(". /etc/os-release 2>/dev/null && printf '%s' \"$PRETTY_NAME\"").await {
         bp.os = String::from_utf8_lossy(&out).trim().chars().take(80).collect();
@@ -312,7 +312,7 @@ pub async fn blueprint_plan(app: AppHandle, host_id: HostId, sudo: Option<SudoIn
 async fn plan_for(app: &AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<(Blueprint, Vec<BpStep>)> {
     let app = app.clone();
     let mut bp = opened()?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "blueprints").await?;
     let mut t = BpTarget::default();
     let paths = blueprint::stack_paths(&bp);
     if !paths.is_empty() {
@@ -371,7 +371,7 @@ async fn write_text(app: &AppHandle, host_id: HostId, path: &str, content: &str)
 }
 
 async fn apply_stack(app: &AppHandle, host_id: HostId, s: &BpStack) -> Result<String, String> {
-    let conn = connect_host(app, host_id).await.map_err(|e| e.to_string())?;
+    let conn = connect_posix(app, host_id, "blueprints").await.map_err(|e| e.to_string())?;
     let (_, out, err) = conn.exec(&blueprint::mkdir_script(s)).await.map_err(|e| e.to_string())?;
     if !String::from_utf8_lossy(&out).contains("@@ok") {
         return Err(format!(
@@ -433,7 +433,7 @@ async fn start_stack(app: &AppHandle, host_id: HostId, s: &BpStack) -> Result<St
 }
 
 async fn run_root(app: &AppHandle, host_id: HostId, sudo: Option<SudoInput>, cmd: &str) -> Result<(), String> {
-    let conn = connect_host(app, host_id).await.map_err(|e| e.to_string())?;
+    let conn = connect_posix(app, host_id, "blueprints").await.map_err(|e| e.to_string())?;
     let auth = resolve_sudo(app, host_id, &conn, sudo).await.map_err(|e| e.message)?;
     let o = sudo::run(&conn, &auth, cmd).await.map_err(|e| e.to_string())?;
     if o.code != 0 {
@@ -549,7 +549,7 @@ pub async fn blueprint_apply(
                 || (s.kind == BpStepKind::Caddy && s.id == "caddy:host"))
     });
     if root {
-        let conn = connect_host(&app, host_id).await?;
+        let conn = connect_posix(&app, host_id, "blueprints").await?;
         resolve_sudo(&app, host_id, &conn, again(&sudo)).await?;
     }
     let mut out = Vec::new();

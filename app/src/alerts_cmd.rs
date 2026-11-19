@@ -454,7 +454,7 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
         for id in due {
             hub.smart_last.lock().expect("poisoned").insert(id, now);
             let scan = async {
-                let conn = crate::term_cmd::connect_host(app, id).await.ok()?;
+                let conn = crate::term_cmd::connect_posix(app, id, "system.disks").await.ok()?;
                 // No input: never prompts. Hosts that need a typed password are skipped.
                 let auth = crate::system_cmd::resolve_sudo(app, id, &conn, None).await.ok()?;
                 smart::scan(&conn, &auth).await.ok()
@@ -511,7 +511,7 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
             for id in due {
                 hub.pool_last.lock().expect("poisoned").insert(id, now);
                 let scan = async {
-                    let conn = crate::term_cmd::connect_host(app, id).await.ok()?;
+                    let conn = crate::term_cmd::connect_posix(app, id, "system.disks").await.ok()?;
                     nightgrid_core::system::pools::scan(&conn).await.ok()
                 };
                 if let Ok(Some(report)) = tokio::time::timeout(Duration::from_secs(30), scan).await {
@@ -546,7 +546,7 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
                 continue;
             }
             let run = async {
-                let conn = crate::term_cmd::connect_host(app, *id).await.ok()?;
+                let conn = crate::term_cmd::connect_posix(app, *id, "fleet.backups").await.ok()?;
                 backup_jobs::check(&conn, &mine, now as f64).await.ok()
             };
             if let Ok(Some(statuses)) = tokio::time::timeout(Duration::from_secs(60), run).await {
@@ -718,7 +718,7 @@ async fn read_log_lines(
     since: i64,
     now: i64,
 ) -> Option<HashMap<String, (Vec<RawLine>, SourceCtx)>> {
-    let conn = crate::term_cmd::connect_host(app, id).await.ok()?;
+    let conn = crate::term_cmd::connect_posix(app, id, "fleet.logs").await.ok()?;
     let mut out: HashMap<String, (Vec<RawLine>, SourceCtx)> = HashMap::new();
     if let Ok((_, text, _)) = conn.exec(&logwatch::journal_command(since)).await {
         for (ident, msg) in logwatch::parse_journal(&String::from_utf8_lossy(&text)) {

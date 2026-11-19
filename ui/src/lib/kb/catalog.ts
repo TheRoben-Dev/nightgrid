@@ -85,6 +85,7 @@ export const CATALOG: CatalogEntry[] = [
   { id: "nightgrid/phone-status-page-and-snapshots", shelf: "nightgrid", title: "Phone status page and snapshots", cat: "monitoring" },
   { id: "nightgrid/ai-clients-mcp-server", shelf: "nightgrid", title: "AI clients (MCP server)", cat: "productivity" },
   { id: "nightgrid/handhelds-rog-ally-steam-deck-and-controllers", shelf: "nightgrid", title: "Handhelds (ROG Ally, Steam Deck) and controllers", cat: "hardware" },
+  { id: "nightgrid/windows-hosts", shelf: "nightgrid", title: "Windows hosts", cat: "start" },
   { id: "nightgrid/which-host-a-view-opens-on", shelf: "nightgrid", title: "Which host a view opens on", cat: "start" },
   { id: "nightgrid/features-simple-or-everything", shelf: "nightgrid", title: "Features: simple or everything", cat: "start" },
   { id: "nightgrid/look-and-feel", shelf: "nightgrid", title: "Look and feel", cat: "start" },

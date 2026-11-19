@@ -361,6 +361,16 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 
 In text fields and terminals, left and right are left to the field; up and down move focus out of it. Typing still needs a keyboard (on the Ally, the on-screen one).
 
+## Windows hosts
+Nightgrid works with Windows machines running OpenSSH Server (Windows Server 2019 and later, Windows 10/11), with nothing to install on them. It learns that a host runs Windows the first time it connects (from the server's version line) and remembers it. Commands run through Windows PowerShell 5.1, which every supported Windows has.
+
+- **Works the same as on Linux:** the terminal (cmd or PowerShell, whatever sshd is set to), Files (paths look like `/C:/Users/you`), reboot and shut down, Wake-on-LAN (also as a relay), and pushing or removing SSH keys. Keys for administrator accounts go to `C:\ProgramData\ssh\administrators_authorized_keys` with the permissions sshd requires, others to the user's `.ssh\authorized_keys`.
+- **Works with differences:** Overview and monitoring read Windows performance counters (no load average; temperatures only where the firmware reports them). Docker uses `docker.exe` on the host (Docker Engine or Docker Desktop); container shells start `sh`, so they work in Linux containers only, and Compose stacks are listed but not started or updated yet. Suspend works where Windows supports sleep (most servers and VMs don't, and Nightgrid says so). Tunnels can't forward to Unix sockets. Automation and command tiles run in the host's shell.
+- **Not yet on Windows:** System tabs (services, Event Log, Task Scheduler, firewall, Windows Update, disks, security, config drift), the Fleet checks and security posture. Each view says so in place and what the Windows version will use.
+- **Can't work on Windows:** Proxmox and Nightgrid Node (Linux only), UPS through NUT (watch the UPS from a Linux host), blueprints and starters (they write Linux stacks, timers and firewall rules), quest checks, and the terminal's key hints and `nano` hook.
+
+When a view or tab can't run on the selected Windows host, it shows why instead of an error.
+
 ## Which host a view opens on
 
 Each view remembers the host you last picked in it. A view you haven't used yet starts on the host you picked last anywhere, or else the first server. In the host editor, tick **Client, not a server** for laptops, desktops and handhelds you also manage: views never open on them by themselves. A client is expected to come and go, so when it stops answering it shows as **away**, not offline: no offline alert, and it doesn't count as down in uptime, SLA reports or the status page. Tick **Alert when it goes offline** under it if you do want to know.
@@ -394,7 +404,7 @@ Secrets are kept only in the OS keychain (or inside an encrypted backup, if you 
 ## Troubleshooting
 
 - **"needs a login"**: open a terminal on that host once so you can answer the password or host-key prompt. Background features never prompt.
-- **Windows hosts** (OpenSSH for Windows, e.g. Windows Server): the terminal and Files work; the shell is cmd or PowerShell, so the terminal's key hints and `nano`-opens-the-editor hook are left out there, and views that read Linux tools (metrics, Docker, System) have nothing to show. For key login as an administrator account, the public key goes in `C:\ProgramData\ssh\administrators_authorized_keys` (readable only by Administrators and SYSTEM), not `~\.ssh\authorized_keys`.
+- **Windows hosts** (OpenSSH for Windows, e.g. Windows Server): see [Windows hosts](#windows-hosts) for what works there. For key login as an administrator account, the public key goes in `C:\ProgramData\ssh\administrators_authorized_keys` (readable only by Administrators and SYSTEM), not `~\.ssh\authorized_keys`; Settings → SSH keys does this for you once you can log in with a password.
 - **Keychain unavailable** (Linux without GNOME Keyring or KWallet): everything still works, but "remember" options can't save.
 - **Blank window on Linux with NVIDIA**: see the README section on WebKitGTK.
 - **Logs**: the folder is shown in Settings → Diagnostics. Set `NIGHTGRID_LOG=debug` for more detail.

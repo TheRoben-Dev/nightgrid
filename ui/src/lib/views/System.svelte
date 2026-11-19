@@ -17,6 +17,8 @@
   import { hosts } from "../stores/hosts.svelte";
   import { actionVerb, system, UNIT_CONSEQUENCE, type SystemTab } from "../stores/system.svelte";
   import { ui } from "../stores/ui.svelte";
+  import { platform } from "../stores/platform.svelte";
+  import PlatformNote from "../components/PlatformNote.svelte";
   import type { PowerAction } from "../api";
 
   // Pick a host once the host list has loaded.
@@ -39,6 +41,12 @@
   ];
 
   const SUDO_WORD = { root: "ROOT", noPassword: "SUDO · NOPASSWD", password: "SUDO · PASSWORD", missing: "NO SUDO" } as const;
+  // Windows hosts: administrators act directly over SSH; others can't change system settings.
+  const ADMIN_WORD = { root: "ADMINISTRATOR", noPassword: "ADMINISTRATOR", password: "ADMINISTRATOR", missing: "NOT AN ADMINISTRATOR" } as const;
+  const sysHost = $derived(system.hostId === null ? undefined : hosts.byId(system.hostId));
+  const onWindows = $derived(platform.isWindows(sysHost));
+  // The tab's Windows note when it can't run there (planned or impossible).
+  const tabBlock = $derived(platform.blocked(sysHost, `system.${system.tab}`));
 
   const hostName = $derived(system.host?.name ?? "");
   const pending = $derived(system.pendingUnit);
@@ -86,7 +94,9 @@
       {/each}
     </div>
     {#if system.info}
-      <span class="sudo" class:warn={system.info.sudo === "missing"} title="How Nightgrid gets root on this host">{SUDO_WORD[system.info.sudo]}</span>
+      <span class="sudo" class:warn={system.info.sudo === "missing"} title={onWindows ? "Whether the login user is a Windows administrator" : "How Nightgrid gets root on this host"}
+        >{onWindows ? ADMIN_WORD[system.info.sudo] : SUDO_WORD[system.info.sudo]}</span
+      >
       {#if system.info.remembered}
         <button type="button" class="btn ghost tiny" title="Delete the saved sudo password from the OS keychain" onclick={() => system.forgetSudo()}>
           Forget sudo password
@@ -141,6 +151,8 @@
           <AuthPrompt prompt={system.prompt} canRemember={ui.keychain} onsubmit={(s, r) => system.provideSecret(s, r)} oncancel={() => system.cancelPrompt()} />
         {/if}
       </div>
+    {:else if tabBlock}
+      <PlatformNote note={tabBlock} host={hostName} />
     {:else if system.tab === "units"}
       <UnitsPanel />
     {:else if system.tab === "journal"}

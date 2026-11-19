@@ -9,14 +9,14 @@ use nightgrid_core::timeline::{EventKind, Level};
 use tauri::AppHandle;
 
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 fn other(e: impl std::fmt::Display) -> SystemError {
     SystemError::other(e)
 }
 
 async fn root_run(app: &AppHandle, host_id: HostId, sudo_in: Option<SudoInput>, script: &str) -> SysResult<String> {
-    let conn = connect_host(app, host_id).await?;
+    let conn = connect_posix(app, host_id, "proxmox").await?;
     let auth = resolve_sudo(app, host_id, &conn, sudo_in).await?;
     let o = sudo::run(&conn, &auth, &sudo::sh(script)).await?;
     // pvesh writes its errors to stderr; keep them for the parsers.

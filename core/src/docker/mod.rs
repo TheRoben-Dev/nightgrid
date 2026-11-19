@@ -134,6 +134,16 @@ impl DockerHost {
     /// Finds the daemon and picks a route: socket forwarding first, then
     /// `docker system dial-stdio` if sshd refuses forwarding.
     pub async fn connect(conn: Arc<Connection>) -> DockerResult<Self> {
+        // Windows: the engine listens on a named pipe; only the CLI can reach it.
+        if conn.is_windows() {
+            let o = crate::win::run(&conn, "if (Get-Command docker -ErrorAction SilentlyContinue) { 'cli' }")
+                .await
+                .map_err(DockerError::other)?;
+            if o.stdout.trim() != "cli" {
+                return Err(DockerError::NotInstalled);
+            }
+            return Self::with_route(conn, Route::WindowsCli).await;
+        }
         let (_, out, _) = conn.exec(PROBE).await.map_err(DockerError::other)?;
         let probe = parse_probe(&String::from_utf8_lossy(&out));
         match probe.status.as_str() {
@@ -348,6 +358,11 @@ pub fn exec_shell_command(container: &str, route: &Route) -> String {
         }
         _ => String::new(),
     };
+    if *route == Route::WindowsCli {
+        // From cmd or PowerShell: no quoting tricks. Ids are checked by
+        // `valid_container_ref` before they get here.
+        return format!("docker exec -it {container} sh");
+    }
     format!(
         "{host}docker exec -it {} sh -c 'command -v bash >/dev/null 2>&1 && exec bash || exec sh'",
         shell_quote(container)

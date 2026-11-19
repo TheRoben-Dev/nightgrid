@@ -196,6 +196,8 @@ import {
   type HostInput_Serialize as HostInput,
   type HostKeyInfo,
   type HostPing_Serialize as HostPing,
+  type Support as PlatformSupport,
+  type SupportLevel,
   type ImportResult,
   type PromptKind,
   type SshConfigCandidate_Serialize as SshConfigCandidate,
@@ -472,7 +474,7 @@ import { mockSystem } from "./mockSystem";
 /** Browser preview: what `sshAuthNotices` returns (tests fill it). */
 export const mockAuthNotices: HostAuthNotice[] = [];
 
-export type { AuthNotice, HostAuthNotice, LogEventView, LogNote };
+export type { AuthNotice, HostAuthNotice, LogEventView, LogNote, PlatformSupport, SupportLevel };
 
 export type {
   ChatTurn,
@@ -1042,6 +1044,8 @@ export const api = {
   settingsSet: (s: AppSettings): Promise<AppSettings> => (T() ? commands.settingsSet(s) : mock.settingsSet(s)),
 
   hostsList: (): Promise<Host[]> => (T() ? commands.hostsList() : mockBackend.hostsList()),
+  /** What works on Windows hosts (the browser preview has no Windows hosts). */
+  platformWindowsSupport: (): Promise<PlatformSupport[]> => (T() ? commands.platformWindowsSupport() : Promise.resolve([])),
   hostCreate: (i: HostInput): Promise<Host> => (T() ? commands.hostCreate(i) : mockBackend.hostCreate(i)),
   hostUpdate: (id: number, i: HostInput): Promise<Host> =>
     T() ? commands.hostUpdate(id, i) : mockBackend.hostUpdate(id, i),

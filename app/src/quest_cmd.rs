@@ -17,7 +17,8 @@ pub async fn quest_check(app: AppHandle, host_id: HostId, checks: Vec<String>) -
     if planned.is_empty() {
         return Ok(bad);
     }
-    let conn = crate::term_cmd::connect_host(&app, host_id).await.map_err(|e| CommandError::msg(e.to_string()))?;
+    let conn =
+        crate::term_cmd::connect_posix(&app, host_id, "quests").await.map_err(|e| CommandError::msg(e.to_string()))?;
     let run = tokio::time::timeout(Duration::from_secs(25), conn.exec(&quest::script(&planned))).await;
     let out = match run {
         Ok(Ok((_, out, _))) => String::from_utf8_lossy(&out).into_owned(),

@@ -524,7 +524,9 @@ pub async fn helper_host_history(
     if !allowed {
         return Err(CommandError::msg("reading shell history is off for this host"));
     }
-    let conn = crate::term_cmd::connect_host(&app, host_id).await.map_err(|e| CommandError::msg(e.to_string()))?;
+    let conn = crate::term_cmd::connect_posix(&app, host_id, "drift.history")
+        .await
+        .map_err(|e| CommandError::msg(e.to_string()))?;
     let (_, out, _) = tokio::time::timeout(Duration::from_secs(10), conn.exec(&history::read_command()))
         .await
         .map_err(|_| CommandError::msg("the host took too long to answer"))?

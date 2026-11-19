@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::state::AppState;
 use crate::system_cmd::SysResult;
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(90);
 
@@ -28,7 +28,7 @@ fn stack_dirs(app: &AppHandle, id: HostId) -> Vec<String> {
 }
 
 async fn run(app: &AppHandle, id: HostId, cmd: &str) -> SysResult<Vec<u8>> {
-    let conn = connect_host(app, id).await?;
+    let conn = connect_posix(app, id, "system.config").await?;
     let (code, out, err) = tokio::time::timeout(TIMEOUT, conn.exec(cmd))
         .await
         .map_err(|_| SystemError::other(format!("{} took too long to answer", host_name(app, id))))?

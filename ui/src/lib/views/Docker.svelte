@@ -15,9 +15,16 @@
   import { layout } from "../stores/layout.svelte";
   import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
+  import { platform } from "../stores/platform.svelte";
+  import PlatformNote from "../components/PlatformNote.svelte";
   import { targetLabel, targetUrl, webui } from "../stores/webui.svelte";
 
   onMount(() => docker.start());
+
+  // Windows hosts: what works through docker.exe (stacks list but can't run compose yet).
+  const winNote = $derived(
+    platform.note(docker.hostId === null ? undefined : hosts.byId(docker.hostId), docker.tab === "stacks" ? "docker.compose" : "docker"),
+  );
 
   // Pick a host once the host list has loaded.
   $effect(() => {
@@ -154,6 +161,8 @@
       {docker.loading ? "…" : "Refresh"}
     </button>
   </div>
+
+  {#if winNote}<PlatformNote note={winNote.level === "planned" ? { ...winNote, level: "partial" } : winNote} />{/if}
 
   {#if sel.length && docker.tab === "containers"}
     <div class="selbar" role="toolbar" aria-label="Selected containers">

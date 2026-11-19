@@ -27,7 +27,7 @@ static AUTO_RUNNING: AtomicBool = AtomicBool::new(false);
 
 async fn read(app: &AppHandle, host_id: HostId) -> PostureRun {
     let now = now_unix();
-    let conn = match crate::term_cmd::connect_host(app, host_id).await {
+    let conn = match crate::term_cmd::connect_posix(app, host_id, "security.posture").await {
         Ok(c) => c,
         Err(e) => return posture::failed(host_id, now, e.to_string()),
     };
@@ -111,8 +111,21 @@ pub(crate) fn due(app: &AppHandle, cfg: &AppSettings, connected: &[HostId], now:
         return;
     }
     let last = app.state::<AppState>().store().posture_last_at().unwrap_or_default();
-    let ids: Vec<HostId> =
-        connected.iter().copied().filter(|h| !last.iter().any(|(id, at)| id == h && now - at < DAILY)).collect();
+    // Windows hosts aren't scored yet (win::support "security.posture").
+    let windows: Vec<HostId> = app
+        .state::<AppState>()
+        .store()
+        .list_hosts()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|h| h.is_windows())
+        .map(|h| h.id)
+        .collect();
+    let ids: Vec<HostId> = connected
+        .iter()
+        .copied()
+        .filter(|h| !windows.contains(h) && !last.iter().any(|(id, at)| id == h && now - at < DAILY))
+        .collect();
     if ids.is_empty() || AUTO_RUNNING.swap(true, Ordering::SeqCst) {
         return;
     }

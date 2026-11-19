@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { platform } from "./lib/stores/platform.svelte";
   import { onMount } from "svelte";
   import { api, inTauri, type AppInfo } from "./lib/api";
   import { listen } from "@tauri-apps/api/event";
@@ -85,6 +86,7 @@
     settings.load().then(() => {
       booted = true;
       metrics.start();
+      platform.start();
       alerts.start();
       updates.startLaunchCheck();
       void kbContent.start();

@@ -80,6 +80,9 @@ pub async fn timeline_get(app: AppHandle, host_id: HostId, days: u32) -> SysResu
     let mut read = Vec::new();
     match connect_host(&app, host_id).await {
         Err(e) => notes.push(format!("Only what Nightgrid recorded: the host didn't answer ({e}).")),
+        Ok(conn) if conn.is_windows() => notes.push(
+            "Only what Nightgrid recorded: reading a Windows host's own event logs here isn't available yet.".into(),
+        ),
         Ok(conn) => {
             match conn.exec(&timeline::host_script(since)).await {
                 Ok((_, out, _)) => {

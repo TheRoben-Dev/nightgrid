@@ -243,9 +243,18 @@ impl DeployInput {
 }
 
 impl DockerHost {
+    /// Compose operations run through a POSIX shell on the host.
+    fn posix_compose(&self) -> DockerResult<()> {
+        match (&self.route, crate::win::support::unavailable("docker.compose")) {
+            (Route::WindowsCli, Some(message)) => Err(DockerError::Other { message }),
+            _ => Ok(()),
+        }
+    }
+
     /// Validates a stack's compose file on the host (`docker compose config -q`).
     /// Returns compose's complaint on failure.
     pub async fn validate_stack(&self, stack: &Stack) -> DockerResult<Result<(), String>> {
+        self.posix_compose()?;
         check_stack(stack)?;
         let (code, out, _) =
             self.conn.exec(&compose_shell(stack, "config -q", &self.route)).await.map_err(DockerError::other)?;
@@ -261,7 +270,8 @@ impl DockerHost {
     /// Stacks from container labels plus compose files in `dirs`.
     pub async fn stacks(&self, dirs: &[String]) -> DockerResult<Vec<Stack>> {
         let containers = self.containers().await?;
-        let found = if dirs.is_empty() {
+        // Windows: stacks show from their containers' labels; folders aren't scanned.
+        let found = if dirs.is_empty() || self.route == Route::WindowsCli {
             Vec::new()
         } else {
             let (_, out, _) = self.conn.exec(&scan_command(dirs)).await.map_err(DockerError::other)?;
@@ -297,6 +307,7 @@ impl DockerHost {
         mut cancel: watch::Receiver<bool>,
         sink: &mut (dyn FnMut(Vec<String>) + Send),
     ) -> DockerResult<(i32, Option<Vec<ImageChange>>)> {
+        self.posix_compose()?;
         check_stack(stack)?;
         let before = if op == ComposeOp::Update { Some(self.service_images(&stack.name).await?) } else { None };
         let code = self.run_streaming(&compose_command(stack, op, &self.route), &mut cancel, sink).await?;

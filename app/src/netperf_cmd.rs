@@ -13,7 +13,7 @@ use tauri::{AppHandle, Manager, State};
 use crate::commands::CmdResult;
 use crate::state::AppState;
 use crate::system_cmd::SysResult;
-use crate::term_cmd::connect_host;
+use crate::term_cmd::{connect_host, connect_posix};
 
 fn other(e: impl std::fmt::Display) -> SystemError {
     SystemError::other(e)
@@ -54,7 +54,7 @@ pub async fn net_test_run(
         return Err(other(format!("{target:?} isn't a host name or IP address")).into());
     }
     let secs = secs.clamp(2, 30);
-    let server = connect_host(&app, to_host).await?;
+    let server = connect_posix(&app, to_host, "fleet.speed").await?;
     let client = connect_host(&app, from_host).await?;
     let (_, out, err) = tokio::time::timeout(Duration::from_secs(20), server.exec(&netperf::server_script(PORT)))
         .await

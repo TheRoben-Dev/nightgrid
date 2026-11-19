@@ -33,7 +33,7 @@ use tokio::sync::watch;
 
 use crate::commands::CmdResult;
 use crate::state::AppState;
-use crate::term_cmd::connect_host;
+use crate::term_cmd::{connect_host, connect_posix};
 
 /// A message plus the structured cause, so the UI can show an SSH prompt,
 /// the sudo prompt or an install hint.
@@ -158,7 +158,17 @@ pub struct SystemInfo {
 #[specta::specta]
 pub async fn system_info(app: AppHandle, host_id: HostId) -> SysResult<SystemInfo> {
     let conn = connect_host(&app, host_id).await?;
-    let sudo = sudo::probe(&conn).await?;
+    let sudo = if conn.is_windows() {
+        // Windows: administrators act directly over SSH (Root), others can't.
+        let o = nightgrid_core::win::run(&conn, nightgrid_core::win::IS_ADMIN).await.map_err(SystemError::other)?;
+        if o.stdout.trim() == "True" {
+            SudoState::Root
+        } else {
+            SudoState::Missing
+        }
+    } else {
+        sudo::probe(&conn).await?
+    };
     let state = app.state::<AppState>();
     let remembered = matches!(state.keychain.get(&sudo_ref(host_id)), Ok(Some(_)));
     Ok(SystemInfo { sudo, remembered })
@@ -175,7 +185,7 @@ pub fn system_sudo_forget(state: State<'_, AppState>, host_id: HostId) -> CmdRes
 #[tauri::command]
 #[specta::specta]
 pub async fn system_units(app: AppHandle, host_id: HostId) -> SysResult<Vec<Unit>> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.units").await?;
     Ok(systemd::list(&conn).await?)
 }
 
@@ -183,7 +193,7 @@ pub async fn system_units(app: AppHandle, host_id: HostId) -> SysResult<Vec<Unit
 #[tauri::command]
 #[specta::specta]
 pub async fn system_security(app: AppHandle, host_id: HostId) -> SysResult<SecurityReport> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.security").await?;
     Ok(security::audit(&conn).await?)
 }
 
@@ -229,7 +239,7 @@ pub async fn netmap_discover(
     sweep: bool,
     ranges: Vec<String>,
 ) -> SysResult<nightgrid_core::netmap::Discovery> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "network.scan").await?;
     tracing::info!(host = %host_id, sweep, ranges = ranges.len(), "network discovery");
     let d = nightgrid_core::netmap::discover(&conn, sweep, &ranges).await.map_err(SystemError::other)?;
     Ok(with_inventory(&app, &host_id.to_string(), d))
@@ -327,7 +337,7 @@ pub async fn net_tool(
     tracing::info!(tool = ?req.tool, host = ?host_id, "network tool");
     let r = match host_id {
         Some(id) => {
-            let conn = connect_host(&app, id).await?;
+            let conn = connect_posix(&app, id, "nettools").await?;
             nightgrid_core::nettools::run(&conn, &req).await
         }
         None => nightgrid_core::nettools::run_local(&req).await,
@@ -349,7 +359,7 @@ pub async fn netmap_security(
     tracing::info!(host = ?host_id, devices = ips.len(), "network security check");
     let r = match host_id {
         Some(id) => {
-            let conn = connect_host(&app, id).await?;
+            let conn = connect_posix(&app, id, "network.scan").await?;
             nightgrid_core::netsec::web_check(&conn, &ips).await
         }
         None => nightgrid_core::netsec::web_check_local(&ips).await,
@@ -373,18 +383,30 @@ pub async fn net_wake(app: AppHandle, host_id: Option<HostId>, mac: String) -> S
     match host_id {
         Some(id) => {
             let conn = connect_host(&app, id).await?;
-            let (code, _, err) =
-                tokio::time::timeout(std::time::Duration::from_secs(10), conn.exec(&power::wake_relay_command(&m)))
-                    .await
-                    .map_err(|_| SystemError::other("the host took too long to answer"))?
-                    .map_err(SystemError::other)?;
-            if code != 0 {
-                return Err(SystemError::other(String::from_utf8_lossy(&err).trim().to_owned()).into());
-            }
+            relay_wake(&conn, &m).await.map_err(SystemError::other)?;
         }
         None => power::wake_local(&m, None).await.map_err(SystemError::other)?,
     }
     Ok(power::format_mac(&m))
+}
+
+/// Sends a magic packet from a relay host (sh, or PowerShell on Windows).
+async fn relay_wake(conn: &Connection, mac: &[u8; 6]) -> Result<(), String> {
+    let t = std::time::Duration::from_secs(10);
+    if conn.is_windows() {
+        let o = tokio::time::timeout(t, nightgrid_core::win::run(conn, &power::wake_relay_windows(mac)))
+            .await
+            .map_err(|_| "the host took too long to answer".to_owned())??;
+        return if o.code == 0 { Ok(()) } else { Err(o.error_text()) };
+    }
+    let (code, _, err) = tokio::time::timeout(t, conn.exec(&power::wake_relay_command(mac)))
+        .await
+        .map_err(|_| "the host took too long to answer".to_owned())?
+        .map_err(|e| e.to_string())?;
+    if code != 0 {
+        return Err(String::from_utf8_lossy(&err).trim().to_owned());
+    }
+    Ok(())
 }
 
 /// The network map as the user arranged it: positions, hand-set parents
@@ -418,7 +440,7 @@ pub async fn system_history_search(app: AppHandle, host_id: HostId, query: Strin
     if !enabled {
         return Err(SystemError::other("History search is off. Turn it on in Settings → Terminal.").into());
     }
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "drift.history").await?;
     Ok(history::search(&conn, &query).await?)
 }
 
@@ -426,14 +448,14 @@ pub async fn system_history_search(app: AppHandle, host_id: HostId, query: Strin
 #[tauri::command]
 #[specta::specta]
 pub async fn system_schedules(app: AppHandle, host_id: HostId) -> SysResult<Schedules> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.schedules").await?;
     Ok(schedule::scan(&conn).await?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn system_unit_status(app: AppHandle, host_id: HostId, unit: String) -> SysResult<String> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.units").await?;
     Ok(systemd::status(&conn, &unit).await?)
 }
 
@@ -451,7 +473,7 @@ pub async fn system_unit_action(
     if !systemd::valid_unit(&unit) {
         return Err(SystemError::other(format!("invalid unit name: {unit:?}")).into());
     }
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.units").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     tracing::info!(host = %host_id, unit = %unit, action = action.verb(), "unit action");
     let r = systemd::act(&conn, &auth, &unit, action).await;
@@ -504,7 +526,7 @@ pub async fn system_journal_start(
     on_event: Channel<JournalEvent>,
 ) -> SysResult<SystemRunId> {
     let cmd = journal::command(&query)?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.journal").await?;
     let auth = if elevated { resolve_sudo(&app, host_id, &conn, sudo).await? } else { SudoAuth::User };
     let id = state.next_term_id();
     let cancel = state.system_runs.add(id);
@@ -579,7 +601,7 @@ pub fn system_stream_stop(state: State<'_, AppState>, run: SystemRunId) -> CmdRe
 #[tauri::command]
 #[specta::specta]
 pub async fn system_updates(app: AppHandle, host_id: HostId) -> SysResult<UpdatesReport> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.updates").await?;
     Ok(packages::check(&conn).await?)
 }
 
@@ -606,7 +628,7 @@ pub async fn system_upgrade_run(
     on_event: Channel<RunEvent>,
 ) -> SysResult<SystemRunId> {
     let cmd = packages::upgrade_command(manager, op)?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.updates").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     tracing::info!(host = %host_id, manager = manager.label(), op = ?op, "package run");
     let id = state.next_term_id();
@@ -673,8 +695,11 @@ pub async fn system_power(
     sudo: Option<SudoInput>,
 ) -> SysResult<()> {
     let conn = connect_host(&app, host_id).await?;
-    let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
-    tracing::info!(host = %host_id, ?action, "power action");
+    let windows = conn.is_windows();
+    // Windows: the login user acts directly (OpenSSH gives administrators
+    // their full rights); there's no sudo to resolve.
+    let auth = if windows { SudoAuth::User } else { resolve_sudo(&app, host_id, &conn, sudo).await? };
+    tracing::info!(host = %host_id, ?action, windows, "power action");
     let now =
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0);
     // Noted first: the host may stop answering before the command returns.
@@ -688,6 +713,22 @@ pub async fn system_power(
         "",
     );
     // The connection usually drops before an answer comes back.
+    if windows {
+        let r = tokio::time::timeout(
+            std::time::Duration::from_secs(8),
+            nightgrid_core::win::run(&conn, action.windows_script()),
+        )
+        .await;
+        if let Ok(Ok(o)) = &r {
+            if o.code != 0 {
+                power::clear(host_id);
+                return Err(SystemError::other(format!("{} failed: {}", action.verb(), o.error_text())).into());
+            }
+        }
+        let state = app.state::<AppState>();
+        state.pool.disconnect(host_id).await;
+        return Ok(());
+    }
     let r = tokio::time::timeout(std::time::Duration::from_secs(5), sudo::run(&conn, &auth, action.command())).await;
     if let Ok(Ok(o)) = &r {
         if o.code != 0 && !o.stderr.is_empty() {
@@ -745,15 +786,7 @@ pub async fn host_wake(app: AppHandle, host_id: HostId) -> SysResult<WakeSent> {
     match relay {
         Some(r) => {
             let conn = connect_host(&app, r.id).await?;
-            let (code, _, err) =
-                tokio::time::timeout(std::time::Duration::from_secs(10), conn.exec(&power::wake_relay_command(&mac)))
-                    .await
-                    .map_err(|_| SystemError::other(format!("{} took too long to answer", r.name)))?
-                    .map_err(SystemError::other)?;
-            if code != 0 {
-                let e = String::from_utf8_lossy(&err);
-                return Err(SystemError::other(format!("{}: {}", r.name, e.trim())).into());
-            }
+            relay_wake(&conn, &mac).await.map_err(|e| SystemError::other(format!("{}: {e}", r.name)))?;
             crate::timeline_cmd::record(
                 &app,
                 host_id,
@@ -806,7 +839,7 @@ fn host_and_relay(
 }
 
 async fn list_schedules(app: &AppHandle, id: HostId) -> SysResult<Vec<InstalledSchedule>> {
-    let conn = connect_host(app, id).await?;
+    let conn = connect_posix(app, id, "power.schedules").await?;
     let (_, out, _) = tokio::time::timeout(std::time::Duration::from_secs(15), conn.exec(power_schedule::LIST_COMMAND))
         .await
         .map_err(|_| SystemError::other("the host took too long to answer"))?
@@ -865,7 +898,7 @@ pub async fn power_schedule_set(
     };
     let spec = spec.normalized().map_err(SystemError::other)?;
     let cmd = power_schedule::install_command(&spec).map_err(SystemError::other)?;
-    let conn = connect_host(&app, target.id).await?;
+    let conn = connect_posix(&app, target.id, "power.schedules").await?;
     let auth = resolve_sudo(&app, target.id, &conn, sudo).await?;
     tracing::info!(host = %target.id, unit = %spec.unit(), "install power schedule");
     let o = sudo::run(&conn, &auth, &cmd).await?;
@@ -895,7 +928,7 @@ pub async fn power_schedule_remove(
     sudo: Option<SudoInput>,
 ) -> SysResult<()> {
     let cmd = power_schedule::remove_command(&unit).map_err(SystemError::other)?;
-    let conn = connect_host(&app, on_host_id).await?;
+    let conn = connect_posix(&app, on_host_id, "power.schedules").await?;
     let auth = resolve_sudo(&app, on_host_id, &conn, sudo).await?;
     tracing::info!(host = %on_host_id, %unit, "remove power schedule");
     let o = sudo::run(&conn, &auth, &cmd).await?;
@@ -909,7 +942,7 @@ pub async fn power_schedule_remove(
 #[tauri::command]
 #[specta::specta]
 pub async fn system_disks(app: AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<DisksReport> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.disks").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     Ok(smart::scan(&conn, &auth).await?)
 }
@@ -918,7 +951,7 @@ pub async fn system_disks(app: AppHandle, host_id: HostId, sudo: Option<SudoInpu
 #[tauri::command]
 #[specta::specta]
 pub async fn system_pools(app: AppHandle, host_id: HostId) -> SysResult<nightgrid_core::system::pools::PoolsReport> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.disks").await?;
     Ok(nightgrid_core::system::pools::scan(&conn).await?)
 }
 
@@ -945,7 +978,7 @@ pub async fn system_vms(
     elevate: bool,
     sudo: Option<SudoInput>,
 ) -> SysResult<VmReport> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.vms").await?;
     let auth = if elevate { resolve_sudo(&app, host_id, &conn, sudo).await? } else { SudoAuth::User };
     Ok(vms::scan(&conn, &auth).await?)
 }
@@ -966,7 +999,7 @@ pub async fn system_vm_action(
     if !vms::valid_id(kind, &id) {
         return Err(SystemError::other(format!("invalid guest id {id:?}")).into());
     }
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.vms").await?;
     let auth = if elevate { resolve_sudo(&app, host_id, &conn, sudo).await? } else { SudoAuth::User };
     tracing::info!(host = %host_id, guest = %id, ?kind, ?action, "vm action");
     Ok(vms::act(&conn, &auth, kind, &id, action).await?)

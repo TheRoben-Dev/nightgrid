@@ -26,7 +26,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::commands::{CmdResult, CommandError};
 use crate::state::AppState;
-use crate::term_cmd::connect_host;
+use crate::term_cmd::{connect_host, connect_posix};
 
 /// Docker command error: a message plus the structured cause, so the UI can
 /// show a host-key / password prompt or the docker-group hint.
@@ -514,7 +514,7 @@ pub async fn docker_image_lookup(app: AppHandle, host_id: HostId, image: String)
 pub async fn docker_stack_deploy(app: AppHandle, host_id: HostId, input: DeployInput) -> DockerResult<Stack> {
     let stack = input.stack()?;
     let d = docker_for(&app, host_id).await?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "docker.compose").await?;
     let fs = Fs::Remote(
         app.state::<AppState>().sftp.get(host_id, conn).await.map_err(|e| DockerCmdError::msg(e.to_string()))?,
     );

@@ -17,7 +17,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::state::AppState;
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
-use crate::term_cmd::{connect_host, resolve_host};
+use crate::term_cmd::{connect_posix, resolve_host};
 
 /// A change waiting for Keep. The sudo auth is held in memory only until
 /// then, so keeping or undoing works even if sudo would prompt again.
@@ -90,7 +90,7 @@ fn pending_of(hub: &FirewallHub, host_id: HostId) -> Option<PendingChange> {
 #[specta::specta]
 pub async fn firewall_read(app: AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<FirewallView> {
     let (_, port) = ssh_port(&app, host_id)?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.firewall").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     let o = sudo::run(&conn, &auth, firewall::READ_COMMAND).await?;
     let report = firewall::parse_read(&o.stdout);
@@ -158,7 +158,7 @@ pub async fn firewall_apply(
     if pending_of(&hub, host_id).is_some() {
         return Err(SystemError::other("keep or undo the last change first").into());
     }
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "system.firewall").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     let token = now().to_string();
     let secs = secs.clamp(30, 900);
@@ -226,7 +226,7 @@ async fn finish(app: &AppHandle, host_id: HostId, token: &str, keep: bool) -> Sy
     };
     let cmd = if keep { firewall::confirm_command(token) } else { firewall::rollback_command(token) }
         .map_err(SystemError::other)?;
-    let conn = connect_host(app, host_id).await?;
+    let conn = connect_posix(app, host_id, "system.firewall").await?;
     let o = sudo::run(&conn, &auth, &cmd).await?;
     let ok = if keep { o.stdout.contains("kept") } else { o.stdout.contains("restored") };
     if !ok {
