@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use super::client::{Auth, Target};
+use super::client::{default_identity_files, Auth, Target};
 use crate::hosts::{AuthMethod, Host, HostId};
 use crate::secrets::{Secret, SecretKind};
 use crate::store::Store;
@@ -63,17 +63,27 @@ fn label(user: &str, host: &str, port: u16) -> String {
     }
 }
 
+fn defaults(home: Option<&Path>) -> Vec<PathBuf> {
+    home.map(default_identity_files).unwrap_or_default()
+}
+
 fn hop_for_host(h: &Host, home: Option<&Path>, secrets: &SecretLookup<'_>) -> Hop {
     let user = h.username.clone().unwrap_or_else(local_username);
     let lbl = label(&user, &h.hostname, h.port);
     let identity = h.identity_file.as_deref().map(|p| expand_home(p, home));
+    // Asked for when keys fail and the server takes passwords (any method).
+    let password = || secrets(Some(h.id), SecretKind::HostPassword, &lbl);
     let auth = match h.auth_method {
-        AuthMethod::Agent => {
-            Auth::Agent { identity_file: identity, passphrase: secrets(Some(h.id), SecretKind::KeyPassphrase, &lbl) }
-        }
+        AuthMethod::Agent => Auth::Agent {
+            default_keys: if identity.is_none() { defaults(home) } else { Vec::new() },
+            identity_file: identity,
+            passphrase: secrets(Some(h.id), SecretKind::KeyPassphrase, &lbl),
+            password: password(),
+        },
         AuthMethod::Key => Auth::Key {
             path: identity.unwrap_or_default(),
             passphrase: secrets(Some(h.id), SecretKind::KeyPassphrase, &lbl),
+            password: password(),
         },
         AuthMethod::Password => Auth::Password { password: secrets(Some(h.id), SecretKind::HostPassword, &lbl) },
     };
@@ -110,6 +120,8 @@ pub fn resolve(store: &Store, id: HostId, home: Option<&Path>, secrets: &SecretL
                         auth: Auth::Agent {
                             identity_file: None,
                             passphrase: secrets(None, SecretKind::KeyPassphrase, &lbl),
+                            default_keys: defaults(home),
+                            password: secrets(None, SecretKind::HostPassword, &lbl),
                         },
                     },
                 });

@@ -133,12 +133,26 @@ struct Running {
 }
 
 async fn start(host_key: PrivateKey, allowed_key: Option<PublicKey>, port: u16) -> Running {
+    start_as(host_key, allowed_key, port, None).await
+}
+
+/// `start`, announcing `server_id` (e.g. OpenSSH for Windows' version line).
+async fn start_as(
+    host_key: PrivateKey,
+    allowed_key: Option<PublicKey>,
+    port: u16,
+    server_id: Option<&'static str>,
+) -> Running {
     let listener = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
     let port = listener.local_addr().unwrap().port();
     let config = Arc::new(server::Config {
         keys: vec![host_key],
         auth_rejection_time: Duration::from_millis(10),
         auth_rejection_time_initial: Some(Duration::from_millis(0)),
+        server_id: match server_id {
+            Some(id) => russh::SshId::Standard(id.into()),
+            None => server::Config::default().server_id,
+        },
         ..Default::default()
     });
     let (tx, rx) = tokio::sync::oneshot::channel();
@@ -249,7 +263,7 @@ async fn encrypted_key_file_needs_passphrase() {
         host: "127.0.0.1".into(),
         port: srv.port,
         user: USER.into(),
-        auth: Auth::Key { path: path.clone(), passphrase: pass.map(|p| Arc::new(Secret::new(p))) },
+        auth: Auth::Key { path: path.clone(), passphrase: pass.map(|p| Arc::new(Secret::new(p))), password: None },
     };
     let e = connect(&key_target(None), &[], &o).await.err().unwrap();
     assert!(matches!(e, ConnectError::PassphraseRequired { retry: false, .. }), "{e:?}");
@@ -392,10 +406,75 @@ async fn agent_auth_with_openssh_agent() {
         host: "127.0.0.1".into(),
         port: srv.port,
         user: USER.into(),
-        auth: Auth::Agent { identity_file: None, passphrase: None },
+        auth: Auth::Agent { identity_file: None, passphrase: None, default_keys: Vec::new(), password: None },
     };
     let conn = connect_trusting(&t, &[], &o).await;
     assert_eq!(conn.exec("whoami").await.unwrap().0, 0);
     let _ = agent.kill();
     let _ = agent.wait();
+}
+
+/// A host on the default "agent" auth with no agent running (Windows' usual
+/// state) and no key file set: the default `~/.ssh/id_*` keys are tried, then
+/// the password is asked for, like OpenSSH. Before, this failed outright with
+/// the agent's error and never offered a password.
+#[tokio::test]
+async fn agent_auth_without_agent_falls_back_to_keys_then_password() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut o = opts(&dir);
+    o.agent_path = Some(dir.path().join("no-agent.sock"));
+    let good = new_key();
+    let write_key = |name: &str, k: &PrivateKey| {
+        let p = dir.path().join(name);
+        std::fs::write(&p, k.to_openssh(russh::keys::ssh_key::LineEnding::LF).unwrap().as_bytes()).unwrap();
+        p
+    };
+    let stranger = write_key("id_ed25519", &new_key());
+    let accepted = write_key("id_rsa", &good);
+    let srv = start_as(new_key(), Some(good.public_key().clone()), 0, Some("SSH-2.0-OpenSSH_for_Windows_9.5")).await;
+    connect_trusting(&pw_target(srv.port, Some(PASSWORD)), &[], &o).await;
+
+    let target = |keys: Vec<std::path::PathBuf>, pw: Option<&str>| Target {
+        host: "127.0.0.1".into(),
+        port: srv.port,
+        user: USER.into(),
+        auth: Auth::Agent {
+            identity_file: None,
+            passphrase: None,
+            default_keys: keys,
+            password: pw.map(|p| Arc::new(Secret::new(p))),
+        },
+    };
+    // A default key the server knows.
+    let conn = connect(&target(vec![stranger.clone(), accepted], None), &[], &o).await.unwrap();
+    assert!(conn.is_windows(), "server id: {}", conn.server_id);
+    // No key it knows: ask for the password, then use it.
+    let e = connect(&target(vec![stranger.clone()], None), &[], &o).await.err().unwrap();
+    assert!(matches!(e, ConnectError::PasswordRequired { retry: false, .. }), "{e:?}");
+    let e = connect(&target(vec![stranger.clone()], Some("wrong")), &[], &o).await.err().unwrap();
+    assert!(matches!(e, ConnectError::PasswordRequired { retry: true, .. }), "{e:?}");
+    let conn = connect(&target(Vec::new(), Some(PASSWORD)), &[], &o).await.unwrap();
+    assert_eq!(conn.exec("id").await.unwrap().0, 0);
+}
+
+/// A rejected key file falls back to the password when the server takes one.
+#[tokio::test]
+async fn rejected_key_falls_back_to_password() {
+    let dir = tempfile::tempdir().unwrap();
+    let o = opts(&dir);
+    let path = dir.path().join("id_other");
+    std::fs::write(&path, new_key().to_openssh(russh::keys::ssh_key::LineEnding::LF).unwrap().as_bytes()).unwrap();
+    let srv = start(new_key(), None, 0).await;
+    connect_trusting(&pw_target(srv.port, Some(PASSWORD)), &[], &o).await;
+    let target = |pw: Option<&str>| Target {
+        host: "127.0.0.1".into(),
+        port: srv.port,
+        user: USER.into(),
+        auth: Auth::Key { path: path.clone(), passphrase: None, password: pw.map(|p| Arc::new(Secret::new(p))) },
+    };
+    let e = connect(&target(None), &[], &o).await.err().unwrap();
+    assert!(matches!(e, ConnectError::PasswordRequired { retry: false, .. }), "{e:?}");
+    let conn = connect(&target(Some(PASSWORD)), &[], &o).await.unwrap();
+    assert!(!conn.is_windows(), "server id: {}", conn.server_id);
+    assert!(conn.server_id.starts_with("SSH-2.0-"), "{}", conn.server_id);
 }

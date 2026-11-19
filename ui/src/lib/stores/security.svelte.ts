@@ -1,5 +1,6 @@
 /** The Security view (1.1): which tab is open and the posture data. */
 import { api, errorText, type KeyHost, type ManualSecret, type PostureHost, type PostureRun, type SecretItem } from "../api";
+import { nav } from "./nav.svelte";
 
 export type SecurityTab = "posture" | "secrets";
 
@@ -99,3 +100,6 @@ class SecurityStore {
 }
 
 export const security = new SecurityStore();
+
+// Back/forward history (D-186): the tab is a step.
+nav.track("security", "tab", () => security.tab, (v) => (security.tab = v as SecurityTab));

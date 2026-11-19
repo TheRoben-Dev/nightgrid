@@ -34,6 +34,7 @@ mod logging;
 mod logsearch_cmd;
 mod mcp_cmd;
 mod metrics_cmd;
+mod mousenav;
 mod netperf_cmd;
 mod netwatch_cmd;
 mod node_cmd;
@@ -235,6 +236,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         integrations_cmd::integration_test,
         integrations_cmd::amp_instance_action,
         integrations_cmd::dns_filter_action,
+        integrations_cmd::integration_action,
         envvault_cmd::env_vars_list,
         envvault_cmd::env_stacks,
         envvault_cmd::env_var_set,
@@ -560,6 +562,7 @@ pub fn run() {
             status_cmd::apply(app.handle());
             mcp_cmd::apply(app.handle());
             tailnet_cmd::start_if_enabled(app.handle());
+            mousenav::install(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {

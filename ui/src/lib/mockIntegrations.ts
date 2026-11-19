@@ -4,6 +4,7 @@
  */
 import type {
   AmpAction,
+  AppStatus_Serialize as AppStatus,
   DnsAction_Deserialize as DnsAction,
   DnsStatus_Serialize as DnsStatus,
   IntegrationInput_Deserialize as IntegrationInput,
@@ -40,6 +41,11 @@ add({ kind: "plex", name: "Plex", baseUrl: "http://server01:32400" }, "token");
 add({ kind: "amp", name: "Game servers", baseUrl: "http://server01:8080", username: "admin" }, "pw");
 add({ kind: "kuma", name: "Uptime Kuma", baseUrl: "http://server02:3001", slug: "home" });
 add({ kind: "pihole", name: "Pi-hole", baseUrl: "http://192.168.1.2" }, "pw");
+add({ kind: "jellyfin", name: "Jellyfin", baseUrl: "http://server01:8096" }, "key");
+add({ kind: "sonarr", name: "Sonarr", baseUrl: "http://server01:8989" }, "key");
+add({ kind: "overseerr", name: "Requests", baseUrl: "http://server01:5055" }, "key");
+add({ kind: "qbittorrent", name: "qBittorrent", baseUrl: "http://server01:8080", username: "admin" }, "pw");
+add({ kind: "syncthing", name: "Syncthing", baseUrl: "http://server01:8384" }, "key");
 
 const now = () => Date.now() / 1000;
 const dns: DnsStatus & { pausedUntil: number | null } = {
@@ -82,6 +88,107 @@ const amp = [
   { name: "Valheim01", friendlyName: "Valheim", module: "Generic", running: false, state: "stopped", users: null, maxUsers: null, cpuPercent: null, memoryMb: null },
 ];
 
+const act = (id: string, label: string, confirm: string | null = null) => ({ id, label, confirm });
+let pending = [
+  { id: "7", title: "A Film (2019)", meta: "Movie · 4K · by alice" },
+  { id: "8", title: "Example Show (2021)", meta: "Series · 2 seasons · by bob" },
+];
+let queue = [
+  { id: "101", title: "Example Show · S02E05 · The Fifth One", meta: "downloading · 1.0 GB · 12m 30s left", state: "active" as const, progress: 75 },
+  { id: "102", title: "Example Show · S02E06 · Six", meta: "importPending · 1.0 GB · No files found are eligible for import", state: "warn" as const, progress: 100 },
+];
+
+function appStatus(kind: string): AppStatus {
+  const base = { version: null, health: "ok" as const, tiles: [], rowsTitle: "", rows: [], more: 0, notes: [], actions: [] };
+  switch (kind) {
+    case "jellyfin":
+    case "emby":
+      return {
+        ...base,
+        version: "10.10.7",
+        summary: "2 streams · 1 transcoding",
+        tiles: [
+          { label: "Streams", value: "2" },
+          { label: "Transcoding", value: "1" },
+          { label: "Movies", value: "412" },
+          { label: "Series", value: "37" },
+        ],
+        rowsTitle: "Now playing",
+        rows: [
+          { id: "s1", title: "Example Show · S2E5 · The Fifth One", meta: "alice · Living Room TV · TRANSCODE", state: "active", progress: 25, actions: [] },
+          { id: "s2", title: "A Film (2019)", meta: "bob · Web · DirectPlay", state: "idle", progress: 61, actions: [] },
+        ],
+        actions: [act("scan", "Scan libraries")],
+      };
+    case "overseerr":
+    case "jellyseerr":
+      return {
+        ...base,
+        version: "1.33.2",
+        summary: `${pending.length} pending · 30 available`,
+        tiles: [
+          { label: "Pending", value: String(pending.length) },
+          { label: "Processing", value: "3" },
+          { label: "Available", value: "30" },
+          { label: "Total", value: "40" },
+        ],
+        rowsTitle: "Pending requests",
+        rows: pending.map((p) => ({ ...p, state: "idle" as const, progress: null, actions: [act("approve", "Approve"), act("decline", "Decline", `Decline the request for "${p.title}"?`)] })),
+      };
+    case "qbittorrent":
+      return {
+        ...base,
+        version: "v5.0.2",
+        summary: "2 active torrents · ↓ 2.0 MB/s · ↑ 1.0 KB/s",
+        tiles: [
+          { label: "Down", value: "2.0 MB/s" },
+          { label: "Up", value: "1.0 KB/s" },
+          { label: "Active", value: "2" },
+          { label: "Errored", value: "0" },
+        ],
+        rowsTitle: "Active",
+        rows: [
+          { id: "aa11", title: "debian-13.0.0-amd64-netinst.iso", meta: "downloading · ↓ 2.0 MB/s · 5m 00s left", state: "active", progress: 50, actions: [act("stop", "Pause")] },
+          { id: "bb22", title: "ubuntu-24.04-desktop-amd64.iso", meta: "uploading · ↑ 1.0 KB/s", state: "ok", progress: 100, actions: [act("stop", "Pause")] },
+        ],
+        actions: [act("stop-all", "Pause all", "Pause every torrent in qBittorrent?"), act("start-all", "Resume all")],
+      };
+    case "syncthing":
+      return {
+        ...base,
+        version: "v1.29.2",
+        health: "warn",
+        summary: "1/3 folders up to date · 1/2 devices",
+        tiles: [
+          { label: "Folders", value: "3" },
+          { label: "Devices online", value: "1/2" },
+        ],
+        rowsTitle: "Folders",
+        rows: [
+          { id: "photos", title: "Photos", meta: "up to date · 120 GB", state: "ok", progress: null, actions: [act("rescan", "Rescan")] },
+          { id: "docs", title: "Documents", meta: "syncing · 12 to go (256 MB)", state: "active", progress: 75, actions: [act("rescan", "Rescan")] },
+          { id: "music", title: "Music", meta: "out of sync · 4 to go", state: "warn", progress: null, actions: [act("rescan", "Rescan")] },
+        ],
+        actions: [act("rescan-all", "Rescan all"), act("pause-all", "Pause", "Pause syncing with every device?"), act("resume-all", "Resume")],
+      };
+    default:
+      return {
+        ...base,
+        version: "4.0.15.2941",
+        health: "warn",
+        summary: `${queue.length} in queue · 12 missing`,
+        tiles: [
+          { label: "Queue", value: String(queue.length) },
+          { label: "Missing", value: "12" },
+        ],
+        notes: ["Indexers unavailable due to failures for more than 6 hours: Example"],
+        rowsTitle: "Queue",
+        rows: queue.map((q) => ({ ...q, actions: [act("remove", "Remove", `Remove "${q.title}" from the queue? The download client keeps it; only the app stops tracking it.`)] })),
+        actions: [act("rss", "RSS sync"), act("missing", "Search missing", "Search for every missing episode? It runs in the background and uses indexer API calls.")],
+      };
+  }
+}
+
 function statusFor(kind: string): IntegrationStatus {
   switch (kind) {
     case "plex":
@@ -114,8 +221,10 @@ function statusFor(kind: string): IntegrationStatus {
       return { kind: "pihole", ...dnsStatus() };
     case "adguard":
       return { kind: "adguard", ...dnsStatus(), version: "0.107.57" };
-    default:
+    case "portainer":
       return { kind: "portainer", version: "2.21.0" };
+    default:
+      return { kind: "app", ...appStatus(kind) };
   }
 }
 
@@ -160,7 +269,14 @@ export const mockIntegrations = {
       i.state = i.running ? "ready" : "stopped";
     }
     return null;
-  },  async dnsAction(_id: number, a: DnsAction): Promise<null> {
+  },
+  async action(_id: number, target: string, action: string): Promise<null> {
+    await new Promise((r) => setTimeout(r, 200));
+    if (action === "approve" || action === "decline") pending = pending.filter((p) => p.id !== target);
+    if (action === "remove") queue = queue.filter((q) => q.id !== target);
+    return null;
+  },
+  async dnsAction(_id: number, a: DnsAction): Promise<null> {
     await new Promise((r) => setTimeout(r, 250));
     switch (a.op) {
       case "setBlocking":

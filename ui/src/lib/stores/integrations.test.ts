@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { IntegrationStatus, IntegrationView } from "../api";
-import { emptyIntegrationInput, portainerUrl, summary, toneOf } from "./integrations.svelte";
+import { emptyIntegrationInput, KIND_GROUPS, KIND_META, kindsByGroup, portainerUrl, summary, toneOf } from "./integrations.svelte";
 
 const view = (over: Partial<IntegrationView["integration"]>): IntegrationView => ({
   hasSecret: false,
@@ -63,5 +63,37 @@ describe("integrations helpers", () => {
   it("defaults the Portainer environment to 1", () => {
     expect(emptyIntegrationInput("portainer").endpointId).toBe(1);
     expect(emptyIntegrationInput("plex").endpointId).toBe(0);
+  });
+
+  it("summarises and tones app statuses", () => {
+    const app: IntegrationStatus = {
+      kind: "app",
+      version: "4.0",
+      summary: "3 in queue · 12 missing",
+      health: "warn",
+      tiles: [],
+      rowsTitle: "Queue",
+      rows: [],
+      more: 0,
+      notes: ["Indexers unavailable"],
+      actions: [],
+    };
+    expect(summary(app)).toBe("3 in queue · 12 missing");
+    expect(toneOf({ status: app, error: null, loading: false, at: 1 })).toBe("warn");
+    expect(toneOf({ status: { ...app, health: "bad" }, error: null, loading: false, at: 1 })).toBe("bad");
+    expect(toneOf({ status: { ...app, health: "ok" }, error: null, loading: false, at: 1 })).toBe("ok");
+  });
+
+  it("describes every kind and groups them for the picker", () => {
+    for (const [k, m] of Object.entries(KIND_META)) {
+      expect(m.name, k).not.toBe("");
+      expect(m.placeholder, k).toMatch(/^https?:\/\//);
+      expect(KIND_GROUPS, k).toContain(m.group);
+    }
+    const all = kindsByGroup().flatMap((g) => g.kinds);
+    expect(all.length).toBe(Object.keys(KIND_META).length);
+    expect(kindsByGroup("sonarr").flatMap((g) => g.kinds)).toEqual(["sonarr"]);
+    expect(kindsByGroup("media automation").every((g) => g.group === "Media automation")).toBe(true);
+    expect(kindsByGroup("zzz-nothing")).toEqual([]);
   });
 });

@@ -175,6 +175,8 @@ import {
   type Step_Serialize as Step,
   type Variable_Serialize as Variable,
   type AmpInstance_Serialize as AmpInstance,
+  type AppAction_Serialize as AppAction,
+  type AppStatus_Serialize as AppStatus,
   type Integration_Serialize as Integration,
   type IntegrationInput_Serialize as IntegrationInput,
   type IntegrationKind,
@@ -573,6 +575,8 @@ export type {
   DnsList,
   DnsRecord,
   AmpInstance,
+  AppAction,
+  AppStatus,
   Integration,
   IntegrationInput,
   IntegrationKind,
@@ -949,6 +953,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   backupFolder: null,
   handheld: false,
   controllerNav: true,
+  swipeNav: true,
   helperEnabled: false,
   helperModel: "qwen3-4b-instruct-2507-q4km",
   historySearch: false,
@@ -1360,6 +1365,8 @@ export const api = {
   ampInstanceAction: (id: number, instance: string, action: AmpAction): Promise<null> =>
     T() ? commands.ampInstanceAction(id, instance, action) : mockIntegrations.ampAction(id, instance, action),
   dnsFilterAction: (id: number, action: DnsAction): Promise<null> => (T() ? commands.dnsFilterAction(id, action) : mockIntegrations.dnsAction(id, action)),
+  integrationAction: (id: number, target: string, action: string): Promise<null> =>
+    T() ? commands.integrationAction(id, target, action) : mockIntegrations.action(id, target, action),
   snippetsList: (): Promise<Snippet[]> => (T() ? commands.snippetsList() : mockAutomation.snippets()),
   snippetSave: (id: number | null, i: SnippetInput): Promise<Snippet> =>
     T() ? commands.snippetSave(id, i) : mockAutomation.saveSnippet(id, i),

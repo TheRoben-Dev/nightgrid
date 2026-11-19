@@ -8,6 +8,7 @@ import { api, errorText, type PveFirewall, type PveFwRun, type PveFwRuleSpec, ty
 import { ACTION_WORD, backupTargets, type PveConfig, type PveHostDevices, type PveSetting, type PveAction, type PveBackupFile, type PveBackups, type PveGuest, type PveSnapshot, type PveTask } from "../proxmox";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
+import { nav } from "./nav.svelte";
 
 export type PveTab = "summary" | "guests" | "sandbox" | "backups" | "storage" | "network" | "firewall" | "tasks";
 
@@ -756,3 +757,7 @@ class ProxmoxStore {
 }
 
 export const proxmox = new ProxmoxStore();
+
+// Back/forward history (D-186): the tab and the node are steps.
+nav.track("proxmox", "tab", () => proxmox.tab, (v) => (proxmox.tab = v as PveTab));
+nav.track("proxmox", "host", () => proxmox.hostId, (v) => typeof v === "number" && hosts.byId(v) && proxmox.pick(v), true);

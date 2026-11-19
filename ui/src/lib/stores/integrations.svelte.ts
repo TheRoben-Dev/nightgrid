@@ -3,6 +3,7 @@ import {
   api,
   errorText,
   type AmpAction,
+  type AppAction,
   type DnsAction,
   type Integration,
   type IntegrationInput,
@@ -14,23 +15,221 @@ import {
 /** Seconds between status reads while the Services view is open. */
 const POLL_SECS = 30;
 
-export const KIND_LABEL: Record<IntegrationKind, string> = {
-  plex: "PLEX",
-  amp: "AMP",
-  kuma: "UPTIME KUMA",
-  portainer: "PORTAINER",
-  pihole: "PI-HOLE",
-  adguard: "ADGUARD HOME",
+export type KindGroup = "Media" | "Media automation" | "Downloads" | "Files & photos" | "Network" | "Monitoring" | "Cameras" | "Docker" | "Games";
+export const KIND_GROUPS: KindGroup[] = ["Media", "Media automation", "Downloads", "Files & photos", "Network", "Monitoring", "Cameras", "Docker", "Games"];
+
+export interface KindMeta {
+  /** Upper-case badge text. */
+  label: string;
+  /** Default name, also the picker button text. */
+  name: string;
+  group: KindGroup;
+  help: string;
+  placeholder: string;
+  /** null = the kind needs no secret. */
+  secret: { label: string; hint: string; optional?: boolean } | null;
+  /** The login field, when the kind uses one. */
+  username?: { label: string; required: boolean };
+}
+
+const apiKey = (where: string) => ({ label: "API key", hint: `Kept in the OS keychain only. ${where}` });
+const arr = (name: string, what: string, port: number): KindMeta => ({
+  label: name.toUpperCase(),
+  name,
+  group: "Media automation",
+  help: `${what} Needs the API key from ${name}'s Settings → General.`,
+  placeholder: `http://server01:${port}`,
+  secret: apiKey(`${name}: Settings → General → API Key.`),
+});
+
+/** Everything the UI knows about each kind. A new kind needs a line here and a Rust module. */
+export const KIND_META: Record<IntegrationKind, KindMeta> = {
+  plex: {
+    label: "PLEX",
+    name: "Plex",
+    group: "Media",
+    help: "Now playing, transcodes and server version. Needs a Plex token (X-Plex-Token).",
+    placeholder: "http://server01:32400",
+    secret: { label: "Plex token", hint: "Kept in the OS keychain only. Find it via a media item's … → Get Info → View XML (X-Plex-Token in the URL)." },
+  },
+  jellyfin: {
+    label: "JELLYFIN",
+    name: "Jellyfin",
+    group: "Media",
+    help: "Now playing, transcodes, library counts and a library scan button. Needs an API key (Dashboard → API Keys).",
+    placeholder: "http://server01:8096",
+    secret: apiKey("Jellyfin: Dashboard → API Keys → +."),
+  },
+  emby: {
+    label: "EMBY",
+    name: "Emby",
+    group: "Media",
+    help: "Now playing, transcodes, library counts and a library scan button. Needs an API key (Settings → API Keys).",
+    placeholder: "http://server01:8096",
+    secret: apiKey("Emby: Settings → Advanced → API Keys."),
+  },
+  tautulli: {
+    label: "TAUTULLI",
+    name: "Tautulli",
+    group: "Media",
+    help: "Plex activity with quality, transcode decisions and bandwidth. Needs the API key from Settings → Web Interface.",
+    placeholder: "http://server01:8181",
+    secret: apiKey("Tautulli: Settings → Web Interface → API Key."),
+  },
+  sonarr: arr("Sonarr", "Download queue with progress, missing episodes, health warnings; RSS sync and search missing.", 8989),
+  radarr: arr("Radarr", "Download queue with progress, missing movies, health warnings; RSS sync and search missing.", 7878),
+  lidarr: arr("Lidarr", "Download queue with progress, missing albums, health warnings; RSS sync and search missing.", 8686),
+  prowlarr: arr("Prowlarr", "Indexers, which ones are failing, health warnings; test all indexers.", 9696),
+  bazarr: arr("Bazarr", "Missing subtitles for episodes and movies, throttled providers and health issues.", 6767),
+  overseerr: {
+    label: "OVERSEERR",
+    name: "Overseerr",
+    group: "Media automation",
+    help: "Request counts and pending requests you can approve or decline. Needs the API key from Settings → General.",
+    placeholder: "http://server01:5055",
+    secret: apiKey("Overseerr: Settings → General → API Key."),
+  },
+  jellyseerr: {
+    label: "JELLYSEERR",
+    name: "Jellyseerr",
+    group: "Media automation",
+    help: "Request counts and pending requests you can approve or decline. Needs the API key from Settings → General.",
+    placeholder: "http://server01:5055",
+    secret: apiKey("Jellyseerr: Settings → General → API Key."),
+  },
+  qbittorrent: {
+    label: "QBITTORRENT",
+    name: "qBittorrent",
+    group: "Downloads",
+    help: "Speeds, active and failed torrents, pause or resume one or all. Uses the Web UI login; leave both empty if the Web UI skips login for your network.",
+    placeholder: "http://server01:8080",
+    secret: { label: "Password", hint: "Kept in the OS keychain only. The Web UI password (Tools → Options → Web UI).", optional: true },
+    username: { label: "Login name", required: false },
+  },
+  transmission: {
+    label: "TRANSMISSION",
+    name: "Transmission",
+    group: "Downloads",
+    help: "Speeds, torrents with progress and errors, start or stop one or all. The login is only needed when RPC authentication is on.",
+    placeholder: "http://server01:9091",
+    secret: { label: "Password", hint: "Kept in the OS keychain only. Leave empty if RPC authentication is off.", optional: true },
+    username: { label: "Login name", required: false },
+  },
+  sabnzbd: {
+    label: "SABNZBD",
+    name: "SABnzbd",
+    group: "Downloads",
+    help: "Speed, the queue with progress, free disk, recent failures; pause, resume or delete. Needs the API key from Config → General.",
+    placeholder: "http://server01:8080",
+    secret: apiKey("SABnzbd: Config → General → Security → API Key."),
+  },
+  nzbget: {
+    label: "NZBGET",
+    name: "NZBGet",
+    group: "Downloads",
+    help: "Speed, the queue with progress, free disk; pause, resume or delete. Uses the control login from Settings → Security.",
+    placeholder: "http://server01:6789",
+    secret: { label: "Control password", hint: "Kept in the OS keychain only. Settings → Security → ControlPassword." },
+    username: { label: "Control login", required: true },
+  },
+  immich: {
+    label: "IMMICH",
+    name: "Immich",
+    group: "Files & photos",
+    help: "Photos, videos, storage used and background jobs (running, waiting, failed). Library size and jobs need an admin's API key.",
+    placeholder: "http://server01:2283",
+    secret: apiKey("Immich: Account Settings → API Keys → New API Key."),
+  },
+  nextcloud: {
+    label: "NEXTCLOUD",
+    name: "Nextcloud",
+    group: "Files & photos",
+    help: "Users, files, active users, shares, free space, load and pending app updates (serverinfo). Needs an admin login and an app password.",
+    placeholder: "https://cloud.example.lan",
+    secret: { label: "App password", hint: "Kept in the OS keychain only. Personal settings → Security → Devices & sessions → Create new app password." },
+    username: { label: "Admin login name", required: true },
+  },
+  syncthing: {
+    label: "SYNCTHING",
+    name: "Syncthing",
+    group: "Files & photos",
+    help: "Folders with sync state, devices online and errors; rescan a folder or all, pause or resume syncing. Needs the API key.",
+    placeholder: "http://server01:8384",
+    secret: apiKey("Syncthing: Actions → Settings → General → API Key."),
+  },
+  gotify: {
+    label: "GOTIFY",
+    name: "Gotify",
+    group: "Monitoring",
+    help: "Health, apps and the latest messages with priority; delete one or all. Needs a client token (Clients → Create client).",
+    placeholder: "http://server01:8070",
+    secret: { label: "Client token", hint: "Kept in the OS keychain only. A client token, not an app token." },
+  },
+  frigate: {
+    label: "FRIGATE",
+    name: "Frigate",
+    group: "Cameras",
+    help: "Cameras with frame rates (offline ones in red), detector speed, recording storage and the latest detections. Port 5000 needs no login; port 8971 needs a Frigate login.",
+    placeholder: "http://server01:5000",
+    secret: { label: "Password", hint: "Kept in the OS keychain only. Only for the authenticated port (8971).", optional: true },
+    username: { label: "Login name", required: false },
+  },
+  amp: {
+    label: "AMP",
+    name: "AMP",
+    group: "Games",
+    help: "Game server instances with players; start, stop and restart. Needs an AMP login with permission to manage instances.",
+    placeholder: "https://amp.example.lan",
+    secret: { label: "Password", hint: "Kept in the OS keychain only." },
+    username: { label: "Login name", required: true },
+  },
+  kuma: {
+    label: "UPTIME KUMA",
+    name: "Uptime Kuma",
+    group: "Monitoring",
+    help: "Monitors from a public status page. No API key needed: create a status page in Kuma and enter its slug.",
+    placeholder: "http://server01:3001",
+    secret: null,
+  },
+  portainer: {
+    label: "PORTAINER",
+    name: "Portainer",
+    group: "Docker",
+    help: 'Adds an "Open in Portainer" link to containers on the linked host.',
+    placeholder: "https://server01:9443",
+    secret: null,
+  },
+  pihole: {
+    label: "PI-HOLE",
+    name: "Pi-hole",
+    group: "Network",
+    help: "Queries, blocked share and top blocked domains; pause blocking; block and allow lists; local DNS records. Pi-hole v6: use the web password or an app password (Settings → Web interface / API).",
+    placeholder: "http://192.168.1.2",
+    secret: { label: "Password", hint: "Kept in the OS keychain only." },
+  },
+  adguard: {
+    label: "ADGUARD HOME",
+    name: "AdGuard Home",
+    group: "Network",
+    help: "Queries, blocked share and top blocked domains; pause protection; block and allow lists; DNS rewrites. Uses the AdGuard Home login.",
+    placeholder: "http://192.168.1.2:3000",
+    secret: { label: "Password", hint: "Kept in the OS keychain only." },
+    username: { label: "Login name", required: true },
+  },
 };
 
-export const KIND_HELP: Record<IntegrationKind, string> = {
-  plex: "Now playing, transcodes and server version. Needs a Plex token (X-Plex-Token).",
-  amp: "Game server instances with players; start, stop and restart. Needs an AMP login with permission to manage instances.",
-  kuma: "Monitors from a public status page. No API key needed: create a status page in Kuma and enter its slug.",
-  portainer: "Adds an \"Open in Portainer\" link to containers on the linked host.",
-  pihole: "Queries, blocked share and top blocked domains; pause blocking; block and allow lists; local DNS records. Pi-hole v6: use the web password or an app password (Settings → Web interface / API).",
-  adguard: "Queries, blocked share and top blocked domains; pause protection; block and allow lists; DNS rewrites. Uses the AdGuard Home login.",
-};
+export const KIND_LABEL = Object.fromEntries(Object.entries(KIND_META).map(([k, m]) => [k, m.label])) as Record<IntegrationKind, string>;
+export const KIND_HELP = Object.fromEntries(Object.entries(KIND_META).map(([k, m]) => [k, m.help])) as Record<IntegrationKind, string>;
+
+/** Kinds grouped for the picker, in KIND_GROUPS order. */
+export function kindsByGroup(filter = ""): { group: KindGroup; kinds: IntegrationKind[] }[] {
+  const f = filter.trim().toLowerCase();
+  const all = (Object.keys(KIND_META) as IntegrationKind[]).filter((k) => {
+    const m = KIND_META[k];
+    return !f || m.name.toLowerCase().includes(f) || m.group.toLowerCase().includes(f) || m.help.toLowerCase().includes(f);
+  });
+  return KIND_GROUPS.map((group) => ({ group, kinds: all.filter((k) => KIND_META[k].group === group) })).filter((g) => g.kinds.length);
+}
 
 export interface Entry {
   status: IntegrationStatus | null;
@@ -38,6 +237,15 @@ export interface Entry {
   loading: boolean;
   /** Unix ms of the last read. */
   at: number;
+}
+
+/** An action from an app card waiting for its confirmation. */
+export interface PendingAction {
+  id: number;
+  target: string;
+  action: AppAction;
+  /** The row or integration it applies to, for the notice. */
+  subject: string;
 }
 
 export interface PendingAmp {
@@ -90,6 +298,8 @@ export function summary(s: IntegrationStatus | null): string {
     case "pihole":
     case "adguard":
       return dnsSummary(s);
+    case "app":
+      return s.summary;
   }
 }
 
@@ -100,6 +310,7 @@ export function toneOf(e: Entry | undefined): Tone {
   const s = e.status!;
   if (s.kind === "kuma" && s.down) return "warn";
   if ((s.kind === "pihole" || s.kind === "adguard") && !s.blocking) return "warn";
+  if (s.kind === "app") return s.health === "bad" ? "bad" : s.health === "warn" ? "warn" : "ok";
   return "ok";
 }
 
@@ -118,6 +329,9 @@ class IntegrationsStore {
   /** null = closed, 0 = new, id = edit. */
   editing = $state<number | null>(null);
   pendingAmp = $state<PendingAmp | null>(null);
+  pendingAction = $state<PendingAction | null>(null);
+  /** "id:target:action" while it runs. */
+  acting = $state<string | null>(null);
   /** The DNS filter whose dashboard is open. */
   dnsOpen = $state<number | null>(null);
   dnsBusy = $state(false);
@@ -201,6 +415,26 @@ class IntegrationsStore {
   request(p: PendingAmp) {
     if (p.action === "start") void this.amp(p);
     else this.pendingAmp = p;
+  }
+
+  /** Card and row actions: those with a confirm question ask first. */
+  requestAction(p: PendingAction) {
+    if (p.action.confirm) this.pendingAction = p;
+    else void this.runAction(p);
+  }
+
+  async runAction(p: PendingAction) {
+    this.pendingAction = null;
+    this.acting = `${p.id}:${p.target}:${p.action.id}`;
+    try {
+      await api.integrationAction(p.id, p.target, p.action.id);
+      this.notice = { tone: "ok", text: `${p.action.label}: sent${p.subject ? ` (${p.subject})` : ""}` };
+    } catch (e) {
+      this.notice = { tone: "err", text: errorText(e) };
+    } finally {
+      this.acting = null;
+    }
+    setTimeout(() => void this.refresh(p.id), 1200);
   }
 
   /** Runs a DNS filter change and reads the status again. */

@@ -8,6 +8,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 - **Sidebar**: your hosts (with favorites and groups) at the top, the views below, Settings at the bottom. Related views share a row and switch with tabs beside the title: **System** (One host, Fleet), **Network** (Map, Tunnels) and **VMs** (Proxmox, Desktops). A row marked **+1** holds another view and opens the one you used last. Point at a row to see its shortcut. `Mod+B` collapses the sidebar to icons.
 - **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Knowledge `Mod+9`, Network `Mod+0`, Fleet `Mod+Shift+U`, Settings `Mod+,`.
+- **Back and forward**: the mouse side buttons, `Cmd+[` / `Cmd+]` on macOS, `Alt+Left` / `Alt+Right` on Windows and Linux, the **‹ ›** buttons at the top left, or a two-finger sideways swipe on a trackpad. Every view, row tab (One host / Fleet), tab inside a view (Fleet → DISKS, Docker → STACKS, Settings tabs…), host pick and Library article is a step, so an accidental click is one button away from undone. The keys are left alone while you type in a field or editor, and in a terminal on Windows and Linux (shells use `Alt+Left` / `Alt+Right` to move by word); the mouse buttons work everywhere. Areas that scroll sideways keep the swipe; **Settings → General → Swipe to go back** turns it off.
 - **Command palette** `Mod+K` (also `Ctrl+Shift+K` inside a terminal): jump to any host, view, snippet, playbook or action by typing.
 - **DRIFT helper** `Mod+J`: ask a question in the side panel (see below).
 - **Settings → Terminal → Keybindings** lists every shortcut. Settings is split into tabs: General, Appearance, Terminal, Monitoring, Alerts, Connections, DRIFT, Data and Features.
@@ -15,7 +16,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 ## Hosts
 
 - **+** in the sidebar adds a host: name, address, port, user, and how to log in.
-  - **SSH agent** (recommended): uses the keys your agent holds, including 1Password or Secretive if they act as your agent.
+  - **SSH agent** (recommended): uses the keys your agent holds, including 1Password or Secretive if they act as your agent. With no agent running (Windows' default) and no key file set, your `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa` are tried, and if the server takes passwords you're asked for one, like OpenSSH does.
   - **Key file**: a private key, with its passphrase asked when needed.
   - **Password**: asked when needed.
   - **Remember** saves the password or passphrase in the OS keychain. It's off unless you tick it.
@@ -92,13 +93,28 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - A failed check says why. A wrong status names the server that answered, the address it was reached at and the start of its error page, for example *HTTP 502 · from nginx at 203.0.113.7 · "502 Bad Gateway"*. A 502 or 504 means your reverse proxy answered but couldn't reach the app behind it: check the proxy's upstream for that site. A connection that fails lists the addresses the name resolves to.
   - Click a service's name to open it in a Nightgrid window (reached through its host by SSH tunnel when this computer can't reach it directly); **↗** opens it in your browser.
   - Checks connect the way browsers do, trying IPv6 and IPv4 side by side, so a network with broken IPv6 doesn't make sites look down. A check that can't connect tries once more before it counts as down.
-- **Add integration**:
+- **Add integration**: pick the app from the grouped list (type to filter), then its URL and, for most, an API key.
   - **Plex**: what's playing.
   - **AMP**: game servers with start, stop and restart.
   - **Uptime Kuma**: monitors from a status page.
   - **Portainer**: "Open in Portainer" links.
   - **Pi-hole** (version 6) and **AdGuard Home**: DNS stats and top blocked domains on the card. **Manage…** opens a dashboard where you can pause blocking (5 min, 30 min, 1 h or until you turn it on), add or remove local DNS records, turn block and allow lists on or off, add or remove lists and download them again. For Pi-hole, enter the web password or an app password (Pi-hole: Settings → Web interface / API → Configure app password); AdGuard Home needs its login name and password.
-- Tokens are kept in the keychain only.
+  - **Jellyfin** and **Emby**: what's playing, transcodes, library counts and **Scan libraries**. Create an API key in the server's dashboard (Jellyfin: Dashboard → API Keys; Emby: Settings → API Keys).
+  - **Tautulli**: Plex activity with quality, transcode decisions and bandwidth (API key from Settings → Web Interface).
+  - **Sonarr**, **Radarr** and **Lidarr**: the download queue with progress and import problems, missing items, the app's own health warnings, **RSS sync** and **Search missing** (asks first). **Remove** on a queue row stops the app tracking it; the download client keeps the files.
+  - **Prowlarr**: indexers, which are failing or disabled, health warnings and **Test indexers**.
+  - **Bazarr**: missing subtitles for episodes and movies, throttled providers and health issues.
+  - **Overseerr** and **Jellyseerr**: request counts and pending requests with **Approve** and **Decline** (asks first).
+  - The *arr apps, Bazarr, Overseerr and Jellyseerr take the API key from their Settings → General.
+  - **qBittorrent** and **Transmission**: speeds, torrents with progress and errors, pause or resume one or all. Enter the Web UI (qBittorrent) or RPC (Transmission) login, or leave it empty when the app doesn't ask for one on your network.
+  - **SABnzbd** and **NZBGet**: speed, the queue with progress, free disk and recent failures; pause or resume the queue, or pause, resume and delete one item. SABnzbd uses its API key (Config → General); NZBGet its control login (Settings → Security).
+  - **Immich**: photos, videos, storage and background jobs that are running, waiting or failed (an admin's API key shows all of it).
+  - **Nextcloud**: users, files, active users, shares, free space, load and pending app updates. Use an admin login with an app password (Personal settings → Security).
+  - **Syncthing**: each folder's state (up to date, syncing with what's left, out of sync, errors), devices online and Syncthing's own errors; **Rescan**, **Pause** and **Resume**. API key from Actions → Settings → General.
+  - **Gotify**: health, apps and the latest messages by priority; delete one or all. Use a client token.
+  - **Frigate**: cameras with their frame rates (no frames shows red), detector speed, recording storage and the latest detections. Port 5000 needs no login; the authenticated port 8971 needs a Frigate login.
+  - A card turns orange when the app reports a warning and red when it can't be read; its warnings are listed under the numbers.
+- Tokens and API keys are kept in the keychain only.
 - **Expiry watch** (bottom of Services): everything that runs out on a date, soonest first. HTTPS services show their certificate automatically, and proxy route certificates appear once you've opened Docker → Routes. **Add…** watches more:
   - a **certificate file on a host** (a PEM path): Nightgrid reads its end date with `openssl` over SSH when you add it, on **Read cert files**, and twice a day while the host is connected;
   - a **domain**: type the renewal date, or pick a host and **Look up**, which runs `whois` on that host (only when you click; the host asks the registry);
@@ -384,6 +400,7 @@ Secrets are kept only in the OS keychain (or inside an encrypted backup, if you 
 ## Troubleshooting
 
 - **"needs a login"**: open a terminal on that host once so you can answer the password or host-key prompt. Background features never prompt.
+- **Windows hosts** (OpenSSH for Windows, e.g. Windows Server): the terminal and Files work; the shell is cmd or PowerShell, so the terminal's key hints and `nano`-opens-the-editor hook are left out there, and views that read Linux tools (metrics, Docker, System) have nothing to show. For key login as an administrator account, the public key goes in `C:\ProgramData\ssh\administrators_authorized_keys` (readable only by Administrators and SYSTEM), not `~\.ssh\authorized_keys`.
 - **Keychain unavailable** (Linux without GNOME Keyring or KWallet): everything still works, but "remember" options can't save.
 - **Blank window on Linux with NVIDIA**: see the README section on WebKitGTK.
 - **Logs**: the folder is shown in Settings → Diagnostics. Set `NIGHTGRID_LOG=debug` for more detail.
