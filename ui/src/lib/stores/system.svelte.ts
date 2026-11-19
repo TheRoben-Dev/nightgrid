@@ -24,6 +24,7 @@ import {
 } from "../api";
 import { hosts } from "./hosts.svelte";
 import { vms } from "./vms.svelte";
+import { nav } from "./nav.svelte";
 
 export type SystemTab = "units" | "journal" | "schedules" | "timeline" | "config" | "security" | "firewall" | "updates" | "disks" | "vms";
 export type UnitFilter = "all" | "running" | "failed" | "inactive";
@@ -738,3 +739,7 @@ class SystemStore {
 }
 
 export const system = new SystemStore();
+
+// Back/forward history (D-186): the tab and the host are steps.
+nav.track("system", "tab", () => system.tab, (v) => (system.tab = v as SystemTab));
+nav.track("system", "host", () => system.hostId, (v) => typeof v === "number" && hosts.byId(v) && system.select(v), true);

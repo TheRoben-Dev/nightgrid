@@ -42,6 +42,8 @@ pub struct AppSettings {
     pub handheld: bool,
     /// Move focus and act with a game controller when one is connected.
     pub controller_nav: bool,
+    /// Two-finger sideways swipe on a trackpad goes back/forward (D-186).
+    pub swipe_nav: bool,
     /// The DRIFT helper (local model). Off until the user turns it on.
     pub helper_enabled: bool,
     /// The DRIFT model in use (an id from `helper::model::MODELS`).
@@ -453,6 +455,7 @@ impl Default for AppSettings {
             net_watch: NetWatchSettings::default(),
             handheld: false,
             controller_nav: true,
+            swipe_nav: true,
             helper_enabled: false,
             helper_model: crate::helper::model::DEFAULT_MODEL.id.into(),
             dashboards: Vec::new(),
