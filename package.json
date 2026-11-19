@@ -1,7 +1,7 @@
 {
   "name": "nightgrid",
   "private": true,
-  "version": "1.7.0",
+  "version": "1.7.4",
   "type": "module",
   "packageManager": "pnpm@10.0.0",
   "scripts": {

@@ -14,6 +14,7 @@ Read 30- and 90-day uptime for every host and service, see each outage with its 
 
 - [ ] [Fleet](view:fleet) → **Uptime**: one bar per day for 30 or 90 days. Hover a bar for that day; click a row for its outages.
 - [ ] Uptime is recorded while Nightgrid runs, including in the tray. A host asleep or rebooting on purpose isn't down.
+- [ ] Red means confirmed down: a host or service has to stay down for 2½ minutes. Short blips, the minutes right after the computer wakes, and moments when every host fails at once (your own network) stay grey, as unknown.
 
 ## Part 2 · Monthly report
 
@@ -33,6 +34,9 @@ Read 30- and 90-day uptime for every host and service, see each outage with its 
 ## Limits and gotchas
 
 - Availability only counts time Nightgrid was watching. Long periods with the app closed show grey.
+- Outages shorter than 2½ minutes aren't listed. A day with only a few minutes watched can still turn red from one real outage; hover the bar to see how much was seen.
+- If every host is unreachable at once (for example the jump host or router everything goes through), Nightgrid can't tell that from its own network dropping, so that time is unknown too.
+- Client devices (laptops, handhelds) going away is never downtime.
 - History lives on this computer and isn't in profile exports.
 
 ## Related
