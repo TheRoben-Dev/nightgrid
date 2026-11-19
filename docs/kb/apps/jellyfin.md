@@ -51,6 +51,7 @@ services:
 - [ ] Away from home, use the tailnet. Jellyfin clients connect to the host's tailnet or LAN address (with a subnet router).
 - [ ] [Services](view:services) → **Add service** with port 8096's health path `/health` on the host's address.
 - [ ] The monitor shows GPU busy % for AMD and NVIDIA GPUs while transcoding.
+- [ ] [Services](view:services) → **Add integration** → **Jellyfin** with an API key (Jellyfin: Dashboard → API Keys → **+**): now playing, transcodes, library counts and **Scan libraries** on a card (see [Add app cards](kb:howto/integrations)).
 
 #### Check
 

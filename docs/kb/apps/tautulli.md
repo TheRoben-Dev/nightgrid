@@ -45,7 +45,7 @@ services:
 
 ## In Nightgrid
 
-- [Services](view:services) → **Add integration** → **Plex** shows what's playing on the card; Tautulli keeps the history behind it.
+- [Services](view:services) → **Add integration** → **Tautulli** with its API key (Settings → Web Interface → API Key) shows Plex activity with quality, transcode decisions and bandwidth on a card; Tautulli keeps the history behind it. **Plex** as an integration shows what's playing without Tautulli.
 - A transcode storm shows up as CPU or GPU load on the Plex host in [Overview](view:overview); Tautulli tells you which stream caused it.
 
 ## Limits and gotchas

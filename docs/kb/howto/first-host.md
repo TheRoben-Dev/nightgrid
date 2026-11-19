@@ -13,7 +13,7 @@ Get one server into Nightgrid with key login, a trusted host key and monitoring,
 
 ## Before you start
 
-- A Linux server you can already reach with `ssh user@address` from this computer.
+- A Linux server you can already reach with `ssh user@address` from this computer. For Windows Server, see [Add a Windows Server host](kb:howto/windows-hosts).
 - An SSH key on this computer. No key yet? **Settings → Connections → SSH keys → NEW KEY…** makes an ed25519 key in `~/.ssh` (see [Set up and rotate SSH keys](kb:howto/ssh-keys)).
 - If you already have hosts in `~/.ssh/config`, **IMP** in the sidebar imports them instead (see [Import hosts and use jump hosts](kb:howto/jump-hosts)).
 

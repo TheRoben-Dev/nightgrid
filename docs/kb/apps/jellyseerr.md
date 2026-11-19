@@ -35,6 +35,10 @@ networks:
 
 - [ ] A request appears as monitored in Radarr and downloads.
 
+## Part 3 · In Nightgrid
+
+- [ ] [Services](view:services) → **Add integration** → **Jellyseerr** (or **Overseerr**) with the API key from Settings → General: pending requests show on a card with **Approve** and **Decline** (see [Add app cards](kb:howto/integrations)).
+
 ## Limits and gotchas
 
 - If the *arr apps are in another stack, attach Jellyseerr to that stack's network too, or use the host's LAN IP and ports.
