@@ -15,7 +15,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 ## Hosts
 
 - **+** in the sidebar adds a host: name, address, port, user, and how to log in.
-  - **SSH agent** (recommended): uses the keys your agent holds, including 1Password or Secretive if they act as your agent.
+  - **SSH agent** (recommended): uses the keys your agent holds, including 1Password or Secretive if they act as your agent. With no agent running (Windows' default) and no key file set, your `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa` are tried, and if the server takes passwords you're asked for one, like OpenSSH does.
   - **Key file**: a private key, with its passphrase asked when needed.
   - **Password**: asked when needed.
   - **Remember** saves the password or passphrase in the OS keychain. It's off unless you tick it.
@@ -386,6 +386,7 @@ Secrets are kept only in the OS keychain (or inside an encrypted backup, if you 
 ## Troubleshooting
 
 - **"needs a login"**: open a terminal on that host once so you can answer the password or host-key prompt. Background features never prompt.
+- **Windows hosts** (OpenSSH for Windows, e.g. Windows Server): the terminal and Files work; the shell is cmd or PowerShell, so the terminal's key hints and `nano`-opens-the-editor hook are left out there, and views that read Linux tools (metrics, Docker, System) have nothing to show. For key login as an administrator account, the public key goes in `C:\ProgramData\ssh\administrators_authorized_keys` (readable only by Administrators and SYSTEM), not `~\.ssh\authorized_keys`.
 - **Keychain unavailable** (Linux without GNOME Keyring or KWallet): everything still works, but "remember" options can't save.
 - **Blank window on Linux with NVIDIA**: see the README section on WebKitGTK.
 - **Logs**: the folder is shown in Settings → Diagnostics. Set `NIGHTGRID_LOG=debug` for more detail.

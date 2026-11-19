@@ -16,12 +16,20 @@ Ten more integrations for the media stack, on a shared integration card.
 - The integration type picker is grouped (Media, Media automation, Network, Monitoring, Docker, Games) and has a filter.
 
 ### Changed
-- Integration types are checked by the app instead of a database constraint (migration 0050), so new types never need a table change again (D-181).
+- Integration types are checked by the app instead of a database constraint (migration 0050), so new types never need a table change again (D-182).
 
-## [1.7.1] - 2026-11-19
+## [1.7.2] - 2026-11-19
 
 ### Fixed
 - **Adding a Pi-hole or AdGuard Home integration failed** with "CHECK constraint failed: kind IN ('plex','amp','kuma','portainer')". The integrations table never learned the two DNS kinds from 0.10.36; migration 0049 rebuilds it with every kind and keeps your existing integrations (same ids, so saved passwords and tokens still match).
+
+## [1.7.1] - 2026-11-19
+
+### Fixed: logging in to Windows hosts (and any host without an agent key)
+- **SSH agent hosts no longer fail when there's no agent.** With no agent running (the Windows default) or an empty one, and no key file set, Nightgrid now tries `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa`, then asks for the password when the server takes one, like OpenSSH. Before, the login stopped at the agent's error (often "SSH agent: early eof") and never offered a password.
+- **A refused key now falls back to the password** on key-file and agent hosts. Before, the password prompt came back again and again because the password was never used.
+- **Terminals on OpenSSH for Windows** (Windows Server, Windows 10/11) open a plain shell. The key-hints and edit hook are POSIX shell, so on cmd or PowerShell they ended the session at once.
+- Failed connections are written to the log, so exported diagnostics say why a host won't connect.
 
 ## [1.7.0] - 2026-11-19
 
