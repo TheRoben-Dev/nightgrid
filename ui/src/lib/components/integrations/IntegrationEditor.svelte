@@ -1,11 +1,10 @@
 <script lang="ts">
   import { api, errorText, type IntegrationInput, type IntegrationKind } from "../../api";
   import { hosts } from "../../stores/hosts.svelte";
-  import { emptyIntegrationInput, integrations, KIND_HELP, KIND_LABEL, summary, toIntegrationInput } from "../../stores/integrations.svelte";
+  import { emptyIntegrationInput, integrations, KIND_META, kindsByGroup, summary, toIntegrationInput } from "../../stores/integrations.svelte";
   import Modal from "../Modal.svelte";
   import Toggle from "../Toggle.svelte";
 
-  const KINDS: IntegrationKind[] = ["plex", "amp", "kuma", "portainer", "pihole", "adguard"];
   const open = $derived(integrations.editing !== null);
   const existing = $derived(integrations.editing ? integrations.byId(integrations.editing) : undefined);
 
@@ -17,6 +16,8 @@
   let tested = $state<string | null>(null);
   let busy = $state(false);
   let confirmDelete = $state(false);
+  let kindFilter = $state("");
+  const groups = $derived(kindsByGroup(kindFilter));
 
   $effect(() => {
     if (integrations.editing === null) return;
@@ -28,20 +29,18 @@
     error = null;
     tested = null;
     confirmDelete = false;
+    kindFilter = "";
   });
 
   const kind = $derived(form.kind ?? "plex");
-  const needsSecret = $derived(kind === "plex" || kind === "amp" || kind === "pihole" || kind === "adguard");
-  const secretLabel = $derived(kind === "plex" ? "Plex token" : "Password");
+  const meta = $derived(KIND_META[kind]);
+  const needsSecret = $derived(!!meta.secret);
+  const secretLabel = $derived(meta.secret?.label ?? "Password");
   const urlOk = $derived(/^https?:\/\/[^/\s@?#]+/i.test(form.baseUrl?.trim() ?? ""));
-  const PLACEHOLDER: Record<IntegrationKind, string> = {
-    plex: "http://server01:32400",
-    amp: "https://amp.example.lan",
-    kuma: "http://server01:3001",
-    portainer: "https://server01:9443",
-    pihole: "http://192.168.1.2",
-    adguard: "http://192.168.1.2:3000",
-  };
+
+  function pick(k: IntegrationKind) {
+    form = { ...emptyIntegrationInput(k), baseUrl: form.baseUrl };
+  }
 
   /** null keeps the saved secret, "" removes it. */
   const secretArg = (): string | null => (clearSecret ? "" : secret.trim() ? secret.trim() : null);
@@ -115,25 +114,37 @@
   {:else}
     <form class="grid" id="integration-form" onsubmit={save}>
       {#if !existing}
-        <div class="span6 kinds" role="radiogroup" aria-label="Integration type">
-          {#each KINDS as k (k)}
-            <button type="button" role="radio" aria-checked={kind === k} class:on={kind === k} onclick={() => (form = { ...emptyIntegrationInput(k), baseUrl: form.baseUrl })}>{KIND_LABEL[k]}</button>
-          {/each}
+        <div class="span6 picker">
+          <input class="input filter" bind:value={kindFilter} placeholder="Find an app…" aria-label="Find an integration type" autocomplete="off" spellcheck="false" />
+          <div class="groups" role="radiogroup" aria-label="Integration type">
+            {#each groups as g (g.group)}
+              <div class="group">
+                <span class="glabel">{g.group}</span>
+                <div class="kinds">
+                  {#each g.kinds as k (k)}
+                    <button type="button" role="radio" aria-checked={kind === k} class:on={kind === k} onclick={() => pick(k)}>{KIND_META[k].name}</button>
+                  {/each}
+                </div>
+              </div>
+            {:else}
+              <p class="muted small">No integration matches "{kindFilter}".</p>
+            {/each}
+          </div>
         </div>
       {/if}
-      <p class="span6 muted help">{KIND_HELP[kind]}</p>
+      <p class="span6 muted help"><strong>{meta.name}</strong>: {meta.help}</p>
       <label class="field span2">
         <span>Name</span>
-        <input class="input" bind:value={form.name} placeholder={KIND_LABEL[kind].replace("UPTIME KUMA", "Uptime Kuma").replace("PI-HOLE", "Pi-hole").replace("ADGUARD HOME", "AdGuard Home")} autocomplete="off" />
+        <input class="input" bind:value={form.name} placeholder={meta.name} autocomplete="off" />
       </label>
       <label class="field span4">
         <span>URL</span>
-        <input class="input" bind:value={form.baseUrl} placeholder={PLACEHOLDER[kind]} required autocomplete="off" spellcheck="false" aria-invalid={!!form.baseUrl?.trim() && !urlOk} />
+        <input class="input" bind:value={form.baseUrl} placeholder={meta.placeholder} required autocomplete="off" spellcheck="false" aria-invalid={!!form.baseUrl?.trim() && !urlOk} />
       </label>
-      {#if kind === "amp" || kind === "adguard"}
+      {#if meta.username}
         <label class="field span3">
-          <span>Login name</span>
-          <input class="input" bind:value={form.username} autocomplete="off" spellcheck="false" required />
+          <span>{meta.username.label}</span>
+          <input class="input" bind:value={form.username} autocomplete="off" spellcheck="false" required={meta.username.required} />
         </label>
       {/if}
       {#if kind === "kuma"}
@@ -158,14 +169,14 @@
         </label>
       {/if}
       {#if needsSecret}
-        <div class="field {kind === 'amp' ? 'span3' : 'span6'}">
+        <div class="field {meta.username ? 'span3' : 'span6'}">
           <span>{secretLabel}</span>
           <div class="secret">
             <input
               class="input"
               type={reveal ? "text" : "password"}
               bind:value={secret}
-              placeholder={existing?.hasSecret && !clearSecret ? "•••••••• saved in the keychain" : kind === "plex" ? "X-Plex-Token" : ""}
+              placeholder={existing?.hasSecret && !clearSecret ? "•••••••• saved in the keychain" : kind === "plex" ? "X-Plex-Token" : meta.secret?.optional ? "optional" : ""}
               autocomplete="off"
               spellcheck="false"
               disabled={clearSecret}
@@ -176,7 +187,7 @@
               <button type="button" class="btn ghost tiny" onclick={() => ((clearSecret = !clearSecret), (secret = ""))}>{clearSecret ? "Keep" : "Remove"}</button>
             {/if}
           </div>
-          <span class="field-hint">Kept in the OS keychain only.{kind === "plex" ? " Find it via a media item's … → Get Info → View XML (X-Plex-Token in the URL)." : ""}</span>
+          <span class="field-hint">{meta.secret?.hint ?? "Kept in the OS keychain only."}</span>
         </div>
       {/if}
       {#if /^https:/i.test(form.baseUrl ?? "")}
@@ -220,27 +231,50 @@
   .span6 {
     grid-column: span 6;
   }
+  .picker {
+    display: grid;
+    gap: 8px;
+  }
+  .groups {
+    display: grid;
+    gap: 6px;
+    max-height: 210px;
+    overflow: auto;
+  }
+  .group {
+    display: grid;
+    grid-template-columns: 130px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+  }
+  .glabel {
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
+    color: var(--text-1);
+    padding-top: 5px;
+  }
+  .small {
+    font-size: var(--fs-sm);
+  }
   .kinds {
     display: flex;
-    border: 1px solid var(--line);
+    flex-wrap: wrap;
+    gap: 4px;
   }
   .kinds button {
-    flex: 1;
-    border: 0;
+    border: 1px solid var(--line);
     background: transparent;
     color: var(--text-1);
     font-family: var(--font-display);
     font-size: var(--fs-xs);
     letter-spacing: var(--tracking-label);
-    padding: 6px 10px;
+    padding: 3px 8px;
     cursor: pointer;
-  }
-  .kinds button + button {
-    border-left: 1px solid var(--line);
   }
   .kinds button.on {
     color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
+    border-color: var(--magenta);
   }
   .help {
     margin: 0;

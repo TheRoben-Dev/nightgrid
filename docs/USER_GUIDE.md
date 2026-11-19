@@ -92,13 +92,21 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - A failed check says why. A wrong status names the server that answered, the address it was reached at and the start of its error page, for example *HTTP 502 · from nginx at 203.0.113.7 · "502 Bad Gateway"*. A 502 or 504 means your reverse proxy answered but couldn't reach the app behind it: check the proxy's upstream for that site. A connection that fails lists the addresses the name resolves to.
   - Click a service's name to open it in a Nightgrid window (reached through its host by SSH tunnel when this computer can't reach it directly); **↗** opens it in your browser.
   - Checks connect the way browsers do, trying IPv6 and IPv4 side by side, so a network with broken IPv6 doesn't make sites look down. A check that can't connect tries once more before it counts as down.
-- **Add integration**:
+- **Add integration**: pick the app from the grouped list (type to filter), then its URL and, for most, an API key.
   - **Plex**: what's playing.
   - **AMP**: game servers with start, stop and restart.
   - **Uptime Kuma**: monitors from a status page.
   - **Portainer**: "Open in Portainer" links.
   - **Pi-hole** (version 6) and **AdGuard Home**: DNS stats and top blocked domains on the card. **Manage…** opens a dashboard where you can pause blocking (5 min, 30 min, 1 h or until you turn it on), add or remove local DNS records, turn block and allow lists on or off, add or remove lists and download them again. For Pi-hole, enter the web password or an app password (Pi-hole: Settings → Web interface / API → Configure app password); AdGuard Home needs its login name and password.
-- Tokens are kept in the keychain only.
+  - **Jellyfin** and **Emby**: what's playing, transcodes, library counts and **Scan libraries**. Create an API key in the server's dashboard (Jellyfin: Dashboard → API Keys; Emby: Settings → API Keys).
+  - **Tautulli**: Plex activity with quality, transcode decisions and bandwidth (API key from Settings → Web Interface).
+  - **Sonarr**, **Radarr** and **Lidarr**: the download queue with progress and import problems, missing items, the app's own health warnings, **RSS sync** and **Search missing** (asks first). **Remove** on a queue row stops the app tracking it; the download client keeps the files.
+  - **Prowlarr**: indexers, which are failing or disabled, health warnings and **Test indexers**.
+  - **Bazarr**: missing subtitles for episodes and movies, throttled providers and health issues.
+  - **Overseerr** and **Jellyseerr**: request counts and pending requests with **Approve** and **Decline** (asks first).
+  - The *arr apps, Bazarr, Overseerr and Jellyseerr take the API key from their Settings → General.
+  - A card turns orange when the app reports a warning and red when it can't be read; its warnings are listed under the numbers.
+- Tokens and API keys are kept in the keychain only.
 - **Expiry watch** (bottom of Services): everything that runs out on a date, soonest first. HTTPS services show their certificate automatically, and proxy route certificates appear once you've opened Docker → Routes. **Add…** watches more:
   - a **certificate file on a host** (a PEM path): Nightgrid reads its end date with `openssl` over SSH when you add it, on **Read cert files**, and twice a day while the host is connected;
   - a **domain**: type the renewal date, or pick a host and **Look up**, which runs `whois` on that host (only when you click; the host asks the registry);
