@@ -56,7 +56,7 @@
 
 <div class="security">
   <div class="bar">
-    <div class="seg" role="radiogroup" aria-label="Security view">
+    <div class="seg tabstrip sm" role="radiogroup" aria-label="Security view">
       <button type="button" role="radio" aria-checked={mode === "host"} class:on={mode === "host"} onclick={() => (mode = "host")}>THIS HOST</button>
       <button
         type="button"
@@ -198,27 +198,6 @@
     align-items: center;
     flex-wrap: wrap;
     font-size: var(--fs-xs);
-  }
-  .seg {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 9px;
-    cursor: pointer;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--line);
-  }
-  .seg button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .spacer {
     flex: 1;

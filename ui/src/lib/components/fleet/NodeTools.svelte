@@ -90,7 +90,7 @@
 </script>
 
 {#if (tab === "config" || tab === "logs") && hasHub}
-  <div class="seg" role="group" aria-label="Which program">
+  <div class="seg tabstrip sm" role="group" aria-label="Which program">
     <button type="button" class:on={part === "node"} onclick={() => (part = "node")}>NODE</button>
     <button type="button" class:on={part === "hub"} onclick={() => (part = "hub")}>HUB</button>
   </div>
@@ -174,19 +174,6 @@
     display: inline-flex;
     border: 1px solid var(--line);
     margin: 6px 0;
-  }
-  .seg button {
-    background: none;
-    border: 0;
-    color: var(--text-2);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    padding: 2px 10px;
-    cursor: pointer;
-  }
-  .seg button.on {
-    color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
   }
   .sub {
     font-family: var(--font-display);

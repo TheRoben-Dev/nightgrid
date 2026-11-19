@@ -74,7 +74,7 @@
         {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
       </select>
     </label>
-    <div class="tabs" role="tablist" aria-label="System view">
+    <div class="tabstrip" role="tablist" aria-label="System view">
       {#each TABS as t (t.id)}
         <button type="button" role="tab" data-guide="system-tab-{t.id}" class:on={system.tab === t.id} aria-selected={system.tab === t.id} onclick={() => system.openTab(t.id)}>
           {t.label}{#if t.id === "updates" && upCount}<span class="badge">{upCount}</span>{/if}{#if t.id === "security" && system.security && system.security.score < 75}<span class="badge {system.security.score < 60 ? 'bad' : 'warn'}"
@@ -318,39 +318,6 @@
     gap: 8px;
     align-items: center;
   }
-  .tabs {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .tabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
-  .badge {
-    margin-left: 6px;
-    padding: 0 4px;
-    color: var(--bg-0);
-    background: var(--cyan);
-  }
-  .badge.warn {
-    background: var(--warn);
-  }
-  .badge.bad {
-    background: var(--danger);
-  }
   .sudo {
     color: var(--text-1);
     letter-spacing: 0.1em;
@@ -414,10 +381,5 @@
     display: grid;
     gap: 6px;
     margin-top: 10px;
-  }
-  .tiny {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
   }
 </style>

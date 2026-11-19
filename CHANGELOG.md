@@ -27,6 +27,17 @@ Nine more integration types, 34 in all.
 - **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
 - **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
 
+### Changed: layout sweep
+- **One tab bar.** View tabs (System, Fleet, Docker, Proxmox, Security, Settings, Services), sub-tabs inside panels and every segmented picker (unit filter, time ranges, map style, webhook kind, auth method …) now share one style and one height. Primary tabs line up with the host picker, filter box and buttons beside them; pickers had five different "selected" looks and now all use the magenta underline (form pickers in dialogs keep the tinted fill).
+- **Small buttons** are one size (22 px) everywhere. About seventy panels used the small-button class without defining it and showed full-height buttons in table rows.
+- **Filter chips and status tags** share two sizes, so a row of chips or tags no longer mixes 16, 18, 20 and 24 px heights.
+- Dimmed text that asked for an undefined colour now uses the muted text colour, as intended.
+
+### Fixed: layout at narrow widths
+- Narrow windows: container rows, proxy routes, systemd timers, speed tests, power, Nightgrid Node and expiry rows fit their pane instead of pushing action buttons off the edge; the Files panes keep the file name column (MODE hides when a pane is narrow); the Network map keeps at least 360 px of height and the view scrolls instead of squashing it to nothing; Settings tabs wrap instead of running off the page.
+- The top bar keeps its breadcrumb readable in a narrow window: the search box drops its placeholder words (the shortcut stays) and the indicators no longer break onto two lines.
+- Service cards wrap their buttons instead of clipping EDIT at the card edge; the MCP port field no longer overflows its box; disk usage text no longer splits "61.0 / GB"; the Network ping sweep option and the saved-network "on map" boxes line up.
+
 ## [1.12.0] - 2026-11-19
 
 Faster updates: interface fixes between releases, batched releases and quicker release builds.

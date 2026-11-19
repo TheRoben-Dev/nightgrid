@@ -222,7 +222,7 @@
   {#if error}<p class="error-text small">{error}</p>{/if}
   {#if notice}<p class="small {notice.tone === 'err' ? 'error-text' : 'ok-text'}">{notice.text}</p>{/if}
 
-  <div class="body">
+  <div class="body" class:solo={!detail}>
     <div class="list">
       <div class="trow head" aria-hidden="true"><span>HOST</span><span>NODE</span><span>ROLE</span><span>VERSION</span><span>LAST SYNC</span><span></span></div>
       {#each rows as v (v.hostId)}
@@ -256,7 +256,7 @@
         <p class="state {stateTone(v.state)}">● {STATE_TEXT[v.state]}</p>
         {#if v.message}<p class="muted small">{v.message}</p>{/if}
         {#if v.state !== "notInstalled" && v.state !== "unknown" && v.state !== "off"}
-          <div class="tabs" role="tablist">
+          <div class="tabs tabstrip line" role="tablist">
             {#each [["status", "STATUS"], ["link", "HUB & LINK"], ["config", "CONFIG"], ["logs", "LOGS"]] as [id, label] (id)}
               <button type="button" role="tab" aria-selected={tab === id} class:on={tab === id} onclick={() => (tab = id as typeof tab)}>{label}</button>
             {/each}
@@ -378,6 +378,9 @@
     grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
     gap: 12px;
   }
+  .body.solo {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .list,
   .detail {
     overflow: auto;
@@ -389,7 +392,7 @@
   }
   .trow {
     display: grid;
-    grid-template-columns: minmax(110px, 1fr) minmax(150px, 1.2fr) minmax(90px, 0.8fr) 70px 90px minmax(110px, auto);
+    grid-template-columns: minmax(90px, 1fr) minmax(130px, 1.2fr) minmax(60px, 0.8fr) 70px 80px minmax(90px, auto);
     gap: 10px;
     align-items: center;
     padding: 5px 4px;
@@ -466,25 +469,7 @@
     padding: 2px 0;
   }
   .tabs {
-    display: flex;
-    gap: 2px;
-    border-bottom: 1px solid var(--line);
     margin: 8px 0 4px;
-  }
-  .tabs button {
-    background: none;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    color: var(--text-2);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: 0.08em;
-    padding: 4px 8px;
-    cursor: pointer;
-  }
-  .tabs button.on {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
   }
   .role-hub {
     color: var(--cyan);

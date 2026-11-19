@@ -381,11 +381,6 @@
   .small {
     font-size: var(--fs-xs);
   }
-  .tiny {
-    min-height: 20px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
-  }
   .items {
     list-style: none;
     margin: 0;
@@ -454,9 +449,11 @@
     font-size: 10px;
     letter-spacing: var(--tracking-label);
     border: 1px solid var(--line);
-    padding: 0 4px;
+    padding: 0 var(--tag-px);
     color: var(--text-1);
     white-space: nowrap;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
   }
   .chip.root {
     color: var(--warn);

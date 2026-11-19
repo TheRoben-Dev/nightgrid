@@ -263,7 +263,10 @@
   .tag {
     font-size: var(--fs-xs);
     border: 1px solid var(--line);
-    padding: 0 4px;
+    padding: 0 var(--tag-px);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .tag.ok {
     color: var(--ok);

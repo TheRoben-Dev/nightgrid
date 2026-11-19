@@ -64,7 +64,7 @@
 
 <Modal {open} title="CRONTAB" width={820} {onclose}>
   <div class="who" data-guide="cron-editor">
-    <div class="seg" role="group" aria-label="Whose crontab">
+    <div class="seg tabstrip sm" role="group" aria-label="Whose crontab">
       <button type="button" class:on={who === "me"} onclick={() => ((who = "me"), load())}>MINE</button>
       <button type="button" class:on={who === "root"} onclick={() => ((who = "root"), load())}>ROOT</button>
       <button type="button" class:on={who === "other"} onclick={() => (who = "other")}>OTHER USER</button>
@@ -147,24 +147,6 @@
   }
   .spacer {
     flex: 1;
-  }
-  .seg {
-    display: inline-flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    background: none;
-    border: 0;
-    color: var(--text-1);
-    padding: 3px 10px;
-    font: inherit;
-    font-size: var(--fs-xs);
-    letter-spacing: 0.08em;
-    cursor: pointer;
-  }
-  .seg button.on {
-    color: var(--text-0);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .user {
     width: 160px;

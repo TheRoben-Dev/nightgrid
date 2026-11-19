@@ -233,11 +233,6 @@
     margin-right: 4px;
     color: var(--text-1);
   }
-  .tiny {
-    min-height: 20px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
-  }
   .check {
     display: flex;
     gap: 6px;

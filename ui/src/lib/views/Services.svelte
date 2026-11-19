@@ -35,7 +35,7 @@
 <div class="services">
   <div class="toolbar" role="toolbar" aria-label="Services">
     <input class="input filter" placeholder="Filter services…" bind:value={services.filter} aria-label="Filter services" />
-    <div class="tabs" role="radiogroup" aria-label="Group by">
+    <div class="tabstrip" role="radiogroup" aria-label="Group by">
       <button type="button" role="radio" aria-checked={services.groupBy === "group"} class:on={services.groupBy === "group"} onclick={() => services.setGroupBy("group")}>GROUP</button>
       <button type="button" role="radio" aria-checked={services.groupBy === "host"} class:on={services.groupBy === "host"} onclick={() => services.setGroupBy("host")}>HOST</button>
     </div>
@@ -185,27 +185,6 @@
   .filter {
     width: 220px;
   }
-  .tabs {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .tabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
   .counts {
     display: flex;
     gap: 10px;
@@ -230,7 +209,7 @@
   }
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 8px;
   }
   .gstat {

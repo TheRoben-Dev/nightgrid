@@ -160,7 +160,7 @@
   .grid .head,
   .grid .row {
     display: grid;
-    grid-template-columns: minmax(200px, 1.4fr) minmax(160px, 1fr) minmax(120px, 0.8fr) 80px minmax(140px, 0.8fr);
+    grid-template-columns: minmax(160px, 1.4fr) minmax(120px, 1fr) minmax(100px, 0.8fr) 80px minmax(120px, 0.8fr);
     gap: 10px;
     align-items: center;
     padding: 5px 10px;

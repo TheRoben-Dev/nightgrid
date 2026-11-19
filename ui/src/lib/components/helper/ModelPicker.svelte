@@ -159,9 +159,12 @@
   .badge {
     font-size: var(--fs-xs);
     letter-spacing: 0.12em;
-    padding: 0 6px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     color: var(--text-1);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .badge.good {
     color: var(--mint);

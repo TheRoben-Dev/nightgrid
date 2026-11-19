@@ -194,10 +194,12 @@
   .badge {
     font-size: var(--fs-xs);
     letter-spacing: 0.1em;
-    padding: 1px 6px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     color: var(--text-1);
     white-space: nowrap;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
   }
   .badge.current {
     color: var(--mint);

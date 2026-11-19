@@ -109,7 +109,7 @@
     {#if info?.hasToken}<button type="button" class="link small" onclick={() => save("", "")}>Remove the access token</button>{/if}
     <div class="row">
       <span class="label">SEND</span>
-      <div class="seg" role="radiogroup" aria-label="Lowest level sent to ntfy">
+      <div class="seg tabstrip sm" role="radiogroup" aria-label="Lowest level sent to ntfy">
         {#each LEVELS as l (l.id)}
           <button type="button" role="radio" aria-checked={n.ntfyLevel === l.id} class:on={n.ntfyLevel === l.id} onclick={() => set({ ntfyLevel: l.id as NoticeLevel })}>{l.label}</button>
         {/each}
@@ -169,26 +169,6 @@
   }
   .tok {
     width: 190px;
-  }
-  .seg {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    border: 0;
-    background: none;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    padding: 3px 8px;
-    cursor: pointer;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--line);
-  }
-  .seg button.on {
-    background: var(--accent);
-    color: var(--bg-0);
   }
   .link {
     background: none;

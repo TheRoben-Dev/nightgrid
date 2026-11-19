@@ -67,7 +67,7 @@
 
 <Modal open={!!d} title="{g?.kind === 'qemu' ? 'VM' : 'CT'} {g?.vmid ?? ''} · {g?.name.toUpperCase() ?? ''}" width={d?.tab === "hardware" || d?.tab === "firewall" ? 860 : 760} onclose={() => (proxmox.detail = null)}>
   {#if d && g}
-    <div class="tabs" role="tablist" aria-label="Guest">
+    <div class="tabs tabstrip line" role="tablist" aria-label="Guest">
       <button type="button" role="tab" class:on={d.tab === "snapshots"} aria-selected={d.tab === "snapshots"} onclick={() => proxmox.guestTab("snapshots")}>SNAPSHOTS</button>
       <button type="button" role="tab" data-guide="proxmox-guest-backups" class:on={d.tab === "backups"} aria-selected={d.tab === "backups"} onclick={() => proxmox.guestTab("backups")}>BACKUPS</button>
       <button type="button" role="tab" data-guide="proxmox-hardware" class:on={d.tab === "hardware"} aria-selected={d.tab === "hardware"} onclick={() => proxmox.guestTab("hardware")}>HARDWARE</button>
@@ -180,25 +180,8 @@
     overflow: auto;
   }
   .tabs {
-    display: flex;
-    gap: 0;
     align-items: center;
-    border-bottom: 1px solid var(--line);
     margin-bottom: 8px;
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 4px 10px;
-    cursor: pointer;
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .sp {
     margin-left: auto;
@@ -258,9 +241,11 @@
   .tag {
     font-size: var(--fs-xs);
     border: 1px solid var(--line);
-    padding: 0 4px;
+    padding: 0 var(--tag-px);
     color: var(--cyan);
     white-space: nowrap;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
   }
   .tag.bad {
     color: var(--danger);
