@@ -36,6 +36,7 @@ Add your DNS filter as an integration to see its stats on a card, pause blocking
 
 - Run two DNS servers (a second Pi-hole or AdGuard, or the router as backup) so a reboot doesn't take the whole network offline. Keep their records in sync with Nebula Sync or AdGuardHome-Sync.
 - Pi-hole 5 and older aren't supported by this integration.
+- Saving a Pi-hole or AdGuard Home integration failed with a database error before Nightgrid 1.7.2. Update Nightgrid and add it again; nothing else needs changing.
 
 ## Related
 

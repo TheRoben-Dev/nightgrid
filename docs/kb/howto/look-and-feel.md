@@ -1,6 +1,6 @@
 # Shortcuts, palette and themes
 
-Move around Nightgrid without the mouse, and make it look the way you like: themes, a custom palette, scale and effects.
+Move around Nightgrid without the mouse, and make it look and sound the way you like: themes, a custom palette, scale, effects and UI sounds.
 
 ## Part 1 · Keyboard
 
@@ -16,7 +16,14 @@ Move around Nightgrid without the mouse, and make it look the way you like: them
 - [ ] **Reduce effects** turns off glitch text, scanlines and glow (your OS's reduced-motion setting does too).
 - [ ] **UI scale** from 90 to 150 %.
 
-## Part 3 · Layout
+## Part 3 · Sounds
+
+- [ ] **Settings → SOUND** → **UI sounds** is the master switch. Short synthesized blips play when an alert fires or clears (sharper for critical), a notice reaches the **INBOX**, something you started works or fails, a confirm dialog opens, DRIFT finishes a reply, a quest step is done, or a scan, test restore, drill or speed test finishes. Never for terminal output or live numbers.
+- [ ] **VOLUME** starts at 40 %. **Mute when the window isn't focused** is on to start; **Quiet hours** with **FROM** and **UNTIL** silences a window every day.
+- [ ] **SOUNDS** lists each kind (Alerts, Inbox, Actions, Dialogs, DRIFT, Quests, Long tasks, View switch) with its own switch and ▶ buttons to hear each sound. **View switch**, a soft tick when you change views, is off until you turn it on.
+- [ ] The same **UI sounds** switch is also under Settings → **FEATURES**.
+
+## Part 4 · Layout
 
 - [ ] Overview dashboards: [Build dashboards with command widgets](kb:howto/command-widgets).
 - [ ] Hide views you don't use: [Keep Nightgrid simple with feature presets](kb:howto/features).
@@ -27,7 +34,7 @@ Move around Nightgrid without the mouse, and make it look the way you like: them
 
 ## Limits and gotchas
 
-- Your palette and settings travel in profile exports, so a new computer looks the same after import.
+- Your palette, sound choices and other settings travel in profile exports, so a new computer looks and sounds the same after import.
 
 ## Related
 
