@@ -50,7 +50,12 @@ pub fn record(
     };
     for h in &hosts {
         if let Some((p, msg)) = polls.get(&h.id) {
-            if let Some(seen) = host_seen(p) {
+            if let Some(mut seen) = host_seen(p) {
+                // Client devices (laptops, handhelds) come and go by design,
+                // even with "alert when it goes offline" on: never downtime.
+                if seen == Seen::Down && h.role == "client" {
+                    seen = Seen::Asleep;
+                }
                 obs.push(Observation { node: Node::Host(h.id), seen, detail: msg.clone().unwrap_or_default() });
             }
         }
@@ -64,7 +69,13 @@ pub fn record(
             if now - st.ts > fresh {
                 continue;
             }
-            let seen = if st.result.up { Seen::Up } else { Seen::Down };
+            // A server that answered over HTTPS with a certificate this
+            // computer doesn't trust (self-signed, internal CA) was up; the
+            // certificate is the Services and Expiry Watch views' business.
+            let answered = st.result.status.is_some()
+                && st.result.tls.as_ref().is_some_and(|t| !t.trusted)
+                && st.result.error.as_deref().is_some_and(|e| e.starts_with("certificate not trusted"));
+            let seen = if st.result.up || answered { Seen::Up } else { Seen::Down };
             let detail = st
                 .result
                 .error

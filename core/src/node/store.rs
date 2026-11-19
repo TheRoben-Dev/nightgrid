@@ -94,16 +94,26 @@ impl Store {
 
     /// Hours the node witnessed, merged with the app's own: the larger value
     /// of each column (each side only counts what it saw), then clamped to an
-    /// hour, taking the excess from `up` first.
+    /// hour, taking the excess from `up` first. The node runs on the host, so
+    /// time it saw the host up or asleep can't also have been down: the
+    /// app's down (often its own network, D-181) is cut to what's left, and
+    /// its outages inside an hour the node saw whole are dropped.
     pub fn uptime_merge(&mut self, host: HostId, hours: &[UptimeHour]) -> Result<()> {
         let tx = self.conn_mut().transaction()?;
         for h in hours {
             tx.execute(
                 "INSERT INTO uptime_hours (kind, subject, hour, up, down, asleep) VALUES ('host', ?1, ?2, ?3, ?4, ?5)
                  ON CONFLICT (kind, subject, hour) DO UPDATE SET
-                   up = max(up, excluded.up), down = max(down, excluded.down), asleep = max(asleep, excluded.asleep)",
+                   up = max(up, excluded.up), asleep = max(asleep, excluded.asleep),
+                   down = max(excluded.down, min(down, max(0, 3600 - excluded.up - excluded.asleep)))",
                 params![host, h.hour, h.up.max(0), h.down.max(0), h.asleep.max(0)],
             )?;
+            if h.down <= 0 && h.up.max(0) + h.asleep.max(0) >= 3600 - 60 {
+                tx.execute(
+                    "DELETE FROM outages WHERE kind = 'host' AND subject = ?1 AND start >= ?2 AND end <= ?2 + 3600",
+                    params![host, h.hour],
+                )?;
+            }
             tx.execute(
                 "UPDATE uptime_hours SET up = max(0, 3600 - down - asleep)
                  WHERE kind = 'host' AND subject = ?1 AND hour = ?2 AND up + down + asleep > 3600",
@@ -225,6 +235,34 @@ pub(crate) mod tests {
             })
             .unwrap();
         assert_eq!(row, (2800, 600, 200));
+    }
+
+    #[test]
+    fn a_node_that_saw_the_host_up_cancels_the_apps_down() {
+        let (mut s, h) = store();
+        s.conn()
+            .execute_batch(&format!(
+                "INSERT INTO uptime_hours (kind, subject, hour, up, down) VALUES ('host', {h}, 3600, 3000, 600);
+                 INSERT INTO outages (kind, subject, start, end) VALUES ('host', {h}, 4000, 4600), ('host', {h}, 7000, 7400);"
+            ))
+            .unwrap();
+        s.uptime_merge(h, &[UptimeHour { hour: 3600, up: 3600, down: 0, asleep: 0 }]).unwrap();
+        let row: (i64, i64, i64) = s
+            .conn()
+            .query_row("SELECT up, down, asleep FROM uptime_hours WHERE subject = ?1", [h], |r| {
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+            })
+            .unwrap();
+        assert_eq!(row, (3600, 0, 0));
+        let starts: Vec<i64> = s
+            .conn()
+            .prepare("SELECT start FROM outages")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(starts, vec![7000], "an outage across the hour's end stays");
     }
 
     #[test]

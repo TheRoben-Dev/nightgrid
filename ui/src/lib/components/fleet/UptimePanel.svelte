@@ -45,10 +45,11 @@
     node: DepNode;
     name: string;
     sub: string;
+    client: boolean;
   }
   const rows = $derived.by(() => {
-    const h: Row[] = hosts.hosts.map((x) => ({ node: { kind: "host", id: x.id }, name: x.name, sub: x.hostname }));
-    const s: Row[] = services.services.filter((x) => x.checkEnabled).map((x) => ({ node: { kind: "service", id: x.id }, name: x.name, sub: x.url }));
+    const h: Row[] = hosts.hosts.map((x) => ({ node: { kind: "host", id: x.id }, name: x.name, sub: x.hostname, client: x.role === "client" }));
+    const s: Row[] = services.services.filter((x) => x.checkEnabled).map((x) => ({ node: { kind: "service", id: x.id }, name: x.name, sub: x.url, client: false }));
     return { hosts: h, services: s };
   });
   const byKey = $derived(Object.fromEntries(series.map((s) => [nodeKey(s.node), s])));
@@ -80,7 +81,9 @@
         <button type="button" class:on={days === r.days} onclick={() => (days = r.days)}>{r.label}</button>
       {/each}
     </div>
-    <span class="muted small">Up out of the time Nightgrid was watching; sleep doesn't count as down.</span>
+    <span class="muted small" title="A target must stay down for 2½ minutes to count. The first 3 minutes after Nightgrid starts or this computer wakes, and moments when every host fails at once (this computer's own network), are unknown time. Client devices going away is never downtime.">
+      Up out of the time Nightgrid was watching. Grey is unknown, red is confirmed down; sleep, short blips and this computer's own network drops don't count.
+    </span>
     <span class="spacer"></span>
     {#if overall.pct != null}<span class="small">ALL <strong class="t-{barTone(overall.pct)}">{pctText(overall.pct)}</strong></span>{/if}
     <button type="button" class="btn ghost tiny" data-guide="uptime-report" onclick={() => (reportOpen = true)}>Monthly report…</button>
@@ -107,7 +110,7 @@
                 {#each bars as b (b.day)}<i class={barTone(b.pct)} title={barTitle(b)}></i>{/each}
               </span>
               <span class="pct t-{barTone(t.pct)}">{pctText(t.pct)}</span>
-              <span class="down muted small">{t.down ? `${durText(t.down)} down` : t.seenDays ? "no downtime" : ""}</span>
+              <span class="down muted small">{t.down ? `${durText(t.down)} down` : r.client ? "client, not counted" : t.seenDays ? "no downtime" : ""}</span>
             </button>
             {#if open === k}
               <div class="detail">
@@ -200,7 +203,7 @@
   }
   .head {
     display: grid;
-    grid-template-columns: minmax(100px, 180px) 1fr 72px 120px;
+    grid-template-columns: minmax(100px, 180px) 1fr 72px 150px;
     gap: 12px;
     align-items: center;
     width: 100%;
