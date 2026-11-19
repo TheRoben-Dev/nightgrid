@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+Windows Server hosts get close to everything Nightgrid does on Linux: monitoring, Docker and Compose, the System tabs, security posture, Fleet checks and network tools, using only what Windows ships with. Every view says plainly what can't run on a Windows host and why.
+
+### Added: Windows hosts
+- **Nightgrid knows which hosts run Windows.** It learns it on connect (OpenSSH for Windows says so in its version line) and remembers it per host. Nothing is installed on the host: commands run through Windows PowerShell 5.1.
+- **Overview, monitoring and history** read Windows performance counters through one long-running PowerShell sampler: CPU, memory and page file, disks and volumes, network, uptime, NVIDIA GPUs and ACPI temperatures. Alerts and history work as for Linux hosts.
+- **Docker** talks to `docker.exe` on the host (Docker Engine or Docker Desktop): containers, images, logs, stats and events.
+- **Reboot, shut down and suspend** use Windows' own `shutdown.exe` and sleep. Suspend checks what the host supports first and says so when it can't sleep.
+- **Wake-on-LAN relays** work from Windows hosts.
+- **SSH keys** are pushed, listed and removed the Windows way, including `administrators_authorized_keys` with the permissions sshd requires.
+- System shows whether the account is an administrator.
+- **System → UNITS** lists Windows services with their state and startup type; start, stop, restart, and set them to automatic, manual or disabled.
+- **System → JOURNAL** reads the System and Application event logs (and Security, for administrators) with the same source, severity, time and follow filters.
+- **System → SCHEDULES** lists Task Scheduler tasks (Microsoft's own are hidden): run one now, enable or disable it.
+- **System → DISKS** shows physical disk health, wear, temperature and error counters, and Storage Spaces pools.
+- **System → UPDATES** checks Windows Update and installs updates. Windows Update refuses to install over an SSH login, so the install runs as a one-off SYSTEM scheduled task and its log streams back live.
+- **System → FIREWALL** manages Windows Defender Firewall (profiles, default policy, allow and delete rules, enable and disable rules) behind the same rollback as Linux: the old rules are exported first and imported back by a SYSTEM task when the countdown ends, unless you keep the change.
+- **System → SECURITY and the security posture** check Defender, firewall profiles, RDP and NLA, SMB1, UAC, patch age, the Guest account, administrators, sshd password logins and exposed listeners.
+- **Fleet → LOGS** searches the event logs; **Fleet → ACCESS** reads SSH logins from the OpenSSH event log, local accounts and administrators; **Fleet → BACKUPS** watches Task Scheduler tasks (Windows Server Backup included) and folders; **Fleet → SPEED** runs iperf3.exe when it's on the host.
+- **Compose stacks** run up, pull, update, restart and down through PowerShell.
+- **Network tools and the network scan** run in PowerShell. DRIFT can read PowerShell's history.
+
+### Changed
+- **Views and tabs that can't run on a Windows host say why** in place of the view, with what the Windows version will use when one is planned. Commands behind them stop early with the same words instead of a shell error from cmd. Background checks (daily posture, SMART, backups, log watches, incident timeline) skip Windows hosts quietly.
+- Backup jobs accept Windows paths (`D:\Backups`, `\\nas\share`) and scheduled task paths.
+- The deploy wizard, stacks from git and the .env vault say plainly that they need a POSIX shell on Windows hosts.
+
 ## [1.11.0] - 2026-11-19
 
 Nine more integrations: download clients, files and photos, notifications and cameras.
