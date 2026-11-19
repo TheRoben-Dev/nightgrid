@@ -13,6 +13,11 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
 - **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
 
+## [1.7.2] - 2026-11-19
+
+### Fixed
+- **Adding a Pi-hole or AdGuard Home integration failed** with "CHECK constraint failed: kind IN ('plex','amp','kuma','portainer')". The integrations table never learned the two DNS kinds from 0.10.36; migration 0049 rebuilds it with every kind and keeps your existing integrations (same ids, so saved passwords and tokens still match).
+
 ## [1.7.1] - 2026-11-19
 
 ### Fixed: logging in to Windows hosts (and any host without an agent key)

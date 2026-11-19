@@ -42,6 +42,10 @@ pub enum IntegrationKind {
 }
 
 impl IntegrationKind {
+    /// Every kind. The `integrations` table's CHECK constraint must list
+    /// each one (tests insert all of them).
+    pub const ALL: [Self; 6] = [Self::Plex, Self::Amp, Self::Kuma, Self::Portainer, Self::Pihole, Self::Adguard];
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Plex => "plex",
@@ -361,5 +365,69 @@ mod tests {
         s.delete_integration(plex.id).unwrap();
         assert!(s.get_integration(plex.id).is_err());
         assert!(s.delete_integration(plex.id).is_err());
+    }
+
+    fn input_for(kind: IntegrationKind) -> IntegrationInput {
+        IntegrationInput {
+            kind: Some(kind),
+            base_url: "http://x.lan".into(),
+            username: "admin".into(),
+            slug: "home".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn every_kind_can_be_saved() {
+        // A new variant must be added to ALL (this match won't compile otherwise
+        // without touching it), and the table must accept it.
+        for k in IntegrationKind::ALL {
+            match k {
+                IntegrationKind::Plex
+                | IntegrationKind::Amp
+                | IntegrationKind::Kuma
+                | IntegrationKind::Portainer
+                | IntegrationKind::Pihole
+                | IntegrationKind::Adguard => {}
+            }
+        }
+        let mut s = Store::open_in_memory().unwrap();
+        for k in IntegrationKind::ALL {
+            let i = s.create_integration(&input_for(k)).unwrap_or_else(|e| panic!("{k:?}: {e}"));
+            assert_eq!(i.kind, k);
+            assert_eq!(IntegrationKind::parse(k.as_str()), Some(k));
+        }
+        assert_eq!(s.list_integrations().unwrap().len(), IntegrationKind::ALL.len());
+    }
+
+    #[test]
+    fn migration_keeps_existing_integrations() {
+        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.pragma_update(None, "foreign_keys", "ON").unwrap();
+        let m = crate::store::migrations();
+        m.to_version(&mut conn, 48).unwrap();
+        conn.execute_batch(
+            "INSERT INTO integrations (id, kind, name, base_url, username, endpoint_id, allow_untrusted)
+                 VALUES (7, 'amp', 'Games', 'http://amp.lan', 'admin', 0, 1),
+                        (9, 'portainer', 'Docker', 'https://p.lan:9443', '', 2, 0);",
+        )
+        .unwrap();
+        assert!(
+            conn.execute("INSERT INTO integrations (kind, base_url) VALUES ('pihole', 'http://pi.lan')", []).is_err(),
+            "the old constraint rejected pihole"
+        );
+        m.to_latest(&mut conn).unwrap();
+        let rows: Vec<(i64, String, String, i64, i64)> = conn
+            .prepare("SELECT id, kind, username, endpoint_id, allow_untrusted FROM integrations ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)))
+            .unwrap()
+            .collect::<rusqlite::Result<_>>()
+            .unwrap();
+        assert_eq!(rows, vec![(7, "amp".into(), "admin".into(), 0, 1), (9, "portainer".into(), "".into(), 2, 0)]);
+        for k in IntegrationKind::ALL {
+            conn.execute("INSERT INTO integrations (kind, base_url) VALUES (?1, 'http://x')", [k.as_str()]).unwrap();
+        }
+        assert!(conn.execute("INSERT INTO integrations (kind, base_url) VALUES ('nope', 'http://x')", []).is_err());
     }
 }
