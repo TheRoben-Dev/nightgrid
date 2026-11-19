@@ -380,6 +380,8 @@ Settings → **FEATURES** lists every view and the checks inside them, each with
 
 Nightgrid checks GitHub Releases after start-up and offers **Install & restart** when a newer version is out. Turn this off, or check by hand, under Settings → Updates.
 
+Fixes that only touch the interface can arrive between releases. With **Settings → Updates → Interface fixes between releases** on (the default), Nightgrid looks for a fix built for exactly the version you run, after start-up and every 6 hours. It's a small download (a few MB), checked against the same signing key as app updates, and it applies the next time Nightgrid starts: a card offers **Restart now**. The Updates panel shows whether the interface is built in or a fix (and from when), with **Check fixes** and **Use built-in**. A fix can only change the interface: what the app is allowed to do stays as built. If a fix ever fails to start, Nightgrid notices within a minute, goes back to the built-in interface and never uses that fix again. A fix for an older version is ignored once you update, because every release carries all fixes before it.
+
 ## Privacy
 
 There's no telemetry. Nightgrid only connects to:
