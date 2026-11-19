@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [1.12.1] - 2026-11-19
+## [Unreleased]
 
 ### Added: storage, network and monitoring integrations
 Nine more integration types, 34 in all.
@@ -15,6 +15,8 @@ Nine more integration types, 34 in all.
 - **Nginx Proxy Manager**: proxy hosts, nginx errors, expiring certificates, **Enable** and **Disable**.
 - **Grafana**: dashboards and firing or pending alert rules.
 - **Prometheus**: targets down with their errors, firing alerts.
+
+## [1.12.1] - 2026-11-19
 
 ### Fixed: false downtime in Fleet → UPTIME
 - **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
