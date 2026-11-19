@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
-## [1.9.0] - 2026-11-19
+## [1.11.0] - 2026-11-19
 
 Nine more integrations: download clients, files and photos, notifications and cameras.
 
@@ -14,6 +14,13 @@ Nine more integrations: download clients, files and photos, notifications and ca
 - **Syncthing**: folder sync state, devices online, errors; rescan, pause and resume.
 - **Gotify**: health, apps and latest messages; delete one or all.
 - **Frigate**: cameras with frame rates, detector speed, recording storage and latest detections.
+
+## [1.10.0] - 2026-11-19
+
+### Added: back and forward
+- **Mouse side buttons go back and forward** through where you've been: views, the tabs beside a view's title (One host / Fleet, Map / Tools…), tabs inside a view (Fleet → DISKS, Docker → STACKS, Proxmox, Security, Files editors, Settings tabs), the host a view shows and Library articles. On macOS the buttons are caught natively, because the system webview doesn't pass them to the page.
+- **Keys**: `Cmd+[` / `Cmd+]` on macOS, `Alt+Left` / `Alt+Right` on Windows and Linux, plus the Back/Forward keys some keyboards and mice send. They stay with text fields and editors, and with the terminal on Windows and Linux, where shells move by word with `Alt+Left` / `Alt+Right`.
+- **‹ ›** buttons at the top left, and a **two-finger sideways swipe** on a trackpad (Settings → General → Swipe to go back; areas that scroll sideways keep the swipe).
 
 ## [1.8.1] - 2026-11-19
 

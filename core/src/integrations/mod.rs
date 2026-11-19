@@ -13,7 +13,7 @@
 //!   actions): **Jellyfin**, **Emby**, **Tautulli**, **Sonarr**, **Radarr**,
 //!   **Lidarr**, **Prowlarr**, **Bazarr**, **Overseerr**, **Jellyseerr**
 //!   (1.8.0); **qBittorrent**, **Transmission**, **SABnzbd**, **NZBGet**,
-//!   **Immich**, **Nextcloud**, **Syncthing**, **Gotify** and **Frigate** (1.9.0).
+//!   **Immich**, **Nextcloud**, **Syncthing**, **Gotify** and **Frigate** (1.11.0).
 //!
 //! The database stores the kind as text with no CHECK on it (0050): a kind is
 //! valid when [`IntegrationKind::parse`] knows it.
