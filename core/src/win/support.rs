@@ -82,7 +82,7 @@ pub const WINDOWS: &[Support] = &[
         "Stacks are listed from their containers, but starting, updating and stopping them runs docker compose through a POSIX shell. A PowerShell version is coming.",
     ),
     s("fleet.backups", "Fleet → BACKUPS", Planned, "Backup checks run restic, borg and rsync through a POSIX shell. Windows support is coming."),
-    s("fleet.logs", "Fleet → LOGS", Planned, "Log search reads journald and /var/log. A Windows version searching the Event Log is coming."),
+    s("fleet.logs", "Fleet → LOGS", Partial, "Searches the System and Application event logs instead of the journal (the newest 5 000 events per log); the unit filter matches the event source."),
     s("fleet.access", "Fleet → ACCESS", Planned, "The access audit reads Linux login records. A Windows version reading logon events is coming."),
     s("fleet.speed", "Fleet → SPEED", Planned, "Speed tests start iperf3 through a POSIX shell. Windows support (with iperf3.exe) is coming."),
     s(

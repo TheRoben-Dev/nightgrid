@@ -180,6 +180,42 @@ pub fn parse_line(line: &str) -> Option<JournalEntry> {
     })
 }
 
+/// Event Log rows read per host for Fleet → LOGS (rendering messages is
+/// slow on Windows, so fewer than the journal's 20 000).
+pub const SEARCH_READ: u32 = 5_000;
+
+/// The script for Fleet → LOGS: the System and Application logs from
+/// `secs_ago` seconds back, filtered by source (`unit`) and severity.
+pub fn search_script(q: &crate::logsearch::LogSearchQuery, secs_ago: u32) -> SystemResult<String> {
+    let jq = JournalQuery {
+        unit: q.unit.clone(),
+        priority: q.priority,
+        since: Some(format!("-{}s", secs_ago.max(1))),
+        until: None,
+        lines: SEARCH_READ,
+        follow: false,
+    };
+    script(&jq, false)
+}
+
+/// The matching lines of [`search_script`]'s output, as `eventlog/<source>` hits.
+pub fn search_hits(
+    host_id: crate::hosts::HostId,
+    out: &str,
+    m: &crate::logsearch::Matcher,
+) -> Vec<crate::logsearch::LogHit> {
+    out.lines()
+        .filter_map(parse_line)
+        .filter(|e| m.is_match(&e.message))
+        .map(|e| crate::logsearch::LogHit {
+            host_id,
+            source: format!("eventlog/{}", e.ident.as_deref().unwrap_or("event")),
+            ts: e.ts as f64 / 1000.0,
+            text: crate::logsearch::tidy(&e.message),
+        })
+        .collect()
+}
+
 /// The "no events" note isn't an error.
 pub fn is_empty_notice(line: &str) -> bool {
     line.starts_with("No events match")
@@ -239,5 +275,26 @@ mod tests {
         assert!(!rows.is_empty(), "stdout: {}\nstderr: {}", o.stdout, o.stderr);
         assert!(rows.len() <= 20);
         assert!(rows.windows(2).all(|w| w[0].ts <= w[1].ts));
+    }
+
+    #[test]
+    fn search_lines() {
+        let lq = crate::logsearch::LogSearchQuery {
+            text: "bad block".into(),
+            unit: Some("Disk".into()),
+            priority: Some(3),
+            since_mins: 60,
+            ..Default::default()
+        };
+        let s = search_script(&lq, 3600).unwrap();
+        assert!(s.contains("ProviderName = 'Disk'"));
+        assert!(s.contains("AddSeconds(-3600)"));
+        let m = crate::logsearch::Matcher::new(&lq).unwrap();
+        let out = "1731664800123\t3\tSystem\tDisk\t4\t7: The device has a bad block.\n\
+                   1731664801000\t6\tSystem\tService Control Manager\t0\t7036: started";
+        let hits = search_hits(1, out, &m);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].source, "eventlog/Disk");
+        assert!((hits[0].ts - 1731664800.123).abs() < 1e-6);
     }
 }
