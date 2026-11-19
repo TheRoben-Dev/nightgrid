@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [1.7.1] - 2026-11-19
+
+### Fixed
+- **Adding a Pi-hole or AdGuard Home integration failed** with "CHECK constraint failed: kind IN ('plex','amp','kuma','portainer')". The integrations table never learned the two DNS kinds from 0.10.36; migration 0049 rebuilds it with every kind and keeps your existing integrations (same ids, so saved passwords and tokens still match).
+
 ## [1.7.0] - 2026-11-19
 
 Ten more starter shelves: apps, scheduled jobs, firewall profiles, alert rules, Overview tiles and dashboards, log searches, proxy routes, Proxmox shapes, restore drills and security posture.
