@@ -148,6 +148,7 @@ export const CATALOG: CatalogEntry[] = [
   { id: "howto/profiles", shelf: "howto", title: "Back up and move your Nightgrid setup", cat: "storage" },
   { id: "howto/status-page", shelf: "howto", title: "Phone status page and snapshots", cat: "monitoring" },
   { id: "howto/features", shelf: "howto", title: "Keep Nightgrid simple with feature presets", cat: "start" },
+  { id: "howto/app-updates", shelf: "howto", title: "Keep Nightgrid up to date", cat: "start" },
   { id: "howto/speed-test", shelf: "howto", title: "Find slow links with iperf3", cat: "network" },
   { id: "howto/uptime-reports", shelf: "howto", title: "Uptime history and monthly reports", cat: "monitoring" },
   { id: "howto/dns-dashboard", shelf: "howto", title: "Control Pi-hole and AdGuard Home from Nightgrid", cat: "network" },

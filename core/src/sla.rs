@@ -356,20 +356,20 @@ mod tests {
         r.tick(&mut s, t, &[obs(h, Seen::Up), obs(v, Seen::Up)]).unwrap();
         for i in 1..=100 {
             t += 30;
-            let sv = if (40..44).contains(&i) { Seen::Down } else { Seen::Up };
+            let sv = if (40..50).contains(&i) { Seen::Down } else { Seen::Up };
             r.tick(&mut s, t, &[obs(h, Seen::Up), obs(v, sv)]).unwrap();
         }
         let subjects = vec![(h, "server01".to_owned()), (v, "Photos".to_owned()), (Node::Host(9), "new".to_owned())];
         let rep = s.sla_report(&subjects, t0, t0 + 86_400, "January 1970", 99.9, t).unwrap();
         assert_eq!(rep.rows[0].availability, Some(100.0));
         assert_eq!(rep.rows[0].met, Some(true));
-        assert_eq!((rep.rows[1].down, rep.rows[1].outages, rep.rows[1].longest), (120, 1, 120));
-        assert_eq!(rep.rows[1].availability, Some(96.0));
+        assert_eq!((rep.rows[1].down, rep.rows[1].outages, rep.rows[1].longest), (300, 1, 300));
+        assert_eq!(rep.rows[1].availability, Some(90.0));
         assert_eq!(rep.rows[1].met, Some(false));
         assert_eq!(rep.rows[2].availability, None);
         assert_eq!(rep.incidents.len(), 1);
         assert_eq!(rep.incidents[0].name, "Photos");
-        assert!((rep.overall().unwrap() - 98.0).abs() < 1e-9);
+        assert!((rep.overall().unwrap() - 95.0).abs() < 1e-9);
         // A period that starts mid-outage clips it.
         let late = s.sla_report(&subjects, t0 + 41 * 30, t0 + 86_400, "x", 99.0, t).unwrap();
         assert_eq!(late.incidents[0].start, t0 + 41 * 30);
@@ -377,7 +377,7 @@ mod tests {
         let html = render_html(&rep, 60);
         assert!(html.starts_with("<!doctype html>"));
         assert!(html.contains("UPTIME REPORT · JANUARY 1970"));
-        assert!(html.contains("96.0%") && html.contains("100%") && html.contains("missed") && html.contains("no data"));
+        assert!(html.contains("90.0%") && html.contains("100%") && html.contains("missed") && html.contains("no data"));
         assert!(html.contains("1 of 2"));
         assert!(html.contains("HTTP 502 &lt;bad&gt;") && !html.contains("<bad>"));
         assert!(!html.contains("<script") && !html.contains("http://") && !html.contains("https://"));

@@ -16,6 +16,15 @@ Nine more integration types, 34 in all.
 - **Grafana**: dashboards and firing or pending alert rules.
 - **Prometheus**: targets down with their errors, firing alerts.
 
+### Fixed: false downtime in Fleet → UPTIME
+- **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
+- **Waking up isn't an outage.** For 3 minutes after Nightgrid starts or the computer wakes, failures don't count, and the gap before isn't filled in with whatever was seen last.
+- **Your own network dropping isn't an outage.** A round where every host (or everything watched) fails at once is unknown time.
+- **Client devices** (laptops, handhelds) never count as down, even with "Alert when it goes offline" on.
+- **Self-signed services**: a service that answers but whose certificate this computer doesn't trust counts as up in uptime history (the Services view still shows the certificate problem).
+- **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
+- **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
+
 ## [1.12.0] - 2026-11-19
 
 Faster updates: interface fixes between releases, batched releases and quicker release builds.
