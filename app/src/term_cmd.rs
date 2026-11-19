@@ -429,9 +429,10 @@ mod posix_guard_tests {
                 if id.is_empty() || !id.bytes().all(|b| b.is_ascii_lowercase() || b == b'.') {
                     continue;
                 }
+                // Partial features branch to PowerShell after the guard.
                 assert!(
-                    nightgrid_core::win::support::unavailable(id).is_some(),
-                    "{}: {id:?} is not a planned or impossible feature in win::support",
+                    nightgrid_core::win::support::windows(id).is_some(),
+                    "{}: {id:?} is not in win::support",
                     path.display()
                 );
                 seen += 1;
