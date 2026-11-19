@@ -1,5 +1,5 @@
 /** Expiry watch (M10l): one list of everything that runs out on a date. */
-import type { ProxyReport, Service, ServiceStatus, WatchItem, WatchKind } from "./api";
+import type { ExpiryPref, PrefTarget, ProxyReport, Service, ServiceStatus, WatchItem, WatchKind } from "./api";
 
 const DAY = 86_400;
 
@@ -11,7 +11,10 @@ export const KIND_WORD: Record<WatchKind, string> = {
   other: "OTHER",
 };
 
-export type Tone = "ok" | "warn" | "bad" | "unknown";
+export type Tone = "ok" | "warn" | "bad" | "unknown" | "muted";
+
+/** How a service certificate stands with the OS and with the user. */
+export type Trust = "trusted" | "pinned" | "changed" | "untrusted";
 
 export interface ExpiryRow {
   key: string;
@@ -27,6 +30,38 @@ export interface ExpiryRow {
   error: string | null;
   tone: Tone;
   item?: WatchItem;
+  /** Shown, but never alerts. */
+  muted: boolean;
+  /** Service and proxy rows: what the user's edits are keyed by. */
+  target?: PrefTarget;
+  pref?: ExpiryPref;
+  /** The date the certificate itself gives, when the user typed another. */
+  certExpiresAt?: number | null;
+  /** Service rows: trust of the certificate, and its SHA-256. */
+  trust?: Trust;
+  fingerprint?: string | null;
+  /** Service rows: the certificate's own problem, even when trusted by the user. */
+  problem?: string | null;
+}
+
+const RANK: Tone[] = ["muted", "unknown", "ok", "warn", "bad"];
+const worse = (a: Tone, b: Tone): Tone => (RANK.indexOf(a) >= RANK.indexOf(b) ? a : b);
+
+/** Same edits target? */
+export function sameTarget(a: PrefTarget, b: PrefTarget): boolean {
+  return a.kind === "service" && b.kind === "service" ? a.serviceId === b.serviceId : a.kind === "proxy" && b.kind === "proxy" && a.domain === b.domain;
+}
+
+/** `ab12…` → `AB:12:…`, the way browsers and openssl show it. */
+export function fingerprintText(fp: string | null | undefined): string {
+  return fp ? (fp.match(/../g) ?? []).join(":").toUpperCase() : "";
+}
+
+/** Trust of a service certificate, given the fingerprint the user accepted. */
+export function trustOf(tls: { trusted: boolean; fingerprint?: string | null }, pinned: string | null | undefined): Trust {
+  if (tls.trusted) return "trusted";
+  if (!pinned) return "untrusted";
+  return tls.fingerprint && tls.fingerprint === pinned ? "pinned" : "changed";
 }
 
 /** Whole days left (negative once expired). */
@@ -73,10 +108,12 @@ export function expiryRows(
     proxy?: { report: ProxyReport | null; hostName: string } | null;
     hostName: (id: number | null | undefined) => string;
     certDays: number;
+    prefs?: ExpiryPref[];
   },
   now: number,
 ): ExpiryRow[] {
   const rows: ExpiryRow[] = [];
+  const prefFor = (t: PrefTarget) => o.prefs?.find((p) => sameTarget(p.target, t));
   for (const i of o.items) {
     const days = daysLeft(i.expiresAt, now);
     const where = i.kind === "certFile" ? `${o.hostName(i.hostId)}:${i.target}` : i.target;
@@ -90,25 +127,42 @@ export function expiryRows(
       days,
       warnDays: i.warnDays,
       error: i.checkError ?? null,
-      tone: toneOf(days, i.warnDays, i.checkError ?? null),
+      tone: i.muted ? "muted" : toneOf(days, i.warnDays, i.checkError ?? null),
       item: i,
+      muted: i.muted,
     });
   }
   for (const s of o.services) {
     const tls = o.status[s.id]?.result.tls;
     if (!tls?.expires) continue;
-    const days = daysLeft(tls.expires, now);
+    const target: PrefTarget = { kind: "service", serviceId: s.id };
+    const pref = prefFor(target);
+    const at = pref?.expiresAt ?? tls.expires;
+    const days = daysLeft(at, now);
+    const warnDays = pref?.warnDays ?? o.certDays;
+    const trust = trustOf(tls, pref?.trustedFingerprint);
+    const problem = tls.trusted ? null : (tls.problem ?? "not trusted");
+    const error = trust === "changed" ? `certificate changed since you trusted it (${problem})` : trust === "untrusted" ? problem : null;
+    const muted = !!pref?.muted;
     rows.push({
       key: `s${s.id}`,
       source: "service",
       kind: "SERVICE TLS",
       name: s.name,
       where: s.url,
-      expiresAt: tls.expires,
+      expiresAt: at,
       days,
-      warnDays: o.certDays,
-      error: tls.trusted ? null : (tls.problem ?? "not trusted"),
-      tone: toneOf(days, o.certDays),
+      warnDays,
+      error,
+      // A certificate other than the one the user trusted is never quiet.
+      tone: trust === "changed" ? worse(toneOf(days, warnDays), "warn") : muted ? "muted" : toneOf(days, warnDays),
+      muted,
+      target,
+      pref,
+      certExpiresAt: tls.expires,
+      trust,
+      fingerprint: tls.fingerprint ?? null,
+      problem,
     });
   }
   const seen = new Set(rows.filter((r) => r.source === "service").map((r) => hostOf(r.where)));
@@ -116,8 +170,12 @@ export function expiryRows(
     const domain = r.domains[0];
     if (!domain || !r.cert || seen.has(domain)) continue;
     seen.add(domain);
-    const at = r.cert.notAfter ?? null;
+    const target: PrefTarget = { kind: "proxy", domain };
+    const pref = prefFor(target);
+    const at = pref?.expiresAt ?? r.cert.notAfter ?? null;
     const days = daysLeft(at, now);
+    const warnDays = pref?.warnDays ?? o.certDays;
+    const muted = !!pref?.muted;
     rows.push({
       key: `p${domain}`,
       source: "proxy",
@@ -126,12 +184,17 @@ export function expiryRows(
       where: `${o.proxy?.hostName ?? ""} → ${r.container ?? r.upstream}`,
       expiresAt: at,
       days,
-      warnDays: o.certDays,
+      warnDays,
       error: r.cert.error ?? null,
-      tone: toneOf(days, o.certDays, r.cert.error ?? null),
+      tone: muted ? "muted" : toneOf(days, warnDays, r.cert.error ?? null),
+      muted,
+      target,
+      pref,
+      certExpiresAt: r.cert.notAfter ?? null,
     });
   }
-  return rows.sort((a, b) => (a.days ?? Infinity) - (b.days ?? Infinity) || a.name.localeCompare(b.name));
+  // Muted rows go last; the rest soonest first.
+  return rows.sort((a, b) => Number(a.muted) - Number(b.muted) || (a.days ?? Infinity) - (b.days ?? Infinity) || a.name.localeCompare(b.name));
 }
 
 function hostOf(url: string): string {

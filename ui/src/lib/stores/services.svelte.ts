@@ -25,14 +25,19 @@ export function certDays(tls: TlsInfo | null | undefined, now = nowSecs()): numb
   return tls?.expires != null ? Math.floor((tls.expires - now) / DAY) : null;
 }
 
-/** Up/down plus "warn" for up-but-attention (untrusted cert allowed, cert expiring soon). */
-export function healthOf(svc: Service, st: ServiceStatus | undefined, now = nowSecs()): Health {
+/**
+ * Up/down plus "warn" for up-but-attention (untrusted cert allowed, cert
+ * expiring soon). `pinned`: the fingerprint the user trusted in Expiry Watch,
+ * which counts as trusted while the server still sends that certificate.
+ */
+export function healthOf(svc: Service, st: ServiceStatus | undefined, now = nowSecs(), pinned: string | null = null): Health {
   if (!svc.checkEnabled) return "off";
   if (!st) return "pending";
   if (!st.result.up) return "down";
   const tls = st.result.tls;
   const days = certDays(tls, now);
-  if (tls && (!tls.trusted || (days !== null && days < CERT_WARN_DAYS))) return "warn";
+  const trusted = !!tls && (tls.trusted || (!!pinned && tls.fingerprint === pinned));
+  if (tls && (!trusted || (days !== null && days < CERT_WARN_DAYS))) return "warn";
   return "up";
 }
 

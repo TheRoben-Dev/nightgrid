@@ -62,6 +62,7 @@ function simulate(s: Service): CheckResult {
           expires: now() + (s.name === "Git" ? 9 : 64) * DAY,
           subject: `CN=${new URL(s.url).hostname}`,
           issuer: s.allowUntrusted ? `CN=${new URL(s.url).hostname}` : "CN=Example CA",
+          fingerprint: (s.id.toString(16).padStart(2, "0") + "ab").repeat(16),
         }
       : null,
   };

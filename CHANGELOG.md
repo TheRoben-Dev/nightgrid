@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Added: Edit on every Expiry Watch row
+- **Rows Nightgrid finds by itself** (SERVICE TLS from Services, PROXY TLS from Docker → Routes) now have an **Edit** button too. It shows the certificate (subject, issuer, end date, SHA-256 fingerprint) and lets you:
+  - **Trust this certificate**: hides the "unknown issuer or self-signed" warning for that exact certificate. If the server ever sends a different one, the row warns again ("certificate changed since you trusted it"). The service card shows it as trusted too.
+  - **Mute expiry alerts**: the row stays, greyed out at the bottom, and never raises a certificate alert.
+  - Your own **expiry date** and **warn days** instead of the certificate's date and Settings → Alerts.
+  - **Reset to found** removes your edits.
+- Items you add can be muted the same way (**Mute alerts for this item**).
+- All of it is included in profile exports.
+
+### Fixed
+- DRIFT described an Expiry Watch edit button that didn't exist yet. The guide now describes the real controls, and DRIFT is told never to describe buttons or options its guide doesn't name.
+
 ## [1.13.0] - 2026-11-19
 
 ### Added: storage, network and monitoring integrations

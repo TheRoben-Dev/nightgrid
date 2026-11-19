@@ -109,6 +109,12 @@ const TABLES: &[Table] = &[
         keys: &[&["kind", "name", "target"]],
     },
     Table {
+        name: "expiry_prefs",
+        id: true,
+        fks: &[("service_id", "services", Missing::Skip)],
+        keys: &[&["service_id"], &["proxy_domain"]],
+    },
+    Table {
         name: "alert_deps",
         id: true,
         fks: &[

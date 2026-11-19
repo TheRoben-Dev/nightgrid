@@ -369,9 +369,22 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     // Services and certificates, from the checker's latest results.
     let latest = if cfg.services_checks { state.services.latest() } else { HashMap::new() };
     let mut svc = Vec::new();
+    // Expiry Watch edits: the user's date, warning days or mute per service.
+    let prefs: HashMap<_, _> = state
+        .store()
+        .expiry_prefs()
+        .unwrap_or_default()
+        .into_iter()
+        .filter_map(|p| match p.target {
+            nightgrid_core::expiry::PrefTarget::Service { service_id } => Some((service_id, p)),
+            nightgrid_core::expiry::PrefTarget::Proxy { .. } => None,
+        })
+        .collect();
     for s in services.iter().filter(|s| s.check_enabled) {
         let Some(st) = latest.get(&s.id) else { continue };
-        let conds = alerts::service(s.id, &s.name, s.host_id, &st.result, rules.cert_days, now);
+        let (result, cert_days) =
+            nightgrid_core::expiry::service_cert_view(prefs.get(&s.id), &st.result, rules.cert_days);
+        let conds = alerts::service(s.id, &s.name, s.host_id, &result, cert_days, now);
         svc.extend(conds.into_iter().filter(|c| match c.kind {
             alerts::AlertKind::ServiceDown => rules.service_down,
             alerts::AlertKind::CertExpiring => rules.cert_expiring,

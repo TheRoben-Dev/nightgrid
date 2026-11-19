@@ -49,7 +49,7 @@ describe("log triage", () => {
 
   it("tells the model not to guess", () => {
     const p = systemPrompt();
-    expect(p).toContain("Never invent file paths, environment variables");
+    expect(p).toContain("Never invent buttons, options, file paths, environment variables");
     expect(p).toContain("don't call it failed");
   });
 });

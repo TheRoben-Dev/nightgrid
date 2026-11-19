@@ -1,5 +1,5 @@
 /** Expiry watch state (M10l): Services → EXPIRY WATCH. */
-import { api, errorText, type WatchInput, type WatchItem } from "../api";
+import { api, errorText, type ExpiryPref, type PrefTarget, type WatchInput, type WatchItem } from "../api";
 
 class ExpiryStore {
   items = $state<WatchItem[]>([]);
@@ -10,10 +10,14 @@ class ExpiryStore {
   editing = $state<number | null>(null);
   /** Domain lookups running, by item id. */
   looking = $state<number[]>([]);
+  /** The user's edits for rows Nightgrid finds by itself. */
+  prefs = $state<ExpiryPref[]>([]);
+  /** Automatic row being edited (a service or proxy certificate). */
+  editingAuto = $state<PrefTarget | null>(null);
 
   async load() {
     try {
-      this.items = await api.watchList();
+      [this.items, this.prefs] = await Promise.all([api.watchList(), api.expiryPrefs()]);
       this.loaded = true;
       this.error = null;
     } catch (e) {
@@ -31,6 +35,21 @@ class ExpiryStore {
     } catch (e) {
       this.error = errorText(e);
       return null;
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  /** Saves the edits for an automatic row; true when saved. */
+  async savePref(pref: ExpiryPref): Promise<boolean> {
+    this.busy = true;
+    try {
+      this.prefs = await api.expiryPrefSave(pref);
+      this.error = null;
+      return true;
+    } catch (e) {
+      this.error = errorText(e);
+      return false;
     } finally {
       this.busy = false;
     }

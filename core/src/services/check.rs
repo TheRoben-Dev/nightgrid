@@ -34,6 +34,10 @@ pub struct TlsInfo {
     pub expires: Option<i64>,
     pub subject: Option<String>,
     pub issuer: Option<String>,
+    /// SHA-256 of the leaf certificate (lowercase hex), so a certificate the
+    /// user chose to trust can be told apart from a replacement.
+    #[serde(default)]
+    pub fingerprint: Option<String>,
 }
 
 impl TlsInfo {
@@ -370,8 +374,21 @@ impl Captured {
             ),
             Err(_) => (None, None, None),
         };
-        Some(TlsInfo { trusted: self.verified, problem: self.problem.clone(), expires, subject, issuer })
+        Some(TlsInfo {
+            trusted: self.verified,
+            problem: self.problem.clone(),
+            expires,
+            subject,
+            issuer,
+            fingerprint: Some(fingerprint(leaf)),
+        })
     }
+}
+
+/// SHA-256 of a DER certificate, lowercase hex.
+pub fn fingerprint(der: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(der).iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// Wraps the OS verifier: records the leaf and the verdict, then lets the
@@ -635,6 +652,7 @@ mod tests {
         let days = tls.days_left(now_unix()).unwrap();
         assert!((28..=30).contains(&days), "{days}");
         assert!(tls.subject.unwrap().contains("localhost"));
+        assert_eq!(tls.fingerprint.as_deref().map(str::len), Some(64));
 
         let lenient = check(&url, "", true, DEFAULT_TIMEOUT).await;
         assert!(lenient.up && lenient.error.is_none(), "{lenient:?}");
