@@ -110,7 +110,7 @@ fn key_target(s: &Sshd) -> Target {
         host: "127.0.0.1".into(),
         port: s.port,
         user: local_username(),
-        auth: Auth::Key { path: s.client_key(), passphrase: None },
+        auth: Auth::Key { path: s.client_key(), passphrase: None, password: None },
     }
 }
 

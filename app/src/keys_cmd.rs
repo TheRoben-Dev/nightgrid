@@ -163,6 +163,8 @@ pub async fn keys_verify(
     hop.target.auth = Auth::Key {
         path: file.into(),
         passphrase: passphrase.filter(|p| !p.is_empty()).map(|p| Arc::new(Secret::new(p))),
+        // Proves the key alone: no password fallback.
+        password: None,
     };
     let opts = state.connect_options();
     let jumps: Vec<_> = jumps.into_iter().map(|h| h.target).collect();
