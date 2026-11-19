@@ -271,7 +271,7 @@ export const CATALOG: CatalogEntry[] = [
   { id: "guides/diy-nas", shelf: "guides", title: "Build a DIY NAS", cat: "storage" },
   { id: "guides/security-posture", shelf: "guides", title: "Raise your fleet's security score", cat: "security" },
   { id: "howto/incident", shelf: "howto", title: "Handle an outage step by step", cat: "monitoring" },
-  { id: "howto/integrations", shelf: "howto", title: "Add Plex, AMP, Uptime Kuma and Portainer cards", cat: "monitoring" },
+  { id: "howto/integrations", shelf: "howto", title: "Add app cards: Plex, Jellyfin, the *arr apps and more", cat: "monitoring" },
   { id: "apps/kiwix", shelf: "apps", title: "Kiwix offline Wikipedia", cat: "productivity" },
   { id: "apps/collabora", shelf: "apps", title: "Collabora Online for Nextcloud", cat: "productivity" },
   { id: "howto/network-tools", shelf: "howto", title: "Diagnose network problems with Network → Tools", cat: "network" },
