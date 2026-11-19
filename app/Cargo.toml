@@ -41,3 +41,9 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 time = { version = "0.3", features = ["formatting"] }
 zeroize = "1.9.1"
 dirs = "7"
+
+# Mouse side buttons on macOS (D-186): same versions Tauri already pulls in.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6.5"
+block2 = "0.6.2"
+objc2-app-kit = { version = "0.3.2", default-features = false, features = ["std", "block2", "NSEvent", "NSResponder", "NSWindow"] }
