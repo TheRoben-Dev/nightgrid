@@ -1,4 +1,4 @@
--- 0051 (1.7.x): Expiry Watch edits for rows Nightgrid finds by itself
+-- 0052: Expiry Watch edits for rows Nightgrid finds by itself
 -- (service and proxy route certificates), and muting any row.
 -- A trusted fingerprint accepts one self-signed or private-CA certificate:
 -- a different certificate warns again. Config, so part of the export.
