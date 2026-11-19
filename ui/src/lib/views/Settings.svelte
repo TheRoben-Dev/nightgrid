@@ -20,6 +20,7 @@
   import { scramble } from "../scramble";
   import { updates } from "../stores/updates.svelte";
   import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
+  import { patchLabel, uiPatch } from "../stores/uipatch.svelte";
   import { DEFAULT_KEYMAP, formatChord, isMac, type ActionId } from "../keys";
   import {
     METRICS_BACKGROUND_STEPS,
@@ -139,6 +140,12 @@
         checked={settings.value.kbUpdates}
         onchange={(v) => settings.update({ kbUpdates: v })}
       />
+      <Toggle
+        label="Interface fixes between releases"
+        hint="Fixes to the interface only, for this exact version: a small download signed with the release key, checked after start-up and every 6 hours, applied on the next start. Off also stops a downloaded one from being used. If one ever fails to start, Nightgrid goes back to its built-in interface by itself."
+        checked={settings.value.uiPatches}
+        onchange={(v) => settings.update({ uiPatches: v })}
+      />
     </div>
     <div class="kbrow" data-guide="settings-kb-content">
       <span class="muted small">
@@ -148,6 +155,16 @@
       {#if kbContent.status?.installed}<button type="button" class="btn ghost tiny" title="Delete the downloaded content and use the copy built into this version" onclick={() => void kbContent.useBundled()}>Use built-in copy</button>{/if}
     </div>
     {#if kbContent.error}<p class="error" role="alert" use:scramble={kbContent.error}></p>{/if}
+    <div class="kbrow" data-guide="settings-ui-patch">
+      <span class="muted small">
+        Interface {#if uiPatch.status?.running}fix from {patchLabel(uiPatch.status.running.built)} ({uiPatch.status.running.commit}){:else}built in{/if}{#if uiPatch.status?.waiting} · fix from {patchLabel(uiPatch.status.waiting.built)} applies on restart{/if}{#if uiPatch.status?.checkedAt} · checked {new Date(uiPatch.status.checkedAt).toLocaleTimeString()}{/if}
+      </span>
+      <button type="button" class="btn ghost tiny" disabled={uiPatch.checking || uiPatch.status?.notConfigured} onclick={() => void uiPatch.check(true)}>{uiPatch.checking ? "Checking…" : "Check fixes"}</button>
+      {#if uiPatch.status?.waiting}<button type="button" class="btn ghost tiny" onclick={() => uiPatch.restart()}>Restart now</button>{/if}
+      {#if uiPatch.status?.running || uiPatch.status?.waiting}<button type="button" class="btn ghost tiny" title="Delete the downloaded fix; the next start uses the interface built into this version" onclick={() => void uiPatch.useBuiltIn()}>Use built-in</button>{/if}
+    </div>
+    {#if uiPatch.status?.skipped}<p class="muted small">Downloaded fix not in use: {uiPatch.status.skipped}</p>{/if}
+    {#if uiPatch.error}<p class="error" role="alert" use:scramble={uiPatch.error}></p>{/if}
   </Panel>
 
   <div class="wide">

@@ -106,6 +106,7 @@ pub fn settings_set(
     let rules_changed = current.alerts != settings.alerts;
     settings.save(&store)?;
     drop(store);
+    crate::uipatch_cmd::sync_setting(&state.data_dir, settings.ui_patches);
     crate::tray::apply(&app);
     state.alerts.wake();
     if rules_changed {
