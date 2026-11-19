@@ -191,6 +191,21 @@ pub async fn dns_filter_action(app: AppHandle, id: IntegrationId, action: DnsAct
     dns::act(&i, &secret, &action).await.map_err(CommandError::msg)
 }
 
+/// Runs an action an integration card offered (scan libraries, approve a
+/// request, remove a queue item, ...). `target` is the row's id, empty for
+/// card-level actions. The UI asks first for any action marked `confirm`.
+#[tauri::command]
+#[specta::specta]
+pub async fn integration_action(app: AppHandle, id: IntegrationId, target: String, action: String) -> CmdResult<()> {
+    let (i, secret) = {
+        let state = app.state::<AppState>();
+        let i = state.store().get_integration(id)?;
+        (i, read_secret(&state, id))
+    };
+    tracing::info!(integration = id, %target, %action, "integration action");
+    integrations::act(&i, secret.as_deref(), &target, &action).await.map_err(CommandError::msg)
+}
+
 /// Integrations aren't tied to a host; the journal gets them fleet-wide.
 fn journal(state: &AppState, title: &str) {
     let store = state.store();

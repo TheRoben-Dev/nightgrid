@@ -1,8 +1,8 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [1.11.0] - 2026-11-19
+## [Unreleased]
 
 Faster updates: interface fixes between releases, batched releases and quicker release builds.
 
@@ -11,8 +11,24 @@ Faster updates: interface fixes between releases, batched releases and quicker r
 - A fix can only replace the interface's files: the app's permissions and content security policy stay as built, and the fix is checked against the release key on every start. If a fix doesn't start within a minute, Nightgrid goes back to its built-in interface by itself and never uses that fix again.
 
 ### Changed: releases
-- **Fixes merged close together now ship as one release** instead of one after another. Some version numbers are skipped this way; their notes are in this changelog under the release that carried them.
+- **Fixes merged close together now ship as one release** instead of one after another, and the release picks its own version number.
 - **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
+
+## [1.8.0] - 2026-11-19
+
+Ten more integrations for the media stack, on a shared integration card.
+
+### Added
+- **Jellyfin** and **Emby**: what's playing, transcodes, library counts and **Scan libraries**.
+- **Tautulli**: Plex activity with quality, transcode decisions and bandwidth.
+- **Sonarr**, **Radarr** and **Lidarr**: download queue with progress and import problems, missing items, the app's health warnings, **RSS sync**, **Search missing** and **Remove** on queue items.
+- **Prowlarr**: indexers, failing and disabled ones, **Test indexers**.
+- **Bazarr**: missing subtitles and throttled providers.
+- **Overseerr** and **Jellyseerr**: request counts and pending requests with **Approve** and **Decline**.
+- The integration type picker is grouped (Media, Media automation, Network, Monitoring, Docker, Games) and has a filter.
+
+### Changed
+- Integration types are checked by the app instead of a database constraint (migration 0050), so new types never need a table change again (D-182).
 
 ## [1.7.2] - 2026-11-19
 

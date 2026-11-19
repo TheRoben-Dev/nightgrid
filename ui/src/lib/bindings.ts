@@ -417,6 +417,12 @@ export const commands = {
 	 *  confirms turning blocking off and removals with the target named.
 	 */
 	dnsFilterAction: (id: number, action: DnsAction_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<null>("dns_filter_action", { id, action }, options),
+	/**
+	 *  Runs an action an integration card offered (scan libraries, approve a
+	 *  request, remove a queue item, ...). `target` is the row's id, empty for
+	 *  card-level actions. The UI asks first for any action marked `confirm`.
+	 */
+	integrationAction: (id: number, target: string, action: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("integration_action", { id, target, action }, options),
 	envVarsList: (hostId: number, stack: string, options?: InvokeOptions) => __TAURI_INVOKE<EnvVar[]>("env_vars_list", { hostId, stack }, options),
 	/**  Stacks that have variables in the vault: (host id, stack, count). */
 	envStacks: (options?: InvokeOptions) => __TAURI_INVOKE<([number, string, number])[]>("env_stacks", undefined, options),
@@ -1448,6 +1454,34 @@ export type AmpStatus_Serialize = {
 	instances: AmpInstance_Serialize[],
 };
 
+/**
+ *  Something the user can do. `confirm` is the question asked first, for
+ *  anything that stops, removes or declines.
+ */
+export type AppAction = AppAction_Serialize | AppAction_Deserialize;
+
+/**
+ *  Something the user can do. `confirm` is the question asked first, for
+ *  anything that stops, removes or declines.
+ */
+export type AppAction_Deserialize = {
+	id: string,
+	label: string,
+	confirm?: string | null,
+};
+
+/**
+ *  Something the user can do. `confirm` is the question asked first, for
+ *  anything that stops, removes or declines.
+ */
+export type AppAction_Serialize = {
+	id: string,
+	label: string,
+	confirm: string | null,
+};
+
+export type AppHealth = "ok" | "warn" | "bad";
+
 export type AppInfo = AppInfo_Serialize | AppInfo_Deserialize;
 
 export type AppInfo_Deserialize = {
@@ -1476,6 +1510,38 @@ export type AppInfo_Serialize = {
 	dmabufDisabled: boolean,
 	/**  Whether an SSH agent socket/pipe is configured for this process. */
 	agentHint: string | null,
+};
+
+export type AppRow = AppRow_Serialize | AppRow_Deserialize;
+
+export type AppRowState = 
+/**  Fine / done / up. */
+"ok" | 
+/**  Playing, downloading, running. */
+"active" | 
+/**  Paused, queued, waiting. */
+"idle" | "warn" | "bad";
+
+export type AppRow_Deserialize = {
+	/**  The app's id for it (queue id, request id, ...): the target of row actions. */
+	id: string,
+	title: string,
+	meta: string,
+	state: AppRowState,
+	/**  0–100. */
+	progress?: number | null,
+	actions: AppAction_Deserialize[],
+};
+
+export type AppRow_Serialize = {
+	/**  The app's id for it (queue id, request id, ...): the target of row actions. */
+	id: string,
+	title: string,
+	meta: string,
+	state: AppRowState,
+	/**  0–100. */
+	progress: number | null,
+	actions: AppAction_Serialize[],
 };
 
 /**
@@ -1762,6 +1828,45 @@ export type AppSettings_Serialize = {
 	 *  (from a newer version's profile) are kept as they are.
 	 */
 	disabledFeatures: string[],
+};
+
+export type AppStatus = AppStatus_Serialize | AppStatus_Deserialize;
+
+export type AppStatus_Deserialize = {
+	version?: string | null,
+	/**  One line: "2 streams · 1 transcoding", "4 in queue · 12 missing". */
+	summary: string,
+	health: AppHealth,
+	tiles: AppTile[],
+	/**  What the rows are: "Now playing", "Queue", "Pending requests". */
+	rowsTitle: string,
+	rows: AppRow_Deserialize[],
+	/**  Rows the app has beyond those listed. */
+	more: number,
+	/**  Health messages and warnings from the app. */
+	notes: string[],
+	actions: AppAction_Deserialize[],
+};
+
+export type AppStatus_Serialize = {
+	version: string | null,
+	/**  One line: "2 streams · 1 transcoding", "4 in queue · 12 missing". */
+	summary: string,
+	health: AppHealth,
+	tiles: AppTile[],
+	/**  What the rows are: "Now playing", "Queue", "Pending requests". */
+	rowsTitle: string,
+	rows: AppRow_Serialize[],
+	/**  Rows the app has beyond those listed. */
+	more: number,
+	/**  Health messages and warnings from the app. */
+	notes: string[],
+	actions: AppAction_Serialize[],
+};
+
+export type AppTile = {
+	label: string,
+	value: string,
 };
 
 export type Asset = {
@@ -4905,7 +5010,7 @@ export type IntegrationInput_Serialize = {
 	allowUntrusted: boolean,
 };
 
-export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard";
+export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr";
 
 /**  What an integration reports right now. */
 export type IntegrationStatus = IntegrationStatus_Serialize | IntegrationStatus_Deserialize;
@@ -4923,7 +5028,11 @@ export type IntegrationStatus_Deserialize = {
 	kind: "pihole",
 } & DnsStatus_Deserialize | {
 	kind: "adguard",
-} & DnsStatus_Deserialize;
+} & DnsStatus_Deserialize | 
+/**  Every kind that reports the shared shape. */
+{
+	kind: "app",
+} & AppStatus_Deserialize;
 
 /**  What an integration reports right now. */
 export type IntegrationStatus_Serialize = {
@@ -4938,7 +5047,11 @@ export type IntegrationStatus_Serialize = {
 	kind: "pihole",
 } & DnsStatus_Serialize | {
 	kind: "adguard",
-} & DnsStatus_Serialize;
+} & DnsStatus_Serialize | 
+/**  Every kind that reports the shared shape. */
+{
+	kind: "app",
+} & AppStatus_Serialize;
 
 export type IntegrationView = IntegrationView_Serialize | IntegrationView_Deserialize;
 

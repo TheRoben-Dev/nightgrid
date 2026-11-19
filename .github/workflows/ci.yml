@@ -39,6 +39,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # The release train starts release runs on main (so caches stay main's)
+      # after tagging the version commit: build exactly that tag.
+      - name: Check out the release tag
+        if: inputs.release_tag != ''
+        shell: bash
+        env:
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          if git ls-remote --exit-code origin "refs/tags/$TAG" >/dev/null; then
+            git fetch -q --depth 1 origin "refs/tags/$TAG:refs/tags/$TAG"
+            git checkout -q "$TAG"
+          fi
 
       # man-db's index rebuild after each package was most of the old 7-8 min.
       - name: Install Linux build deps
@@ -126,6 +138,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      # The release train starts release runs on main (so caches stay main's)
+      # after tagging the version commit: build exactly that tag.
+      - name: Check out the release tag
+        if: inputs.release_tag != ''
+        shell: bash
+        env:
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          if git ls-remote --exit-code origin "refs/tags/$TAG" >/dev/null; then
+            git fetch -q --depth 1 origin "refs/tags/$TAG:refs/tags/$TAG"
+            git checkout -q "$TAG"
+          fi
 
       - name: Install Linux build deps
         if: runner.os == 'Linux'
@@ -232,6 +256,18 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      # The release train starts release runs on main (so caches stay main's)
+      # after tagging the version commit: build exactly that tag.
+      - name: Check out the release tag
+        if: inputs.release_tag != ''
+        shell: bash
+        env:
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          if git ls-remote --exit-code origin "refs/tags/$TAG" >/dev/null; then
+            git fetch -q --depth 1 origin "refs/tags/$TAG:refs/tags/$TAG"
+            git checkout -q "$TAG"
+          fi
       - uses: actions/download-artifact@v4
         with:
           path: dist
