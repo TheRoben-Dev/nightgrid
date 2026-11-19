@@ -184,9 +184,36 @@ pub fn compose_shell(stack: &Stack, args: &str, route: &Route) -> String {
     )
 }
 
+/// The PowerShell for one compose operation on a Windows host: `docker
+/// compose` (or `docker-compose.exe`) in the stack folder, both streams
+/// merged so output reads in order.
+pub fn compose_ps(stack: &Stack, args: &str) -> String {
+    use crate::win::quote;
+    let files: String = stack.files.iter().map(|f| format!(" '-f', {},", quote(f))).collect();
+    let words: String = args.split_whitespace().map(|a| format!(" {},", quote(a))).collect();
+    let argv = format!("@('-p', {},{files}{words})", quote(&stack.name));
+    let argv = argv.replace(",)", ")");
+    format!(
+        r#"$ErrorActionPreference = 'Continue'
+$argv = {argv}
+$dc = $null
+& docker compose version *> $null
+if ($LASTEXITCODE -eq 0) {{ $dc = 'docker'; $argv = @('compose') + $argv }}
+elseif (Get-Command docker-compose.exe -ErrorAction SilentlyContinue) {{ $dc = 'docker-compose.exe' }}
+else {{ [Console]::Out.WriteLine('neither "docker compose" nor docker-compose is installed'); exit 127 }}
+Set-Location -LiteralPath {dir}
+& $dc @argv 2>&1 | ForEach-Object {{ [Console]::Out.WriteLine([string]$_) }}
+exit $LASTEXITCODE
+"#,
+        dir = quote(&stack.dir),
+    )
+}
+
 /// Checks a stack reference that came from the UI before it reaches a shell.
 pub fn check_stack(stack: &Stack) -> DockerResult<()> {
-    let ok_path = |p: &str| p.starts_with('/') && p.len() <= 4096 && !p.chars().any(char::is_control);
+    let ok_path = |p: &str| {
+        crate::backup_jobs::absolute_path(p) && p.len() <= 4096 && !p.chars().any(|c| c.is_control() || c == '`')
+    };
     if !valid_project(&stack.name) {
         return Err(DockerError::other(format!("invalid project name {:?}", stack.name)));
     }
@@ -243,19 +270,15 @@ impl DeployInput {
 }
 
 impl DockerHost {
-    /// Compose operations run through a POSIX shell on the host.
-    fn posix_compose(&self) -> DockerResult<()> {
-        match (&self.route, crate::win::support::unavailable("docker.compose")) {
-            (Route::WindowsCli, Some(message)) => Err(DockerError::Other { message }),
-            _ => Ok(()),
-        }
-    }
-
     /// Validates a stack's compose file on the host (`docker compose config -q`).
     /// Returns compose's complaint on failure.
     pub async fn validate_stack(&self, stack: &Stack) -> DockerResult<Result<(), String>> {
-        self.posix_compose()?;
         check_stack(stack)?;
+        if self.route == Route::WindowsCli {
+            let o = crate::win::run(&self.conn, &compose_ps(stack, "config -q")).await.map_err(DockerError::other)?;
+            let text = if o.stdout.trim().is_empty() { o.error_text() } else { o.stdout.trim().to_owned() };
+            return Ok(if o.code == 0 { Ok(()) } else { Err(text) });
+        }
         let (code, out, _) =
             self.conn.exec(&compose_shell(stack, "config -q", &self.route)).await.map_err(DockerError::other)?;
         Ok(if code == 0 { Ok(()) } else { Err(clean(&out)) })
@@ -307,15 +330,14 @@ impl DockerHost {
         mut cancel: watch::Receiver<bool>,
         sink: &mut (dyn FnMut(Vec<String>) + Send),
     ) -> DockerResult<(i32, Option<Vec<ImageChange>>)> {
-        self.posix_compose()?;
         check_stack(stack)?;
         let before = if op == ComposeOp::Update { Some(self.service_images(&stack.name).await?) } else { None };
-        let code = self.run_streaming(&compose_command(stack, op, &self.route), &mut cancel, sink).await?;
+        let code = self.run_op(stack, op, &mut cancel, sink).await?;
         if op != ComposeOp::Update || code != 0 {
             return Ok((code, None));
         }
         sink(vec![String::new(), "── pull done, recreating changed services (up -d) ──".into()]);
-        let code = self.run_streaming(&compose_command(stack, ComposeOp::Up, &self.route), &mut cancel, sink).await?;
+        let code = self.run_op(stack, ComposeOp::Up, &mut cancel, sink).await?;
         let after = self.service_images(&stack.name).await?;
         let before = before.unwrap_or_default();
         let mut changes: Vec<ImageChange> = after
@@ -330,6 +352,28 @@ impl DockerHost {
             .collect();
         changes.sort_by(|a, b| a.service.cmp(&b.service));
         Ok((code, Some(changes)))
+    }
+
+    /// One compose operation through the host's shell (PowerShell on Windows).
+    async fn run_op(
+        &self,
+        stack: &Stack,
+        op: ComposeOp,
+        cancel: &mut watch::Receiver<bool>,
+        sink: &mut (dyn FnMut(Vec<String>) + Send),
+    ) -> DockerResult<i32> {
+        if self.route != Route::WindowsCli {
+            return self.run_streaming(&compose_command(stack, op, &self.route), cancel, sink).await;
+        }
+        let mut send = |_: crate::system::sudo::Stream, line: String| {
+            sink(vec![strip_ansi(line.rsplit('\r').find(|p| !p.is_empty()).unwrap_or(""))]);
+            true
+        };
+        // Cancelling closes the channel, which ends compose on the host.
+        let code = crate::win::stream(&self.conn, &compose_ps(stack, op.args()), Some(cancel.clone()), &mut send)
+            .await
+            .map_err(DockerError::other)?;
+        Ok(code.unwrap_or(130))
     }
 
     pub(crate) async fn run_streaming(
@@ -396,6 +440,41 @@ fn take_lines(buf: &mut Vec<u8>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn win_stack() -> Stack {
+        Stack {
+            name: "web".into(),
+            dir: "C:\\stacks\\web".into(),
+            files: vec!["C:\\stacks\\web\\compose.yaml".into()],
+            running: 0,
+            total: 0,
+            in_folder: false,
+        }
+    }
+
+    #[test]
+    fn windows_compose_script() {
+        let st = win_stack();
+        check_stack(&st).unwrap();
+        let s = compose_ps(&st, "up -d");
+        assert!(s.contains("$argv = @('-p', 'web', '-f', 'C:\\stacks\\web\\compose.yaml', 'up', '-d')"), "{s}");
+        assert!(s.contains("Set-Location -LiteralPath 'C:\\stacks\\web'"));
+        assert!(!s.contains("&&") && !s.contains("??"));
+        let mut bad = win_stack();
+        bad.dir = "stacks\\web".into();
+        assert!(check_stack(&bad).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_compose_script_runs() {
+        // Runners may lack compose: the script must still run and say so, or run it.
+        let mut st = win_stack();
+        st.dir = std::env::temp_dir().to_string_lossy().into_owned();
+        st.files.clear();
+        let o = crate::win::run_local(&compose_ps(&st, "version"), b"").unwrap();
+        assert!(o.code == 0 || o.stdout.contains("neither"), "{} / {}", o.stdout, o.stderr);
+    }
 
     fn view(name: &str, project: &str, dir: &str, state: &str) -> ContainerView {
         ContainerView {

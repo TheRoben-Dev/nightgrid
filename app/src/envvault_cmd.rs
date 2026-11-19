@@ -173,7 +173,7 @@ pub async fn env_deploy(app: AppHandle, host_id: HostId, stack: Stack) -> Docker
         Ok(_) => (true, None),
         Err(e) => (false, Some(e.message)),
     };
-    let conn = connect_posix(&app, host_id, "docker.compose").await?;
+    let conn = connect_posix(&app, host_id, "docker.deploy").await?;
     let fs = Fs::Remote(
         app.state::<AppState>().sftp.get(host_id, conn).await.map_err(|e| DockerCmdError::msg(e.to_string()))?,
     );

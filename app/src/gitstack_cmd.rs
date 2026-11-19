@@ -25,7 +25,7 @@ fn core_err(e: nightgrid_core::Error) -> DockerCmdError {
 }
 
 async fn run(app: &AppHandle, host_id: HostId, script: &str) -> DockerResult<String> {
-    let conn = connect_posix(app, host_id, "docker.compose").await?;
+    let conn = connect_posix(app, host_id, "docker.deploy").await?;
     let (_, out, err) = tokio::time::timeout(GIT_TIMEOUT, conn.exec(script))
         .await
         .map_err(|_| DockerCmdError::msg("git took longer than 5 minutes; try again, or run it on the host"))?
@@ -105,7 +105,7 @@ pub async fn git_stack_diff(app: AppHandle, id: GitStackId, target: String) -> D
         return Err(DockerCmdError::msg("not a commit id"));
     }
     let g = git_of(&app, id)?;
-    let conn = connect_posix(&app, g.host_id, "docker.compose").await?;
+    let conn = connect_posix(&app, g.host_id, "docker.deploy").await?;
     let (_, out, _) = tokio::time::timeout(GIT_TIMEOUT, conn.exec(&gitstack::diff_script(&g, &target)))
         .await
         .map_err(|_| DockerCmdError::msg("git diff took too long"))?

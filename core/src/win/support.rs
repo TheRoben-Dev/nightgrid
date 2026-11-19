@@ -78,8 +78,14 @@ pub const WINDOWS: &[Support] = &[
     s(
         "docker.compose",
         "Compose stacks",
+        Partial,
+        "Up, pull, restart, update and down run docker compose through PowerShell. Stacks show from their containers: stack folders aren't scanned for stacks that never ran.",
+    ),
+    s(
+        "docker.deploy",
+        "Deploy wizard, stacks from git and the .env vault",
         Planned,
-        "Stacks are listed from their containers, but starting, updating and stopping them runs docker compose through a POSIX shell. A PowerShell version is coming.",
+        "These write stack files and run git through a POSIX shell. A PowerShell version is coming; until then, put compose files on the host yourself and run them from STACKS.",
     ),
     s("fleet.backups", "Fleet → BACKUPS", Partial, "A unit job is a Task Scheduler task (Windows Server Backup included) and a path job a folder such as D:\\Backups. Test restores need a POSIX shell, so they only run on Linux and macOS hosts."),
     s("fleet.logs", "Fleet → LOGS", Partial, "Searches the System and Application event logs instead of the journal (the newest 5 000 events per log); the unit filter matches the event source."),
@@ -177,7 +183,7 @@ mod tests {
     fn messages() {
         assert_eq!(unavailable("terminal"), Option::None);
         assert!(unavailable("proxmox").unwrap().starts_with("Proxmox can't work on Windows hosts."));
-        assert!(unavailable("docker.compose").unwrap().contains("yet"));
+        assert!(unavailable("docker.deploy").unwrap().contains("yet"));
         assert_eq!(unavailable("no.such"), Option::None);
     }
 }

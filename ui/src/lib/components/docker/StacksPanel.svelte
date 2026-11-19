@@ -12,6 +12,7 @@
   import { gitStacks } from "../../stores/gitstacks.svelte";
   import { envVault } from "../../stores/envvault.svelte";
   import { layout } from "../../stores/layout.svelte";
+  import { platform } from "../../stores/platform.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
   import Modal from "../Modal.svelte";
   import Resizer from "../Resizer.svelte";
@@ -24,6 +25,8 @@
 
   const ops: ComposeOp[] = ["up", "pull", "update", "restart", "down"];
   const hostName = $derived(docker.host?.name ?? "");
+  // Windows hosts: compose runs, but folders, the wizard, git and the vault need a POSIX shell.
+  const win = $derived(platform.isWindows(docker.host));
   const run = $derived(stacks.run);
   const pending = $derived(stacks.pending);
 
@@ -38,7 +41,10 @@
 
   function edit(s: Stack, which: "compose" | "env") {
     if (docker.hostId === null) return;
-    files.openHostFile(docker.hostId, which === "compose" ? composeFile(s) : envFile(s), which === "env");
+    const p = which === "compose" ? composeFile(s) : envFile(s);
+    // SFTP on Windows names C:\stacks\web as /C:/stacks/web.
+    const sftp = win && /^[A-Za-z]:/.test(p) ? "/" + p.replaceAll("\\", "/") : p;
+    files.openHostFile(docker.hostId, sftp, which === "env");
   }
 
   let consoleEl: HTMLPreElement | undefined = $state();
@@ -57,6 +63,7 @@
 </script>
 
 <div class="stacks">
+  {#if !win}
   <div class="dirs">
     <button type="button" class="dirs-toggle label" aria-expanded={stacks.dirsOpen} onclick={() => (stacks.dirsOpen = !stacks.dirsOpen)}>
       <span aria-hidden="true">{stacks.dirsOpen ? "▾" : "▸"}</span> STACK FOLDERS
@@ -78,6 +85,7 @@
       <p class="muted hint">Nightgrid looks for compose files in each folder and one level below it (e.g. /opt/stacks/media/compose.yaml).</p>
     {/if}
   </div>
+  {/if}
 
   <div class="table" role="table" aria-label="Compose stacks">
     {#if stacks.error}
@@ -88,7 +96,7 @@
     {:else if !stacks.loaded}
       <p class="muted pad">Looking for compose stacks on {hostName}…</p>
     {:else if !stacks.visible.length}
-      <p class="muted pad">{stacks.stacks.length ? "No stacks match." : "No compose stacks found. Add a stack folder above."}</p>
+      <p class="muted pad">{stacks.stacks.length ? "No stacks match." : win ? "No compose stacks found: stacks show here once their containers exist." : "No compose stacks found. Add a stack folder above."}</p>
     {:else}
       <div class="row head" role="row">
         <span role="columnheader">STACK</span>
@@ -111,13 +119,15 @@
             <button type="button" class="btn ghost tiny" title="Edit {envFile(s)} (created on save if missing)" onclick={() => edit(s, "env")}
               >.env</button
             >
-            <button
-              type="button"
-              class="btn ghost tiny"
-              data-guide="docker-env-vault"
-              title="Keep this stack's variables encrypted in Nightgrid, masked, and deploy them to {envFile(s)}"
-              onclick={() => void envVault.open(s)}>Vault</button
-            >
+            {#if !win}
+              <button
+                type="button"
+                class="btn ghost tiny"
+                data-guide="docker-env-vault"
+                title="Keep this stack's variables encrypted in Nightgrid, masked, and deploy them to {envFile(s)}"
+                onclick={() => void envVault.open(s)}>Vault</button
+              >
+            {/if}
           </span>
           <span class="ops" role="cell">
             <button
