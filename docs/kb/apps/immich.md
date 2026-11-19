@@ -42,6 +42,7 @@ DB_PASSWORD=<random letters and digits>
 
 - [ ] Immich writes nightly database dumps to `UPLOAD_LOCATION/backups` by itself. Back up the whole `UPLOAD_LOCATION` with restic or borg, and add the job in [Fleet](view:fleet) → **Backups**.
 - [ ] Don't back up `DB_DATA_LOCATION` directly while running; the dumps are what you restore.
+- [ ] [Services](view:services) → **Add integration** → **Immich** with an admin's API key (Account Settings → API Keys): library size, storage used and failed background jobs on a card (see [Add app cards](kb:howto/integrations)).
 
 #### Check
 
