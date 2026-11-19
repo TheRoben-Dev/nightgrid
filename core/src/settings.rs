@@ -120,6 +120,8 @@ pub struct AppSettings {
     pub notify: crate::notify::NotifySettings,
     /// Security view (1.1): posture checks and rotation reminders.
     pub security: SecuritySettings,
+    /// UI sounds (D-178). The master switch is the `sound` feature.
+    pub sound: SoundSettings,
     /// Background network scans with alerts (D-145).
     pub net_watch: NetWatchSettings,
     /// Overview dashboards (M10o). Empty means the built-in default.
@@ -174,6 +176,7 @@ pub const FEATURES: &[&str] = &[
     "automation",
     "notes",
     "drift",
+    "sound",
 ];
 
 pub const STATUS_BINDS: &[&str] = &["lan", "tailscale", "all"];
@@ -192,6 +195,38 @@ pub struct SecuritySettings {
 impl Default for SecuritySettings {
     fn default() -> Self {
         Self { posture_daily: true, rotation_notices: true }
+    }
+}
+
+/// UI sounds (D-178): synthesized in the UI, nothing is stored but these.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(default, rename_all = "camelCase")]
+pub struct SoundSettings {
+    /// Master volume, 0–100.
+    pub volume: u8,
+    /// Sound categories turned off (`alerts`, `navigation` …). Unknown ids
+    /// (from a newer version's profile) are kept.
+    pub muted: Vec<String>,
+    /// No sounds between `quiet_start` and `quiet_end`.
+    pub quiet_hours: bool,
+    /// Minutes after local midnight.
+    pub quiet_start: u16,
+    pub quiet_end: u16,
+    /// No sounds while the window isn't focused.
+    pub unfocused_mute: bool,
+}
+
+impl Default for SoundSettings {
+    fn default() -> Self {
+        Self {
+            volume: 40,
+            muted: vec!["navigation".into()],
+            quiet_hours: false,
+            quiet_start: 22 * 60,
+            quiet_end: 7 * 60,
+            unfocused_mute: true,
+        }
     }
 }
 
@@ -412,6 +447,7 @@ impl Default for AppSettings {
             status_page: StatusPageSettings::default(),
             notify: crate::notify::NotifySettings::default(),
             security: SecuritySettings::default(),
+            sound: SoundSettings::default(),
             power: PowerSettings::default(),
             mcp: McpSettings::default(),
             net_watch: NetWatchSettings::default(),
@@ -563,6 +599,18 @@ impl AppSettings {
         if self.power.currency.chars().count() > 8 || self.power.currency.chars().any(char::is_control) {
             return Err(Error::Invalid { field: "power.currency", reason: "up to 8 characters".into() });
         }
+        let snd = &self.sound;
+        range("sound.volume", u16::from(snd.volume), 0, 100)?;
+        range("sound.quietStart", snd.quiet_start, 0, 24 * 60 - 1)?;
+        range("sound.quietEnd", snd.quiet_end, 0, 24 * 60 - 1)?;
+        if snd.muted.len() > 32
+            || snd
+                .muted
+                .iter()
+                .any(|m| m.is_empty() || m.len() > 32 || !m.chars().all(|c| c.is_ascii_lowercase() || c == '-'))
+        {
+            return Err(Error::Invalid { field: "sound.muted", reason: "at most 32 lowercase category ids".into() });
+        }
         range("netWatch.minutes", self.net_watch.minutes, 10, 1440)?;
         if !STATUS_BINDS.contains(&self.status_page.bind.as_str()) {
             return Err(Error::Invalid {
@@ -694,6 +742,28 @@ mod tests {
         ] {
             assert!(AppSettings { alerts, ..Default::default() }.save(&store).is_err());
         }
+    }
+
+    #[test]
+    fn sound_settings_round_trip_and_bounds() {
+        let store = Store::open_in_memory().unwrap();
+        let mut s = AppSettings::default();
+        assert_eq!(s.sound.volume, 40);
+        assert!(s.feature("sound"));
+        s.sound.volume = 70;
+        s.sound.muted = vec!["alerts".into(), "from-a-newer-version".into()];
+        s.save(&store).unwrap();
+        assert_eq!(AppSettings::load(&store).unwrap().sound, s.sound);
+        for bad in [
+            SoundSettings { volume: 101, ..SoundSettings::default() },
+            SoundSettings { quiet_end: 24 * 60, ..SoundSettings::default() },
+            SoundSettings { muted: vec!["Alerts!".into()], ..SoundSettings::default() },
+        ] {
+            assert!(AppSettings { sound: bad, ..AppSettings::default() }.validate().is_err());
+        }
+        // Older settings without the field load with the defaults.
+        let old: AppSettings = serde_json::from_str(r#"{"theme":"ice"}"#).unwrap();
+        assert_eq!(old.sound, SoundSettings::default());
     }
 
     #[test]

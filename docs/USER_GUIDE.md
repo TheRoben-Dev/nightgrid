@@ -358,6 +358,7 @@ Settings → **FEATURES** lists every view and the checks inside them, each with
 - Four themes: NIGHTGRID, ICE, BLOODLINE and CUSTOM. CUSTOM lets you pick each palette slot (surfaces, text, accent, info, active, danger, OK, warning, neutral highlight) from a set of curated swatches that are all pre-checked for contrast. **Start from** copies a built-in scheme as the starting point; **Reset** goes back to the default custom palette. The palette is saved with your settings and travels in profile exports. (If you used the old PLAIN DARK scheme, it becomes CUSTOM with effects off until you pick a scheme.)
 - **Reduce effects** turns off the glitch text, scanlines and glow. Your OS's reduced-motion setting does the same.
 - **UI scale** goes from 90 to 150 %.
+- **Sounds**: short synthesized blips when an alert fires or clears (sharper for critical), a notice reaches the inbox, an action you started works or fails, a confirm dialog opens, DRIFT finishes a reply, a quest step is done, and a scan, test restore, drill or speed test finishes. Never for terminal output or live numbers. Settings → **SOUND** has the master switch, volume (40 % to start), a switch per kind of sound with ▶ buttons to hear each one, quiet hours, and mute while the window isn't focused (on to start). The soft view-switch tick is off until you turn it on. Sound settings travel in profile exports; the master switch is also under **FEATURES**.
 
 ## Updates
 

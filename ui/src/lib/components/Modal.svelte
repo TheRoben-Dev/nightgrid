@@ -2,6 +2,7 @@
   import type { Snippet } from "svelte";
   import { hexId } from "../hex";
   import { scramble } from "../scramble";
+  import { sound } from "../stores/sound.svelte";
 
   interface Props {
     open: boolean;
@@ -19,7 +20,10 @@
 
   $effect(() => {
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      sound.play(tone === "danger" ? "dialogDanger" : "dialog");
+    }
     if (!open && dialog.open) dialog.close();
   });
 </script>

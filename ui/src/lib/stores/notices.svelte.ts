@@ -2,6 +2,7 @@
  * The notifications inbox (1.1, D-167): every notice Nightgrid sent, newest
  * first, with an unread count for the bell. New notices arrive as events.
  */
+import { sound } from "./sound.svelte";
 import { listen } from "@tauri-apps/api/event";
 import { api, errorText, inTauri, type Notice } from "../api";
 import { target } from "../notices";
@@ -9,6 +10,13 @@ import { ui } from "./ui.svelte";
 import type { SectionId } from "../sections";
 
 const LIMIT = 200;
+
+/** Alerts have their own sounds; drills sound like a finished task. */
+export function noticeCue(n: Pick<Notice, "source" | "level">): "notice" | "taskDone" | "taskFail" | null {
+  if (n.source === "alert") return null;
+  if (n.source === "drill") return n.level === "ok" || n.level === "info" ? "taskDone" : "taskFail";
+  return "notice";
+}
 
 class NoticesStore {
   list = $state<Notice[]>([]);
@@ -27,7 +35,10 @@ class NoticesStore {
     this.started = true;
     if (inTauri()) {
       void listen<Notice>("notify://notice", (e) => {
-        if (!this.list.some((n) => n.id === e.payload.id)) this.list = [e.payload, ...this.list].slice(0, LIMIT);
+        if (this.list.some((n) => n.id === e.payload.id)) return;
+        this.list = [e.payload, ...this.list].slice(0, LIMIT);
+        const cue = noticeCue(e.payload);
+        if (cue) sound.play(cue);
       });
     }
     void this.refresh();

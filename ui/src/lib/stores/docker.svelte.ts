@@ -1,3 +1,4 @@
+import { sound } from "./sound.svelte";
 import {
   api,
   dockerError,
@@ -217,7 +218,9 @@ class DockerStore {
       const name = (cid: string) => targets.find((t) => t.id === cid)?.name ?? cid;
       if (failed.length) {
         this.notice = { tone: "err", text: failed.map((f) => `${name(f.id)}: ${f.error}`).join(" · ") };
+        sound.play("fail");
       } else {
+        sound.play("ok");
         const what = targets.length === 1 ? targets[0].name : `${targets.length} containers`;
         this.notice = { tone: "ok", text: `${actionLabel(action)}: ${what} done` };
       }
@@ -227,6 +230,7 @@ class DockerStore {
       }
     } catch (e) {
       this.notice = { tone: "err", text: errorText(e) };
+      sound.play("fail");
     } finally {
       this.busy = this.busy.filter((b) => !ids.includes(b));
       await this.refresh(true);

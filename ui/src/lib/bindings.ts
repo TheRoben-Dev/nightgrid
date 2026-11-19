@@ -1589,6 +1589,8 @@ export type AppSettings_Deserialize = {
 	notify?: NotifySettings_Deserialize,
 	/**  Security view (1.1): posture checks and rotation reminders. */
 	security?: SecuritySettings_Deserialize,
+	/**  UI sounds (D-178). The master switch is the `sound` feature. */
+	sound?: SoundSettings_Deserialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch?: NetWatchSettings_Deserialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -1722,6 +1724,8 @@ export type AppSettings_Serialize = {
 	notify: NotifySettings_Serialize,
 	/**  Security view (1.1): posture checks and rotation reminders. */
 	security: SecuritySettings_Serialize,
+	/**  UI sounds (D-178). The master switch is the `sound` feature. */
+	sound: SoundSettings_Serialize,
 	/**  Background network scans with alerts (D-145). */
 	netWatch: NetWatchSettings_Serialize,
 	/**  Overview dashboards (M10o). Empty means the built-in default. */
@@ -9168,6 +9172,45 @@ export type SnippetInput_Serialize = {
 
 /**  Where a snippet shows up: everywhere, on one host, or on a group's hosts. */
 export type SnippetScope = { kind: "global" } | { kind: "host"; hostId: number } | { kind: "group"; groupId: number };
+
+/**  UI sounds (D-178): synthesized in the UI, nothing is stored but these. */
+export type SoundSettings = SoundSettings_Serialize | SoundSettings_Deserialize;
+
+/**  UI sounds (D-178): synthesized in the UI, nothing is stored but these. */
+export type SoundSettings_Deserialize = {
+	/**  Master volume, 0–100. */
+	volume?: number,
+	/**
+	 *  Sound categories turned off (`alerts`, `navigation` …). Unknown ids
+	 *  (from a newer version's profile) are kept.
+	 */
+	muted?: string[],
+	/**  No sounds between `quiet_start` and `quiet_end`. */
+	quietHours?: boolean,
+	/**  Minutes after local midnight. */
+	quietStart?: number,
+	quietEnd?: number,
+	/**  No sounds while the window isn't focused. */
+	unfocusedMute?: boolean,
+};
+
+/**  UI sounds (D-178): synthesized in the UI, nothing is stored but these. */
+export type SoundSettings_Serialize = {
+	/**  Master volume, 0–100. */
+	volume: number,
+	/**
+	 *  Sound categories turned off (`alerts`, `navigation` …). Unknown ids
+	 *  (from a newer version's profile) are kept.
+	 */
+	muted: string[],
+	/**  No sounds between `quiet_start` and `quiet_end`. */
+	quietHours: boolean,
+	/**  Minutes after local midnight. */
+	quietStart: number,
+	quietEnd: number,
+	/**  No sounds while the window isn't focused. */
+	unfocusedMute: boolean,
+};
 
 export type SshConfigCandidate = SshConfigCandidate_Serialize | SshConfigCandidate_Deserialize;
 

@@ -3,6 +3,7 @@
  * from the node selected on the map (a host or this computer), port audits
  * reuse System → Security.
  */
+import { sound } from "./sound.svelte";
 import { api, errorText, systemError, type DeviceLabel, type Discovery, type LayoutEntry, type NetDevice, type NetFinding, type NetWatchRun, type SavedNetwork, type ToolResult } from "../api";
 import { buildGraph, type NetGraph } from "../netmap/graph";
 import { overlayGraph, type Overlay } from "../netmap/networks";
@@ -103,7 +104,9 @@ class NetmapStore {
       this.fromSaved = false;
       void this.loadInventory();
       void this.loadNetworks();
+      sound.play("taskDone");
     } catch (e) {
+      sound.play("taskFail");
       const { connect } = systemError(e);
       this.error =
         connect && connect.kind !== "network" && connect.kind !== "other"

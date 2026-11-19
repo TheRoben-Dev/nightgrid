@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
-## [1.7.0] - 2026-11-18
+## [1.7.0] - 2026-11-19
 
 Ten more starter shelves: apps, scheduled jobs, firewall profiles, alert rules, Overview tiles and dashboards, log searches, proxy routes, Proxmox shapes, restore drills and security posture.
 
@@ -17,6 +17,12 @@ Ten more starter shelves: apps, scheduled jobs, firewall profiles, alert rules, 
 - **PROXMOX**: five VM and container shapes (Docker LXC, small service LXC, Linux VM, Home Assistant OS VM, Windows 11 VM) that open Proxmox → Create filled in, picking the newest matching container template.
 - **DRILLS**: weekly or monthly restore drills added for each backup job that has none.
 - **POSTURE**: two sets of Security view and network watch settings (watchful, relaxed).
+
+## [1.6.0] - 2026-11-18
+
+### Added: UI sounds
+- **Short cyberpunk-style UI sounds**, all synthesized by Nightgrid itself (no sound files or packs): alerts firing (a sharper one for critical) and clearing, new inbox notices, actions you started working or failing (container actions, firewall applies, Proxmox actions, package runs, power), confirm dialogs (a darker one for destructive ones), DRIFT finishing a reply, quest steps and completed quests, and scans, test restores, drills and speed tests finishing. Never for terminal output or live numbers.
+- **Settings → SOUND**: master switch, volume, a switch per kind of sound with a ▶ test button for every sound, quiet hours, and mute while the window isn't focused. On at 40 % to start; the view-switch tick is off until you turn it on. Included in profile exports, and in Settings → Features as **UI sounds**.
 
 ## [1.5.0] - 2026-11-18
 
@@ -54,6 +60,7 @@ Starters: ready-made server setups and alert runbooks you can read, preview and 
 - **HUB card**: make one always-on server the network's hub (Nightgrid Node 0.26+). It pulls the other servers' history read-only and notices a host going offline while Nightgrid is closed. **Make a hub…** installs it next to the node, **Add members…** links the other servers (including LAN-only ones behind a jump host), and the card shows each member as the hub sees it, with **Leave**, the hub's events, config, logs and **Remove…**.
 - **ROLE** column: hub, reports to hub, or direct.
 - **Per-host tabs**: STATUS (services and `doctor`), HUB & LINK (role, join or leave, the link's address and peers), CONFIG (edit the node's or hub's config: checked first, the old file kept, services restarted, rolled back if they don't come up) and LOGS (the services' journal).
+
 ## [1.2.0] - 2026-11-18
 
 ### Added: Library content updates

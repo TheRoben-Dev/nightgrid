@@ -2,6 +2,7 @@
  * DRIFT helper state: the side panel, the conversation, the attached view
  * context, the model download and the "show me" spotlight.
  */
+import { sound } from "./sound.svelte";
 import { api, type Host, type HelperModels, type HelperStatus } from "../api";
 import type { Lookup_Serialize as Lookup, LookupResult_Serialize as LookupResult } from "../bindings";
 import { guideTarget } from "../helper/guide";
@@ -459,7 +460,7 @@ class HelperStore {
       if (!parsed.text && !parsed.actions.length) {
         msg.text = "I don't have an answer for that.";
         this.flash("confused");
-      }
+      } else if (!this.stopped) sound.play("driftReply");
     } catch (e) {
       msg.error = errMsg(e);
       if (raw) msg.text = parseReply(takeCheckRequests(raw).text).text;

@@ -1,3 +1,4 @@
+import { sound } from "./sound.svelte";
 import { api, type Alert, type AlertKind, type AlertsSnapshot } from "../api";
 import { docker } from "./docker.svelte";
 import { fleet } from "./fleet.svelte";
@@ -107,6 +108,22 @@ export function groupByCause(active: Alert[]): { alert: Alert; folded: Alert[] }
   return roots.map((alert) => ({ alert, folded: active.filter((a) => a.causedBy === alert.id && a.id !== alert.id) }));
 }
 
+/**
+ * The sound for a new snapshot (D-178): the worst new alert, else a clear
+ * when one went away. Nothing for the first snapshot (alerts already active
+ * at launch) or for alerts folded under a cause.
+ */
+export function alertCue(prev: AlertsSnapshot | null, next: AlertsSnapshot): "alertCritical" | "alertWarn" | "alertClear" | null {
+  if (!prev) return null;
+  const before = prev.active.map((a) => a.id);
+  const now = next.active.map((a) => a.id);
+  const fresh = next.active.filter((a) => !before.includes(a.id) && a.causedBy == null);
+  if (fresh.some((a) => a.severity === "critical")) return "alertCritical";
+  if (fresh.length) return "alertWarn";
+  if (prev.active.some((a) => !now.includes(a.id) && a.causedBy == null)) return "alertClear";
+  return null;
+}
+
 export type Tone = "ok" | "warn" | "bad";
 export function tone(s: AlertsSnapshot | null): Tone {
   if (!s?.active.length) return "ok";
@@ -138,7 +155,11 @@ class AlertsStore {
   start() {
     if (this.started) return;
     this.started = true;
-    void api.alertsSubscribe((s) => (this.snap = s));
+    void api.alertsSubscribe((s) => {
+      const cue = alertCue(this.snap, s);
+      this.snap = s;
+      if (cue) sound.play(cue);
+    });
   }
 
   /** Jumps to the view that explains the alert. */

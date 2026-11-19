@@ -7,6 +7,7 @@
  * Kept in the database (and the profile export); the guide text stays in
  * the app, loaded only once there is a quest to show.
  */
+import { sound } from "./sound.svelte";
 import { api, errorText, type Quest } from "../api";
 import { questEvents, questProgress, type QuestEvent, type QuestProgress, type QuestStep } from "../kb/quest";
 import { hosts } from "./hosts.svelte";
@@ -225,6 +226,7 @@ class QuestLogStore {
   toast(q: Quest, e: Omit<QuestToast, "id" | "questId" | "articleId" | "hostId" | "quest" | "host">) {
     const t: QuestToast = { ...e, id: ++this.seq, questId: q.id, articleId: q.articleId, hostId: q.hostId, quest: q.title, host: this.hostName(q) };
     this.toasts = [...this.toasts, t].slice(-MAX_TOASTS);
+    sound.play(e.kind === "complete" ? "questComplete" : "questStep");
     setTimeout(() => this.dismiss(t.id), TOAST_MS);
   }
 
