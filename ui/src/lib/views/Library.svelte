@@ -243,7 +243,7 @@
       {/if}
 
       {#if tracked(cur) && objectives.length}
-        <aside class="quest" aria-label="Objectives" data-guide="library-objectives">
+        <aside class="objectives" aria-label="Objectives" data-guide="library-objectives">
           <div class="qhead">
             <span class="qlabel">OBJECTIVES</span>
             <span class="qcount">{doneAll}/{total}</span>
@@ -369,14 +369,23 @@
   .tags {
     display: flex;
     flex-wrap: wrap;
+    align-items: flex-start;
     gap: 4px;
   }
+  /* Every chip is the same box: one line, fixed padding, shared baseline. */
   .chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5ch;
+    box-sizing: border-box;
+    margin: 0;
     border: 1px solid var(--line);
     background: transparent;
     color: var(--text-1);
     font-size: var(--fs-xs);
+    line-height: 1.4;
     padding: 1px 6px;
+    white-space: nowrap;
     cursor: pointer;
   }
   .chip.on {
@@ -511,7 +520,7 @@
     color: var(--warn);
   }
   /* Guides: a quest log of objectives (the article's parts). */
-  .quest {
+  .objectives {
     max-width: 78ch;
     border: 1px solid color-mix(in srgb, var(--warn) 55%, var(--line));
     border-left: 3px solid var(--warn);

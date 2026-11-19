@@ -122,6 +122,7 @@
     transition: width var(--dur) var(--ease);
     min-height: 0;
     position: relative;
+    container: rail / inline-size;
   }
   .rail.resizing {
     transition: none;
@@ -284,7 +285,9 @@
     padding: 8px 0;
   }
   .cfg {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
     min-height: var(--hit);
     display: flex;
     align-items: center;
@@ -309,15 +312,27 @@
     color: var(--magenta);
   }
   .cfg .name {
+    white-space: nowrap;
     font-family: var(--font-display);
     font-weight: 600;
     font-size: var(--fs-sm);
     letter-spacing: 0.12em;
     text-transform: uppercase;
   }
+  /* The barcode is decoration: it shrinks first and leaves when the rail is narrow,
+     so Settings and the collapse button always fit. */
   .bar {
-    flex: none;
+    flex-grow: 0;
+    flex-shrink: 100;
+    flex-basis: auto;
+    min-width: 0;
+    overflow: hidden;
     display: flex;
+  }
+  @container rail (max-width: 216px) {
+    .bar {
+      display: none;
+    }
   }
   .collapsed .cfg {
     flex: none;
@@ -328,6 +343,7 @@
     flex-direction: column;
   }
   .collapse {
+    flex: none;
     min-width: var(--hit);
     min-height: var(--hit);
     border: 1px solid var(--line);
