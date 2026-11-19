@@ -1,4 +1,5 @@
 /** Network tests between hosts (M10x): Fleet → SPEED. */
+import { sound } from "./sound.svelte";
 import { api, errorText, type NetTest } from "../api";
 
 class NetperfStore {
@@ -28,8 +29,10 @@ class NetperfStore {
       const { [key]: _, ...rest } = this.findings;
       this.findings = r.finding ? { ...rest, [key]: r.finding } : rest;
       await this.load();
+      sound.play("taskDone");
     } catch (e) {
       this.error = errorText(e);
+      sound.play("taskFail");
     } finally {
       this.running = null;
     }

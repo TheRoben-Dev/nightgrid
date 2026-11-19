@@ -3,6 +3,7 @@
  * only, and keeps the last result per guide and host for this session (and
  * for DRIFT, which reports progress from it). Nothing is stored.
  */
+import { sound } from "./sound.svelte";
 import { api, errorText, type QuestResult } from "../api";
 import { stepChecks, type Article } from "../kb/library";
 import { questLine, questSummary } from "../kb/quest";
@@ -16,6 +17,14 @@ export interface QuestRun {
   at: number;
   /** By check id. */
   results: Record<string, QuestResult>;
+}
+
+/** Every check passing is a completed quest; more passes than last time is a step. */
+export function questCue(prev: QuestRun | undefined, rs: QuestResult[]): "questComplete" | "questStep" | null {
+  const pass = rs.filter((r) => r.state === "pass").length;
+  const before = prev ? Object.values(prev.results).filter((r) => r.state === "pass").length : 0;
+  if (rs.length && pass === rs.length) return before === rs.length ? null : "questComplete";
+  return pass > before ? "questStep" : null;
 }
 
 class QuestStore {
@@ -39,6 +48,8 @@ class QuestStore {
     hosts.remember("library", hostId);
     try {
       const rs = await api.questCheck(hostId, checks);
+      const cue = questCue(this.runs[k], rs);
+      if (cue) sound.play(cue);
       this.runs = { ...this.runs, [k]: { articleId: a.id, title: a.title, hostId, host: h.name, at: Date.now(), results: Object.fromEntries(rs.map((r) => [r.id, r])) } };
     } catch (e) {
       this.error = errorText(e);

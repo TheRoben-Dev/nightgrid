@@ -3,6 +3,7 @@
  * Each host is read with one script; hosts that would need a password or a
  * host key decision are skipped with a note (no prompts from the board).
  */
+import { sound } from "./sound.svelte";
 import { api, errorText, systemError, type BackupJob, type BackupJobInput, type BackupStatus, type BackupSuggestion, type LastTest, type RestoreTest } from "../api";
 import { hosts } from "./hosts.svelte";
 import { system } from "./system.svelte";
@@ -115,8 +116,10 @@ class BackupsStore {
       const t = await system.withSudo(`test-restore ${job.name}`, (sudo) => api.backupTestRestore(job.id, sudo), host);
       this.tests = { ...this.tests, [job.id]: { jobId: job.id, at: t.at, ok: t.ok, note: t.ok ? `restored ${t.file ?? "a file"}${t.snapshot ? ` from ${t.snapshot}` : ""}` : (t.error ?? "failed") } };
       this.testResult = t;
+      sound.play(t.ok ? "taskDone" : "taskFail");
     } catch (e) {
       if (errorText(e) === "Cancelled.") return;
+      sound.play("taskFail");
       const at = Math.floor(Date.now() / 1000);
       this.testResult = { jobId: job.id, ok: false, file: null, size: null, sha256: null, snapshot: null, snapshotTime: null, steps: [], error: errorText(e), at };
     } finally {

@@ -3,11 +3,12 @@
  * and tours open the right one. Every settings guide target must map here
  * (a test checks it).
  */
-export type SettingsTab = "general" | "appearance" | "terminal" | "monitoring" | "alerts" | "connections" | "drift" | "data" | "features";
+export type SettingsTab = "general" | "appearance" | "sound" | "terminal" | "monitoring" | "alerts" | "connections" | "drift" | "data" | "features";
 
 export const SETTINGS_TABS: { id: SettingsTab; label: string; what: string }[] = [
   { id: "general", label: "GENERAL", what: "tray and window, app updates, diagnostics" },
   { id: "appearance", label: "APPEARANCE", what: "theme, custom colours, scale and effects" },
+  { id: "sound", label: "SOUND", what: "UI sounds: volume, which sounds play, quiet hours, test buttons" },
   { id: "terminal", label: "TERMINAL", what: "terminal font, scrollback, copy and paste, keyboard shortcuts" },
   { id: "monitoring", label: "MONITORING", what: "metrics polling and history, service checks" },
   { id: "alerts", label: "ALERTS", what: "alert rules, log alert rules and mutes, dependencies, notifications" },
@@ -21,6 +22,8 @@ export const SETTINGS_TABS: { id: SettingsTab; label: string; what: string }[] =
 const BY_TARGET: Record<string, SettingsTab> = {
   "settings-theme": "appearance",
   "settings-display": "appearance",
+  "settings-sound": "sound",
+  "settings-sound-list": "sound",
   "settings-terminal": "terminal",
   "settings-keybindings": "terminal",
   "settings-monitoring": "monitoring",

@@ -1,4 +1,5 @@
 /** Firewall manager (M10v): System → FIREWALL on the current host. */
+import { sound } from "./sound.svelte";
 import { api, errorText, type ChangeCheck, type FirewallView, type FwChange } from "../api";
 import { system } from "./system.svelte";
 
@@ -67,8 +68,10 @@ class FirewallStore {
       if (this.view) this.view = { ...this.view, pending };
       void this.runTest();
       void this.load();
+      sound.play("ok");
       return null;
     } catch (e) {
+      sound.play("fail");
       return errorText(e);
     } finally {
       this.busy = false;
