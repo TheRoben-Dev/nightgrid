@@ -92,8 +92,8 @@ pub const WINDOWS: &[Support] = &[
         "UPS support talks to Network UPS Tools (upsc) on the host. NUT doesn't run as a service on Windows: UPSes there use the vendor's software. Watch the UPS from a Linux host that NUT can reach.",
     ),
     s("security.posture", "Security posture", Partial, "Scores the Windows checks from System → SECURITY. The two extra Linux checks posture adds (fresh container images and security updates) are left out."),
-    s("network.scan", "Network scans from this host", Planned, "Scans use ip neigh, ping and nmap through a POSIX shell. A PowerShell version (Get-NetNeighbor, ping sweep) is coming."),
-    s("nettools", "Network tools from this host", Planned, "The tools run Linux commands. PowerShell versions (Test-Connection, Resolve-DnsName, Test-NetConnection) are coming."),
+    s("network.scan", "Network scans from this host", Partial, "Scans with Windows' own tools: interfaces, routes, a ping sweep and port probe, the neighbour table, reverse DNS, DHCP servers, connections and Tailscale peers. mDNS, NetBIOS, SSDP and UPnP port forwards aren't read from Windows hosts."),
+    s("nettools", "Network tools from this host", Full, "Ping, path (tracert), DNS (Resolve-DnsName), ports, HTTP and certificates, neighbours, connections and service scans run in PowerShell with Windows' own tools."),
     s(
         "proxmox",
         "Proxmox",

@@ -175,11 +175,11 @@ pub fn timeout_secs(t: Tool) -> u64 {
     }
 }
 
-const NOTE: &str = "@@NGNOTE@@";
-const PORT: &str = "@@NGP@@";
-const WEB: &str = "@@NGW@@";
-const CERT: &str = "@@NGCERT@@";
-const SVC: &str = "@@NGS@@";
+pub(crate) const NOTE: &str = "@@NGNOTE@@";
+pub(crate) const PORT: &str = "@@NGP@@";
+pub(crate) const WEB: &str = "@@NGW@@";
+pub(crate) const CERT: &str = "@@NGCERT@@";
+pub(crate) const SVC: &str = "@@NGS@@";
 
 /// Ports the service scan tries by default.
 pub const SERVICE_PORTS: &[u16] = &[
@@ -824,9 +824,15 @@ pub async fn run_local(r: &ToolRequest) -> Result<ToolResult, String> {
     Ok(parse(r, ran, &text, unix_now()))
 }
 
-#[cfg(not(unix))]
+/// On Windows the tools run in PowerShell (see `win::nettools`).
+#[cfg(windows)]
+pub async fn run_local(r: &ToolRequest) -> Result<ToolResult, String> {
+    crate::win::nettools::run_local(r).await
+}
+
+#[cfg(not(any(unix, windows)))]
 pub async fn run_local(_r: &ToolRequest) -> Result<ToolResult, String> {
-    Err("The tools run on macOS and Linux. On Windows, run them from one of your hosts.".into())
+    Err("The tools run on macOS, Linux and Windows. Run them from one of your hosts.".into())
 }
 
 #[cfg(test)]

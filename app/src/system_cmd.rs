@@ -251,7 +251,7 @@ pub async fn netmap_discover(
     Ok(with_inventory(&app, &host_id.to_string(), d))
 }
 
-/// Network discovery run on this computer (macOS and Linux), for the map's
+/// Network discovery run on this computer (macOS, Linux or Windows), for the map's
 /// "This computer" option. Same script as on a host, run with the local `sh`.
 #[tauri::command]
 #[specta::specta]
@@ -344,7 +344,11 @@ pub async fn net_tool(
     let r = match host_id {
         Some(id) => {
             let conn = connect_posix(&app, id, "nettools").await?;
-            nightgrid_core::nettools::run(&conn, &req).await
+            if conn.is_windows() {
+                nightgrid_core::win::nettools::run(&conn, &req).await
+            } else {
+                nightgrid_core::nettools::run(&conn, &req).await
+            }
         }
         None => nightgrid_core::nettools::run_local(&req).await,
     };

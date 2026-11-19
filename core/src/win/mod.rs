@@ -17,6 +17,8 @@ pub mod events;
 pub mod firewall;
 pub mod keys;
 pub mod metrics;
+pub mod netscan;
+pub mod nettools;
 pub mod security;
 pub mod services;
 pub mod support;

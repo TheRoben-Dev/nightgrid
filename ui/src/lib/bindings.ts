@@ -972,7 +972,7 @@ export const commands = {
 	 */
 	netmapDiscover: (hostId: number, sweep: boolean, ranges: string[], options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover", { hostId, sweep, ranges }, options),
 	/**
-	 *  Network discovery run on this computer (macOS and Linux), for the map's
+	 *  Network discovery run on this computer (macOS, Linux or Windows), for the map's
 	 *  "This computer" option. Same script as on a host, run with the local `sh`.
 	 */
 	netmapDiscoverLocal: (sweep: boolean, ranges: string[], options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover_local", { sweep, ranges }, options),
