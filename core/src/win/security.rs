@@ -30,7 +30,7 @@ $r.uac = Reg 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' '
 $r.lastPatch = Safe { $h = Get-HotFix | Where-Object { $_.InstalledOn } | Sort-Object InstalledOn -Descending | Select-Object -First 1; if ($h) { [int]((Get-Date) - $h.InstalledOn).TotalDays } else { $null } }
 $r.guest = Safe { [bool](Get-LocalUser | Where-Object { $_.SID.Value -like '*-501' } | Select-Object -First 1).Enabled }
 $r.admins = Safe { @(Get-LocalGroupMember -SID 'S-1-5-32-544' | ForEach-Object { [string]$_.Name }) }
-$r.sshd = Safe { Get-Content -Raw (Join-Path $env:ProgramData 'ssh\sshd_config') }
+$r.sshd = Safe { [string](Get-Content -Raw (Join-Path $env:ProgramData 'ssh\sshd_config')) }
 $procs = @{}; Get-Process | ForEach-Object { $procs[[int]$_.Id] = $_.ProcessName }
 $r.tcp = Safe { @(Get-NetTCPConnection -State Listen | ForEach-Object { [ordered]@{ a = [string]$_.LocalAddress; p = [int]$_.LocalPort; n = $procs[[int]$_.OwningProcess] } }) }
 $r.udp = Safe { @(Get-NetUDPEndpoint | Where-Object { $_.LocalPort -lt 49152 } | ForEach-Object { [ordered]@{ a = [string]$_.LocalAddress; p = [int]$_.LocalPort; n = $procs[[int]$_.OwningProcess] } }) }
