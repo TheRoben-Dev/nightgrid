@@ -1574,6 +1574,8 @@ export type AppSettings_Deserialize = {
 	handheld?: boolean,
 	/**  Move focus and act with a game controller when one is connected. */
 	controllerNav?: boolean,
+	/**  Two-finger sideways swipe on a trackpad goes back/forward (D-186). */
+	swipeNav?: boolean,
 	/**  The DRIFT helper (local model). Off until the user turns it on. */
 	helperEnabled?: boolean,
 	/**  The DRIFT model in use (an id from `helper::model::MODELS`). */
@@ -1714,6 +1716,8 @@ export type AppSettings_Serialize = {
 	handheld: boolean,
 	/**  Move focus and act with a game controller when one is connected. */
 	controllerNav: boolean,
+	/**  Two-finger sideways swipe on a trackpad goes back/forward (D-186). */
+	swipeNav: boolean,
 	/**  The DRIFT helper (local model). Off until the user turns it on. */
 	helperEnabled: boolean,
 	/**  The DRIFT model in use (an id from `helper::model::MODELS`). */

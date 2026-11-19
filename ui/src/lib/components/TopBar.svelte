@@ -4,6 +4,8 @@
   import { sectionById } from "../sections";
   import { terms } from "../stores/terms.svelte";
   import { ui } from "../stores/ui.svelte";
+  import { nav } from "../stores/nav.svelte";
+  import { isMac } from "../keys";
   import { helper } from "../stores/helper.svelte";
   import { settings } from "../stores/settings.svelte";
   import Drift from "./helper/Drift.svelte";
@@ -18,6 +20,10 @@
 </script>
 
 <header class="topbar">
+  <div class="navbtns" role="group" aria-label="History">
+    <button type="button" data-guide="nav-back" title={`Back (${isMac() ? "⌘[" : "Alt+Left"} or mouse side button)`} aria-label="Back" disabled={!nav.canBack} onclick={() => nav.back()}>‹</button>
+    <button type="button" data-guide="nav-forward" title={`Forward (${isMac() ? "⌘]" : "Alt+Right"} or mouse side button)`} aria-label="Forward" disabled={!nav.canForward} onclick={() => nav.forward()}>›</button>
+  </div>
   <!-- Segmented breadcrumb: completed segments in mint, current in magenta. -->
   <ol class="crumbs" aria-label="Breadcrumb">
     {#each segments as seg, i (i)}
@@ -54,6 +60,36 @@
 </header>
 
 <style>
+  .navbtns {
+    display: flex;
+    flex: none;
+    border: 1px solid var(--line);
+  }
+  .navbtns button {
+    border: 0;
+    background: transparent;
+    color: var(--text-1);
+    font-family: var(--font-display);
+    font-size: var(--fs-lg);
+    line-height: 1;
+    width: 22px;
+    height: 20px;
+    padding: 0;
+    cursor: pointer;
+  }
+  .navbtns button + button {
+    border-left: 1px solid var(--line);
+  }
+  .navbtns button:hover:not(:disabled) {
+    color: var(--magenta);
+  }
+  .navbtns button:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  .navbtns button:focus-visible {
+    outline: 1px solid var(--accent);
+  }
   .drift {
     all: unset;
     display: inline-flex;

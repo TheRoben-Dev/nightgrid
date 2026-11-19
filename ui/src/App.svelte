@@ -16,7 +16,9 @@
   import LeftRail from "./lib/components/LeftRail.svelte";
   import StatusStrip from "./lib/components/StatusStrip.svelte";
   import TopBar from "./lib/components/TopBar.svelte";
-  import { actionFor, type ActionId } from "./lib/keys";
+  import { actionFor, isMac, type ActionId } from "./lib/keys";
+  import { keyBelongsToTarget, navButton, navKey, SwipeTracker } from "./lib/navhistory";
+  import { nav } from "./lib/stores/nav.svelte";
   import { startGamepad } from "./lib/gamepad";
   import { buildCommands } from "./lib/palette/commands";
   import { scramble } from "./lib/scramble";
@@ -95,6 +97,14 @@
     const unlisten: Promise<() => void>[] = [];
     if (inTauri()) {
       unlisten.push(listen<{ hostId: number }>("tray://connect", (e) => terms.goToHost(e.payload.hostId)));
+      // macOS: WKWebView doesn't hand mouse side buttons to the page, so the
+      // app catches them natively and sends them here (D-186).
+      unlisten.push(
+        listen<string>("nav://mouse", (e) => {
+          nativeMouseAt = performance.now();
+          navigate(e.payload === "forward" ? "forward" : "back");
+        }),
+      );
       unlisten.push(listen("tray://alerts", () => (alerts.open = true)));
     }
     api
@@ -177,7 +187,76 @@
   };
   for (const s of SECTIONS) handlers[s.action] = () => ui.go(s.id);
 
+  // ---- Back/forward (D-186): mouse side buttons, Cmd+[ / Cmd+], Alt+Left /
+  // Alt+Right, two-finger swipe. Every change of view, rail tab, sub-tab or
+  // host is a step.
+  $effect(() => {
+    nav.observe();
+  });
+  const mac = isMac();
+  let nativeMouseAt = -Infinity;
+  const swipe = new SwipeTracker();
+
+  /** Whether something modal owns input right now. */
+  const blocked = () => ui.paletteOpen || !!document.querySelector("dialog[open]");
+
+  function navigate(dir: "back" | "forward") {
+    if (blocked()) return;
+    if (dir === "back") nav.back();
+    else nav.forward();
+  }
+
+  function editable(el: Element | null): boolean {
+    if (!el) return false;
+    if (el instanceof HTMLInputElement) return !["checkbox", "radio", "button", "submit", "range", "color", "file"].includes(el.type);
+    return el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || !!el.closest("[contenteditable=''], [contenteditable='true'], .cm-editor");
+  }
+
+  function onNavMouse(e: MouseEvent) {
+    const dir = navButton(e.button);
+    if (!dir) return;
+    // Keep the webview's own history (WebView2, WebKitGTK) out of it.
+    e.preventDefault();
+    if (e.type !== "mouseup") return;
+    // macOS already sent it natively; don't count it twice.
+    if (performance.now() - nativeMouseAt < 400) return;
+    navigate(dir);
+  }
+
+  function onwheel(e: WheelEvent) {
+    if (!settings.value.swipeNav || e.ctrlKey || e.shiftKey || e.deltaMode !== 0) return;
+    const t = e.target instanceof Element ? e.target : null;
+    // Things that use sideways scrolling themselves keep it.
+    if (t && (t.closest(".xterm, canvas, svg, [data-vm-screen], [data-no-swipe]") || scrollsSideways(t))) {
+      if (e.deltaX !== 0) swipe.cancel(e.timeStamp);
+      return;
+    }
+    const dir = swipe.feed(e.deltaX, e.deltaY, e.timeStamp);
+    if (dir) navigate(dir);
+  }
+
+  function scrollsSideways(el: Element): boolean {
+    for (let n: Element | null = el; n && n !== document.body; n = n.parentElement) {
+      if (n.scrollWidth > n.clientWidth + 1) {
+        const o = getComputedStyle(n).overflowX;
+        if (o === "auto" || o === "scroll") return true;
+      }
+    }
+    return false;
+  }
+
   function onkeydown(e: KeyboardEvent) {
+    const dir = navKey(e, mac);
+    if (dir) {
+      const t = e.target instanceof Element ? e.target : null;
+      const terminal = !!t?.closest(".xterm");
+      const owner = { editable: !terminal && editable(t), terminal, vm: !!t?.closest("[data-vm-screen]") };
+      if (!keyBelongsToTarget(owner, mac) && !blocked()) {
+        e.preventDefault();
+        navigate(dir);
+        return;
+      }
+    }
     // A focused VM screen sends every key to the guest.
     if (e.target instanceof Element && e.target.closest("[data-vm-screen]")) return;
     const inTerminal = e.target instanceof Element && !!e.target.closest(".xterm");
@@ -192,7 +271,7 @@
   }
 </script>
 
-<svelte:window {onkeydown} />
+<svelte:window {onkeydown} onmousedown={onNavMouse} onmouseup={onNavMouse} onauxclick={onNavMouse} {onwheel} />
 
 <div class="backdrop" aria-hidden="true"></div>
 {#if settings.value.scanlines}<div class="scanlines" aria-hidden="true"></div>{/if}

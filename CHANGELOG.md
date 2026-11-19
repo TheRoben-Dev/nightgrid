@@ -14,6 +14,19 @@ Faster updates: interface fixes between releases, batched releases and quicker r
 - **Fixes merged close together now ship as one release** instead of one after another, and the release picks its own version number.
 - **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
 
+## [1.10.0] - 2026-11-19
+
+### Added: back and forward
+- **Mouse side buttons go back and forward** through where you've been: views, the tabs beside a view's title (One host / Fleet, Map / Tools…), tabs inside a view (Fleet → DISKS, Docker → STACKS, Proxmox, Security, Files editors, Settings tabs), the host a view shows and Library articles. On macOS the buttons are caught natively, because the system webview doesn't pass them to the page.
+- **Keys**: `Cmd+[` / `Cmd+]` on macOS, `Alt+Left` / `Alt+Right` on Windows and Linux, plus the Back/Forward keys some keyboards and mice send. They stay with text fields and editors, and with the terminal on Windows and Linux, where shells move by word with `Alt+Left` / `Alt+Right`.
+- **‹ ›** buttons at the top left, and a **two-finger sideways swipe** on a trackpad (Settings → General → Swipe to go back; areas that scroll sideways keep the swipe).
+
+## [1.8.1] - 2026-11-19
+
+### Fixed
+- **Library shelf filters** are all the same size again. The ◇ QUESTS chip had picked up the Objectives panel's frame (notched corner, thick left edge, extra margin), which stretched ALL and USING NIGHTGRID into tall boxes. QUESTS keeps its amber look at the normal chip size, and the chips wrap evenly at any width.
+- **Sidebar collapse button** no longer gets clipped or overlaps Settings when the sidebar is narrow. The decorative barcode beside Settings shrinks first and hides below about 216 px.
+
 ## [1.8.0] - 2026-11-19
 
 Ten more integrations for the media stack, on a shared integration card.

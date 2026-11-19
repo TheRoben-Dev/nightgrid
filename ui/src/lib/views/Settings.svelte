@@ -21,7 +21,7 @@
   import { updates } from "../stores/updates.svelte";
   import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
   import { patchLabel, uiPatch } from "../stores/uipatch.svelte";
-  import { DEFAULT_KEYMAP, formatChord, type ActionId } from "../keys";
+  import { DEFAULT_KEYMAP, formatChord, isMac, type ActionId } from "../keys";
   import {
     METRICS_BACKGROUND_STEPS,
     METRICS_INTERVAL_STEPS,
@@ -255,6 +255,12 @@
         onchange={(v) => settings.update({ controllerNav: v })}
       />
       <Toggle
+        label="Swipe to go back"
+        hint={`Two fingers sideways on a trackpad move back and forward through the views you visited, like the mouse side buttons and ${isMac() ? "⌘[ / ⌘]" : "Alt+Left / Alt+Right"}. Areas that scroll sideways keep the swipe.`}
+        checked={settings.value.swipeNav}
+        onchange={(v) => settings.update({ swipeNav: v })}
+      />
+      <Toggle
         label="Collapse sidebar"
         checked={settings.value.railCollapsed}
         onchange={(v) => settings.update({ railCollapsed: v })}
@@ -335,6 +341,14 @@
             <td class="r"><kbd>{formatChord(spec)}</kbd></td>
           </tr>
         {/each}
+        <tr>
+          <td>Back (also mouse side button)</td>
+          <td class="r"><kbd>{isMac() ? "⌘[" : "Alt+Left"}</kbd></td>
+        </tr>
+        <tr>
+          <td>Forward (also mouse side button)</td>
+          <td class="r"><kbd>{isMac() ? "⌘]" : "Alt+Right"}</kbd></td>
+        </tr>
       </tbody>
     </table>
     <p class="muted note">

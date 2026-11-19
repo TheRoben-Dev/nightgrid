@@ -952,6 +952,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   backupFolder: null,
   handheld: false,
   controllerNav: true,
+  swipeNav: true,
   helperEnabled: false,
   helperModel: "qwen3-4b-instruct-2507-q4km",
   historySearch: false,

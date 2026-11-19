@@ -19,6 +19,7 @@ import type { EditorHandle } from "../files/editor";
 import { isHidden, langFor, type LangKey } from "../files/util";
 import { hosts } from "./hosts.svelte";
 import { ui } from "./ui.svelte";
+import { nav } from "./nav.svelte";
 
 export const sameSide = (a: Side, b: Side) => a.kind === b.kind && (a.kind === "local" || a.id === (b as { id: number }).id);
 
@@ -370,3 +371,9 @@ class FilesStore {
 }
 
 export const files = new FilesStore();
+
+// Back/forward history (D-186): the browser and each open editor are steps
+// (an editor closed since is skipped).
+nav.track("files", "tab", () => files.tab, (v) => {
+  if (v === "browser" || (typeof v === "number" && files.docs.some((d) => d.id === v))) files.tab = v;
+});
