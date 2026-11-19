@@ -84,7 +84,7 @@ pub const WINDOWS: &[Support] = &[
     s("fleet.backups", "Fleet → BACKUPS", Planned, "Backup checks run restic, borg and rsync through a POSIX shell. Windows support is coming."),
     s("fleet.logs", "Fleet → LOGS", Partial, "Searches the System and Application event logs instead of the journal (the newest 5 000 events per log); the unit filter matches the event source."),
     s("fleet.access", "Fleet → ACCESS", Partial, "Logins come from the OpenSSH/Operational event log (administrators only), local accounts stand in for users and the Administrators group for sudo. Fail2ban and CrowdSec don't run on Windows, so there are no bans to show."),
-    s("fleet.speed", "Fleet → SPEED", Planned, "Speed tests start iperf3 through a POSIX shell. Windows support (with iperf3.exe) is coming."),
+    s("fleet.speed", "Fleet → SPEED", Partial, "Windows has no iperf3 of its own and Nightgrid installs nothing on hosts: put iperf3.exe on the PATH or in C:\\iperf3. Ping runs through .NET instead of ping."),
     s(
         "fleet.ups",
         "Fleet → UPS",
@@ -177,7 +177,7 @@ mod tests {
     fn messages() {
         assert_eq!(unavailable("terminal"), Option::None);
         assert!(unavailable("proxmox").unwrap().starts_with("Proxmox can't work on Windows hosts."));
-        assert!(unavailable("fleet.speed").unwrap().contains("yet"));
+        assert!(unavailable("fleet.backups").unwrap().contains("yet"));
         assert_eq!(unavailable("no.such"), Option::None);
     }
 }

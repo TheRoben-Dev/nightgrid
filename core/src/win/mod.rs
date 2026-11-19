@@ -18,6 +18,7 @@ pub mod events;
 pub mod firewall;
 pub mod keys;
 pub mod metrics;
+pub mod netperf;
 pub mod netscan;
 pub mod nettools;
 pub mod security;
