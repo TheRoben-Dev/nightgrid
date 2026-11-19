@@ -87,7 +87,7 @@ fn disk(r: RawDisk) -> Disk {
     if let Some(t) = r.temp.filter(|t| *t >= 60) {
         issues.push((if t >= 70 { Health::Bad } else { Health::Warn }, format!("Running hot: {t} °C.")));
     }
-    issues.sort_by(|a, b| b.0.cmp(&a.0));
+    issues.sort_by_key(|i| std::cmp::Reverse(i.0));
     let health = issues.first().map_or(Health::Ok, |i| i.0);
     let rotation_rpm = match r.media.as_str() {
         "SSD" => Some(0),
@@ -188,7 +188,7 @@ pub fn parse_pools(json: &str) -> SystemResult<PoolsReport> {
                     issues.push((h, format!("Disk {} is {} ({}).", d.name, d.health, d.status)));
                 }
             }
-            issues.sort_by(|a, b| b.0.cmp(&a.0));
+            issues.sort_by_key(|i| std::cmp::Reverse(i.0));
             let layouts: Vec<String> = p
                 .vdisks
                 .iter()

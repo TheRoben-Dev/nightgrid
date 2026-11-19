@@ -14,6 +14,7 @@
 
 pub mod disks;
 pub mod events;
+pub mod firewall;
 pub mod keys;
 pub mod metrics;
 pub mod security;

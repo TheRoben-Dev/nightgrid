@@ -33,6 +33,8 @@ pub enum Backend {
     Firewalld,
     Nftables,
     Iptables,
+    /// Windows Defender Firewall (Windows hosts).
+    Windows,
     None,
 }
 
@@ -85,6 +87,8 @@ pub struct FirewallReport {
     pub raw: String,
     /// A rollback is armed on the host right now.
     pub rollback_armed: bool,
+    /// Windows Defender Firewall's profiles and rules (Windows hosts).
+    pub windows: Option<crate::win::firewall::WinFirewall>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -159,6 +163,29 @@ pub enum FwChange {
         proto: Proto,
         add: bool,
     },
+    /// Windows: an inbound allow rule for a port (optionally from one source).
+    WinAllow {
+        port: String,
+        proto: Proto,
+        from: Option<String>,
+        comment: Option<String>,
+    },
+    /// Windows: a rule from the report, by its unique name.
+    WinDelete {
+        name: String,
+    },
+    WinRuleEnable {
+        name: String,
+        enabled: bool,
+    },
+    /// Windows: every profile on or off.
+    WinEnable {
+        enabled: bool,
+    },
+    /// Windows: the inbound default for every profile, `block` or `allow`.
+    WinDefault {
+        policy: String,
+    },
 }
 
 impl FwChange {
@@ -167,6 +194,11 @@ impl FwChange {
             Self::UfwAdd { .. } | Self::UfwDelete { .. } | Self::UfwEnable { .. } | Self::UfwDefault { .. } => {
                 Backend::Ufw
             }
+            Self::WinAllow { .. }
+            | Self::WinDelete { .. }
+            | Self::WinRuleEnable { .. }
+            | Self::WinEnable { .. }
+            | Self::WinDefault { .. } => Backend::Windows,
             _ => Backend::Firewalld,
         }
     }
@@ -197,6 +229,19 @@ impl FwChange {
                 if *add { "accept" } else { "stop accepting" },
                 port.as_deref().map(|p| format!(" on port {p}")).unwrap_or_default()
             ),
+            Self::WinAllow { port, proto, from, .. } => format!(
+                "allow {port}{}{}",
+                if *proto == Proto::Any { String::new() } else { format!("/{}", proto_word(*proto)) },
+                from.as_deref().map(|f| format!(" from {f}")).unwrap_or_default()
+            ),
+            Self::WinDelete { name } => format!("delete rule {name}"),
+            Self::WinRuleEnable { name, enabled } => {
+                format!("{} rule {name}", if *enabled { "enable" } else { "disable" })
+            }
+            Self::WinEnable { enabled } => {
+                if *enabled { "turn Windows Defender Firewall on" } else { "turn Windows Defender Firewall off" }.into()
+            }
+            Self::WinDefault { policy } => format!("set the incoming default to {policy}"),
         }
     }
 }
@@ -221,6 +266,18 @@ fn valid_port(p: &str, range_sep: char) -> bool {
 }
 
 /// An address or a CIDR network.
+pub(crate) fn proto_name(p: Proto) -> &'static str {
+    proto_word(p)
+}
+
+pub(crate) fn valid_port_range(p: &str) -> bool {
+    valid_port(p, '-')
+}
+
+pub(crate) fn valid_comment_text(s: &str) -> bool {
+    valid_comment(s)
+}
+
 pub fn valid_source(s: &str) -> bool {
     match s.split_once('/') {
         Some((ip, bits)) => ip
@@ -346,6 +403,15 @@ pub fn change_command(c: &FwChange) -> Result<String> {
                 if *add { "add" } else { "remove" },
                 shell_quote(&rule)
             )
+        }
+        FwChange::WinAllow { .. }
+        | FwChange::WinDelete { .. }
+        | FwChange::WinRuleEnable { .. }
+        | FwChange::WinEnable { .. }
+        | FwChange::WinDefault { .. } => {
+            // Validates; Windows changes run as PowerShell (win::firewall).
+            crate::win::firewall::change_script(c)?;
+            String::new()
         }
     })
 }
@@ -502,7 +568,7 @@ pub fn parse_read(out: &str) -> FirewallReport {
         _ => false,
     };
     let raw: String = get("raw").join("\n");
-    FirewallReport { backend, active, ufw, zones, raw, rollback_armed }
+    FirewallReport { backend, active, ufw, zones, raw, rollback_armed, windows: None }
 }
 
 // ---- lock-out check -----------------------------------------------------------

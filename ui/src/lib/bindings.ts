@@ -1940,7 +1940,9 @@ export type AutomationEvent_Serialize = { kind: "hostStart"; hostId: number } | 
 /**  Exit code of the last command step that ran. */
 code: number | null; error: string | null; needs: HostNeeds | null; ms: number; stopped: boolean } | { kind: "done"; stopped: boolean };
 
-export type Backend = "ufw" | "firewalld" | "nftables" | "iptables" | "none";
+export type Backend = "ufw" | "firewalld" | "nftables" | "iptables" | 
+/**  Windows Defender Firewall (Windows hosts). */
+"windows" | "none";
 
 export type BackupFolder = BackupFolder_Serialize | BackupFolder_Deserialize;
 
@@ -3807,6 +3809,8 @@ export type FirewallReport_Deserialize = {
 	raw: string,
 	/**  A rollback is armed on the host right now. */
 	rollbackArmed: boolean,
+	/**  Windows Defender Firewall's profiles and rules (Windows hosts). */
+	windows?: WinFirewall_Deserialize | null,
 };
 
 export type FirewallReport_Serialize = {
@@ -3818,6 +3822,8 @@ export type FirewallReport_Serialize = {
 	raw: string,
 	/**  A rollback is armed on the host right now. */
 	rollbackArmed: boolean,
+	/**  Windows Defender Firewall's profiles and rules (Windows hosts). */
+	windows: WinFirewall_Serialize | null,
 };
 
 export type FirewallView = FirewallView_Serialize | FirewallView_Deserialize;
@@ -3859,7 +3865,15 @@ export type FwChange_Deserialize = { op: "ufwAdd"; action: UfwAction; port: stri
 /**  The incoming default: `allow`, `deny` or `reject`. */
 { op: "ufwDefault"; policy: string } | { op: "firewalldService"; zone: string; service: string; add: boolean } | { op: "firewalldPort"; zone: string; port: string; proto: Proto; add: boolean } | 
 /**  Accept traffic from a source address (optionally to one port). */
-{ op: "firewalldSource"; zone: string; source: string; port?: string | null; proto: Proto; add: boolean };
+{ op: "firewalldSource"; zone: string; source: string; port?: string | null; proto: Proto; add: boolean } | 
+/**  Windows: an inbound allow rule for a port (optionally from one source). */
+{ op: "winAllow"; port: string; proto: Proto; from?: string | null; comment?: string | null } | 
+/**  Windows: a rule from the report, by its unique name. */
+{ op: "winDelete"; name: string } | { op: "winRuleEnable"; name: string; enabled: boolean } | 
+/**  Windows: every profile on or off. */
+{ op: "winEnable"; enabled: boolean } | 
+/**  Windows: the inbound default for every profile, `block` or `allow`. */
+{ op: "winDefault"; policy: string };
 
 /**  One change to the firewall. */
 export type FwChange_Serialize = { op: "ufwAdd"; action: UfwAction; port: string; proto: Proto; from: string | null; comment: string | null } | 
@@ -3868,7 +3882,15 @@ export type FwChange_Serialize = { op: "ufwAdd"; action: UfwAction; port: string
 /**  The incoming default: `allow`, `deny` or `reject`. */
 { op: "ufwDefault"; policy: string } | { op: "firewalldService"; zone: string; service: string; add: boolean } | { op: "firewalldPort"; zone: string; port: string; proto: Proto; add: boolean } | 
 /**  Accept traffic from a source address (optionally to one port). */
-{ op: "firewalldSource"; zone: string; source: string; port: string | null; proto: Proto; add: boolean };
+{ op: "firewalldSource"; zone: string; source: string; port: string | null; proto: Proto; add: boolean } | 
+/**  Windows: an inbound allow rule for a port (optionally from one source). */
+{ op: "winAllow"; port: string; proto: Proto; from: string | null; comment: string | null } | 
+/**  Windows: a rule from the report, by its unique name. */
+{ op: "winDelete"; name: string } | { op: "winRuleEnable"; name: string; enabled: boolean } | 
+/**  Windows: every profile on or off. */
+{ op: "winEnable"; enabled: boolean } | 
+/**  Windows: the inbound default for every profile, `block` or `allow`. */
+{ op: "winDefault"; policy: string };
 
 export type GitCommit = {
 	id: string,
@@ -11055,6 +11077,72 @@ export type Widget = {
 	y: number,
 	w: number,
 	h: number,
+};
+
+export type WinFirewall = WinFirewall_Serialize | WinFirewall_Deserialize;
+
+export type WinFirewall_Deserialize = {
+	profiles: WinProfile[],
+	/**  Inbound rules you (or Nightgrid) made: no rule group. */
+	rules: WinRule_Deserialize[],
+	/**  Enabled inbound allow rules that Windows and apps ship (not listed). */
+	builtinAllow: number,
+};
+
+export type WinFirewall_Serialize = {
+	profiles: WinProfile[],
+	/**  Inbound rules you (or Nightgrid) made: no rule group. */
+	rules: WinRule_Serialize[],
+	/**  Enabled inbound allow rules that Windows and apps ship (not listed). */
+	builtinAllow: number,
+};
+
+export type WinProfile = {
+	/**  `Domain`, `Private` or `Public`. */
+	name: string,
+	enabled: boolean,
+	/**  `Block`, `Allow` or `NotConfigured` (which blocks). */
+	defaultIn: string,
+};
+
+export type WinRule = WinRule_Serialize | WinRule_Deserialize;
+
+export type WinRule_Deserialize = {
+	/**  The rule's unique name (what changes refer to). */
+	name: string,
+	display: string,
+	enabled: boolean,
+	/**  `Allow` or `Block`. */
+	action: string,
+	/**  `TCP`, `UDP`, `Any`, ... */
+	protocol: string,
+	/**  Local ports (`22`, `8000-8100`, `Any`). */
+	ports: string,
+	/**  Remote addresses (`Any`, `192.168.1.0/24`, ...). */
+	remote: string,
+	/**  Profiles it applies to (`Any`, `Private, Public`). */
+	profiles: string,
+	/**  The program it's limited to, if any. */
+	program?: string | null,
+};
+
+export type WinRule_Serialize = {
+	/**  The rule's unique name (what changes refer to). */
+	name: string,
+	display: string,
+	enabled: boolean,
+	/**  `Allow` or `Block`. */
+	action: string,
+	/**  `TCP`, `UDP`, `Any`, ... */
+	protocol: string,
+	/**  Local ports (`22`, `8000-8100`, `Any`). */
+	ports: string,
+	/**  Remote addresses (`Any`, `192.168.1.0/24`, ...). */
+	remote: string,
+	/**  Profiles it applies to (`Any`, `Private, Public`). */
+	profiles: string,
+	/**  The program it's limited to, if any. */
+	program: string | null,
 };
 
 export type Zone = {
