@@ -8,6 +8,14 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Library shelf filters** are all the same size again. The ◇ QUESTS chip had picked up the Objectives panel's frame (notched corner, thick left edge, extra margin), which stretched ALL and USING NIGHTGRID into tall boxes. QUESTS keeps its amber look at the normal chip size, and the chips wrap evenly at any width.
 - **Sidebar collapse button** no longer gets clipped or overlaps Settings when the sidebar is narrow. The decorative barcode beside Settings shrinks first and hides below about 216 px.
 
+## [1.7.1] - 2026-11-19
+
+### Fixed: logging in to Windows hosts (and any host without an agent key)
+- **SSH agent hosts no longer fail when there's no agent.** With no agent running (the Windows default) or an empty one, and no key file set, Nightgrid now tries `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa`, then asks for the password when the server takes one, like OpenSSH. Before, the login stopped at the agent's error (often "SSH agent: early eof") and never offered a password.
+- **A refused key now falls back to the password** on key-file and agent hosts. Before, the password prompt came back again and again because the password was never used.
+- **Terminals on OpenSSH for Windows** (Windows Server, Windows 10/11) open a plain shell. The key-hints and edit hook are POSIX shell, so on cmd or PowerShell they ended the session at once.
+- Failed connections are written to the log, so exported diagnostics say why a host won't connect.
+
 ## [1.7.0] - 2026-11-19
 
 Ten more starter shelves: apps, scheduled jobs, firewall profiles, alert rules, Overview tiles and dashboards, log searches, proxy routes, Proxmox shapes, restore drills and security posture.
