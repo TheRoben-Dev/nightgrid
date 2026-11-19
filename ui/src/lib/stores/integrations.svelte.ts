@@ -15,8 +15,8 @@ import {
 /** Seconds between status reads while the Services view is open. */
 const POLL_SECS = 30;
 
-export type KindGroup = "Media" | "Media automation" | "Network" | "Games" | "Monitoring" | "Docker";
-export const KIND_GROUPS: KindGroup[] = ["Media", "Media automation", "Network", "Monitoring", "Docker", "Games"];
+export type KindGroup = "Media" | "Media automation" | "Downloads" | "Files & photos" | "Network" | "Monitoring" | "Cameras" | "Docker" | "Games";
+export const KIND_GROUPS: KindGroup[] = ["Media", "Media automation", "Downloads", "Files & photos", "Network", "Monitoring", "Cameras", "Docker", "Games"];
 
 export interface KindMeta {
   /** Upper-case badge text. */
@@ -96,6 +96,83 @@ export const KIND_META: Record<IntegrationKind, KindMeta> = {
     help: "Request counts and pending requests you can approve or decline. Needs the API key from Settings → General.",
     placeholder: "http://server01:5055",
     secret: apiKey("Jellyseerr: Settings → General → API Key."),
+  },
+  qbittorrent: {
+    label: "QBITTORRENT",
+    name: "qBittorrent",
+    group: "Downloads",
+    help: "Speeds, active and failed torrents, pause or resume one or all. Uses the Web UI login; leave both empty if the Web UI skips login for your network.",
+    placeholder: "http://server01:8080",
+    secret: { label: "Password", hint: "Kept in the OS keychain only. The Web UI password (Tools → Options → Web UI).", optional: true },
+    username: { label: "Login name", required: false },
+  },
+  transmission: {
+    label: "TRANSMISSION",
+    name: "Transmission",
+    group: "Downloads",
+    help: "Speeds, torrents with progress and errors, start or stop one or all. The login is only needed when RPC authentication is on.",
+    placeholder: "http://server01:9091",
+    secret: { label: "Password", hint: "Kept in the OS keychain only. Leave empty if RPC authentication is off.", optional: true },
+    username: { label: "Login name", required: false },
+  },
+  sabnzbd: {
+    label: "SABNZBD",
+    name: "SABnzbd",
+    group: "Downloads",
+    help: "Speed, the queue with progress, free disk, recent failures; pause, resume or delete. Needs the API key from Config → General.",
+    placeholder: "http://server01:8080",
+    secret: apiKey("SABnzbd: Config → General → Security → API Key."),
+  },
+  nzbget: {
+    label: "NZBGET",
+    name: "NZBGet",
+    group: "Downloads",
+    help: "Speed, the queue with progress, free disk; pause, resume or delete. Uses the control login from Settings → Security.",
+    placeholder: "http://server01:6789",
+    secret: { label: "Control password", hint: "Kept in the OS keychain only. Settings → Security → ControlPassword." },
+    username: { label: "Control login", required: true },
+  },
+  immich: {
+    label: "IMMICH",
+    name: "Immich",
+    group: "Files & photos",
+    help: "Photos, videos, storage used and background jobs (running, waiting, failed). Library size and jobs need an admin's API key.",
+    placeholder: "http://server01:2283",
+    secret: apiKey("Immich: Account Settings → API Keys → New API Key."),
+  },
+  nextcloud: {
+    label: "NEXTCLOUD",
+    name: "Nextcloud",
+    group: "Files & photos",
+    help: "Users, files, active users, shares, free space, load and pending app updates (serverinfo). Needs an admin login and an app password.",
+    placeholder: "https://cloud.example.lan",
+    secret: { label: "App password", hint: "Kept in the OS keychain only. Personal settings → Security → Devices & sessions → Create new app password." },
+    username: { label: "Admin login name", required: true },
+  },
+  syncthing: {
+    label: "SYNCTHING",
+    name: "Syncthing",
+    group: "Files & photos",
+    help: "Folders with sync state, devices online and errors; rescan a folder or all, pause or resume syncing. Needs the API key.",
+    placeholder: "http://server01:8384",
+    secret: apiKey("Syncthing: Actions → Settings → General → API Key."),
+  },
+  gotify: {
+    label: "GOTIFY",
+    name: "Gotify",
+    group: "Monitoring",
+    help: "Health, apps and the latest messages with priority; delete one or all. Needs a client token (Clients → Create client).",
+    placeholder: "http://server01:8070",
+    secret: { label: "Client token", hint: "Kept in the OS keychain only. A client token, not an app token." },
+  },
+  frigate: {
+    label: "FRIGATE",
+    name: "Frigate",
+    group: "Cameras",
+    help: "Cameras with frame rates (offline ones in red), detector speed, recording storage and the latest detections. Port 5000 needs no login; port 8971 needs a Frigate login.",
+    placeholder: "http://server01:5000",
+    secret: { label: "Password", hint: "Kept in the OS keychain only. Only for the authenticated port (8971).", optional: true },
+    username: { label: "Login name", required: false },
   },
   amp: {
     label: "AMP",

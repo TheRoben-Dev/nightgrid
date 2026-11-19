@@ -8,6 +8,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 - **Sidebar**: your hosts (with favorites and groups) at the top, the views below, Settings at the bottom. Related views share a row and switch with tabs beside the title: **System** (One host, Fleet), **Network** (Map, Tunnels) and **VMs** (Proxmox, Desktops). A row marked **+1** holds another view and opens the one you used last. Point at a row to see its shortcut. `Mod+B` collapses the sidebar to icons.
 - **Views**: Overview `Mod+1`, Terminal `Mod+2`, Files `Mod+3`, Docker `Mod+4`, Services `Mod+5`, Tunnels `Mod+6`, System `Mod+7`, Automation `Mod+8`, Knowledge `Mod+9`, Network `Mod+0`, Fleet `Mod+Shift+U`, Settings `Mod+,`.
+- **Back and forward**: the mouse side buttons, `Cmd+[` / `Cmd+]` on macOS, `Alt+Left` / `Alt+Right` on Windows and Linux, the **‹ ›** buttons at the top left, or a two-finger sideways swipe on a trackpad. Every view, row tab (One host / Fleet), tab inside a view (Fleet → DISKS, Docker → STACKS, Settings tabs…), host pick and Library article is a step, so an accidental click is one button away from undone. The keys are left alone while you type in a field or editor, and in a terminal on Windows and Linux (shells use `Alt+Left` / `Alt+Right` to move by word); the mouse buttons work everywhere. Areas that scroll sideways keep the swipe; **Settings → General → Swipe to go back** turns it off.
 - **Command palette** `Mod+K` (also `Ctrl+Shift+K` inside a terminal): jump to any host, view, snippet, playbook or action by typing.
 - **DRIFT helper** `Mod+J`: ask a question in the side panel (see below).
 - **Settings → Terminal → Keybindings** lists every shortcut. Settings is split into tabs: General, Appearance, Terminal, Monitoring, Alerts, Connections, DRIFT, Data and Features.
@@ -105,6 +106,13 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **Bazarr**: missing subtitles for episodes and movies, throttled providers and health issues.
   - **Overseerr** and **Jellyseerr**: request counts and pending requests with **Approve** and **Decline** (asks first).
   - The *arr apps, Bazarr, Overseerr and Jellyseerr take the API key from their Settings → General.
+  - **qBittorrent** and **Transmission**: speeds, torrents with progress and errors, pause or resume one or all. Enter the Web UI (qBittorrent) or RPC (Transmission) login, or leave it empty when the app doesn't ask for one on your network.
+  - **SABnzbd** and **NZBGet**: speed, the queue with progress, free disk and recent failures; pause or resume the queue, or pause, resume and delete one item. SABnzbd uses its API key (Config → General); NZBGet its control login (Settings → Security).
+  - **Immich**: photos, videos, storage and background jobs that are running, waiting or failed (an admin's API key shows all of it).
+  - **Nextcloud**: users, files, active users, shares, free space, load and pending app updates. Use an admin login with an app password (Personal settings → Security).
+  - **Syncthing**: each folder's state (up to date, syncing with what's left, out of sync, errors), devices online and Syncthing's own errors; **Rescan**, **Pause** and **Resume**. API key from Actions → Settings → General.
+  - **Gotify**: health, apps and the latest messages by priority; delete one or all. Use a client token.
+  - **Frigate**: cameras with their frame rates (no frames shows red), detector speed, recording storage and the latest detections. Port 5000 needs no login; the authenticated port 8971 needs a Frigate login.
   - A card turns orange when the app reports a warning and red when it can't be read; its warnings are listed under the numbers.
 - Tokens and API keys are kept in the keychain only.
 - **Expiry watch** (bottom of Services): everything that runs out on a date, soonest first. HTTPS services show their certificate automatically, and proxy route certificates appear once you've opened Docker → Routes. **Add…** watches more:
@@ -371,6 +379,8 @@ Settings → **FEATURES** lists every view and the checks inside them, each with
 ## Updates
 
 Nightgrid checks GitHub Releases after start-up and offers **Install & restart** when a newer version is out. Turn this off, or check by hand, under Settings → Updates.
+
+Fixes that only touch the interface can arrive between releases. With **Settings → Updates → Interface fixes between releases** on (the default), Nightgrid looks for a fix built for exactly the version you run, after start-up and every 6 hours. It's a small download (a few MB), checked against the same signing key as app updates, and it applies the next time Nightgrid starts: a card offers **Restart now**. The Updates panel shows whether the interface is built in or a fix (and from when), with **Check fixes** and **Use built-in**. A fix can only change the interface: what the app is allowed to do stays as built. If a fix ever fails to start, Nightgrid notices within a minute, goes back to the built-in interface and never uses that fix again. A fix for an older version is ignored once you update, because every release carries all fixes before it.
 
 ## Privacy
 

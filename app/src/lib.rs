@@ -34,6 +34,7 @@ mod logging;
 mod logsearch_cmd;
 mod mcp_cmd;
 mod metrics_cmd;
+mod mousenav;
 mod netperf_cmd;
 mod netwatch_cmd;
 mod node_cmd;
@@ -58,6 +59,7 @@ mod term_cmd;
 mod timeline_cmd;
 mod tray;
 mod tunnels_cmd;
+mod uipatch_cmd;
 mod update_cmd;
 mod ups_cmd;
 mod uptime_cmd;
@@ -481,6 +483,11 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         kbpack_cmd::kb_pack_check,
         kbpack_cmd::kb_pack_load,
         kbpack_cmd::kb_pack_remove,
+        uipatch_cmd::ui_patch_status,
+        uipatch_cmd::ui_patch_ready,
+        uipatch_cmd::ui_patch_check,
+        uipatch_cmd::ui_patch_remove,
+        uipatch_cmd::ui_patch_restart,
     ])
 }
 
@@ -509,6 +516,13 @@ pub fn run() {
     #[cfg(debug_assertions)]
     export_bindings(&builder);
 
+    // Interface patches (D-185): chosen before the window loads anything.
+    let mut context = tauri::generate_context!();
+    let patches = std::sync::Arc::new(uipatch_cmd::UiPatches::load(&context.config().identifier));
+    let bundled = context.set_assets(Box::new(uipatch_cmd::NoAssets));
+    context.set_assets(Box::new(uipatch_cmd::UiAssets::new(bundled, patches.clone())));
+    let patches_setup = patches.clone();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_opener::init())
@@ -517,6 +531,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().pubkey(update_cmd::PUBKEY.trim()).build())
         .manage(update_cmd::PendingUpdate::default())
         .manage(kbpack_cmd::KbPacks::default())
+        .manage(patches)
         .manage(helper_cmd::Helper::default())
         .manage(desktop_cmd::Desktops::default())
         .manage(webui_cmd::WebWindows::default())
@@ -549,6 +564,10 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             tracing::info!(version = env!("CARGO_PKG_VERSION"), ?data_dir, "starting NIGHTGRID");
             let state = state::AppState::open(&data_dir, log_dir)?;
+            if let Ok(s) = nightgrid_core::settings::AppSettings::load(&state.store()) {
+                uipatch_cmd::sync_setting(&data_dir, s.ui_patches);
+            }
+            uipatch_cmd::start(app.handle(), &patches_setup);
             if let Ok(hosts) = state.store().list_hosts() {
                 hosts_cmd::sync_fallbacks(&hosts);
             }
@@ -559,6 +578,7 @@ pub fn run() {
             status_cmd::apply(app.handle());
             mcp_cmd::apply(app.handle());
             tailnet_cmd::start_if_enabled(app.handle());
+            mousenav::install(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -574,7 +594,7 @@ pub fn run() {
                 }
             }
         })
-        .build(tauri::generate_context!())
+        .build(context)
         .expect("error while building NIGHTGRID")
         .run(|app, event| {
             // macOS: clicking the Dock icon brings a hidden window back.

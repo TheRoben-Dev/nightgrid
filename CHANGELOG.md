@@ -1,8 +1,18 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [1.8.2] - 2026-11-19
+## [Unreleased]
+
+Faster updates: interface fixes between releases, batched releases and quicker release builds.
+
+### Added: interface fixes between releases
+- **Fixes that only touch the interface now arrive without a full update.** They're a small signed download built for exactly the version you run, applied the next time Nightgrid starts (a card offers **Restart now**). Settings → Updates has the switch (**Interface fixes between releases**, on), what's in use, **Check fixes** and **Use built-in**.
+- A fix can only replace the interface's files: the app's permissions and content security policy stay as built, and the fix is checked against the release key on every start. If a fix doesn't start within a minute, Nightgrid goes back to its built-in interface by itself and never uses that fix again.
+
+### Changed: releases
+- **Fixes merged close together now ship as one release** instead of one after another, and the release picks its own version number.
+- **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
 
 ### Fixed: false downtime in Fleet → UPTIME
 - **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
@@ -12,6 +22,26 @@ All notable changes to this project are documented here. The format follows [Kee
 - **Self-signed services**: a service that answers but whose certificate this computer doesn't trust counts as up in uptime history (the Services view still shows the certificate problem).
 - **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
 - **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
+
+## [1.11.0] - 2026-11-19
+
+Nine more integrations: download clients, files and photos, notifications and cameras.
+
+### Added
+- **qBittorrent** and **Transmission**: speeds, torrents with progress and errors, pause or resume one or all (login optional).
+- **SABnzbd** and **NZBGet**: speed, queue with progress, free disk, recent failures; pause, resume or delete.
+- **Immich**: photos, videos, storage and background jobs.
+- **Nextcloud**: users, files, active users, shares, free space, load and app updates.
+- **Syncthing**: folder sync state, devices online, errors; rescan, pause and resume.
+- **Gotify**: health, apps and latest messages; delete one or all.
+- **Frigate**: cameras with frame rates, detector speed, recording storage and latest detections.
+
+## [1.10.0] - 2026-11-19
+
+### Added: back and forward
+- **Mouse side buttons go back and forward** through where you've been: views, the tabs beside a view's title (One host / Fleet, Map / Tools…), tabs inside a view (Fleet → DISKS, Docker → STACKS, Proxmox, Security, Files editors, Settings tabs), the host a view shows and Library articles. On macOS the buttons are caught natively, because the system webview doesn't pass them to the page.
+- **Keys**: `Cmd+[` / `Cmd+]` on macOS, `Alt+Left` / `Alt+Right` on Windows and Linux, plus the Back/Forward keys some keyboards and mice send. They stay with text fields and editors, and with the terminal on Windows and Linux, where shells move by word with `Alt+Left` / `Alt+Right`.
+- **‹ ›** buttons at the top left, and a **two-finger sideways swipe** on a trackpad (Settings → General → Swipe to go back; areas that scroll sideways keep the swipe).
 
 ## [1.8.1] - 2026-11-19
 

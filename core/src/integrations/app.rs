@@ -267,6 +267,21 @@ impl<'a> Client<'a> {
     }
 
     pub async fn send(&self, method: Method, path: &str, body: Option<&Value>) -> Result<Response, String> {
+        match body {
+            Some(b) => {
+                self.send_raw(method, path, Some(("application/json", serde_json::to_vec(b).unwrap_or_default()))).await
+            }
+            None => self.send_raw(method, path, None).await,
+        }
+    }
+
+    /// Sends a request with any body: `(content type, bytes)`.
+    pub async fn send_raw(
+        &self,
+        method: Method,
+        path: &str,
+        body: Option<(&str, Vec<u8>)>,
+    ) -> Result<Response, String> {
         let mut r = match method {
             Method::Get => Request::get(self.url(path)),
             Method::Post => Request::post(self.url(path), Vec::new()),
@@ -276,10 +291,26 @@ impl<'a> Client<'a> {
         for (k, v) in &self.headers {
             r = r.header(k.clone(), v.clone());
         }
-        if let Some(b) = body {
-            r = r.json(b);
+        if let Some((ct, bytes)) = body {
+            r = r.header("content-type", ct);
+            r.body = bytes;
         }
         send(r.allow_untrusted(self.i.allow_untrusted)).await
+    }
+
+    /// Posts `application/x-www-form-urlencoded` fields.
+    pub async fn post_form(&self, path: &str, fields: &[(&str, &str)]) -> Result<Response, String> {
+        let body = form(fields);
+        self.send_raw(Method::Post, path, Some(("application/x-www-form-urlencoded", body.into_bytes()))).await
+    }
+
+    /// Raises an error for a non-2xx answer, keeping the response otherwise.
+    pub fn check(&self, r: Response) -> Result<Response, String> {
+        if r.ok() {
+            Ok(r)
+        } else {
+            Err(http_error(self.app, r.status))
+        }
     }
 
     fn parse(&self, r: &Response) -> Result<Value, String> {
@@ -320,6 +351,26 @@ impl<'a> Client<'a> {
         let r = self.send(Method::Delete, path, None).await?;
         self.parse(&r)
     }
+}
+
+/// `a=1&b=2`, values percent-encoded.
+pub fn form(fields: &[(&str, &str)]) -> String {
+    fields.iter().map(|(k, v)| format!("{k}={}", enc(v))).collect::<Vec<_>>().join("&")
+}
+
+/// `Basic <base64(user:password)>`.
+pub fn basic_auth(user: &str, password: &str) -> String {
+    use base64::Engine as _;
+    format!("Basic {}", base64::engine::general_purpose::STANDARD.encode(format!("{user}:{password}")))
+}
+
+/// The `name=value` part of the first `Set-Cookie` header.
+pub fn cookie(r: &Response) -> Option<String> {
+    r.header("set-cookie")
+        .and_then(|c| c.split(';').next())
+        .map(str::trim)
+        .filter(|c| c.contains('='))
+        .map(str::to_owned)
 }
 
 /// Percent-encodes a query value.
@@ -442,6 +493,8 @@ mod tests {
         assert_eq!(plural(1, "stream"), "1 stream");
         assert_eq!(plural(3, "stream"), "3 streams");
         assert_eq!(enc("a b&c=d/é"), "a%20b%26c%3Dd%2F%C3%A9");
+        assert_eq!(form(&[("username", "admin"), ("password", "p&w")]), "username=admin&password=p%26w");
+        assert_eq!(basic_auth("a", "b"), "Basic YTpi");
         assert!(valid_target("123") && valid_target("abc-DEF_1.2:3"));
         assert!(!valid_target("") && !valid_target("../x") && !valid_target("a b") && !valid_target("a?b"));
         assert_eq!(AppHealth::Ok.max(AppHealth::Warn), AppHealth::Warn);

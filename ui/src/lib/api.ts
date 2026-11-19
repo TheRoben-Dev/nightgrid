@@ -251,6 +251,7 @@ import {
   type UpdateInfo,
   type KbPackStatus_Serialize as KbPackStatus,
   type KbPackContent,
+  type UiPatchStatus_Serialize as UiPatchStatus,
   type UpdateProgress_Serialize as UpdateProgress,
   type UpdateStatus_Serialize as UpdateStatus,
   type Service_Serialize as Service,
@@ -711,6 +712,7 @@ export type {
   UpdateInfo,
   KbPackStatus,
   KbPackContent,
+  UiPatchStatus,
   Service,
   ServiceInput,
   ServiceStatus,
@@ -916,6 +918,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   updateCheck: true,
   updateSkipVersion: null,
   kbUpdates: true,
+  uiPatches: true,
   alerts: {
     enabled: true,
     hostOffline: true,
@@ -949,6 +952,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   backupFolder: null,
   handheld: false,
   controllerNav: true,
+  swipeNav: true,
   helperEnabled: false,
   helperModel: "qwen3-4b-instruct-2507-q4km",
   historySearch: false,
@@ -1025,6 +1029,8 @@ const T = inTauri;
 
 /** Outside the desktop app there is no downloaded Library content. */
 const NO_KB_PACK: KbPackStatus = { installed: null, checkedAt: null, error: null, updated: false, notConfigured: true };
+/** Nor interface patches. */
+const NO_UI_PATCH: UiPatchStatus = { running: null, waiting: null, bundledBuilt: 0, skipped: null, checkedAt: null, error: null, updated: false, notConfigured: true };
 
 function jobsChannel(listener: (jobs: JobView[]) => void) {
   const ch = new Channel<JobView[]>();
@@ -1650,6 +1656,11 @@ export const api = {
   kbPackCheck: (bundled: number): Promise<KbPackStatus> => (T() ? commands.kbPackCheck(bundled) : Promise.resolve(NO_KB_PACK)),
   kbPackLoad: (files: boolean): Promise<KbPackContent | null> => (T() ? commands.kbPackLoad(files) : Promise.resolve(null)),
   kbPackRemove: (): Promise<KbPackStatus> => (T() ? commands.kbPackRemove() : Promise.resolve(NO_KB_PACK)),
+  uiPatchStatus: (): Promise<UiPatchStatus> => (T() ? commands.uiPatchStatus() : Promise.resolve(NO_UI_PATCH)),
+  uiPatchReady: (): Promise<void> => (T() ? commands.uiPatchReady() : Promise.resolve()),
+  uiPatchCheck: (): Promise<UiPatchStatus> => (T() ? commands.uiPatchCheck() : Promise.resolve(NO_UI_PATCH)),
+  uiPatchRemove: (): Promise<UiPatchStatus> => (T() ? commands.uiPatchRemove() : Promise.resolve(NO_UI_PATCH)),
+  uiPatchRestart: (): Promise<void> => (T() ? commands.uiPatchRestart() : Promise.resolve()),
   updateInstall: (on: (p: UpdateProgress) => void): Promise<null> => {
     if (!T()) return Promise.reject(new Error("Updates only work in the desktop app."));
     const ch = new Channel<UpdateProgress>();

@@ -12,6 +12,7 @@ import {
   type PromptKind,
 } from "../api";
 import { hosts } from "./hosts.svelte";
+import { nav } from "./nav.svelte";
 
 export interface ContainerGroup {
   /** Compose project name, or "" for containers outside compose. */
@@ -261,3 +262,7 @@ class DockerStore {
 }
 
 export const docker = new DockerStore();
+
+// Back/forward history (D-186): the tab and the host are steps.
+nav.track("docker", "tab", () => docker.tab, (v) => (docker.tab = v as DockerStore["tab"]));
+nav.track("docker", "host", () => docker.hostId, (v) => typeof v === "number" && hosts.byId(v) && docker.select(v), true);

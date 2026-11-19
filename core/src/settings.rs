@@ -42,6 +42,8 @@ pub struct AppSettings {
     pub handheld: bool,
     /// Move focus and act with a game controller when one is connected.
     pub controller_nav: bool,
+    /// Two-finger sideways swipe on a trackpad goes back/forward (D-186).
+    pub swipe_nav: bool,
     /// The DRIFT helper (local model). Off until the user turns it on.
     pub helper_enabled: bool,
     /// The DRIFT model in use (an id from `helper::model::MODELS`).
@@ -93,6 +95,9 @@ pub struct AppSettings {
     pub update_skip_version: Option<String>,
     /// Fetch signed Library content packs between app releases (D-174).
     pub kb_updates: bool,
+    /// Fetch signed interface patches for this exact version (D-185); off
+    /// also stops a downloaded one from being used.
+    pub ui_patches: bool,
     /// Alert rules and delivery.
     pub alerts: AlertSettings,
     /// Show a tray / menu bar icon with host status, tunnels and alerts.
@@ -437,6 +442,7 @@ impl Default for AppSettings {
             update_check: true,
             update_skip_version: None,
             kb_updates: true,
+            ui_patches: true,
             alerts: AlertSettings::default(),
             tray_enabled: true,
             close_to_tray: false,
@@ -453,6 +459,7 @@ impl Default for AppSettings {
             net_watch: NetWatchSettings::default(),
             handheld: false,
             controller_nav: true,
+            swipe_nav: true,
             helper_enabled: false,
             helper_model: crate::helper::model::DEFAULT_MODEL.id.into(),
             dashboards: Vec::new(),

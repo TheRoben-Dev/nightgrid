@@ -5,6 +5,7 @@
  */
 import type { Category, Shelf } from "../kb/catalog";
 import { ui } from "./ui.svelte";
+import { nav } from "./nav.svelte";
 
 const KEY = "nightgrid.library.progress";
 
@@ -74,3 +75,6 @@ class LibraryStore {
 }
 
 export const library = new LibraryStore();
+
+// Back/forward history (D-186): each article (and the shelves) is a step.
+nav.track("library", "article", () => library.current, (v) => (library.current = typeof v === "string" ? v : null));
