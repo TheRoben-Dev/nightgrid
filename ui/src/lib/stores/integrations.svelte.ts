@@ -15,8 +15,8 @@ import {
 /** Seconds between status reads while the Services view is open. */
 const POLL_SECS = 30;
 
-export type KindGroup = "Media" | "Media automation" | "Downloads" | "Files & photos" | "Network" | "Monitoring" | "Cameras" | "Docker" | "Games";
-export const KIND_GROUPS: KindGroup[] = ["Media", "Media automation", "Downloads", "Files & photos", "Network", "Monitoring", "Cameras", "Docker", "Games"];
+export type KindGroup = "Media" | "Media automation" | "Downloads" | "Files & photos" | "Storage" | "Network" | "Monitoring" | "Cameras" | "Docker" | "Games";
+export const KIND_GROUPS: KindGroup[] = ["Media", "Media automation", "Downloads", "Files & photos", "Storage", "Network", "Monitoring", "Cameras", "Docker", "Games"];
 
 export interface KindMeta {
   /** Upper-case badge text. */
@@ -29,7 +29,9 @@ export interface KindMeta {
   /** null = the kind needs no secret. */
   secret: { label: string; hint: string; optional?: boolean } | null;
   /** The login field, when the kind uses one. */
-  username?: { label: string; required: boolean };
+  username?: { label: string; required: boolean; placeholder?: string };
+  /** An extra text field kept in `slug` (UniFi site). */
+  extra?: { label: string; hint: string; placeholder: string };
 }
 
 const apiKey = (where: string) => ({ label: "API key", hint: `Kept in the OS keychain only. ${where}` });
@@ -172,6 +174,84 @@ export const KIND_META: Record<IntegrationKind, KindMeta> = {
     help: "Cameras with frame rates (offline ones in red), detector speed, recording storage and the latest detections. Port 5000 needs no login; port 8971 needs a Frigate login.",
     placeholder: "http://server01:5000",
     secret: { label: "Password", hint: "Kept in the OS keychain only. Only for the authenticated port (8971).", optional: true },
+    username: { label: "Login name", required: false },
+  },
+  truenas: {
+    label: "TRUENAS",
+    name: "TrueNAS",
+    group: "Storage",
+    help: "Pools with health and how full they are, TrueNAS's own alerts, uptime, load and memory. Needs an API key (user menu → API Keys).",
+    placeholder: "https://nas.example.lan",
+    secret: apiKey("TrueNAS: top-right user menu → API Keys → Add."),
+  },
+  synology: {
+    label: "SYNOLOGY",
+    name: "Synology DSM",
+    group: "Storage",
+    help: "Volumes with status and how full they are, disks with SMART problems, CPU, memory and temperature. Needs an administrator account without 2-step verification (make a separate one for Nightgrid).",
+    placeholder: "https://nas.example.lan:5001",
+    secret: { label: "Password", hint: "Kept in the OS keychain only." },
+    username: { label: "Login name", required: true },
+  },
+  unraid: {
+    label: "UNRAID",
+    name: "Unraid",
+    group: "Storage",
+    help: "Array state and capacity, every disk with status, temperature and errors, containers and VMs running. Unraid 7.2+ (or the Unraid Connect plugin) with an API key.",
+    placeholder: "http://tower.local",
+    secret: apiKey("Unraid: Settings → Management Access → API Keys."),
+  },
+  pbs: {
+    label: "PROXMOX BACKUP",
+    name: "Proxmox Backup Server",
+    group: "Storage",
+    help: "Datastores with usage and when they'll be full, and tasks that failed in the last day. Needs an API token with Datastore.Audit and Sys.Audit.",
+    placeholder: "https://backup.example.lan:8007",
+    secret: { label: "Token secret", hint: "Kept in the OS keychain only. Configuration → Access Control → API Token → Add." },
+    username: { label: "Token id", required: true, placeholder: "root@pam!nightgrid" },
+  },
+  opnsense: {
+    label: "OPNSENSE",
+    name: "OPNsense",
+    group: "Network",
+    help: "Gateways with delay and loss, stopped services (start them from the card) and firmware updates. Needs an API key and secret (System → Access → Users → API keys).",
+    placeholder: "https://192.168.1.1",
+    secret: { label: "API secret", hint: "Kept in the OS keychain only. From the API key file OPNsense downloads." },
+    username: { label: "API key", required: true },
+  },
+  unifi: {
+    label: "UNIFI",
+    name: "UniFi Network",
+    group: "Network",
+    help: "Devices (offline first) with model and address, clients connected, and restart for a device. UniFi Network 9.0+ with an API key (Settings → Control Plane → Integrations).",
+    placeholder: "https://192.168.1.1",
+    secret: apiKey("UniFi: Network → Settings → Control Plane → Integrations → Create API Key."),
+    extra: { label: "Site", hint: "Leave empty for the first site.", placeholder: "Default" },
+  },
+  npm: {
+    label: "NGINX PROXY MANAGER",
+    name: "Nginx Proxy Manager",
+    group: "Network",
+    help: "Proxy hosts with where they point and nginx errors, certificates expiring within two weeks; enable or disable a host. Uses the NPM login (email and password).",
+    placeholder: "http://server01:81",
+    secret: { label: "Password", hint: "Kept in the OS keychain only." },
+    username: { label: "Email", required: true },
+  },
+  grafana: {
+    label: "GRAFANA",
+    name: "Grafana",
+    group: "Monitoring",
+    help: "Health, dashboards, and alert rules that are firing or pending. Needs a service account token (Administration → Service accounts) with the Viewer role.",
+    placeholder: "http://server01:3000",
+    secret: { label: "Service account token", hint: "Kept in the OS keychain only. Starts with glsa_." },
+  },
+  prometheus: {
+    label: "PROMETHEUS",
+    name: "Prometheus",
+    group: "Monitoring",
+    help: "Scrape targets up and down with their errors, and alerts firing or pending. Login only if Prometheus sits behind basic auth; a password with no login is sent as a bearer token.",
+    placeholder: "http://server01:9090",
+    secret: { label: "Password or token", hint: "Kept in the OS keychain only.", optional: true },
     username: { label: "Login name", required: false },
   },
   amp: {

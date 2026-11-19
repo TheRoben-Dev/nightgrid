@@ -113,6 +113,15 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **Syncthing**: each folder's state (up to date, syncing with what's left, out of sync, errors), devices online and Syncthing's own errors; **Rescan**, **Pause** and **Resume**. API key from Actions → Settings → General.
   - **Gotify**: health, apps and the latest messages by priority; delete one or all. Use a client token.
   - **Frigate**: cameras with their frame rates (no frames shows red), detector speed, recording storage and the latest detections. Port 5000 needs no login; the authenticated port 8971 needs a Frigate login.
+  - **TrueNAS**: pools with health and fill level, TrueNAS's own alerts, uptime, load and memory (API key from the user menu → API Keys).
+  - **Synology DSM**: volumes with status and fill level, disks with SMART problems, CPU, memory and temperature. Use an administrator account without 2-step verification; a separate account for Nightgrid is best.
+  - **Unraid** (7.2 or newer, or the Unraid Connect plugin): array state and capacity, each disk's status, temperature and errors, and how many containers and VMs run. API key from Settings → Management Access → API Keys.
+  - **Proxmox Backup Server**: datastores with fill level and when they'll be full, and tasks that failed in the last day. Enter an API token id (`user@realm!name`) and its secret; the token needs Datastore.Audit and Sys.Audit.
+  - **OPNsense**: gateways with delay and loss, stopped services with **Start**, and firmware updates. Enter the API key as the login and its secret as the password.
+  - **UniFi Network** (9.0 or newer): devices with offline ones first, clients connected and **Restart** for a device (asks first). Leave **Site** empty for the first site.
+  - **Nginx Proxy Manager**: proxy hosts, where they point and nginx errors, certificates running out within two weeks, and **Enable** or **Disable** for a host.
+  - **Grafana**: health, dashboards and alert rules that are firing or pending (service account token with the Viewer role).
+  - **Prometheus**: scrape targets that are down with their errors, and alerts firing or pending. A login is only needed behind basic auth.
   - A card turns orange when the app reports a warning and red when it can't be read; its warnings are listed under the numbers.
 - Tokens and API keys are kept in the keychain only.
 - **Expiry watch** (bottom of Services): everything that runs out on a date, soonest first. HTTPS services show their certificate automatically, and proxy route certificates appear once you've opened Docker → Routes. **Add…** watches more:

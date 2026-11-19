@@ -5014,7 +5014,7 @@ export type IntegrationInput_Serialize = {
 	allowUntrusted: boolean,
 };
 
-export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate";
+export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate" | "truenas" | "synology" | "unraid" | "pbs" | "opnsense" | "unifi" | "npm" | "grafana" | "prometheus";
 
 /**  What an integration reports right now. */
 export type IntegrationStatus = IntegrationStatus_Serialize | IntegrationStatus_Deserialize;
