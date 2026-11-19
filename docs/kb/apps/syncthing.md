@@ -44,6 +44,8 @@ services:
 
 ## Part 3 · Nightgrid profile
 
+- [ ] [Services](view:services) → **Add integration** → **Syncthing** with the API key (Actions → Settings → General): folder states, devices online and errors on a card, with **Rescan** and pause/resume (see [Add app cards](kb:howto/integrations)).
+
 - [ ] Share a folder like `nightgrid` between your computers and the server.
 - [ ] In Nightgrid, **Settings → Data → SYNC FOLDER**: pick that folder. **Export to sync folder** puts the encrypted profile there.
 

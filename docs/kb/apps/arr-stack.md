@@ -82,6 +82,7 @@ services:
 ## Part 3 · In Nightgrid
 
 - [ ] Add each UI as a service check in [Services](view:services) on its local port (through the host's address) so a crashed app alerts.
+- [ ] **Add integration** → **Sonarr**, **Radarr**, **Lidarr**, **Prowlarr** or **Bazarr** with each app's API key (Settings → General) for its queue, missing items, failing indexers and health warnings on a card, with **RSS sync** and **Search missing** (see [Add app cards](kb:howto/integrations)).
 - [ ] Turn on log alerts for the stack's containers; failed imports show as repeating ERROR lines.
 - [ ] Disk forecasts in [Fleet](view:fleet) → **Disks** tell you when `/srv/data` will be full.
 
