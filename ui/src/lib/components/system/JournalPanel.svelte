@@ -2,6 +2,11 @@
   import { tick } from "svelte";
   import { PRIORITIES, prioLabel, prioTone, system } from "../../stores/system.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
+  import { hosts } from "../../stores/hosts.svelte";
+  import { platform } from "../../stores/platform.svelte";
+
+  // Windows hosts show the Event Log: the unit filter is an event source.
+  const onWindows = $derived(platform.isWindows(system.hostId === null ? undefined : hosts.byId(system.hostId)));
 
   /** Newest journal lines handed to DRIFT. */
   const EXPLAIN_LINES = 150;
@@ -54,10 +59,14 @@
 <div class="journal">
   <form class="bar" onsubmit={apply}>
     <label class="fld">
-      <span class="label">UNIT</span>
-      <input class="input unit" placeholder="all units" bind:value={system.journalForm.unit} autocomplete="off" spellcheck="false" list="journal-units" />
+      <span class="label">{onWindows ? "SOURCE" : "UNIT"}</span>
+      <input class="input unit" placeholder={onWindows ? "all sources" : "all units"} bind:value={system.journalForm.unit} autocomplete="off" spellcheck="false" list="journal-units" />
       <datalist id="journal-units">
-        {#each system.units as u (u.name)}<option value={u.name}></option>{/each}
+        {#if onWindows}
+          {#each [...new Set(system.journal.map((e) => e.ident ?? ""))].filter(Boolean).slice(0, 200) as src (src)}<option value={src}></option>{/each}
+        {:else}
+          {#each system.units as u (u.name)}<option value={u.name}></option>{/each}
+        {/if}
       </datalist>
     </label>
     <label class="fld">
@@ -95,6 +104,11 @@
     <button type="submit" class="btn primary tiny">Apply</button>
     {#if system.journalRun !== null}
       <button type="button" class="btn ghost tiny" onclick={() => system.stopJournal()}>Stop</button>
+    {/if}
+    {#if onWindows}
+      <label class="chk" title="The Security log needs an administrator account">
+        <input type="checkbox" checked={system.journalElevated} onchange={(e) => system.startJournal(e.currentTarget.checked)} /> Security log
+      </label>
     {/if}
     <span class="spacer"></span>
     <input class="input filter" type="search" placeholder="Find in loaded lines" bind:value={system.journalQuery} aria-label="Find in journal" />

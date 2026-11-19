@@ -59,9 +59,9 @@ pub const WINDOWS: &[Support] = &[
     s("keys", "SSH keys", Full, "Pushes keys the Windows way: to administrators_authorized_keys for administrator accounts (with the permissions sshd requires), else to the user's .ssh\\authorized_keys."),
     s("tunnels", "Tunnels and web UIs", Partial, "TCP forwards work as on Linux. Forwards to Unix sockets can't: Windows sshd doesn't support them."),
     s("automation", "Automation", Partial, "Commands run in the host's shell, so write them for cmd or PowerShell. The risky-command check only knows Linux commands."),
-    s("system.units", "System → UNITS", Planned, "This tab reads systemd. A Windows version listing Windows services (start, stop, restart, startup type) is coming."),
-    s("system.journal", "System → JOURNAL", Planned, "This tab reads journald. A Windows version reading the Event Log is coming."),
-    s("system.schedules", "System → SCHEDULES", Planned, "This tab reads cron and systemd timers. A Windows version for Task Scheduler is coming."),
+    s("system.units", "System → UNITS", Partial, "Lists Windows services: start, stop, restart, and automatic or disabled startup. Changing a service needs an administrator account (Windows has no sudo), and services can't reload in place. Logs for a service open in the Event Log once that tab comes to Windows."),
+    s("system.journal", "System → JOURNAL", Partial, "Shows the Windows Event Log (System and Application; Read all adds Security for administrators). The unit filter matches an event source such as Service Control Manager, and times like -1h, today or 2026-11-14 08:00 work as on Linux."),
+    s("system.schedules", "System → SCHEDULES", Partial, "Lists your Task Scheduler tasks (not the ones Windows ships under \\Microsoft\\) with triggers, next and last runs and results; run, enable or disable them. Creating tasks from Nightgrid isn't there yet, and system tasks need an administrator."),
     s("system.config", "System → CONFIG", Planned, "Config drift reads files under /etc and Linux package lists. A Windows version comparing files you pick and installed programs is coming."),
     s("system.security", "System → SECURITY", Planned, "These checks read Linux settings (sshd, sudo, ufw). Windows checks (Defender, firewall profiles, RDP, SMBv1, updates, administrators) are coming."),
     s("system.firewall", "System → FIREWALL", Planned, "This tab edits ufw or firewalld. A Windows Defender Firewall version is coming."),
@@ -177,7 +177,7 @@ mod tests {
     fn messages() {
         assert_eq!(unavailable("terminal"), Option::None);
         assert!(unavailable("proxmox").unwrap().starts_with("Proxmox can't work on Windows hosts."));
-        assert!(unavailable("system.units").unwrap().contains("yet"));
+        assert!(unavailable("fleet.speed").unwrap().contains("yet"));
         assert_eq!(unavailable("no.such"), Option::None);
     }
 }

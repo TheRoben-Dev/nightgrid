@@ -12,9 +12,12 @@
 //! stdin belongs to the script (the metrics sampler reads its requests
 //! there).
 
+pub mod events;
 pub mod keys;
 pub mod metrics;
+pub mod services;
 pub mod support;
+pub mod tasks;
 
 use base64::Engine as _;
 use russh::ChannelMsg;
@@ -127,6 +130,77 @@ pub async fn run(conn: &Connection, script: &str) -> Result<Output, String> {
         }
     }
     Ok(Output { code, stdout: text(&out), stderr: text(&err) })
+}
+
+/// Runs `script`, calling `on_line` for each output line until it returns
+/// `false`, the script ends or `cancel` flips. Returns the exit code
+/// (`None` when stopped early: the channel is closed, which ends the
+/// script on the host). Error lines have CLIXML removed.
+pub async fn stream(
+    conn: &Connection,
+    script: &str,
+    mut cancel: Option<tokio::sync::watch::Receiver<bool>>,
+    on_line: &mut (dyn FnMut(crate::system::sudo::Stream, String) -> bool + Send),
+) -> Result<Option<i32>, String> {
+    use crate::system::sudo::Stream;
+    let mut ch = open(conn, script).await?;
+    ch.eof().await.map_err(|e| e.to_string())?;
+    let (mut out, mut err) = (Vec::new(), Vec::new());
+    let mut code = None;
+    let feed = |stream: Stream,
+                buf: &mut Vec<u8>,
+                flush: bool,
+                on_line: &mut (dyn FnMut(Stream, String) -> bool + Send)|
+     -> bool {
+        let mut lines = crate::system::take_lines(buf);
+        if flush && !buf.is_empty() {
+            lines.push(crate::system::clean_line(buf));
+            buf.clear();
+        }
+        for line in lines {
+            let line = line.strip_prefix('\u{feff}').unwrap_or(&line).to_owned();
+            let line = if stream == Stream::Err { clean_stderr(&line) } else { line };
+            if stream == Stream::Err && line.trim().is_empty() {
+                continue;
+            }
+            if !on_line(stream, line) {
+                return false;
+            }
+        }
+        true
+    };
+    loop {
+        let msg = match cancel.as_mut() {
+            Some(rx) => tokio::select! {
+                m = ch.wait() => m,
+                _ = rx.changed() => { let _ = ch.close().await; return Ok(None); }
+            },
+            None => ch.wait().await,
+        };
+        let go = match msg {
+            Some(ChannelMsg::Data { data }) => {
+                out.extend_from_slice(&data);
+                feed(Stream::Out, &mut out, false, on_line)
+            }
+            Some(ChannelMsg::ExtendedData { data, .. }) => {
+                err.extend_from_slice(&data);
+                feed(Stream::Err, &mut err, false, on_line)
+            }
+            Some(ChannelMsg::ExitStatus { exit_status }) => {
+                code = Some(exit_status as i32);
+                true
+            }
+            Some(_) => true,
+            None => break,
+        };
+        if !go {
+            let _ = ch.close().await;
+            return Ok(None);
+        }
+    }
+    feed(Stream::Out, &mut out, true, on_line);
+    feed(Stream::Err, &mut err, true, on_line);
+    Ok(Some(code.unwrap_or(0)))
 }
 
 /// Output bytes as text, without a UTF-8 byte order mark.

@@ -388,6 +388,7 @@ import {
   type Periodic,
   type Gpu_Serialize as Gpu,
   type UnitAction,
+  type TaskAction,
   type UpdatesReport_Serialize as UpdatesReport,
   type UpgradeOp,
   type AuthNotice_Serialize as AuthNotice,
@@ -844,6 +845,7 @@ export type {
   Periodic,
   Gpu,
   UnitAction,
+  TaskAction,
   UpdatesReport,
   UpgradeOp,
   UpdateProgress,
@@ -1227,6 +1229,8 @@ export const api = {
     T() ? commands.backupTestRestore(jobId, sudo) : mockOps.testRestore(jobId, sudo),
   backupJobsDetect: (hostId: number): Promise<BackupSuggestion[]> => (T() ? commands.backupJobsDetect(hostId) : mockOps.jobsDetect(hostId)),
   systemSchedules: (hostId: number): Promise<Schedules> => (T() ? commands.systemSchedules(hostId) : mockSystem.schedules(hostId)),
+  systemTaskAction: (hostId: number, task: string, action: TaskAction): Promise<null> =>
+    T() ? commands.systemTaskAction(hostId, task, action) : Promise.resolve(null),
   systemUnitStatus: (hostId: number, unit: string): Promise<string> =>
     T() ? commands.systemUnitStatus(hostId, unit) : mockSystem.unitStatus(hostId, unit),
   systemUnitAction: (hostId: number, unit: string, action: UnitAction, sudo: SudoInput | null): Promise<null> =>

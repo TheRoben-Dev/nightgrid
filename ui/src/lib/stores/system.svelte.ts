@@ -20,6 +20,7 @@ import {
   type SystemInfo,
   type Unit,
   type UnitAction,
+  type TaskAction,
   type UpdatesReport,
   type UpgradeOp,
 } from "../api";
@@ -237,7 +238,8 @@ class SystemStore {
     if (platform.blocked(hosts.byId(this.hostId), `system.${tab}`)) return;
     if (tab === "units" && !this.unitsLoaded) await this.loadUnits();
     else if (tab === "journal" && this.journalRun === null && !this.journal.length) await this.startJournal();
-    else if (tab === "schedules" && !this.schedules) await Promise.all([this.loadSchedules(), this.loadPowerSchedules()]);
+    else if (tab === "schedules" && !this.schedules)
+      await Promise.all([this.loadSchedules(), platform.blocked(this.host, "power.schedules") ? null : this.loadPowerSchedules()]);
     else if (tab === "timeline" && !this.timeline) await this.loadTimeline();
     else if (tab === "security" && !this.security) await this.loadSecurity();
     else if (tab === "updates" && !this.updates) await this.checkUpdates();
@@ -492,9 +494,27 @@ class SystemStore {
     }
   }
 
+  /** Runs, enables or disables a Windows scheduled task, then re-reads the list. */
+  async taskAction(task: string, action: TaskAction) {
+    const id = this.hostId;
+    if (id === null) return;
+    this.unitBusy = [...this.unitBusy, task];
+    const word = action === "run" ? "Started" : action === "enable" ? "Enabled" : "Disabled";
+    try {
+      await api.systemTaskAction(id, task, action);
+      this.notice = { text: `${word}: ${task}.`, tone: "ok" };
+    } catch (e) {
+      this.notice = { text: `${task}: ${errorText(e)}`, tone: "err" };
+    } finally {
+      this.unitBusy = this.unitBusy.filter((u) => u !== task);
+    }
+    if (id === this.hostId) await this.loadSchedules();
+  }
+
   async loadPowerSchedules() {
     const id = this.hostId;
     if (id === null) return;
+    if (platform.blocked(this.host, "power.schedules")) return;
     const seq = this.seq;
     try {
       const l = await api.powerSchedules(id);

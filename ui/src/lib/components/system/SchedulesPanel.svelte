@@ -16,6 +16,10 @@
   import { jobs } from "../../stores/jobs.svelte";
   import { jobFor } from "../../jobs";
   import type { InstalledJob } from "../../api";
+  import { platform } from "../../stores/platform.svelte";
+
+  // Windows hosts list Task Scheduler tasks as the timer rows (no cron, no systemd).
+  const onWindows = $derived(platform.isWindows(system.host));
 
   let cronOpen = $state(false);
   let timerOpen = $state(false);
@@ -90,23 +94,56 @@
 <div class="schedules">
   <div class="bar">
     <span class="counts">
-      {#if s}<span class="mint">{s.timers.length}</span> TIMERS · <span class="mint">{s.cron.length}</span> CRON JOBS{#if failed}<span class="bad">&nbsp;· {failed} LAST RUN FAILED</span>{/if}{/if}
+      {#if s && onWindows}<span class="mint">{s.timers.length}</span> TASKS{:else if s}<span class="mint">{s.timers.length}</span> TIMERS · <span class="mint">{s.cron.length}</span> CRON JOBS{#if failed}<span class="bad">&nbsp;· {failed} LAST RUN FAILED</span>{/if}{/if}
     </span>
     <span class="spacer"></span>
     <input class="input filter" type="search" placeholder="Filter jobs" bind:value={query} aria-label="Filter jobs" />
     {#if s}<ExplainButton source="scheduled jobs" text={explainText} question="Summarise what these scheduled jobs do. Do any look wrong, risky or failing, and what should I check?" />{/if}
-    <button type="button" class="btn ghost tiny" data-guide="schedules-crontab" onclick={() => (cronOpen = true)}>Crontab…</button>
+    {#if !onWindows}<button type="button" class="btn ghost tiny" data-guide="schedules-crontab" onclick={() => (cronOpen = true)}>Crontab…</button>{/if}
     {#if s?.systemd}<button type="button" class="btn ghost tiny" data-guide="schedules-new-timer" onclick={newTimer}>+ Timer</button>{/if}
-    <button type="button" class="btn ghost tiny" onclick={() => Promise.all([system.loadSchedules(), system.loadPowerSchedules()])} disabled={system.schedulesLoading}>{system.schedulesLoading ? "…" : "Refresh"}</button>
+    <button type="button" class="btn ghost tiny" onclick={() => Promise.all([system.loadSchedules(), onWindows ? null : system.loadPowerSchedules()])} disabled={system.schedulesLoading}>{system.schedulesLoading ? "…" : "Refresh"}</button>
   </div>
 
   <div class="scroll" data-guide="system-schedules">
-    <PowerSchedules />
+    {#if !onWindows}<PowerSchedules />{/if}
     {#if system.errors.schedules}
       <p class="error-text pad">{system.errors.schedules}</p>
     {:else if !s}
       <p class="muted pad">{system.schedulesLoading ? "Reading timers and crontabs…" : ""}</p>
     {:else}
+      {#if onWindows}
+        <section>
+          <h3 class="label">// TASK SCHEDULER</h3>
+          {#if !timers.length}
+            <p class="muted pad">{s.timers.length ? "No tasks match." : "No tasks of your own. Tasks Windows ships (under \\Microsoft\\) aren't listed."}</p>
+          {:else}
+            <div class="grid timers" role="table" aria-label="Scheduled tasks">
+              <div class="head" role="row">
+                <span role="columnheader">TASK</span><span role="columnheader">TRIGGERS</span><span role="columnheader">NEXT</span><span role="columnheader">LAST</span><span></span>
+              </div>
+              {#each timers as t (t.name)}
+                <div class="row" class:fail={isFailure(t)} class:off={t.active !== "active"} role="row">
+                  <span class="name" title={t.description}>
+                    <code>{t.name}</code>
+                    <span class="muted small">{t.description}{t.enabled === "disabled" ? " · disabled" : ""}</span>
+                  </span>
+                  <code class="sched">{schedule(t)}</code>
+                  <span class="when" title={hostTime(t.next)}>{t.active === "active" ? rel(t.next) : "off"}</span>
+                  <span class="when" title={hostTime(t.last)}
+                    >{rel(t.last)}{#if t.result}<span class="res" class:ok={t.result === "success"}>{t.result === "success" ? "ok" : `0x${((t.exitStatus ?? 0) >>> 0).toString(16)}`}</span>{/if}</span
+                  >
+                  <span class="acts">
+                    {#if t.enabled !== "disabled"}<button type="button" class="btn ghost tiny" disabled={system.unitBusy.includes(t.name)} onclick={() => system.taskAction(t.name, "run")}>Run now</button>{/if}
+                    <button type="button" class="btn ghost tiny" disabled={system.unitBusy.includes(t.name)} onclick={() => system.taskAction(t.name, t.enabled === "disabled" ? "enable" : "disable")}
+                      >{t.enabled === "disabled" ? "Enable" : "Disable"}</button
+                    >
+                  </span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </section>
+      {:else}
       <section>
         <h3 class="label">// SYSTEMD TIMERS</h3>
         {#if !s.systemd}
@@ -184,6 +221,7 @@
           Other users' crontabs in <code>/var/spool/cron</code> need root and aren't listed here: open them with <b>Crontab…</b>, which also edits yours. Files in <code>/etc/cron.d</code> are shown but not edited.
         </p>
       </section>
+      {/if}
     {/if}
   </div>
 </div>

@@ -47,6 +47,8 @@
   const onWindows = $derived(platform.isWindows(sysHost));
   // The tab's Windows note when it can't run there (planned or impossible).
   const tabBlock = $derived(platform.blocked(sysHost, `system.${system.tab}`));
+  // Works with differences on Windows: a strip above the tab says how.
+  const tabPartial = $derived(tabBlock ? undefined : platform.note(sysHost, `system.${system.tab}`));
 
   const hostName = $derived(system.host?.name ?? "");
   const pending = $derived(system.pendingUnit);
@@ -153,6 +155,11 @@
       </div>
     {:else if tabBlock}
       <PlatformNote note={tabBlock} host={hostName} />
+    {:else}
+      {#if tabPartial}<PlatformNote note={tabPartial} host={hostName} />{/if}
+    {/if}
+    {#if !hosts.hosts.length || system.prompt || tabBlock}
+      <!-- shown above -->
     {:else if system.tab === "units"}
       <UnitsPanel />
     {:else if system.tab === "journal"}

@@ -186,6 +186,9 @@ pub fn system_sudo_forget(state: State<'_, AppState>, host_id: HostId) -> CmdRes
 #[specta::specta]
 pub async fn system_units(app: AppHandle, host_id: HostId) -> SysResult<Vec<Unit>> {
     let conn = connect_posix(&app, host_id, "system.units").await?;
+    if conn.is_windows() {
+        return Ok(nightgrid_core::win::services::list(&conn).await?);
+    }
     Ok(systemd::list(&conn).await?)
 }
 
@@ -449,13 +452,48 @@ pub async fn system_history_search(app: AppHandle, host_id: HostId, query: Strin
 #[specta::specta]
 pub async fn system_schedules(app: AppHandle, host_id: HostId) -> SysResult<Schedules> {
     let conn = connect_posix(&app, host_id, "system.schedules").await?;
+    if conn.is_windows() {
+        return Ok(nightgrid_core::win::tasks::scan(&conn).await?);
+    }
     Ok(schedule::scan(&conn).await?)
+}
+
+/// Runs, enables or disables a Windows scheduled task (Windows hosts only;
+/// disabling was confirmed in the UI).
+#[tauri::command]
+#[specta::specta]
+pub async fn system_task_action(
+    app: AppHandle,
+    host_id: HostId,
+    task: String,
+    action: nightgrid_core::win::tasks::TaskAction,
+) -> SysResult<()> {
+    let conn = connect_posix(&app, host_id, "system.schedules").await?;
+    if !conn.is_windows() {
+        return Err(SystemError::other("Scheduled tasks are a Windows feature; this host uses timers and cron.").into());
+    }
+    tracing::info!(host = %host_id, task = %task, action = ?action, "task action");
+    let r = nightgrid_core::win::tasks::act(&conn, &task, action).await;
+    let verb = match action {
+        nightgrid_core::win::tasks::TaskAction::Run => "Ran",
+        nightgrid_core::win::tasks::TaskAction::Enable => "Enabled",
+        nightgrid_core::win::tasks::TaskAction::Disable => "Disabled",
+    };
+    let (level, detail) = match &r {
+        Ok(()) => (Level::Info, "from Nightgrid".to_owned()),
+        Err(e) => (Level::Warn, format!("from Nightgrid, failed: {e}")),
+    };
+    crate::timeline_cmd::record(&app, host_id, EventKind::Unit, level, &format!("{verb} task {task}"), &detail);
+    Ok(r?)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn system_unit_status(app: AppHandle, host_id: HostId, unit: String) -> SysResult<String> {
     let conn = connect_posix(&app, host_id, "system.units").await?;
+    if conn.is_windows() {
+        return Ok(nightgrid_core::win::services::status(&conn, &unit).await?);
+    }
     Ok(systemd::status(&conn, &unit).await?)
 }
 
@@ -470,13 +508,18 @@ pub async fn system_unit_action(
     action: UnitAction,
     sudo: Option<SudoInput>,
 ) -> SysResult<()> {
-    if !systemd::valid_unit(&unit) {
+    let conn = connect_posix(&app, host_id, "system.units").await?;
+    let windows = conn.is_windows();
+    if !windows && !systemd::valid_unit(&unit) {
         return Err(SystemError::other(format!("invalid unit name: {unit:?}")).into());
     }
-    let conn = connect_posix(&app, host_id, "system.units").await?;
-    let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     tracing::info!(host = %host_id, unit = %unit, action = action.verb(), "unit action");
-    let r = systemd::act(&conn, &auth, &unit, action).await;
+    let r = if windows {
+        nightgrid_core::win::services::act(&conn, &unit, action).await
+    } else {
+        let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
+        systemd::act(&conn, &auth, &unit, action).await
+    };
     let (level, detail) = match &r {
         Ok(()) => (Level::Info, "from Nightgrid".to_owned()),
         Err(e) => (Level::Warn, format!("from Nightgrid, failed: {e}")),
@@ -525,8 +568,11 @@ pub async fn system_journal_start(
     sudo: Option<SudoInput>,
     on_event: Channel<JournalEvent>,
 ) -> SysResult<SystemRunId> {
-    let cmd = journal::command(&query)?;
     let conn = connect_posix(&app, host_id, "system.journal").await?;
+    if conn.is_windows() {
+        return windows_events(app, state, conn, query, elevated, on_event);
+    }
+    let cmd = journal::command(&query)?;
     let auth = if elevated { resolve_sudo(&app, host_id, &conn, sudo).await? } else { SudoAuth::User };
     let id = state.next_term_id();
     let cancel = state.system_runs.add(id);
@@ -586,6 +632,71 @@ pub async fn system_journal_start(
         };
         let _ = on_event.send(JournalEvent::End { error });
         app2.state::<AppState>().system_runs.remove(id);
+    });
+    Ok(id)
+}
+
+/// The Event Log in place of the journal on Windows hosts. `elevated` adds
+/// the Security log (Windows only shows it to administrators).
+fn windows_events(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    conn: Arc<Connection>,
+    query: JournalQuery,
+    elevated: bool,
+    on_event: Channel<JournalEvent>,
+) -> SysResult<SystemRunId> {
+    use nightgrid_core::win::events;
+    let script = events::script(&query, elevated)?;
+    let id = state.next_term_id();
+    let cancel = state.system_runs.add(id);
+    tauri::async_runtime::spawn(async move {
+        // Rows are sent in batches, like the journal's.
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<JournalEvent>();
+        let ch = on_event.clone();
+        let forward = tauri::async_runtime::spawn(async move {
+            while let Some(first) = rx.recv().await {
+                let mut entries = Vec::new();
+                let mut others = Vec::new();
+                let mut next = Some(first);
+                while let Some(ev) = next.take() {
+                    match ev {
+                        JournalEvent::Entries { entries: e } => entries.extend(e),
+                        other => others.push(other),
+                    }
+                    if entries.len() < 1000 {
+                        next = rx.try_recv().ok();
+                    }
+                }
+                if !entries.is_empty() && ch.send(JournalEvent::Entries { entries }).is_err() {
+                    return;
+                }
+                for ev in others {
+                    let _ = ch.send(ev);
+                }
+            }
+        });
+        let mut on_line = |s: Stream, line: String| -> bool {
+            let ev = match s {
+                Stream::Out => match events::parse_line(&line) {
+                    Some(e) => JournalEvent::Entries { entries: vec![e] },
+                    None => return true,
+                },
+                Stream::Err if events::is_empty_notice(&line) => return true,
+                Stream::Err => JournalEvent::Notice { text: line },
+            };
+            tx.send(ev).is_ok()
+        };
+        let r = nightgrid_core::win::stream(&conn, &script, Some(cancel), &mut on_line).await;
+        drop(tx);
+        let _ = forward.await;
+        let error = match r {
+            Ok(Some(c)) if c != 0 => Some(format!("reading the Event Log exited with {c}")),
+            Ok(_) => None,
+            Err(e) => Some(e),
+        };
+        let _ = on_event.send(JournalEvent::End { error });
+        app.state::<AppState>().system_runs.remove(id);
     });
     Ok(id)
 }

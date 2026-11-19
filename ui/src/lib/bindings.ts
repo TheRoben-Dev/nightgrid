@@ -238,6 +238,11 @@ export const commands = {
 	/**  Systemd timers and cron jobs (read-only). */
 	systemSchedules: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Schedules_Serialize>("system_schedules", { hostId }, options),
 	/**
+	 *  Runs, enables or disables a Windows scheduled task (Windows hosts only;
+	 *  disabling was confirmed in the UI).
+	 */
+	systemTaskAction: (hostId: number, task: string, action: TaskAction, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_task_action", { hostId, task, action }, options),
+	/**
 	 *  Searches the login user's shell history (opt-in setting). Secret-looking
 	 *  lines are dropped in core; nothing is stored.
 	 */
@@ -10000,6 +10005,9 @@ export type TailnetStatus_Serialize = {
 	/**  The last error the client reported, in words. */
 	error: string | null,
 };
+
+/**  What can be done to a task. */
+export type TaskAction = "run" | "enable" | "disable";
 
 /**  One temperature sensor. */
 export type Temp = {
