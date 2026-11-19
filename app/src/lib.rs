@@ -215,6 +215,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         expiry_cmd::watch_list,
         expiry_cmd::watch_save,
         expiry_cmd::watch_delete,
+        expiry_cmd::expiry_prefs,
+        expiry_cmd::expiry_pref_save,
         expiry_cmd::watch_check,
         expiry_cmd::watch_lookup,
         confdiff_cmd::confdiff_baseline,

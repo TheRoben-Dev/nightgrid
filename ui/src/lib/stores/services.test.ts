@@ -23,7 +23,7 @@ const status = (up: boolean, tls: ServiceStatus["result"]["tls"] = null): Servic
   ts: NOW,
   result: { up, status: up ? 200 : 503, latencyMs: 12, error: up ? null : "HTTP 503", tls },
 });
-const tls = (trusted: boolean, days: number) => ({ trusted, problem: trusted ? null : "self-signed", expires: NOW + days * 86_400 + 60, subject: null, issuer: null });
+const tls = (trusted: boolean, days: number) => ({ trusted, problem: trusted ? null : "self-signed", expires: NOW + days * 86_400 + 60, subject: null, issuer: null, fingerprint: "ff" });
 
 describe("services helpers", () => {
   it("derives health from checks and certificates", () => {
@@ -33,6 +33,8 @@ describe("services helpers", () => {
     expect(healthOf(svc(), status(true, tls(true, 60)), NOW)).toBe("up");
     expect(healthOf(svc(), status(true, tls(true, 5)), NOW)).toBe("warn");
     expect(healthOf(svc({ allowUntrusted: true }), status(true, tls(false, 60)), NOW)).toBe("warn");
+    expect(healthOf(svc({ allowUntrusted: true }), status(true, tls(false, 60)), NOW, "ff")).toBe("up");
+    expect(healthOf(svc({ allowUntrusted: true }), status(true, tls(false, 60)), NOW, "ee")).toBe("warn");
     expect(certDays(tls(true, 30), NOW)).toBe(30);
     expect(certDays(null, NOW)).toBeNull();
   });

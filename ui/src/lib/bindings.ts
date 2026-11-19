@@ -365,6 +365,10 @@ export const commands = {
 	/**  Adds or updates an item; a certificate file is read right away. */
 	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
 	watchDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("watch_delete", { id }, options),
+	/**  Edits for rows Nightgrid finds by itself (service and proxy certificates). */
+	expiryPrefs: (options?: InvokeOptions) => __TAURI_INVOKE<ExpiryPref_Serialize[]>("expiry_prefs", undefined, options),
+	/**  Saves the edits for one automatic row (all defaults removes them). */
+	expiryPrefSave: (pref: ExpiryPref_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ExpiryPref_Serialize[]>("expiry_pref_save", { pref }, options),
 	/**  Re-reads every certificate file now. */
 	watchCheck: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_check", undefined, options),
 	/**
@@ -3559,6 +3563,52 @@ export type EventKind =
 "stack" | 
 /**  An automation (snippet or playbook) run. */
 "automation";
+
+/**
+ *  The user's edits for one automatic row. Saved with every field at its
+ *  default, the row is removed (the row goes back to how it was found).
+ */
+export type ExpiryPref = ExpiryPref_Serialize | ExpiryPref_Deserialize;
+
+/**
+ *  The user's edits for one automatic row. Saved with every field at its
+ *  default, the row is removed (the row goes back to how it was found).
+ */
+export type ExpiryPref_Deserialize = {
+	target: PrefTarget,
+	/**
+	 *  SHA-256 of the one certificate accepted although the OS doesn't trust
+	 *  it (self-signed, private CA). Another certificate warns again.
+	 */
+	trustedFingerprint?: string | null,
+	/**  Shown, but never alerts. */
+	muted: boolean,
+	/**  A date to use instead of the certificate's (unix seconds). */
+	expiresAt?: number | null,
+	/**  Instead of Settings → Alerts → certificate days. */
+	warnDays?: number | null,
+	note: string,
+};
+
+/**
+ *  The user's edits for one automatic row. Saved with every field at its
+ *  default, the row is removed (the row goes back to how it was found).
+ */
+export type ExpiryPref_Serialize = {
+	target: PrefTarget,
+	/**
+	 *  SHA-256 of the one certificate accepted although the OS doesn't trust
+	 *  it (self-signed, private CA). Another certificate warns again.
+	 */
+	trustedFingerprint: string | null,
+	/**  Shown, but never alerts. */
+	muted: boolean,
+	/**  A date to use instead of the certificate's (unix seconds). */
+	expiresAt: number | null,
+	/**  Instead of Settings → Alerts → certificate days. */
+	warnDays: number | null,
+	note: string,
+};
 
 export type Exposure = Exposure_Serialize | Exposure_Deserialize;
 
@@ -7119,6 +7169,12 @@ export type PowerSettings_Serialize = {
 	currency: string,
 };
 
+/**
+ *  What an Expiry Watch row Nightgrid found by itself is about: a service's
+ *  HTTPS certificate or a reverse-proxy route's certificate.
+ */
+export type PrefTarget = { kind: "service"; serviceId: number } | { kind: "proxy"; domain: string };
+
 /**  Drills added for each backup job that has none yet. */
 export type PresetDrills = {
 	/**  0 (by hand), 7, 14, 30 or 90. */
@@ -10004,6 +10060,11 @@ export type TlsInfo_Deserialize = {
 	expires?: number | null,
 	subject?: string | null,
 	issuer?: string | null,
+	/**
+	 *  SHA-256 of the leaf certificate (lowercase hex), so a certificate the
+	 *  user chose to trust can be told apart from a replacement.
+	 */
+	fingerprint?: string | null,
 };
 
 export type TlsInfo_Serialize = {
@@ -10015,6 +10076,11 @@ export type TlsInfo_Serialize = {
 	expires: number | null,
 	subject: string | null,
 	issuer: string | null,
+	/**
+	 *  SHA-256 of the leaf certificate (lowercase hex), so a certificate the
+	 *  user chose to trust can be told apart from a replacement.
+	 */
+	fingerprint: string | null,
 };
 
 export type Tone = "info" | "ok" | "warn" | "bad";
@@ -10747,6 +10813,7 @@ export type WatchInput_Deserialize = {
 	expiresAt?: number | null,
 	warnDays: number,
 	note: string,
+	muted?: boolean,
 };
 
 export type WatchInput_Serialize = {
@@ -10760,6 +10827,7 @@ export type WatchInput_Serialize = {
 	expiresAt: number | null,
 	warnDays: number,
 	note: string,
+	muted: boolean,
 };
 
 export type WatchItem = WatchItem_Serialize | WatchItem_Deserialize;
@@ -10780,6 +10848,8 @@ export type WatchItem_Deserialize = {
 	/**  When the date was last read from the host. */
 	checkedAt?: number | null,
 	checkError?: string | null,
+	/**  Shown, but never alerts. */
+	muted: boolean,
 };
 
 export type WatchItem_Serialize = {
@@ -10798,6 +10868,8 @@ export type WatchItem_Serialize = {
 	/**  When the date was last read from the host. */
 	checkedAt: number | null,
 	checkError: string | null,
+	/**  Shown, but never alerts. */
+	muted: boolean,
 };
 
 export type WatchKind = 

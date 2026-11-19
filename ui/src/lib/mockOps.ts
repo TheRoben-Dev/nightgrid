@@ -12,6 +12,7 @@ import type {
   SideInfo,
   WatchItem_Serialize as WatchItem,
   WatchInput_Deserialize as WatchInput,
+  ExpiryPref_Serialize as ExpiryPref,
   ScheduleSpec_Deserialize as ScheduleSpec,
   BackupJob,
   BackupJobInput,
@@ -244,10 +245,11 @@ const DAY = 86400;
 const nowS = () => Math.floor(Date.now() / 1000);
 let watchId = 3;
 let watch: WatchItem[] = [
-  { id: 1, kind: "domain", name: "example.com", hostId: null, target: "example.com", expiresAt: nowS() + 21 * DAY, warnDays: 30, note: "Renews at the registrar", checkedAt: null, checkError: null },
-  { id: 2, kind: "token", name: "DNS API token", hostId: null, target: "", expiresAt: nowS() + 90 * DAY, warnDays: 14, note: "", checkedAt: null, checkError: null },
-  { id: 3, kind: "certFile", name: "Internal CA", hostId: 1, target: "/etc/ssl/certs/lab-ca.pem", expiresAt: nowS() + 2 * DAY, warnDays: 30, note: "", checkedAt: nowS() - 3600, checkError: null },
+  { id: 1, kind: "domain", name: "example.com", hostId: null, target: "example.com", expiresAt: nowS() + 21 * DAY, warnDays: 30, note: "Renews at the registrar", checkedAt: null, checkError: null, muted: false },
+  { id: 2, kind: "token", name: "DNS API token", hostId: null, target: "", expiresAt: nowS() + 90 * DAY, warnDays: 14, note: "", checkedAt: null, checkError: null, muted: false },
+  { id: 3, kind: "certFile", name: "Internal CA", hostId: 1, target: "/etc/ssl/certs/lab-ca.pem", expiresAt: nowS() + 2 * DAY, warnDays: 30, note: "", checkedAt: nowS() - 3600, checkError: null, muted: false },
 ];
+let prefs: ExpiryPref[] = [];
 
 const baselines = new Map<number, SideInfo>();
 
@@ -322,6 +324,7 @@ export const mockOps = {
       note: input.note,
       checkedAt: input.kind === "certFile" ? nowS() : null,
       checkError: null,
+      muted: !!input.muted,
     };
     watch = old ? watch.map((w) => (w.id === old.id ? item : w)) : [...watch, item];
     return Promise.resolve(item);
@@ -336,6 +339,13 @@ export const mockOps = {
     const item = { ...w, expiresAt: nowS() + 300 * DAY, checkedAt: nowS(), checkError: null };
     watch = watch.map((x) => (x.id === id ? item : x));
     return Promise.resolve(item);
+  },
+  expiryPrefs: (): Promise<ExpiryPref[]> => Promise.resolve([...prefs]),
+  expiryPrefSave(p: ExpiryPref): Promise<ExpiryPref[]> {
+    const same = (a: ExpiryPref) => JSON.stringify(a.target) === JSON.stringify(p.target);
+    const empty = !p.trustedFingerprint && !p.muted && p.expiresAt == null && p.warnDays == null && !p.note.trim();
+    prefs = [...prefs.filter((x) => !same(x)), ...(empty ? [] : [p])];
+    return Promise.resolve([...prefs]);
   },
   timelineClear(hostId: number): Promise<null> {
     clearedTimelines.add(hostId);

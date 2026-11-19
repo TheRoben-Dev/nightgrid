@@ -103,7 +103,13 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - a **certificate file on a host** (a PEM path): Nightgrid reads its end date with `openssl` over SSH when you add it, on **Read cert files**, and twice a day while the host is connected;
   - a **domain**: type the renewal date, or pick a host and **Look up**, which runs `whois` on that host (only when you click; the host asks the registry);
   - an **API token or key**, a **licence** or anything else, with a typed date. Only the name and date are kept, never the token.
-  Each item has its own **warn days**; inside that window it raises an **EXPIRING** alert (critical in the last 3 days), under the same switch as certificate alerts in Settings → Alerts. Items are part of profile exports. **✦ Explain** asks DRIFT what to renew first.
+  Each item has its own **warn days**; inside that window it raises an **EXPIRING** alert (critical in the last 3 days), under the same switch as certificate alerts in Settings → Alerts. **Mute alerts for this item** keeps it on the list, greyed out, without alerts.
+- Every row has an **Edit** button. On an item you added it opens the same form as **Add…**. On a row Nightgrid found by itself (**SERVICE TLS** from Services, **PROXY TLS** from Docker → Routes) it opens the certificate's details (subject, issuer, end date, SHA-256 fingerprint) and lets you:
+  - **Trust this certificate** (service certificates the computer doesn't trust, such as self-signed or from your own CA): the red "unknown issuer or self-signed" line goes away for that exact certificate. If the server ever sends a different certificate, the row turns red again with "certificate changed since you trusted it" until you trust the new one. This only changes Expiry Watch: the service's up/down check still needs **Allow untrusted certificate** ticked on the service.
+  - **Mute expiry alerts**: the row stays, greyed out at the bottom, and never raises a certificate alert. Useful for internal certificates you renew by hand or that don't run out.
+  - **Expires on (your date)**: use your date instead of the certificate's; **Warn days before**: instead of the certificate days in Settings → Alerts. Leave either empty to use the default.
+  - **Reset to found** removes all your edits for the row.
+  Items and these edits are part of profile exports. **✦ Explain** asks DRIFT what to renew first.
 
 ## Tunnels
 
