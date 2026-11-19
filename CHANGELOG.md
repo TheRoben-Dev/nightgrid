@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Fixed: false downtime in Fleet → UPTIME
+- **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
+- **Waking up isn't an outage.** For 3 minutes after Nightgrid starts or the computer wakes, failures don't count, and the gap before isn't filled in with whatever was seen last.
+- **Your own network dropping isn't an outage.** A round where every host (or everything watched) fails at once is unknown time.
+- **Client devices** (laptops, handhelds) never count as down, even with "Alert when it goes offline" on.
+- **Self-signed services**: a service that answers but whose certificate this computer doesn't trust counts as up in uptime history (the Services view still shows the certificate problem).
+- **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
+- **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
+
 ## [1.12.0] - 2026-11-19
 
 Faster updates: interface fixes between releases, batched releases and quicker release builds.
@@ -13,15 +24,6 @@ Faster updates: interface fixes between releases, batched releases and quicker r
 ### Changed: releases
 - **Fixes merged close together now ship as one release** instead of one after another, and the release picks its own version number.
 - **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
-
-### Fixed: false downtime in Fleet → UPTIME
-- **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
-- **Waking up isn't an outage.** For 3 minutes after Nightgrid starts or the computer wakes, failures don't count, and the gap before isn't filled in with whatever was seen last.
-- **Your own network dropping isn't an outage.** A round where every host (or everything watched) fails at once is unknown time.
-- **Client devices** (laptops, handhelds) never count as down, even with "Alert when it goes offline" on.
-- **Self-signed services**: a service that answers but whose certificate this computer doesn't trust counts as up in uptime history (the Services view still shows the certificate problem).
-- **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
-- **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
 
 ## [1.11.0] - 2026-11-19
 
