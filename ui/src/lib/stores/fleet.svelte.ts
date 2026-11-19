@@ -9,6 +9,7 @@ import { api, errorText, systemError, type PoolsReport } from "../api";
 import type { FleetTab, HostDisks, HostRun, HostUpdates, ImageRow } from "../fleet";
 import { backups } from "./backups.svelte";
 import { hosts } from "./hosts.svelte";
+import { nav } from "./nav.svelte";
 
 /** Hosts read at once. */
 const WORKERS = 3;
@@ -240,3 +241,6 @@ class FleetStore {
 }
 
 export const fleet = new FleetStore();
+
+// Back/forward history (D-186): the tab is a step.
+nav.track("fleet", "tab", () => fleet.tab, (v) => (fleet.tab = v as FleetTab));
