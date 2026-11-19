@@ -55,6 +55,7 @@ nas.home.lan {
 
 - [ ] `nas.home.lan` opens without a warning on a device that trusts the root.
 - [ ] Nightgrid's expiry watch shows the short-lived cert renewing.
+- [ ] On a computer that doesn't trust your root yet, its **SERVICE TLS** rows warn "unknown issuer or self-signed". Click **Edit** on the row and tick **Trust this certificate** to hide that for this exact certificate; the service's up/down check still needs **Allow untrusted certificate** on the service itself. With short-lived certificates every renewal is a new certificate, so trusting the root on this computer is the better fix.
 
 ## Limits and gotchas
 

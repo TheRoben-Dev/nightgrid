@@ -35,7 +35,7 @@ Stream disposable Linux desktops and single apps (a browser, LibreOffice, a term
 ## In Nightgrid
 
 - Add the VM as a host; its Kasm containers appear in [Docker](view:docker), but manage them from Kasm's admin, not from Nightgrid, or Kasm loses track of sessions.
-- Add `https://<vm>:8443` to [Services](view:services) with **Allow untrusted certificate**, since Kasm starts with a self-signed one.
+- Add `https://<vm>:8443` to [Services](view:services) with **Allow untrusted certificate**, since Kasm starts with a self-signed one. In **EXPIRY WATCH**, **Edit** on its **SERVICE TLS** row → **Trust this certificate** hides the self-signed warning for that certificate, and **Mute expiry alerts** stops its expiry alerts.
 - Use [Fleet](view:fleet) → **Disks** to watch space; workspace images fill the disk faster than you expect.
 
 ## Limits and gotchas
