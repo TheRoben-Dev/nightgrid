@@ -163,7 +163,7 @@
   }
   .row {
     display: grid;
-    grid-template-columns: minmax(160px, 2fr) 90px 90px 100px 60px 90px 115px auto;
+    grid-template-columns: minmax(120px, 2fr) 76px 76px 84px 60px 84px 118px auto;
     gap: 8px;
     align-items: center;
     padding: 6px 8px;

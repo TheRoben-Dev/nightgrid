@@ -415,10 +415,15 @@
     background: none;
     border: 1px solid var(--line);
     color: var(--text-1);
-    padding: 1px 8px;
+    padding: 0 var(--chip-px);
     font: inherit;
     font-size: var(--fs-xs);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--chip-h);
+    white-space: nowrap;
   }
   .chip:hover {
     color: var(--text-0);

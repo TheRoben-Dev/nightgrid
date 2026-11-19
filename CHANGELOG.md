@@ -4,14 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
-### Fixed: false downtime in Fleet → UPTIME
-- **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
-- **Waking up isn't an outage.** For 3 minutes after Nightgrid starts or the computer wakes, failures don't count, and the gap before isn't filled in with whatever was seen last.
-- **Your own network dropping isn't an outage.** A round where every host (or everything watched) fails at once is unknown time.
-- **Client devices** (laptops, handhelds) never count as down, even with "Alert when it goes offline" on.
-- **Self-signed services**: a service that answers but whose certificate this computer doesn't trust counts as up in uptime history (the Services view still shows the certificate problem).
-- **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
-- **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
+### Added: storage, network and monitoring integrations
+Nine more integration types, 34 in all.
+- **TrueNAS**: pools with health and fill level, alerts, uptime, load and memory.
+- **Synology DSM**: volumes, disks with SMART problems, CPU, memory and temperature.
+- **Unraid** (7.2+): array state and capacity, disks with temperature and errors, containers and VMs.
+- **Proxmox Backup Server**: datastores with fill level and full-by estimate, failed tasks.
+- **OPNsense**: gateways with delay and loss, stopped services with **Start**, firmware updates.
+- **UniFi Network** (9.0+): devices, offline first, clients and **Restart** for a device.
+- **Nginx Proxy Manager**: proxy hosts, nginx errors, expiring certificates, **Enable** and **Disable**.
+- **Grafana**: dashboards and firing or pending alert rules.
+- **Prometheus**: targets down with their errors, firing alerts.
 
 ### Added: Edit on every Expiry Watch row
 - **Rows Nightgrid finds by itself** (SERVICE TLS from Services, PROXY TLS from Docker → Routes) now have an **Edit** button too. It shows the certificate (subject, issuer, end date, SHA-256 fingerprint) and lets you:
@@ -24,6 +27,28 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 - DRIFT described an Expiry Watch edit button that didn't exist yet. The guide now describes the real controls, and DRIFT is told never to describe buttons or options its guide doesn't name.
+
+## [1.12.1] - 2026-11-19
+
+### Fixed: false downtime in Fleet → UPTIME
+- **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
+- **Waking up isn't an outage.** For 3 minutes after Nightgrid starts or the computer wakes, failures don't count, and the gap before isn't filled in with whatever was seen last.
+- **Your own network dropping isn't an outage.** A round where every host (or everything watched) fails at once is unknown time.
+- **Client devices** (laptops, handhelds) never count as down, even with "Alert when it goes offline" on.
+- **Self-signed services**: a service that answers but whose certificate this computer doesn't trust counts as up in uptime history (the Services view still shows the certificate problem).
+- **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
+- **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
+
+### Changed: layout sweep
+- **One tab bar.** View tabs (System, Fleet, Docker, Proxmox, Security, Settings, Services), sub-tabs inside panels and every segmented picker (unit filter, time ranges, map style, webhook kind, auth method …) now share one style and one height. Primary tabs line up with the host picker, filter box and buttons beside them; pickers had five different "selected" looks and now all use the magenta underline (form pickers in dialogs keep the tinted fill).
+- **Small buttons** are one size (22 px) everywhere. About seventy panels used the small-button class without defining it and showed full-height buttons in table rows.
+- **Filter chips and status tags** share two sizes, so a row of chips or tags no longer mixes 16, 18, 20 and 24 px heights.
+- Dimmed text that asked for an undefined colour now uses the muted text colour, as intended.
+
+### Fixed: layout at narrow widths
+- Narrow windows: container rows, proxy routes, systemd timers, speed tests, power, Nightgrid Node and expiry rows fit their pane instead of pushing action buttons off the edge; the Files panes keep the file name column (MODE hides when a pane is narrow); the Network map keeps at least 360 px of height and the view scrolls instead of squashing it to nothing; Settings tabs wrap instead of running off the page.
+- The top bar keeps its breadcrumb readable in a narrow window: the search box drops its placeholder words (the shortcut stays) and the indicators no longer break onto two lines.
+- Service cards wrap their buttons instead of clipping EDIT at the card edge; the MCP port field no longer overflows its box; disk usage text no longer splits "61.0 / GB"; the Network ping sweep option and the saved-network "on map" boxes line up.
 
 ## [1.12.0] - 2026-11-19
 

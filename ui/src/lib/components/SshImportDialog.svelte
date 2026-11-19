@@ -158,8 +158,11 @@
   .tag {
     font-size: 10px;
     letter-spacing: 0.12em;
-    padding: 1px 6px;
+    padding: 0 var(--tag-px);
     border: 1px solid currentColor;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .tag.new {
     color: var(--mint);

@@ -243,11 +243,6 @@
     color: var(--magenta);
     border-color: var(--magenta);
   }
-  .tiny {
-    min-height: 20px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
-  }
   .preview {
     margin-top: 14px;
     padding-top: 10px;

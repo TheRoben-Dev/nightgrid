@@ -421,6 +421,8 @@
     cursor: pointer;
     font-size: var(--fs-sm);
     padding: 0 6px;
+    flex: none;
+    white-space: nowrap;
   }
   .tool:hover:not(:disabled) {
     color: var(--text-0);
@@ -435,7 +437,7 @@
     border-color: var(--magenta);
   }
   .tool.small {
-    height: 22px;
+    height: var(--ctl-h-sm);
     font-size: var(--fs-xs);
     letter-spacing: 0.08em;
   }
@@ -500,6 +502,7 @@
     overflow: auto;
     outline: none;
     font-size: var(--fs-sm);
+    container-type: inline-size;
   }
   .list:focus-visible {
     box-shadow: inset 0 0 0 1px var(--magenta);
@@ -616,5 +619,14 @@
     padding: 16px;
     overflow: auto;
     background: color-mix(in srgb, var(--bg-0) 92%, transparent);
+  }
+  /* Narrow pane (small window, both panes side by side): the name keeps its room, mode goes. */
+  @container (max-width: 460px) {
+    .row {
+      grid-template-columns: minmax(0, 1fr) 64px 100px;
+    }
+    .c-mode {
+      display: none;
+    }
   }
 </style>

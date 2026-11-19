@@ -428,9 +428,12 @@
     align-self: flex-start;
     font-size: var(--fs-xs);
     letter-spacing: 0.1em;
-    padding: 1px 6px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     color: var(--text-2);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .badge.ok {
     color: var(--mint);

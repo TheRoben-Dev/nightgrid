@@ -263,11 +263,14 @@
     gap: 4px;
   }
   .chip {
-    padding: 0 5px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     font-size: var(--fs-xs);
     letter-spacing: 0.06em;
     color: var(--text-1);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .chip.auto {
     color: var(--mint);
@@ -301,11 +304,6 @@
     display: flex;
     gap: 4px;
     justify-content: flex-end;
-  }
-  .tiny {
-    min-height: 22px;
-    padding: 0 10px;
-    font-size: var(--fs-xs);
   }
   .msg {
     margin: -2px 0 2px;

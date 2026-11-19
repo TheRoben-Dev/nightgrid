@@ -380,7 +380,7 @@
   }
   .row {
     display: grid;
-    grid-template-columns: 110px minmax(0, 1fr) 130px 270px;
+    grid-template-columns: 110px minmax(0, 1fr) 130px fit-content(270px);
     gap: 10px;
     align-items: center;
     padding: 4px 8px;
@@ -438,6 +438,11 @@
     flex-direction: column;
     min-width: 0;
   }
+  .name > :not(.err) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .where {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -458,6 +463,7 @@
   }
   .acts {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     align-items: center;
     justify-content: flex-end;

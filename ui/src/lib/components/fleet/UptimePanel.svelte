@@ -76,7 +76,7 @@
 
 <div class="uptime" data-guide="fleet-uptime">
   <div class="bar">
-    <div class="seg" role="group" aria-label="Range">
+    <div class="seg tabstrip sm" role="group" aria-label="Range">
       {#each RANGES as r (r.days)}
         <button type="button" class:on={days === r.days} onclick={() => (days = r.days)}>{r.label}</button>
       {/each}
@@ -161,23 +161,6 @@
   }
   .small {
     font-size: var(--fs-xs);
-  }
-  .seg {
-    display: inline-flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    background: none;
-    border: 0;
-    color: var(--text-1);
-    padding: 3px 10px;
-    font: inherit;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-  }
-  .seg button.on {
-    color: var(--text-0);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .bad {
     color: var(--danger);

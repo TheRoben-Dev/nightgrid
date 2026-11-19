@@ -210,10 +210,13 @@
     letter-spacing: 0.04em;
   }
   .chip {
-    padding: 0 5px;
+    padding: 0 var(--tag-px);
     border: 1px solid currentColor;
     letter-spacing: 0.08em;
     color: var(--ok);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .chip.warn {
     color: var(--warn);
@@ -304,9 +307,12 @@
   .use {
     width: 30%;
   }
+  .use .small {
+    white-space: nowrap;
+  }
   .use .meter {
     display: inline-block;
-    width: 120px;
+    width: clamp(48px, 40%, 120px);
     height: 6px;
     background: color-mix(in srgb, var(--line) 70%, transparent);
     margin-right: 8px;

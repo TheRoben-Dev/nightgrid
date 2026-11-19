@@ -79,7 +79,7 @@
     {#if s.running && s.url && s.token}
       <div class="block" data-guide="mcp-config">
         <span class="sub">Connect a client</span>
-        <div class="seg" role="tablist">
+        <div class="seg tabstrip sm" role="tablist">
           <button type="button" role="tab" aria-selected={kind === "http"} class:on={kind === "http"} onclick={() => (kind = "http")}>HTTP (JSON)</button>
           <button type="button" role="tab" aria-selected={kind === "stdio"} class:on={kind === "stdio"} onclick={() => (kind = "stdio")}>Command (stdio)</button>
           <button type="button" role="tab" aria-selected={kind === "cli"} class:on={kind === "cli"} onclick={() => (kind = "cli")}>Claude Code</button>
@@ -142,9 +142,11 @@
     margin-bottom: 6px;
     color: var(--text-1);
   }
+  .port .input {
+    width: 100%;
+  }
   .port {
-    display: block;
-    max-width: 160px;
+    max-width: 180px;
     margin-top: 10px;
   }
   .block {
@@ -153,22 +155,7 @@
     margin-top: 10px;
   }
   .seg {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
     margin-bottom: 8px;
-  }
-  .seg button {
-    background: none;
-    border: 1px solid var(--line);
-    color: var(--text-1);
-    padding: 3px 8px;
-    font-size: var(--fs-xs);
-    cursor: pointer;
-  }
-  .seg button.on {
-    border-color: var(--cyan);
-    color: var(--cyan);
   }
   .snippet {
     margin: 0;

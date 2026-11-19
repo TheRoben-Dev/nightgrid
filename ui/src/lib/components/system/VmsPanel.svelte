@@ -148,9 +148,12 @@
   }
   .tag {
     margin-left: 8px;
-    padding: 0 5px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     color: var(--cyan);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .note {
     margin: 0;

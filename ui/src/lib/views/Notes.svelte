@@ -270,7 +270,7 @@
   .notes {
     height: 100%;
     display: grid;
-    grid-template-columns: minmax(240px, 320px) 1fr;
+    grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
     /* One row the height of the view: the list and the editor scroll inside it. */
     grid-template-rows: minmax(0, 1fr);
     gap: 12px;
@@ -304,8 +304,13 @@
     background: transparent;
     color: var(--text-1);
     font-size: var(--fs-xs);
-    padding: 1px 6px;
+    padding: 0 var(--chip-px);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--chip-h);
+    white-space: nowrap;
   }
   .chip.on {
     color: var(--bg-0);

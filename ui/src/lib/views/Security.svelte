@@ -26,7 +26,7 @@
 
 <div class="security">
   <div class="toolbar">
-    <div class="tabs" role="tablist" aria-label="Security view">
+    <div class="tabstrip" role="tablist" aria-label="Security view">
       {#each tabs as t (t.id)}
         <button type="button" role="tab" data-guide="security-tab-{t.id}" class:on={security.tab === t.id} aria-selected={security.tab === t.id} onclick={() => (security.tab = t.id)}>
           {t.label}{#if t.id === "posture" && below}<span class="badge warn">{below}</span>{/if}
@@ -64,33 +64,6 @@
   }
   .small {
     font-size: var(--fs-xs);
-  }
-  .tabs {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .tabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
-  .badge {
-    margin-left: 6px;
-    padding: 0 4px;
-    color: var(--bg-0);
-    background: var(--warn);
   }
   .pane {
     flex: 1;

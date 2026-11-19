@@ -144,7 +144,14 @@
       {#if meta.username}
         <label class="field span3">
           <span>{meta.username.label}</span>
-          <input class="input" bind:value={form.username} autocomplete="off" spellcheck="false" required={meta.username.required} />
+          <input class="input" bind:value={form.username} placeholder={meta.username.placeholder ?? ""} autocomplete="off" spellcheck="false" required={meta.username.required} />
+        </label>
+      {/if}
+      {#if meta.extra}
+        <label class="field span3">
+          <span>{meta.extra.label}</span>
+          <input class="input" bind:value={form.slug} placeholder={meta.extra.placeholder} autocomplete="off" spellcheck="false" />
+          <span class="field-hint">{meta.extra.hint}</span>
         </label>
       {/if}
       {#if kind === "kuma"}
@@ -304,10 +311,5 @@
   }
   :global(footer) .left {
     margin-right: auto;
-  }
-  .tiny {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
   }
 </style>

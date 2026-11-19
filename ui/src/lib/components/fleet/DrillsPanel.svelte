@@ -71,7 +71,7 @@
       {#if drills.editing}
         {@const d = drills.editing}
         <h3 class="hd">{d.id == null ? "NEW DRILL" : "EDIT DRILL"}</h3>
-        <div class="seg" role="group" aria-label="Kind">
+        <div class="seg tabstrip sm" role="group" aria-label="Kind">
           <button type="button" class:on={d.kind === "job"} onclick={() => (d.kind = "job")}>Backup job</button>
           <button type="button" class:on={d.kind === "proxmox"} onclick={() => (d.kind = "proxmox")}>Proxmox guest</button>
         </div>
@@ -224,20 +224,7 @@
     margin: 0;
   }
   .seg {
-    display: flex;
-    border: 1px solid var(--line);
     width: fit-content;
-  }
-  .seg button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .seg button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .fld {
     display: flex;

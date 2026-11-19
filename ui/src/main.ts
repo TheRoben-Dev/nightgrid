@@ -10,6 +10,7 @@ import "@fontsource/rajdhani/latin-700.css";
 import "./styles/fonts.css";
 import "./styles/tokens.css";
 import "./styles/base.css";
+import "./styles/components.css";
 import "./styles/backdrop.css";
 
 import { mount } from "svelte";

@@ -13,7 +13,10 @@
 //!   actions): **Jellyfin**, **Emby**, **Tautulli**, **Sonarr**, **Radarr**,
 //!   **Lidarr**, **Prowlarr**, **Bazarr**, **Overseerr**, **Jellyseerr**
 //!   (1.8.0); **qBittorrent**, **Transmission**, **SABnzbd**, **NZBGet**,
-//!   **Immich**, **Nextcloud**, **Syncthing**, **Gotify** and **Frigate** (1.11.0).
+//!   **Immich**, **Nextcloud**, **Syncthing**, **Gotify**, **Frigate** (1.11.0);
+//!   **TrueNAS**, **Synology DSM**, **Unraid**, **Proxmox Backup Server**,
+//!   **OPNsense**, **UniFi Network**, **Nginx Proxy Manager**, **Grafana** and
+//!   **Prometheus** (1.13).
 //!
 //! The database stores the kind as text with no CHECK on it (0050): a kind is
 //! valid when [`IntegrationKind::parse`] knows it.
@@ -31,14 +34,18 @@ pub mod gotify;
 pub mod immich;
 pub mod jellyfin;
 pub mod kuma;
+pub mod monitoring;
+pub mod netapps;
 pub mod nextcloud;
 pub mod plex;
 pub mod portainer;
 pub mod qbittorrent;
 pub mod seerr;
+pub mod storage;
 pub mod syncthing;
 pub mod tautulli;
 pub mod transmission;
+pub mod unraid;
 pub mod usenet;
 
 use rusqlite::{params, OptionalExtension, Row};
@@ -79,6 +86,15 @@ pub enum IntegrationKind {
     Syncthing,
     Gotify,
     Frigate,
+    Truenas,
+    Synology,
+    Unraid,
+    Pbs,
+    Opnsense,
+    Unifi,
+    Npm,
+    Grafana,
+    Prometheus,
 }
 
 /// Whether a kind uses a token, password or API key from the keychain.
@@ -91,7 +107,7 @@ pub enum SecretUse {
 
 impl IntegrationKind {
     /// Every kind (tests save each one).
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 34] = [
         Self::Plex,
         Self::Amp,
         Self::Kuma,
@@ -117,6 +133,15 @@ impl IntegrationKind {
         Self::Syncthing,
         Self::Gotify,
         Self::Frigate,
+        Self::Truenas,
+        Self::Synology,
+        Self::Unraid,
+        Self::Pbs,
+        Self::Opnsense,
+        Self::Unifi,
+        Self::Npm,
+        Self::Grafana,
+        Self::Prometheus,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -146,6 +171,15 @@ impl IntegrationKind {
             Self::Syncthing => "syncthing",
             Self::Gotify => "gotify",
             Self::Frigate => "frigate",
+            Self::Truenas => "truenas",
+            Self::Synology => "synology",
+            Self::Unraid => "unraid",
+            Self::Pbs => "pbs",
+            Self::Opnsense => "opnsense",
+            Self::Unifi => "unifi",
+            Self::Npm => "npm",
+            Self::Grafana => "grafana",
+            Self::Prometheus => "prometheus",
         }
     }
 
@@ -177,6 +211,15 @@ impl IntegrationKind {
             Self::Syncthing => "Syncthing",
             Self::Gotify => "Gotify",
             Self::Frigate => "Frigate",
+            Self::Truenas => "TrueNAS",
+            Self::Synology => "Synology DSM",
+            Self::Unraid => "Unraid",
+            Self::Pbs => "Proxmox Backup Server",
+            Self::Opnsense => "OPNsense",
+            Self::Unifi => "UniFi Network",
+            Self::Npm => "Nginx Proxy Manager",
+            Self::Grafana => "Grafana",
+            Self::Prometheus => "Prometheus",
         }
     }
 
@@ -207,6 +250,15 @@ impl IntegrationKind {
             "syncthing" => Self::Syncthing,
             "gotify" => Self::Gotify,
             "frigate" => Self::Frigate,
+            "truenas" => Self::Truenas,
+            "synology" => Self::Synology,
+            "unraid" => Self::Unraid,
+            "pbs" => Self::Pbs,
+            "opnsense" => Self::Opnsense,
+            "unifi" => Self::Unifi,
+            "npm" => Self::Npm,
+            "grafana" => Self::Grafana,
+            "prometheus" => Self::Prometheus,
             _ => return None,
         })
     }
@@ -214,7 +266,7 @@ impl IntegrationKind {
     pub fn secret_use(self) -> SecretUse {
         match self {
             Self::Kuma | Self::Portainer => SecretUse::None,
-            Self::Qbittorrent | Self::Transmission | Self::Frigate => SecretUse::Optional,
+            Self::Qbittorrent | Self::Transmission | Self::Frigate | Self::Prometheus => SecretUse::Optional,
             _ => SecretUse::Required,
         }
     }
@@ -231,7 +283,11 @@ impl IntegrationKind {
             Self::Adguard => Some(("AdGuard Home needs its login name", true)),
             Self::Nzbget => Some(("NZBGet needs its control login name", true)),
             Self::Nextcloud => Some(("Nextcloud needs an admin login name", true)),
-            Self::Qbittorrent | Self::Transmission | Self::Frigate => Some(("", false)),
+            Self::Synology => Some(("DSM needs a login name", true)),
+            Self::Pbs => Some(("the API token id, like root@pam!nightgrid", true)),
+            Self::Opnsense => Some(("OPNsense needs the API key (the secret goes in the password field)", true)),
+            Self::Npm => Some(("Nginx Proxy Manager needs the login email", true)),
+            Self::Qbittorrent | Self::Transmission | Self::Frigate | Self::Prometheus => Some(("", false)),
             _ => None,
         }
     }
@@ -317,7 +373,7 @@ pub fn normalize(i: &IntegrationInput) -> Result<(IntegrationKind, IntegrationIn
             return Err(inv("slug", "letters, digits, - and _ only"));
         }
     }
-    if kind != IntegrationKind::Kuma {
+    if !matches!(kind, IntegrationKind::Kuma | IntegrationKind::Unifi) {
         n.slug.clear();
     }
     if kind != IntegrationKind::Portainer {
@@ -387,6 +443,10 @@ async fn app_status(i: &Integration, key: &str) -> std::result::Result<app::AppS
         K::Syncthing => syncthing::status(i, key).await,
         K::Gotify => gotify::status(i, key).await,
         K::Frigate => frigate::status(i, key).await,
+        K::Truenas | K::Synology | K::Pbs => storage::status(i, key).await,
+        K::Unraid => unraid::status(i, key).await,
+        K::Opnsense | K::Unifi | K::Npm => netapps::status(i, key).await,
+        K::Grafana | K::Prometheus => monitoring::status(i, key).await,
         K::Plex | K::Amp | K::Kuma | K::Portainer | K::Pihole | K::Adguard => {
             Err("this integration has its own status".into())
         }
@@ -413,6 +473,7 @@ pub async fn act(i: &Integration, secret: Option<&str>, target: &str, action: &s
         K::Sabnzbd | K::Nzbget => usenet::act(i, key, target, action).await,
         K::Syncthing => syncthing::act(i, key, target, action).await,
         K::Gotify => gotify::act(i, key, target, action).await,
+        K::Opnsense | K::Unifi | K::Npm => netapps::act(i, key, target, action).await,
         _ => Err(format!("{} has no action {action}", i.kind.label())),
     }
 }
@@ -610,7 +671,16 @@ mod tests {
                 | IntegrationKind::Nextcloud
                 | IntegrationKind::Syncthing
                 | IntegrationKind::Gotify
-                | IntegrationKind::Frigate => {}
+                | IntegrationKind::Frigate
+                | IntegrationKind::Truenas
+                | IntegrationKind::Synology
+                | IntegrationKind::Unraid
+                | IntegrationKind::Pbs
+                | IntegrationKind::Opnsense
+                | IntegrationKind::Unifi
+                | IntegrationKind::Npm
+                | IntegrationKind::Grafana
+                | IntegrationKind::Prometheus => {}
             }
         }
         let mut s = Store::open_in_memory().unwrap();

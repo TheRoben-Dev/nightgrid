@@ -330,27 +330,27 @@
   footer {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2) var(--sp-3);
     font-size: var(--fs-xs);
+    flex-wrap: wrap;
   }
   .chip {
-    padding: 0 5px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     color: var(--text-1);
     letter-spacing: 0.06em;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .chip.src {
     color: var(--mint);
   }
   .when {
     color: var(--text-1);
+    white-space: nowrap;
   }
   .spacer {
     flex: 1;
-  }
-  .tiny {
-    min-height: 20px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
   }
 </style>
