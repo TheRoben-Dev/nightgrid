@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [1.12.0] - 2026-11-19
+
+Nine more integrations for storage, network and monitoring: 34 integration types in all.
+
+### Added
+- **TrueNAS**: pools with health and fill level, alerts, uptime, load and memory.
+- **Synology DSM**: volumes, disks with SMART problems, CPU, memory and temperature.
+- **Unraid** (7.2+): array state and capacity, disks with temperature and errors, containers and VMs.
+- **Proxmox Backup Server**: datastores with fill level and full-by estimate, failed tasks.
+- **OPNsense**: gateways with delay and loss, stopped services with **Start**, firmware updates.
+- **UniFi Network** (9.0+): devices, offline first, clients and **Restart** for a device.
+- **Nginx Proxy Manager**: proxy hosts, nginx errors, expiring certificates, **Enable** and **Disable**.
+- **Grafana**: dashboards and firing or pending alert rules.
+- **Prometheus**: targets down with their errors, firing alerts.
+
 ## [1.11.0] - 2026-11-19
 
 Nine more integrations: download clients, files and photos, notifications and cameras.
