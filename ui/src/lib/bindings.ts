@@ -4991,7 +4991,7 @@ export type IntegrationInput_Serialize = {
 	allowUntrusted: boolean,
 };
 
-export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr";
+export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate";
 
 /**  What an integration reports right now. */
 export type IntegrationStatus = IntegrationStatus_Serialize | IntegrationStatus_Deserialize;

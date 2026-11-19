@@ -44,6 +44,8 @@ add({ kind: "pihole", name: "Pi-hole", baseUrl: "http://192.168.1.2" }, "pw");
 add({ kind: "jellyfin", name: "Jellyfin", baseUrl: "http://server01:8096" }, "key");
 add({ kind: "sonarr", name: "Sonarr", baseUrl: "http://server01:8989" }, "key");
 add({ kind: "overseerr", name: "Requests", baseUrl: "http://server01:5055" }, "key");
+add({ kind: "qbittorrent", name: "qBittorrent", baseUrl: "http://server01:8080", username: "admin" }, "pw");
+add({ kind: "syncthing", name: "Syncthing", baseUrl: "http://server01:8384" }, "key");
 
 const now = () => Date.now() / 1000;
 const dns: DnsStatus & { pausedUntil: number | null } = {
@@ -132,6 +134,42 @@ function appStatus(kind: string): AppStatus {
         ],
         rowsTitle: "Pending requests",
         rows: pending.map((p) => ({ ...p, state: "idle" as const, progress: null, actions: [act("approve", "Approve"), act("decline", "Decline", `Decline the request for "${p.title}"?`)] })),
+      };
+    case "qbittorrent":
+      return {
+        ...base,
+        version: "v5.0.2",
+        summary: "2 active torrents · ↓ 2.0 MB/s · ↑ 1.0 KB/s",
+        tiles: [
+          { label: "Down", value: "2.0 MB/s" },
+          { label: "Up", value: "1.0 KB/s" },
+          { label: "Active", value: "2" },
+          { label: "Errored", value: "0" },
+        ],
+        rowsTitle: "Active",
+        rows: [
+          { id: "aa11", title: "debian-13.0.0-amd64-netinst.iso", meta: "downloading · ↓ 2.0 MB/s · 5m 00s left", state: "active", progress: 50, actions: [act("stop", "Pause")] },
+          { id: "bb22", title: "ubuntu-24.04-desktop-amd64.iso", meta: "uploading · ↑ 1.0 KB/s", state: "ok", progress: 100, actions: [act("stop", "Pause")] },
+        ],
+        actions: [act("stop-all", "Pause all", "Pause every torrent in qBittorrent?"), act("start-all", "Resume all")],
+      };
+    case "syncthing":
+      return {
+        ...base,
+        version: "v1.29.2",
+        health: "warn",
+        summary: "1/3 folders up to date · 1/2 devices",
+        tiles: [
+          { label: "Folders", value: "3" },
+          { label: "Devices online", value: "1/2" },
+        ],
+        rowsTitle: "Folders",
+        rows: [
+          { id: "photos", title: "Photos", meta: "up to date · 120 GB", state: "ok", progress: null, actions: [act("rescan", "Rescan")] },
+          { id: "docs", title: "Documents", meta: "syncing · 12 to go (256 MB)", state: "active", progress: 75, actions: [act("rescan", "Rescan")] },
+          { id: "music", title: "Music", meta: "out of sync · 4 to go", state: "warn", progress: null, actions: [act("rescan", "Rescan")] },
+        ],
+        actions: [act("rescan-all", "Rescan all"), act("pause-all", "Pause", "Pause syncing with every device?"), act("resume-all", "Resume")],
       };
     default:
       return {
