@@ -1,10 +1,18 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
 ## [Unreleased]
 
-Windows Server hosts get close to everything Nightgrid does on Linux: monitoring, Docker and Compose, the System tabs, security posture, Fleet checks and network tools, using only what Windows ships with. Every view says plainly what can't run on a Windows host and why.
+Faster updates: interface fixes between releases, batched releases and quicker release builds.
+
+### Added: interface fixes between releases
+- **Fixes that only touch the interface now arrive without a full update.** They're a small signed download built for exactly the version you run, applied the next time Nightgrid starts (a card offers **Restart now**). Settings → Updates has the switch (**Interface fixes between releases**, on), what's in use, **Check fixes** and **Use built-in**.
+- A fix can only replace the interface's files: the app's permissions and content security policy stay as built, and the fix is checked against the release key on every start. If a fix doesn't start within a minute, Nightgrid goes back to its built-in interface by itself and never uses that fix again.
+
+### Changed: releases
+- **Fixes merged close together now ship as one release** instead of one after another, and the release picks its own version number.
+- **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
 
 ### Added: Windows hosts
 - **Nightgrid knows which hosts run Windows.** It learns it on connect (OpenSSH for Windows says so in its version line) and remembers it per host. Nothing is installed on the host: commands run through Windows PowerShell 5.1.
@@ -25,7 +33,7 @@ Windows Server hosts get close to everything Nightgrid does on Linux: monitoring
 - **Compose stacks** run up, pull, update, restart and down through PowerShell.
 - **Network tools and the network scan** run in PowerShell. DRIFT can read PowerShell's history.
 
-### Changed
+### Changed: Windows hosts
 - **Views and tabs that can't run on a Windows host say why** in place of the view, with what the Windows version will use when one is planned. Commands behind them stop early with the same words instead of a shell error from cmd. Background checks (daily posture, SMART, backups, log watches, incident timeline) skip Windows hosts quietly.
 - Backup jobs accept Windows paths (`D:\Backups`, `\\nas\share`) and scheduled task paths.
 - The deploy wizard, stacks from git and the .env vault say plainly that they need a POSIX shell on Windows hosts.

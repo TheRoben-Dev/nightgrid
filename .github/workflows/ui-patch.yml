@@ -1,0 +1,122 @@
+name: Interface patch
+
+# Signed interface patches (D-185): when everything main changed since the
+# release of its version is interface-only, publish the built frontend as a
+# signed pack to the rolling `ui-latest` release. Installed apps of exactly
+# that version fetch it, verify it with the release key and switch to it on
+# their next start, so UI fixes ship without an app build.
+#
+# Anything else changed since the release (Rust, Cargo/package files, the
+# Go sidecar, the command bindings) means no pack: that needs a release,
+# which the release train makes once the version is bumped.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ui/**"
+      - "vite.config.ts"
+      - "svelte.config.js"
+  workflow_dispatch:
+
+# Its own group: never cancels (or waits on) the app's CI and release runs.
+concurrency:
+  group: ui-patch
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    name: Build, sign and publish the interface patch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Interface-only since the release?
+        id: scope
+        run: |
+          v=$(sed -n '/^\[workspace\.package\]/,/^\[/s/^version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -1)
+          tag="v$v"
+          if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "$tag isn't released yet: the release carries these changes. No patch."
+            echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          changed=$(git diff --name-only "$tag" HEAD)
+          other=$(echo "$changed" | grep -Ev '^(ui/|docs/|scripts/|\.github/|[^/]+\.md$|vite\.config\.ts$|svelte\.config\.js$|eslint\.config\.js$|tsconfig[^/]*\.json$)' || true)
+          if [ -n "$other" ]; then
+            echo "Changed since $tag outside the interface, so this needs a release, not a patch:"
+            echo "$other" | sed 's/^/  /'
+            echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if ! git diff --quiet "$tag" HEAD -- ui/src/lib/bindings.ts; then
+            echo "The command bindings changed since $tag: no patch."
+            echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if ! echo "$changed" | grep -Eq '^(ui/|vite\.config\.ts$|svelte\.config\.js$)'; then
+            echo "No interface changes since $tag."
+            echo "go=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "go=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          {
+            echo "UI_NOTES<<NOTES_END"
+            git log --no-merges --format=%s "$tag"..HEAD -- ui vite.config.ts svelte.config.js | head -10
+            echo "NOTES_END"
+          } >> "$GITHUB_ENV"
+
+      - uses: pnpm/action-setup@v4
+        if: steps.scope.outputs.go == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.scope.outputs.go == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+      - if: steps.scope.outputs.go == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Check and test the interface
+        if: steps.scope.outputs.go == 'true'
+        run: pnpm check && pnpm test
+
+      - name: Build the interface and pack it
+        if: steps.scope.outputs.go == 'true'
+        run: |
+          pnpm build
+          node scripts/ui-pack.mjs dist ui-out
+
+      - name: Sign with the release key
+        if: steps.scope.outputs.go == 'true'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set: apps would refuse an unsigned patch."
+            exit 1
+          fi
+          pnpm tauri signer sign ui-out/ui-pack.json.gz
+          test -s ui-out/ui-pack.json.gz.sig
+          ls -la ui-out
+
+      - uses: softprops/action-gh-release@v2
+        if: steps.scope.outputs.go == 'true'
+        with:
+          tag_name: ui-latest
+          name: Interface patch (rolling)
+          # Never "latest": the app updater reads releases/latest.
+          prerelease: true
+          make_latest: false
+          target_commitish: ${{ github.sha }}
+          overwrite_files: true
+          body: |
+            Signed interface fixes for Nightgrid ${{ steps.scope.outputs.tag }}, rebuilt whenever main has interface-only changes since that release.
+            Apps with **Settings → Updates → Interface fixes between releases** on pick it up by themselves and apply it on their next start; there is nothing to download here by hand.
+          files: |
+            ui-out/ui-pack.json.gz
+            ui-out/ui-pack.json.gz.sig
+            ui-out/ui-pack.meta.json
