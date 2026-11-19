@@ -93,6 +93,7 @@ docker exec -u www-data nextcloud-app-1 php occ config:system:set maintenance_wi
 ## Part 3 · Backups and updates
 
 - [ ] Dump the database nightly (see [PostgreSQL and MariaDB in Docker](kb:apps/databases)) and back up the data folder and `./html/config`.
+- [ ] [Services](view:services) → **Add integration** → **Nextcloud** with an admin login and an app password: users, free space, load and pending app updates on a card (see [Add app cards](kb:howto/integrations)).
 - [ ] Update one major version at a time (30 → 31 → 32). Change the tag, pull, up, then watch logs until the upgrade finishes. Nightgrid's stack snapshot makes rollback possible before the database migrates; after that, restore the dump.
 
 #### Check

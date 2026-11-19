@@ -1,6 +1,6 @@
 # Add app cards: Plex, Jellyfin, the *arr apps and more
 
-Bring other apps' live status into Nightgrid's Services board: what's playing on Plex, Jellyfin or Emby, the Sonarr and Radarr download queues, pending Overseerr requests, game servers in AMP, Uptime Kuma monitors and links into Portainer. Keys and passwords stay in the OS keychain.
+Bring other apps' live status into Nightgrid's Services board: what's playing on Plex, Jellyfin or Emby, the Sonarr and Radarr download queues, pending Overseerr requests, torrent and Usenet downloads, Immich, Nextcloud and Syncthing, Frigate cameras, Gotify messages, game servers in AMP, Uptime Kuma monitors and links into Portainer. Keys and passwords stay in the OS keychain.
 
 ![Integrations feeding the Services board.](fig:ng-integrations)
 
@@ -17,7 +17,7 @@ Bring other apps' live status into Nightgrid's Services board: what's playing on
 
 ## Part 1 · Add an integration
 
-- [ ] [Services](view:services) → **Add integration**. The **NEW INTEGRATION** dialog groups types under Media, Media automation, Network, Monitoring, Docker and Games; **Find an app…** filters them.
+- [ ] [Services](view:services) → **Add integration**. The **NEW INTEGRATION** dialog groups types under Media, Media automation, Downloads, Files & photos, Network, Monitoring, Cameras, Docker and Games; **Find an app…** filters them.
 - [ ] Pick the app. Fill in **URL** (the placeholder shows its usual port) and the **API key**, **Password** or token it asks for. **Name** is optional.
 - [ ] Self-signed or internal certificate? Tick **Allow untrusted certificate**.
 - [ ] **Test** reads the app once without saving; **Add** saves it.
@@ -36,7 +36,21 @@ Bring other apps' live status into Nightgrid's Services board: what's playing on
 - [ ] **Overseerr** and **Jellyseerr** (Settings → General → API Key): request counts and pending requests with **Approve** and **Decline** (decline asks first).
 - [ ] Setting the stack up: [The *arr stack](kb:apps/arr-stack) and [Jellyseerr](kb:apps/jellyseerr).
 
-## Part 4 · Games, monitoring and Docker
+## Part 4 · Downloads
+
+- [ ] **qBittorrent**: the Web UI **Login name** and password (Tools → Options → Web UI). Leave both empty if the Web UI skips login for your network. Speeds, active and failed torrents, **Pause** or **Resume** per torrent, and **Pause all** (asks first) / **Resume all**.
+- [ ] **Transmission**: a login only when RPC authentication is on. Speeds, torrents with progress and errors, **Start** or **Stop** per torrent, and **Stop all** (asks first) / **Start all**.
+- [ ] **SABnzbd** (Config → General → Security → API Key) and **NZBGet** (**Control login** and **Control password** from Settings → Security): speed, the queue with progress and free disk, **Pause** or **Resume** per item or for the whole queue, and **Delete** an item. Pausing the whole queue and deleting ask first. See [SABnzbd Usenet downloader](kb:apps/sabnzbd).
+
+## Part 5 · Files, photos, cameras and notifications
+
+- [ ] **Immich** (Account Settings → API Keys → New API Key): photos, videos, storage used and background jobs (running, waiting, failed). Library size and jobs need an admin's key. See [Immich photo backup](kb:apps/immich).
+- [ ] **Nextcloud**: an **Admin login name** and an **App password** (Personal settings → Security → Devices & sessions → Create new app password). Users, files, active users, shares, free space, load and pending app updates. See [Nextcloud](kb:apps/nextcloud).
+- [ ] **Syncthing** (Actions → Settings → General → API Key): folders with their sync state, devices online and errors; **Rescan** a folder, **Rescan all**, and **Pause** (asks first) or **Resume** syncing with every device. See [Syncthing](kb:apps/syncthing).
+- [ ] **Frigate**: port 5000 needs no login; the authenticated port 8971 needs a Frigate login. Cameras with frame rates (offline ones in red), detector speed, recording storage and the latest detections. See [Frigate NVR](kb:apps/frigate).
+- [ ] **Gotify**: a **Client token** (Clients → Create client), not an app token. Health, apps and the latest messages with priority; **Delete** one, or **Delete all** (asks first).
+
+## Part 6 · Games, monitoring and Docker
 
 - [ ] **AMP**: the panel address, **Login name** and password of an AMP user allowed to manage instances. The card lists instances with players, and start, stop and restart (stop and restart confirm by name). More in [Game server host](kb:guides/game-server-host).
 - [ ] **Uptime Kuma**: no key needed. Make a status page in Kuma and enter its **Status page slug**. The card lists that page's monitors. See [Uptime Kuma](kb:apps/uptime-kuma).
