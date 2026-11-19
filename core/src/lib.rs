@@ -74,6 +74,7 @@ pub mod tailnet;
 pub mod term;
 pub mod timeline;
 pub mod tunnels;
+pub mod uipack;
 pub mod ups;
 pub mod uptime;
 pub mod vnc;

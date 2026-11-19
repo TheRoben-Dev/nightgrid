@@ -93,6 +93,9 @@ pub struct AppSettings {
     pub update_skip_version: Option<String>,
     /// Fetch signed Library content packs between app releases (D-174).
     pub kb_updates: bool,
+    /// Fetch signed interface patches for this exact version (D-183); off
+    /// also stops a downloaded one from being used.
+    pub ui_patches: bool,
     /// Alert rules and delivery.
     pub alerts: AlertSettings,
     /// Show a tray / menu bar icon with host status, tunnels and alerts.
@@ -437,6 +440,7 @@ impl Default for AppSettings {
             update_check: true,
             update_skip_version: None,
             kb_updates: true,
+            ui_patches: true,
             alerts: AlertSettings::default(),
             tray_enabled: true,
             close_to_tray: false,

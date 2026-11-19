@@ -49,6 +49,8 @@
   import TourOverlay from "./lib/components/helper/TourOverlay.svelte";
   import AuthNoticeBar from "./lib/components/ssh/AuthNoticeBar.svelte";
   import WebUiNotice from "./lib/components/webui/WebUiNotice.svelte";
+  import UiPatchNotice from "./lib/components/update/UiPatchNotice.svelte";
+  import { uiPatch } from "./lib/stores/uipatch.svelte";
   import McpAskCard from "./lib/components/mcp/McpAskCard.svelte";
   import { mcp } from "./lib/stores/mcp.svelte";
   import { authNotices } from "./lib/stores/authNotices.svelte";
@@ -86,6 +88,7 @@
       alerts.start();
       updates.startLaunchCheck();
       void kbContent.start();
+      void uiPatch.start();
       mcp.start();
     });
     // Tray menu: quick connect and "open alerts".
@@ -251,6 +254,7 @@
 <TourOverlay />
 <AuthNoticeBar />
 <WebUiNotice />
+<UiPatchNotice />
 <McpAskCard />
 {#if settings.on("drift")}<TourOffer />{/if}
 <ProfileReminder />

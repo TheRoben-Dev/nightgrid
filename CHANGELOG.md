@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/).
 
+## [1.9.0] - 2026-11-19
+
+Faster updates: interface fixes between releases, batched releases and quicker release builds.
+
+### Added: interface fixes between releases
+- **Fixes that only touch the interface now arrive without a full update.** They're a small signed download built for exactly the version you run, applied the next time Nightgrid starts (a card offers **Restart now**). Settings → Updates has the switch (**Interface fixes between releases**, on), what's in use, **Check fixes** and **Use built-in**.
+- A fix can only replace the interface's files: the app's permissions and content security policy stay as built, and the fix is checked against the release key on every start. If a fix doesn't start within a minute, Nightgrid goes back to its built-in interface by itself and never uses that fix again.
+
+### Changed: releases
+- **Fixes merged close together now ship as one release** instead of one after another. Some version numbers are skipped this way; their notes are in this changelog under the release that carried them.
+- **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
+
 ## [1.7.1] - 2026-11-19
 
 ### Fixed: logging in to Windows hosts (and any host without an agent key)

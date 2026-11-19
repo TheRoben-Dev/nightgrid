@@ -1062,6 +1062,15 @@ export const commands = {
 	kbPackLoad: (files: boolean, options?: InvokeOptions) => __TAURI_INVOKE<KbPackContent | null>("kb_pack_load", { files }, options),
 	/**  Deletes the stored pack: the Library goes back to the copy bundled with the app. */
 	kbPackRemove: (options?: InvokeOptions) => __TAURI_INVOKE<KbPackStatus_Serialize>("kb_pack_remove", undefined, options),
+	uiPatchStatus: (options?: InvokeOptions) => __TAURI_INVOKE<UiPatchStatus_Serialize>("ui_patch_status", undefined, options),
+	/**  The interface is up: a patch in use counts as working. */
+	uiPatchReady: (options?: InvokeOptions) => __TAURI_INVOKE<void>("ui_patch_ready", undefined, options),
+	/**  Looks for a newer interface patch for this exact app. */
+	uiPatchCheck: (options?: InvokeOptions) => __TAURI_INVOKE<UiPatchStatus_Serialize>("ui_patch_check", undefined, options),
+	/**  Deletes the downloaded patch: the next start uses the built-in interface. */
+	uiPatchRemove: (options?: InvokeOptions) => __TAURI_INVOKE<UiPatchStatus_Serialize>("ui_patch_remove", undefined, options),
+	/**  Restarts the app so a downloaded patch (or its removal) takes effect. */
+	uiPatchRestart: (options?: InvokeOptions) => __TAURI_INVOKE<void>("ui_patch_restart", undefined, options),
 };
 
 /* Types */
@@ -1556,6 +1565,11 @@ export type AppSettings_Deserialize = {
 	updateSkipVersion?: string | null,
 	/**  Fetch signed Library content packs between app releases (D-174). */
 	kbUpdates?: boolean,
+	/**
+	 *  Fetch signed interface patches for this exact version (D-183); off
+	 *  also stops a downloaded one from being used.
+	 */
+	uiPatches?: boolean,
 	/**  Alert rules and delivery. */
 	alerts?: AlertSettings_Deserialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -1691,6 +1705,11 @@ export type AppSettings_Serialize = {
 	updateSkipVersion: string | null,
 	/**  Fetch signed Library content packs between app releases (D-174). */
 	kbUpdates: boolean,
+	/**
+	 *  Fetch signed interface patches for this exact version (D-183); off
+	 *  also stops a downloaded one from being used.
+	 */
+	uiPatches: boolean,
 	/**  Alert rules and delivery. */
 	alerts: AlertSettings_Serialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -10249,6 +10268,52 @@ export type UfwState_Serialize = {
 	defaultIn: string,
 	defaultOut: string,
 	rules: UfwRule_Serialize[],
+};
+
+/**  What the running interface came from. */
+export type UiPackInfo = {
+	/**  Unix time of the commit it was built from. */
+	built: number,
+	commit: string,
+	notes: string[],
+};
+
+export type UiPatchStatus = UiPatchStatus_Serialize | UiPatchStatus_Deserialize;
+
+export type UiPatchStatus_Deserialize = {
+	/**  The patch serving the interface right now (None = built-in interface). */
+	running?: UiPackInfo | null,
+	/**  A downloaded patch that applies on the next start. */
+	waiting?: UiPackInfo | null,
+	/**  Commit time of the interface built into this app. */
+	bundledBuilt: number,
+	/**  Why a downloaded patch isn't in use, when it isn't. */
+	skipped?: string | null,
+	/**  When patches were last checked this run (RFC 3339). */
+	checkedAt?: string | null,
+	error?: string | null,
+	/**  The check just downloaded a newer patch. */
+	updated: boolean,
+	/**  This build has no release key, so patches can't be verified. */
+	notConfigured: boolean,
+};
+
+export type UiPatchStatus_Serialize = {
+	/**  The patch serving the interface right now (None = built-in interface). */
+	running: UiPackInfo | null,
+	/**  A downloaded patch that applies on the next start. */
+	waiting: UiPackInfo | null,
+	/**  Commit time of the interface built into this app. */
+	bundledBuilt: number,
+	/**  Why a downloaded patch isn't in use, when it isn't. */
+	skipped: string | null,
+	/**  When patches were last checked this run (RFC 3339). */
+	checkedAt: string | null,
+	error: string | null,
+	/**  The check just downloaded a newer patch. */
+	updated: boolean,
+	/**  This build has no release key, so patches can't be verified. */
+	notConfigured: boolean,
 };
 
 export type Unit = Unit_Serialize | Unit_Deserialize;

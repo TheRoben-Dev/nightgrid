@@ -1,0 +1,84 @@
+name: Release train
+
+# Batched releases (D-183). Every push to main starts this run and cancels
+# the one before it, so it only goes past the quiet window once main has
+# been still for a while. Then, if main's version has no release yet, it
+# starts the CI release run for it. Fixes merged close together (or while a
+# release is building) leave as one release carrying all of them. Versions
+# that were skipped this way are still in CHANGELOG.md, under the release.
+#
+# Interface-only fixes that keep the version ship sooner as signed UI
+# patches (ui-patch.yml); Library-only changes as content packs
+# (kb-content.yml). Neither needs a release, so neither bumps the version.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      now:
+        description: "Skip the quiet window"
+        type: boolean
+        default: true
+
+concurrency:
+  group: release-train
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  train:
+    name: Release main's version when it's new
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Starts ci.yml (a workflow_dispatch from GITHUB_TOKEN does run).
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # Minutes main must stay still before a release starts (repository
+      # variable RELEASE_QUIET_MINUTES, default 10). A new push cancels this
+      # run and starts the wait again.
+      - name: Quiet window
+        if: github.event_name == 'push' || !inputs.now
+        run: sleep $(( ${{ vars.RELEASE_QUIET_MINUTES || 10 }} * 60 ))
+
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Version on main
+        id: v
+        run: |
+          v=$(sed -n '/^\[workspace\.package\]/,/^\[/s/^version *= *"\([^"]*\)".*/\1/p' Cargo.toml | head -1)
+          test -n "$v" || { echo "::error::no workspace version in Cargo.toml"; exit 1; }
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          echo "main is at v$v ($(git rev-parse --short HEAD))"
+
+      # One release at a time: a run already building finishes first, then
+      # this one looks again (it may have been for this same version).
+      - name: Wait for a running release
+        run: |
+          for _ in $(seq 1 120); do
+            n=$(gh run list --workflow ci.yml --event workflow_dispatch --limit 20 --json status \
+              --jq '[.[] | select(.status != "completed")] | length')
+            [ "$n" = "0" ] && exit 0
+            echo "a release run is still going ($n); waiting"
+            sleep 30
+          done
+          echo "::error::a release run has been going for an hour"; exit 1
+
+      - name: Start the release
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "$TAG is already released: nothing to do (UI-only and Library-only changes ship as packs)."
+            exit 0
+          fi
+          gh workflow run ci.yml --ref main -f release_tag="$TAG"
+          echo "### Release $TAG started" >> "$GITHUB_STEP_SUMMARY"
+          echo "Started the CI release run for $TAG from $(git rev-parse --short HEAD)."
