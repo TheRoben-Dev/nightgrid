@@ -90,6 +90,7 @@ record:
 
 - [ ] [Fleet](view:fleet) → **Disks** forecasts when `/srv/frigate` fills; adjust retention before it does.
 - [ ] Monitor GPU load (AMD and NVIDIA show in the host monitor) and the container's CPU in [Docker](view:docker).
+- [ ] [Services](view:services) → **Add integration** → **Frigate** on port 5000: cameras with frame rates (offline ones in red), detector speed, recording storage and the latest detections on a card (see [Add app cards](kb:howto/integrations)).
 - [ ] Home Assistant: install the Frigate integration (via HACS) and enable MQTT in Frigate with your broker from [Zigbee2MQTT and Mosquitto](kb:apps/zigbee2mqtt).
 
 #### Check

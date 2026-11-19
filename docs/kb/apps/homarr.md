@@ -54,4 +54,4 @@ services:
 
 - [Homepage dashboard](kb:apps/homepage)
 - [The *arr stack](kb:apps/arr-stack)
-- [Add Plex, AMP, Uptime Kuma and Portainer cards](kb:howto/integrations)
+- [Add app cards: Plex, Jellyfin, the *arr apps and more](kb:howto/integrations)

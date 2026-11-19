@@ -55,6 +55,7 @@ services:
 ## In Nightgrid
 
 - Watch the download disk in [Fleet](view:fleet) → **Disks**; a full disk pauses SABnzbd.
+- [Services](view:services) → **Add integration** → **SABnzbd** with the API key (Config → General → Security): speed, the queue, free disk and recent failures on a card, with pause, resume and delete (see [Add app cards](kb:howto/integrations)).
 - Keep the web UI on the LAN; open it from away through [Tunnels](view:tunnels) or **⧉** in [Docker](view:docker).
 
 ## Limits and gotchas
