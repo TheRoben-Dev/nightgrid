@@ -11,7 +11,9 @@
 //!   local records (M10v).
 //! - Kinds that report the shared [`app::AppStatus`] (summary, tiles, rows,
 //!   actions): **Jellyfin**, **Emby**, **Tautulli**, **Sonarr**, **Radarr**,
-//!   **Lidarr**, **Prowlarr**, **Bazarr**, **Overseerr** and **Jellyseerr**.
+//!   **Lidarr**, **Prowlarr**, **Bazarr**, **Overseerr**, **Jellyseerr**
+//!   (1.8.0); **qBittorrent**, **Transmission**, **SABnzbd**, **NZBGet**,
+//!   **Immich**, **Nextcloud**, **Syncthing**, **Gotify** and **Frigate** (1.11.0).
 //!
 //! The database stores the kind as text with no CHECK on it (0050): a kind is
 //! valid when [`IntegrationKind::parse`] knows it.
@@ -24,12 +26,20 @@ pub mod amp;
 pub mod app;
 pub mod arr;
 pub mod dns;
+pub mod frigate;
+pub mod gotify;
+pub mod immich;
 pub mod jellyfin;
 pub mod kuma;
+pub mod nextcloud;
 pub mod plex;
 pub mod portainer;
+pub mod qbittorrent;
 pub mod seerr;
+pub mod syncthing;
 pub mod tautulli;
+pub mod transmission;
+pub mod usenet;
 
 use rusqlite::{params, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
@@ -60,6 +70,15 @@ pub enum IntegrationKind {
     Bazarr,
     Overseerr,
     Jellyseerr,
+    Qbittorrent,
+    Transmission,
+    Sabnzbd,
+    Nzbget,
+    Immich,
+    Nextcloud,
+    Syncthing,
+    Gotify,
+    Frigate,
 }
 
 /// Whether a kind uses a token, password or API key from the keychain.
@@ -72,7 +91,7 @@ pub enum SecretUse {
 
 impl IntegrationKind {
     /// Every kind (tests save each one).
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 25] = [
         Self::Plex,
         Self::Amp,
         Self::Kuma,
@@ -89,6 +108,15 @@ impl IntegrationKind {
         Self::Bazarr,
         Self::Overseerr,
         Self::Jellyseerr,
+        Self::Qbittorrent,
+        Self::Transmission,
+        Self::Sabnzbd,
+        Self::Nzbget,
+        Self::Immich,
+        Self::Nextcloud,
+        Self::Syncthing,
+        Self::Gotify,
+        Self::Frigate,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -109,6 +137,15 @@ impl IntegrationKind {
             Self::Bazarr => "bazarr",
             Self::Overseerr => "overseerr",
             Self::Jellyseerr => "jellyseerr",
+            Self::Qbittorrent => "qbittorrent",
+            Self::Transmission => "transmission",
+            Self::Sabnzbd => "sabnzbd",
+            Self::Nzbget => "nzbget",
+            Self::Immich => "immich",
+            Self::Nextcloud => "nextcloud",
+            Self::Syncthing => "syncthing",
+            Self::Gotify => "gotify",
+            Self::Frigate => "frigate",
         }
     }
 
@@ -131,6 +168,15 @@ impl IntegrationKind {
             Self::Bazarr => "Bazarr",
             Self::Overseerr => "Overseerr",
             Self::Jellyseerr => "Jellyseerr",
+            Self::Qbittorrent => "qBittorrent",
+            Self::Transmission => "Transmission",
+            Self::Sabnzbd => "SABnzbd",
+            Self::Nzbget => "NZBGet",
+            Self::Immich => "Immich",
+            Self::Nextcloud => "Nextcloud",
+            Self::Syncthing => "Syncthing",
+            Self::Gotify => "Gotify",
+            Self::Frigate => "Frigate",
         }
     }
 
@@ -152,6 +198,15 @@ impl IntegrationKind {
             "bazarr" => Self::Bazarr,
             "overseerr" => Self::Overseerr,
             "jellyseerr" => Self::Jellyseerr,
+            "qbittorrent" => Self::Qbittorrent,
+            "transmission" => Self::Transmission,
+            "sabnzbd" => Self::Sabnzbd,
+            "nzbget" => Self::Nzbget,
+            "immich" => Self::Immich,
+            "nextcloud" => Self::Nextcloud,
+            "syncthing" => Self::Syncthing,
+            "gotify" => Self::Gotify,
+            "frigate" => Self::Frigate,
             _ => return None,
         })
     }
@@ -159,6 +214,7 @@ impl IntegrationKind {
     pub fn secret_use(self) -> SecretUse {
         match self {
             Self::Kuma | Self::Portainer => SecretUse::None,
+            Self::Qbittorrent | Self::Transmission | Self::Frigate => SecretUse::Optional,
             _ => SecretUse::Required,
         }
     }
@@ -173,6 +229,9 @@ impl IntegrationKind {
         match self {
             Self::Amp => Some(("AMP needs a login name", true)),
             Self::Adguard => Some(("AdGuard Home needs its login name", true)),
+            Self::Nzbget => Some(("NZBGet needs its control login name", true)),
+            Self::Nextcloud => Some(("Nextcloud needs an admin login name", true)),
+            Self::Qbittorrent | Self::Transmission | Self::Frigate => Some(("", false)),
             _ => None,
         }
     }
@@ -320,6 +379,14 @@ async fn app_status(i: &Integration, key: &str) -> std::result::Result<app::AppS
         K::Tautulli => tautulli::status(i, key).await,
         K::Sonarr | K::Radarr | K::Lidarr | K::Prowlarr | K::Bazarr => arr::status(i, key).await,
         K::Overseerr | K::Jellyseerr => seerr::status(i, key).await,
+        K::Qbittorrent => qbittorrent::status(i, key).await,
+        K::Transmission => transmission::status(i, key).await,
+        K::Sabnzbd | K::Nzbget => usenet::status(i, key).await,
+        K::Immich => immich::status(i, key).await,
+        K::Nextcloud => nextcloud::status(i, key).await,
+        K::Syncthing => syncthing::status(i, key).await,
+        K::Gotify => gotify::status(i, key).await,
+        K::Frigate => frigate::status(i, key).await,
         K::Plex | K::Amp | K::Kuma | K::Portainer | K::Pihole | K::Adguard => {
             Err("this integration has its own status".into())
         }
@@ -341,6 +408,11 @@ pub async fn act(i: &Integration, secret: Option<&str>, target: &str, action: &s
         K::Jellyfin | K::Emby => jellyfin::act(i, key, action).await,
         K::Sonarr | K::Radarr | K::Lidarr | K::Prowlarr => arr::act(i, key, target, action).await,
         K::Overseerr | K::Jellyseerr => seerr::act(i, key, target, action).await,
+        K::Qbittorrent => qbittorrent::act(i, key, target, action).await,
+        K::Transmission => transmission::act(i, key, target, action).await,
+        K::Sabnzbd | K::Nzbget => usenet::act(i, key, target, action).await,
+        K::Syncthing => syncthing::act(i, key, target, action).await,
+        K::Gotify => gotify::act(i, key, target, action).await,
         _ => Err(format!("{} has no action {action}", i.kind.label())),
     }
 }
@@ -529,7 +601,16 @@ mod tests {
                 | IntegrationKind::Prowlarr
                 | IntegrationKind::Bazarr
                 | IntegrationKind::Overseerr
-                | IntegrationKind::Jellyseerr => {}
+                | IntegrationKind::Jellyseerr
+                | IntegrationKind::Qbittorrent
+                | IntegrationKind::Transmission
+                | IntegrationKind::Sabnzbd
+                | IntegrationKind::Nzbget
+                | IntegrationKind::Immich
+                | IntegrationKind::Nextcloud
+                | IntegrationKind::Syncthing
+                | IntegrationKind::Gotify
+                | IntegrationKind::Frigate => {}
             }
         }
         let mut s = Store::open_in_memory().unwrap();

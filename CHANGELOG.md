@@ -14,6 +14,19 @@ Faster updates: interface fixes between releases, batched releases and quicker r
 - **Fixes merged close together now ship as one release** instead of one after another, and the release picks its own version number.
 - **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
 
+## [1.11.0] - 2026-11-19
+
+Nine more integrations: download clients, files and photos, notifications and cameras.
+
+### Added
+- **qBittorrent** and **Transmission**: speeds, torrents with progress and errors, pause or resume one or all (login optional).
+- **SABnzbd** and **NZBGet**: speed, queue with progress, free disk, recent failures; pause, resume or delete.
+- **Immich**: photos, videos, storage and background jobs.
+- **Nextcloud**: users, files, active users, shares, free space, load and app updates.
+- **Syncthing**: folder sync state, devices online, errors; rescan, pause and resume.
+- **Gotify**: health, apps and latest messages; delete one or all.
+- **Frigate**: cameras with frame rates, detector speed, recording storage and latest detections.
+
 ## [1.10.0] - 2026-11-19
 
 ### Added: back and forward

@@ -106,6 +106,13 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
   - **Bazarr**: missing subtitles for episodes and movies, throttled providers and health issues.
   - **Overseerr** and **Jellyseerr**: request counts and pending requests with **Approve** and **Decline** (asks first).
   - The *arr apps, Bazarr, Overseerr and Jellyseerr take the API key from their Settings → General.
+  - **qBittorrent** and **Transmission**: speeds, torrents with progress and errors, pause or resume one or all. Enter the Web UI (qBittorrent) or RPC (Transmission) login, or leave it empty when the app doesn't ask for one on your network.
+  - **SABnzbd** and **NZBGet**: speed, the queue with progress, free disk and recent failures; pause or resume the queue, or pause, resume and delete one item. SABnzbd uses its API key (Config → General); NZBGet its control login (Settings → Security).
+  - **Immich**: photos, videos, storage and background jobs that are running, waiting or failed (an admin's API key shows all of it).
+  - **Nextcloud**: users, files, active users, shares, free space, load and pending app updates. Use an admin login with an app password (Personal settings → Security).
+  - **Syncthing**: each folder's state (up to date, syncing with what's left, out of sync, errors), devices online and Syncthing's own errors; **Rescan**, **Pause** and **Resume**. API key from Actions → Settings → General.
+  - **Gotify**: health, apps and the latest messages by priority; delete one or all. Use a client token.
+  - **Frigate**: cameras with their frame rates (no frames shows red), detector speed, recording storage and the latest detections. Port 5000 needs no login; the authenticated port 8971 needs a Frigate login.
   - A card turns orange when the app reports a warning and red when it can't be read; its warnings are listed under the numbers.
 - Tokens and API keys are kept in the keychain only.
 - **Expiry watch** (bottom of Services): everything that runs out on a date, soonest first. HTTPS services show their certificate automatically, and proxy route certificates appear once you've opened Docker → Routes. **Add…** watches more:
