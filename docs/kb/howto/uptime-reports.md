@@ -36,7 +36,7 @@ Read 30- and 90-day uptime for every host and service, see each outage with its 
 - Availability only counts time Nightgrid was watching. Long periods with the app closed show grey.
 - Outages shorter than 2½ minutes aren't listed. A day with only a few minutes watched can still turn red from one real outage; hover the bar to see how much was seen.
 - If every host is unreachable at once (for example the jump host or router everything goes through), Nightgrid can't tell that from its own network dropping, so that time is unknown too.
-- Client devices (laptops, handhelds) going away is never downtime.
+- Client devices (laptops, handhelds; **Client, not a server** in the host editor) going away is never downtime: their row says "client, not counted", even with **Alert when it goes offline** on.
 - History lives on this computer and isn't in profile exports.
 
 ## Related
