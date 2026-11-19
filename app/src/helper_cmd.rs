@@ -527,11 +527,11 @@ pub async fn helper_host_history(
     let conn = crate::term_cmd::connect_posix(&app, host_id, "drift.history")
         .await
         .map_err(|e| CommandError::msg(e.to_string()))?;
-    let (_, out, _) = tokio::time::timeout(Duration::from_secs(10), conn.exec(&history::read_command()))
+    let out = tokio::time::timeout(Duration::from_secs(10), history::read(&conn))
         .await
         .map_err(|_| CommandError::msg("the host took too long to answer"))?
         .map_err(|e| CommandError::msg(e.to_string()))?;
-    let all = history::parse(&String::from_utf8_lossy(&out));
+    let all = history::parse(&out);
     let found = history::filter(&all, "");
     let mut recent: Vec<_> = found.entries.into_iter().take(HISTORY_KEEP).collect();
     recent.reverse();

@@ -122,8 +122,8 @@ pub const WINDOWS: &[Support] = &[
     s(
         "drift.history",
         "DRIFT reading shell history",
-        Planned,
-        "DRIFT reads bash and zsh history. Reading PowerShell's history file is coming.",
+        Partial,
+        "Reads PowerShell's history (PSReadLine). cmd.exe keeps no history, so commands typed there can't be read.",
     ),
     s(
         "drift.lookups",
