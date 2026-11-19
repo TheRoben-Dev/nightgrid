@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [Unreleased]
+## [1.14.0] - 2026-11-19
 
 ### Added: Edit on every Expiry Watch row
 - **Rows Nightgrid finds by itself** (SERVICE TLS from Services, PROXY TLS from Docker → Routes) now have an **Edit** button too. It shows the certificate (subject, issuer, end date, SHA-256 fingerprint) and lets you:
