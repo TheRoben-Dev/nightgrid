@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Added
+- **Synology with 2-step verification on.** The Synology DSM card no longer needs an account without 2-step: enter one current code in the integration's settings and DSM trusts Nightgrid from then on. The device token stays in the OS keychain (not in profile exports, so another computer asks once too), **Forget** removes it, and a card whose token DSM dropped shows **Enter 2-step code**. A regular (non-administrator) account works too: the card shows what DSM shares with it and names what needs an administrator instead of failing.
+- **SNMP cards (read-only).** **Add integration → SNMP** reads any SNMP agent with no app account: on a Synology NAS, system, power and fan status, temperature, storage pools (degraded in red), every disk with its health, volumes, CPU, memory and uptime; other agents show volumes, CPU and memory. SNMPv3 with SHA or MD5 and AES or DES, or v2c. Built in, nothing to install.
+- **Library: A Synology NAS alongside Nightgrid** now covers the two doors into DSM (web sign-ins with 2-step, SSH with keys), a key-only administrator for SSH, SNMP with no DSM account, and Docker as its own user.
+
 ## [1.19.0] - 2026-11-20
 
 ### Added

@@ -4,7 +4,10 @@
 
 use nightgrid_core::integrations::amp::{self, AmpAction};
 use nightgrid_core::integrations::dns::{self, DnsAction};
-use nightgrid_core::integrations::{self, Integration, IntegrationId, IntegrationInput, IntegrationStatus};
+use nightgrid_core::integrations::storage;
+use nightgrid_core::integrations::{
+    self, Integration, IntegrationId, IntegrationInput, IntegrationKind, IntegrationStatus,
+};
 use nightgrid_core::secrets::{Secret, SecretRef, SecretStore};
 use serde::Serialize;
 use specta::Type;
@@ -19,6 +22,8 @@ pub struct IntegrationView {
     pub integration: Integration,
     /// A token/password is saved in the keychain.
     pub has_secret: bool,
+    /// Synology: DSM trusts this computer (a 2-step device token is saved).
+    pub trusted_device: bool,
 }
 
 fn secret_ref(id: IntegrationId) -> SecretRef {
@@ -35,9 +40,23 @@ fn read_secret(state: &AppState, id: IntegrationId) -> Option<String> {
     }
 }
 
+fn read_device(state: &AppState, i: &Integration) -> Option<String> {
+    if i.kind != IntegrationKind::Synology || i.id == 0 {
+        return None;
+    }
+    match state.keychain.get(&SecretRef::integration_device(i.id)) {
+        Ok(s) => s.map(|s| s.expose().to_owned()).filter(|s| !s.is_empty()),
+        Err(e) => {
+            tracing::warn!("keychain read failed: {e}");
+            None
+        }
+    }
+}
+
 fn view(state: &AppState, i: Integration) -> IntegrationView {
     let has_secret = i.kind.needs_secret() && read_secret(state, i.id).is_some();
-    IntegrationView { integration: i, has_secret }
+    let trusted_device = read_device(state, &i).is_some();
+    IntegrationView { integration: i, has_secret, trusted_device }
 }
 
 /// `None` keeps the saved secret, `Some("")` removes it, anything else replaces it.
@@ -102,8 +121,10 @@ pub fn integration_update(
 pub fn integration_delete(state: State<'_, AppState>, id: IntegrationId) -> CmdResult<()> {
     state.store().delete_integration(id)?;
     journal(&state, "Removed an integration");
-    if let Err(e) = state.keychain.delete(&secret_ref(id)) {
-        tracing::warn!("keychain delete failed: {e}");
+    for r in [secret_ref(id), SecretRef::integration_device(id)] {
+        if let Err(e) = state.keychain.delete(&r) {
+            tracing::warn!("keychain delete failed: {e}");
+        }
     }
     Ok(())
 }
@@ -118,13 +139,14 @@ pub fn integration_reveal_secret(state: State<'_, AppState>, id: IntegrationId) 
 #[tauri::command]
 #[specta::specta]
 pub async fn integration_status(app: AppHandle, id: IntegrationId) -> CmdResult<IntegrationStatus> {
-    let (i, secret) = {
+    let (i, secret, device) = {
         let state = app.state::<AppState>();
         let i = state.store().get_integration(id)?;
         let secret = read_secret(&state, id);
-        (i, secret)
+        let device = read_device(&state, &i);
+        (i, secret, device)
     };
-    integrations::status(&i, secret.as_deref()).await.map_err(CommandError::msg)
+    integrations::status_with_device(&i, secret.as_deref(), device.as_deref()).await.map_err(CommandError::msg)
 }
 
 /// Tries settings before saving them. Uses `secret` if given, otherwise
@@ -151,7 +173,47 @@ pub async fn integration_test(
         host_id: n.host_id,
         allow_untrusted: n.allow_untrusted,
     };
-    integrations::status(&i, secret.as_deref()).await.map_err(CommandError::msg)
+    let device = read_device(&app.state::<AppState>(), &i);
+    integrations::status_with_device(&i, secret.as_deref(), device.as_deref()).await.map_err(CommandError::msg)
+}
+
+/// Synology with 2-step verification: signs in once with `code` from the
+/// authenticator and asks DSM to trust this computer. The device token DSM
+/// returns goes to the keychain, so later polls need no code. Returns
+/// whether DSM gave one (it doesn't when the account has no 2-step).
+#[tauri::command]
+#[specta::specta]
+pub async fn synology_trust_device(app: AppHandle, id: IntegrationId, code: String) -> CmdResult<bool> {
+    let (i, secret) = {
+        let state = app.state::<AppState>();
+        let i = state.store().get_integration(id)?;
+        (i, read_secret(&state, id))
+    };
+    if i.kind != IntegrationKind::Synology {
+        return Err(CommandError::msg("only Synology DSM uses 2-step codes here"));
+    }
+    let secret = secret.ok_or_else(|| CommandError::msg("save the DSM password first"))?;
+    let did = storage::synology_trust(&i, &secret, &code).await.map_err(CommandError::msg)?;
+    let state = app.state::<AppState>();
+    if did.is_empty() {
+        return Ok(false);
+    }
+    state
+        .keychain
+        .set(&SecretRef::integration_device(id), &Secret::new(did))
+        .map_err(|e| CommandError::msg(format!("couldn't save to the keychain: {e}")))?;
+    journal(&state, &format!("DSM trusts Nightgrid for {}", i.name));
+    Ok(true)
+}
+
+/// Forgets DSM's trusted-device token (the next poll asks for a code again).
+/// Remove "Nightgrid" from DSM's trusted devices too (Personal → Security).
+#[tauri::command]
+#[specta::specta]
+pub fn synology_forget_device(state: State<'_, AppState>, id: IntegrationId) -> CmdResult<()> {
+    state.keychain.delete(&SecretRef::integration_device(id)).map_err(|e| CommandError::msg(e.to_string()))?;
+    journal(&state, "Forgot a DSM trusted-device token");
+    Ok(())
 }
 
 /// Starts, stops or restarts an AMP instance. The UI confirms stop and

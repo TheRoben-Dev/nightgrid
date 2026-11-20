@@ -457,6 +457,18 @@ export const commands = {
 	 */
 	dnsFilterAction: (id: number, action: DnsAction_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<null>("dns_filter_action", { id, action }, options),
 	/**
+	 *  Synology with 2-step verification: signs in once with `code` from the
+	 *  authenticator and asks DSM to trust this computer. The device token DSM
+	 *  returns goes to the keychain, so later polls need no code. Returns
+	 *  whether DSM gave one (it doesn't when the account has no 2-step).
+	 */
+	synologyTrustDevice: (id: number, code: string, options?: InvokeOptions) => __TAURI_INVOKE<boolean>("synology_trust_device", { id, code }, options),
+	/**
+	 *  Forgets DSM's trusted-device token (the next poll asks for a code again).
+	 *  Remove "Nightgrid" from DSM's trusted devices too (Personal → Security).
+	 */
+	synologyForgetDevice: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("synology_forget_device", { id }, options),
+	/**
 	 *  Runs an action an integration card offered (scan libraries, approve a
 	 *  request, remove a queue item, ...). `target` is the row's id, empty for
 	 *  card-level actions. The UI asks first for any action marked `confirm`.
@@ -5287,7 +5299,7 @@ export type IntegrationInput_Serialize = {
 	allowUntrusted: boolean,
 };
 
-export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate" | "truenas" | "synology" | "unraid" | "pbs" | "opnsense" | "unifi" | "npm" | "grafana" | "prometheus";
+export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate" | "truenas" | "synology" | "unraid" | "pbs" | "opnsense" | "unifi" | "npm" | "grafana" | "prometheus" | "snmp";
 
 /**  What an integration reports right now. */
 export type IntegrationStatus = IntegrationStatus_Serialize | IntegrationStatus_Deserialize;
@@ -5336,12 +5348,16 @@ export type IntegrationView_Deserialize = {
 	integration: Integration_Deserialize,
 	/**  A token/password is saved in the keychain. */
 	hasSecret: boolean,
+	/**  Synology: DSM trusts this computer (a 2-step device token is saved). */
+	trustedDevice: boolean,
 };
 
 export type IntegrationView_Serialize = {
 	integration: Integration_Serialize,
 	/**  A token/password is saved in the keychain. */
 	hasSecret: boolean,
+	/**  Synology: DSM trusts this computer (a 2-step device token is saved). */
+	trustedDevice: boolean,
 };
 
 export type Integration_Deserialize = {

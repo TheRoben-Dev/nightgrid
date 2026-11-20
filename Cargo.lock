@@ -3696,6 +3696,7 @@ dependencies = [
 name = "nightgrid-core"
 version = "1.19.0"
 dependencies = [
+ "aes",
  "age",
  "base64 0.23.1",
  "bollard",
@@ -3709,6 +3710,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "keyring",
+ "md5",
  "minisign-verify",
  "portable-pty",
  "rand 0.10.3",

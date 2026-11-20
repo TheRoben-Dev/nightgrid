@@ -1,6 +1,6 @@
 # Add app cards: Plex, Jellyfin, the *arr apps and more
 
-Bring other apps' live status into Nightgrid's Services board: what's playing on Plex, Jellyfin or Emby, the Sonarr and Radarr download queues, pending Overseerr requests, torrent and Usenet downloads, Immich, Nextcloud and Syncthing, NAS pools on TrueNAS, Synology and Unraid, your router and proxy, Grafana and Prometheus alerts, Frigate cameras, Gotify messages, game servers in AMP, Uptime Kuma monitors and links into Portainer. Keys and passwords stay in the OS keychain.
+Bring other apps' live status into Nightgrid's Services board: what's playing on Plex, Jellyfin or Emby, the Sonarr and Radarr download queues, pending Overseerr requests, torrent and Usenet downloads, Immich, Nextcloud and Syncthing, NAS pools on TrueNAS, Synology and Unraid (or any NAS over read-only SNMP), your router and proxy, Grafana and Prometheus alerts, Frigate cameras, Gotify messages, game servers in AMP, Uptime Kuma monitors and links into Portainer. Keys and passwords stay in the OS keychain.
 
 ![Integrations feeding the Services board.](fig:ng-integrations)
 
@@ -53,7 +53,8 @@ Bring other apps' live status into Nightgrid's Services board: what's playing on
 ## Part 6 · Storage, network and monitoring
 
 - [ ] **TrueNAS** (top-right user menu → API Keys → Add): pools with health and how full they are, TrueNAS's own alerts, uptime, load and memory. See [Run a TrueNAS box alongside Nightgrid](kb:apps/truenas).
-- [ ] **Synology DSM**: an administrator **Login name** and password, on an account without 2-step verification (make a separate one for Nightgrid). Volumes, disks with SMART problems, CPU, memory and temperature. See [A Synology NAS alongside Nightgrid](kb:apps/synology).
+- [ ] **Synology DSM**: a **Login name** and password, on a separate account for Nightgrid. Volumes, disks with SMART problems, CPU, memory and temperature (volumes and disks need an administrator; the card names what DSM keeps from a regular user). With 2-step verification on, enter one current code under **2-step verification**: DSM then trusts Nightgrid and the code isn't asked again. See [A Synology NAS alongside Nightgrid](kb:apps/synology).
+- [ ] **SNMP** (read-only, no app account): the NAS's address, an SNMPv3 user with **SHA + AES** and its passwords (or, less safely, a v2c community). On a Synology NAS: system, power and fan status, pools, disks with health, volumes, CPU and memory; other agents show volumes, CPU and memory. SNMP is UDP, which the built-in Tailscale doesn't carry.
 - [ ] **Unraid** 7.2 or newer, or the Unraid Connect plugin (Settings → Management Access → API Keys): array state and capacity, each disk with status, temperature and errors, and containers and VMs running. See [An Unraid server alongside Nightgrid](kb:apps/unraid).
 - [ ] **Proxmox Backup Server**: an API token (Configuration → Access Control → API Token → Add) with Datastore.Audit and Sys.Audit; enter its **Token id** (like `root@pam!nightgrid`) and **Token secret**. Datastores with usage and when they'll be full, and tasks that failed in the last day. See [Proxmox Backup Server](kb:apps/proxmox-backup-server).
 - [ ] **OPNsense**: an **API key** and **API secret** (System → Access → Users → API keys). Gateways with delay and loss, firmware updates, and stopped services with **Start**. See [OPNsense firewall in a VM](kb:apps/opnsense).
