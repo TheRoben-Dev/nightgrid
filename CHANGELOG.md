@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Fixed
+- **Busy logs no longer flicker.** A container's log restarted every time the Docker list refreshed, so it cleared and reloaded every few seconds; it now keeps streaming. Bursts of output no longer paint a frame of empty rows while following the end, and when you scroll up to read, the lines you're reading stay put even as the oldest drop off.
+- **System → Journal keeps up with fast hosts.** New entries are drawn once per frame instead of on every batch, and only new rows are added, so a chatty journal scrolls smoothly instead of stalling.
+
 ## [1.21.0] - 2026-11-20
 
 ### Added

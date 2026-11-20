@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { api, errorText, type LogEvent, type LogLine } from "../../api";
   import ExplainButton from "../helper/ExplainButton.svelte";
 
@@ -31,11 +32,18 @@
   let scrollTop = $state(0);
   let height = $state(300);
 
+  // The props are getters over the Docker list, which is replaced on every
+  // refresh. Read through deriveds so only a real change restarts the stream:
+  // reading them directly re-ran the effect (clear + reload) every poll.
+  const streamHost = $derived(hostId);
+  const streamId = $derived(containerId);
+  const live = $derived(follow && running);
+
   // (Re)start the stream whenever the container or options change.
   $effect(() => {
-    const opts = { follow: follow && running, tail: tail === "all" ? null : Number(tail), since: null };
-    const id = containerId;
-    const host = hostId;
+    const opts = { follow: live, tail: tail === "all" ? null : Number(tail), since: null };
+    const id = streamId;
+    const host = streamHost;
     lines = [];
     ended = null;
     error = null;
@@ -48,9 +56,18 @@
     const flush = () => {
       frame = 0;
       if (!pending.length) return;
-      const next = lines.length + pending.length > MAX_LINES ? [...lines, ...pending].slice(-MAX_LINES) : [...lines, ...pending];
+      const dropped = Math.max(0, lines.length + pending.length - MAX_LINES);
+      const next = dropped ? [...lines, ...pending].slice(-MAX_LINES) : [...lines, ...pending];
       pending = [];
       lines = next;
+      // Reading older lines while the cap drops rows off the top: keep the same lines in view.
+      if (dropped && !stickBottom && !(q && onlyMatches)) {
+        void tick().then(() => {
+          if (!viewport || stickBottom) return;
+          viewport.scrollTop = Math.max(0, viewport.scrollTop - dropped * ROW);
+          scrollTop = viewport.scrollTop;
+        });
+      }
     };
     const on = (e: LogEvent) => {
       if (stopped) return;
@@ -81,14 +98,20 @@
   const shown = $derived(q && onlyMatches ? lines.filter((l) => l.text.toLowerCase().includes(q)) : lines);
   const matches = $derived(q ? (onlyMatches ? shown.length : lines.filter((l) => l.text.toLowerCase().includes(q)).length) : 0);
 
-  // Virtual window: only rows near the viewport are in the DOM.
-  const first = $derived(Math.max(0, Math.floor(scrollTop / ROW) - 20));
-  const last = $derived(Math.min(shown.length, Math.ceil((scrollTop + height) / ROW) + 20));
+  // Virtual window: only rows near the viewport are in the DOM. While following,
+  // the window is computed from where the view WILL be (the end), not from the
+  // last scroll event: that event lags a frame, and a burst bigger than the
+  // overscan used to paint a frame of empty rows (the flicker on busy logs).
+  const maxTop = $derived(Math.max(0, shown.length * ROW - height));
+  const top = $derived(stickBottom ? maxTop : Math.min(scrollTop, maxTop));
+  const first = $derived(Math.max(0, Math.floor(top / ROW) - 20));
+  const last = $derived(Math.min(shown.length, Math.ceil((top + height) / ROW) + 20));
   const windowed = $derived(shown.slice(first, last));
 
+  // Effects run after the DOM update and before paint: scroll in the same frame.
   $effect(() => {
-    void shown.length;
-    if (stickBottom && viewport) queueMicrotask(() => viewport && (viewport.scrollTop = viewport.scrollHeight));
+    const t = maxTop;
+    if (stickBottom && viewport && viewport.scrollTop !== t) viewport.scrollTop = t;
   });
 
   function onscroll() {
@@ -234,6 +257,7 @@
   }
   .viewport {
     position: relative;
+    overflow-anchor: none;
     flex: 1;
     min-height: 0;
     overflow: auto;

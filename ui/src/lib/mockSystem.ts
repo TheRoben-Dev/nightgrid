@@ -432,10 +432,15 @@ export const mockSystem = {
       let i = n;
       streams.set(
         id,
-        setInterval(() => {
-          const e = entry(Date.now(), i++, unit);
-          if (e.priority <= maxPrio) on({ kind: "entries", entries: [e] });
-        }, 1500),
+        (() => {
+          // Browser preview knob for busy hosts: localStorage "mock.logRate" = lines per second.
+          const rate = Number(globalThis.localStorage?.getItem("mock.logRate")) || 0;
+          const per = rate > 0 ? Math.max(1, Math.round(rate / 20)) : 1;
+          return setInterval(() => {
+            const entries = Array.from({ length: per }, () => entry(Date.now(), i++, unit)).filter((e) => e.priority <= maxPrio);
+            if (entries.length) on({ kind: "entries", entries });
+          }, rate > 0 ? 50 : 1500);
+        })(),
       );
     }
     return id;
