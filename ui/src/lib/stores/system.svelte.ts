@@ -77,6 +77,11 @@ export function unitCounts(units: Unit[]): { running: number; failed: number; to
   };
 }
 
+// Live streams render at most once per frame (setTimeout where there are no frames, e.g. tests).
+const nextFrame = (cb: () => void): number =>
+  typeof requestAnimationFrame === "function" ? requestAnimationFrame(cb) : (setTimeout(cb, 16) as unknown as number);
+const cancelFrame = (id: number) => (typeof cancelAnimationFrame === "function" ? cancelAnimationFrame(id) : clearTimeout(id));
+
 /** Client-side text filter over loaded journal rows. */
 export function filterJournal(entries: JournalEntry[], query: string): JournalEntry[] {
   const q = query.trim().toLowerCase();
@@ -141,7 +146,11 @@ class SystemStore {
   unitBusy = $state<string[]>([]);
   pendingUnit = $state<{ unit: string; action: UnitAction } | null>(null);
 
-  journal = $state<JournalEntry[]>([]);
+  /** Raw (not deeply proxied): rows are replaced, never mutated in place. */
+  journal = $state.raw<JournalEntry[]>([]);
+  /** Entries waiting for the next frame; a fast journal arrives in many small batches. */
+  #journalPending: JournalEntry[] = [];
+  #journalFrame: number | null = null;
   journalForm = $state<JournalForm>(defaultJournalForm());
   journalQuery = $state("");
   journalRun = $state<number | null>(null);
@@ -214,6 +223,7 @@ class SystemStore {
     this.unitsLoaded = false;
     this.selectedUnit = null;
     this.unitStatus = null;
+    this.#dropJournalPending();
     this.journal = [];
     this.journalLimited = false;
     this.journalElevated = false;
@@ -388,6 +398,7 @@ class SystemStore {
     if (id === null) return;
     await this.stopJournal();
     const f = this.journalForm;
+    this.#dropJournalPending();
     this.journal = [];
     this.journalNotices = [];
     this.journalLimited = false;
@@ -405,13 +416,14 @@ class SystemStore {
       if (id !== this.hostId) return;
       if (e.kind === "entries") {
         this.journalLoading = false;
-        const next = this.journal.length + e.entries.length > MAX_JOURNAL ? [...this.journal, ...e.entries].slice(-MAX_JOURNAL) : [...this.journal, ...e.entries];
-        this.journal = next;
+        this.#journalPending.push(...e.entries);
+        this.#journalFrame ??= nextFrame(() => this.#flushJournal());
       } else if (e.kind === "limited") {
         this.journalLimited = true;
       } else if (e.kind === "notice") {
         this.journalNotices = [...this.journalNotices, e.text].slice(-5);
       } else {
+        this.#flushJournal();
         this.journalLoading = false;
         this.journalRun = null;
         if (e.error) this.errors = { ...this.errors, journal: e.error };
@@ -428,6 +440,22 @@ class SystemStore {
       this.journalLoading = false;
       this.fail("journal", e);
     }
+  }
+
+  /** Appends the batched entries once per frame, dropping the oldest past the cap. */
+  #flushJournal() {
+    if (this.#journalFrame !== null) cancelFrame(this.#journalFrame);
+    this.#journalFrame = null;
+    if (!this.#journalPending.length) return;
+    const all = [...this.journal, ...this.#journalPending];
+    this.#journalPending = [];
+    this.journal = all.length > MAX_JOURNAL ? all.slice(-MAX_JOURNAL) : all;
+  }
+
+  #dropJournalPending() {
+    if (this.#journalFrame !== null) cancelFrame(this.#journalFrame);
+    this.#journalFrame = null;
+    this.#journalPending = [];
   }
 
   async stopJournal() {
