@@ -325,12 +325,15 @@ mod tests {
         let host = s.save_update_hold(&HoldInput { until: Some(far), ..input(h.id, HoldKind::Host, "", "") }).unwrap();
         assert_eq!(host.until, Some(far));
         let pkg = s
-            .save_update_hold(&HoldInput { version: Some("6.11.5".into()), ..input(h.id, HoldKind::Package, "linux", "") })
+            .save_update_hold(&HoldInput {
+                version: Some("6.11.5".into()),
+                ..input(h.id, HoldKind::Package, "linux", "")
+            })
             .unwrap();
         s.save_update_hold(&input(h.id, HoldKind::Image, "nginx:1.27", "web")).unwrap();
         // Saving the same thing again updates it, keeping the version.
-        let again =
-            s.save_update_hold(&HoldInput { note: "breaks DKMS".into(), ..input(h.id, HoldKind::Package, "linux", "") });
+        let again = s
+            .save_update_hold(&HoldInput { note: "breaks DKMS".into(), ..input(h.id, HoldKind::Package, "linux", "") });
         let again = again.unwrap();
         assert_eq!(again.id, pkg.id);
         assert_eq!(again.version.as_deref(), Some("6.11.5"));

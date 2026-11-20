@@ -348,9 +348,9 @@ impl DockerHost {
     ) -> DockerResult<(i32, Option<Vec<ImageChange>>)> {
         check_stack(stack)?;
         let pulls = matches!(op, ComposeOp::Pull | ComposeOp::Update);
-        let pull_only = pull_only.filter(|_| pulls).map(|l| {
-            l.iter().filter(|s| crate::holds::valid_service(s)).cloned().collect::<Vec<String>>()
-        });
+        let pull_only = pull_only
+            .filter(|_| pulls)
+            .map(|l| l.iter().filter(|s| crate::holds::valid_service(s)).cloned().collect::<Vec<String>>());
         if let Some(list) = &pull_only {
             if list.is_empty() {
                 sink(vec!["Every service of this stack is held: nothing pulled.".into()]);

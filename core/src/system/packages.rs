@@ -394,7 +394,6 @@ pub fn hold_command(manager: Manager, names: &[String], hold: bool) -> SystemRes
     })
 }
 
-
 pub async fn check(conn: &Connection) -> SystemResult<UpdatesReport> {
     let (_, out, _) = conn.exec(&check_command()).await.map_err(SystemError::other)?;
     Ok(parse_check(&String::from_utf8_lossy(&out)))
@@ -605,8 +604,14 @@ mod tests {
         assert_eq!(report("@mgr ostree\n@os-missing\n", "").hold_support, HoldSupport::None);
         // Commands.
         let names = vec!["docker-ce".to_owned(), "containerd.io".to_owned()];
-        assert_eq!(hold_command(Manager::Apt, &names, true).unwrap(), "LANG=C apt-mark hold 'docker-ce' 'containerd.io' 2>&1");
-        assert_eq!(hold_command(Manager::Dnf, &names[..1], false).unwrap(), "LANG=C dnf -q versionlock delete 'docker-ce' 2>&1");
+        assert_eq!(
+            hold_command(Manager::Apt, &names, true).unwrap(),
+            "LANG=C apt-mark hold 'docker-ce' 'containerd.io' 2>&1"
+        );
+        assert_eq!(
+            hold_command(Manager::Dnf, &names[..1], false).unwrap(),
+            "LANG=C dnf -q versionlock delete 'docker-ce' 2>&1"
+        );
         assert!(hold_command(Manager::Pacman, &names, true).is_err());
         assert!(hold_command(Manager::Apt, &["x; reboot".to_owned()], true).is_err());
         assert!(hold_command(Manager::Apt, &[], true).is_err());

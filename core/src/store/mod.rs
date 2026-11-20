@@ -151,7 +151,7 @@ impl Store {
 mod tests {
     use super::*;
 
-    const LATEST: i64 = 53;
+    const LATEST: i64 = 54;
 
     #[test]
     fn migrations_are_valid() {
