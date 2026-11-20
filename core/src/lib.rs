@@ -28,6 +28,7 @@ pub mod envvault;
 pub mod error;
 pub mod expiry;
 pub mod files;
+pub mod health_ignore;
 pub mod helper;
 pub mod holds;
 pub mod hosts;

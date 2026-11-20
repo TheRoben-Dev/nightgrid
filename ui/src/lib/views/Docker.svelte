@@ -13,6 +13,7 @@
   import HostKeyPrompt from "../components/terminal/HostKeyPrompt.svelte";
   import { formatSize } from "../files/util";
   import { actionLabel, docker, isUp, type ContainerGroup } from "../stores/docker.svelte";
+  import { healthIgnores } from "../stores/healthIgnores.svelte";
   import { hosts } from "../stores/hosts.svelte";
   import { layout } from "../stores/layout.svelte";
   import { terms } from "../stores/terms.svelte";
@@ -383,7 +384,14 @@
                 <span class="image muted" role="gridcell" title={c.image}>{c.image}</span>
                 <span class="status" role="gridcell">
                   <span class="state">{c.state.toUpperCase()}</span>
-                  {#if c.health}<span class="health {c.health}">{c.health.toUpperCase()}</span>{/if}
+                  {#if c.healthIgnored}<button
+                      type="button"
+                      class="health ignored"
+                      title="Health check ignored{c.health ? ` (Docker says ${c.health})` : ''}: unhealthy doesn't alert or count as down. Crashes and restart loops still alert. Click to watch it again."
+                      aria-label="Watch the health check of {c.name} again"
+                      disabled={healthIgnores.busy}
+                      onclick={() => docker.hostId !== null && void healthIgnores.set(docker.hostId, c, false)}>HEALTH IGNORED</button
+                    >{:else if c.health}<span class="health {c.health}">{c.health.toUpperCase()}</span>{/if}
                   <span class="muted up">{uptime(c)}</span>
                 </span>
                 <span class="ports data" role="gridcell" title={ports(c)}>{ports(c)}</span>
@@ -764,6 +772,18 @@
   }
   .health.starting {
     color: var(--warn);
+  }
+  button.health.ignored {
+    color: var(--text-2);
+    border-style: dashed;
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+    line-height: inherit;
+    white-space: nowrap;
+  }
+  button.health.ignored:hover {
+    color: var(--text-0);
   }
   .data {
     color: var(--cyan);

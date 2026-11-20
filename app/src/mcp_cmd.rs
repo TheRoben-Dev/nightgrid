@@ -455,10 +455,11 @@ async fn run_tool(app: &AppHandle, name: &str, args: &Value, client: &str) -> Re
         "list_containers" => {
             let (id, host) = find_host(app, args)?;
             let d = crate::docker_cmd::docker_for(app, id).await.map_err(|e| fail(e.to_string()))?;
-            let list = d.containers().await.map_err(|e| fail(e.to_string()))?;
+            let mut list = d.containers().await.map_err(|e| fail(e.to_string()))?;
+            crate::docker_cmd::mark_health_ignored(app, id, &mut list);
             let rows: Vec<Value> = list
                 .iter()
-                .map(|c| json!({ "name": c.name, "image": c.image, "state": c.state, "status": c.status, "health": c.health, "project": c.project }))
+                .map(|c| json!({ "name": c.name, "image": c.image, "state": c.state, "status": c.status, "health": c.effective_health(), "healthIgnored": c.health_ignored, "project": c.project }))
                 .collect();
             json!({ "host": host, "containers": rows })
         }

@@ -15,6 +15,7 @@ use nightgrid_core::docker::{
 use nightgrid_core::files::path::shell_quote;
 use nightgrid_core::files::text::save_text;
 use nightgrid_core::files::Fs;
+use nightgrid_core::health_ignore::{HealthIgnore, HealthIgnoreId, HealthIgnoreInput};
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::ssh::client::ConnectError;
 use nightgrid_core::stack_dirs::{valid_stack_dir, StackDir, StackDirId};
@@ -102,7 +103,71 @@ pub async fn docker_info(app: AppHandle, host_id: HostId) -> DockerResult<Engine
 #[tauri::command]
 #[specta::specta]
 pub async fn docker_containers(app: AppHandle, host_id: HostId) -> DockerResult<Vec<ContainerView>> {
-    Ok(docker_for(&app, host_id).await?.containers().await?)
+    let mut list = docker_for(&app, host_id).await?.containers().await?;
+    mark_health_ignored(&app, host_id, &mut list);
+    Ok(list)
+}
+
+/// Marks containers whose healthcheck the user ignores (D-201). Every list
+/// Nightgrid judges (alerts, log watch, DRIFT tools, the Docker view) goes
+/// through this.
+pub(crate) fn mark_health_ignored(app: &AppHandle, host_id: HostId, list: &mut [ContainerView]) {
+    let ignores = app.state::<AppState>().store().health_ignores().unwrap_or_default();
+    nightgrid_core::health_ignore::apply(&ignores, host_id, list);
+}
+
+/// Every container whose healthcheck is ignored, on every host (D-201).
+#[tauri::command]
+#[specta::specta]
+pub fn docker_health_ignores(state: State<'_, AppState>) -> CmdResult<Vec<HealthIgnore>> {
+    Ok(state.store().health_ignores()?)
+}
+
+/// Ignores a container's healthcheck, or stops ignoring it (D-201). Keyed
+/// by compose project/service when given, else by container name, so it
+/// survives the container being recreated.
+#[tauri::command]
+#[specta::specta]
+pub fn docker_set_health_ignored(
+    state: State<'_, AppState>,
+    input: HealthIgnoreInput,
+    ignored: bool,
+) -> CmdResult<Option<HealthIgnore>> {
+    let mut store = state.store();
+    if ignored {
+        let row = store.add_health_ignore(&input)?;
+        tracing::info!(host = input.host_id, target = %row.label(), "container healthcheck ignored");
+        return Ok(Some(row));
+    }
+    // Stop ignoring: whatever covers this container (by service or by name).
+    let probe = ContainerView {
+        id: String::new(),
+        name: input.name.trim().trim_start_matches('/').to_owned(),
+        image: String::new(),
+        state: String::new(),
+        status: String::new(),
+        health: None,
+        health_ignored: false,
+        created: 0,
+        ports: Vec::new(),
+        project: input.project.clone().filter(|p| !p.is_empty()),
+        service: input.service.clone().filter(|p| !p.is_empty()),
+        compose_dir: None,
+        compose_files: Vec::new(),
+        web: Vec::new(),
+    };
+    for row in store.health_ignores()?.into_iter().filter(|r| r.matches(input.host_id, &probe)) {
+        store.delete_health_ignore(row.id)?;
+        tracing::info!(host = input.host_id, target = %row.label(), "container healthcheck watched again");
+    }
+    Ok(None)
+}
+
+/// Stops ignoring one healthcheck by its id (the Alerts settings list).
+#[tauri::command]
+#[specta::specta]
+pub fn docker_health_ignore_delete(state: State<'_, AppState>, id: HealthIgnoreId) -> CmdResult<()> {
+    Ok(state.store().delete_health_ignore(id)?)
 }
 
 #[tauri::command]

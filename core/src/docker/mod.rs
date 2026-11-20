@@ -791,6 +791,9 @@ pub struct ContainerView {
     pub status: String,
     /// healthy, unhealthy, starting; None when there is no healthcheck.
     pub health: Option<String>,
+    /// The user ignores this container's healthcheck (D-201): Nightgrid
+    /// treats it as having none. `health` still says what Docker reports.
+    pub health_ignored: bool,
     /// Unix seconds.
     #[cfg_attr(feature = "specta", specta(type = u32))]
     pub created: i64,
@@ -802,6 +805,14 @@ pub struct ContainerView {
     pub compose_files: Vec<String>,
     /// Published ports that look like a web UI, best first (D-147).
     pub web: Vec<crate::webui::WebUiTarget>,
+}
+
+impl ContainerView {
+    /// The health Nightgrid judges by: `None` when there is no healthcheck
+    /// or the user ignores it (D-201).
+    pub fn effective_health(&self) -> Option<&str> {
+        self.health.as_deref().filter(|_| !self.health_ignored)
+    }
 }
 
 fn health_from_status(status: &str) -> Option<String> {
@@ -849,6 +860,7 @@ impl From<ContainerSummary> for ContainerView {
             state: c.state.map(|s| s.to_string()).unwrap_or_default(),
             status,
             health,
+            health_ignored: false,
             created: c.created.unwrap_or(0),
             ports,
             project: labels.get(LABEL_PROJECT).cloned(),

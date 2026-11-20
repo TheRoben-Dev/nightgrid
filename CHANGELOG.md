@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Added
+- **Ignore a container's health check.** For a container that is "running but unhealthy" by design, tick **Ignore health check** in its Docker panel: unhealthy stops raising CONTAINER DOWN and stops counting as a problem (log watch, DRIFT), while exits, crashes and restart loops still alert. The row shows a **HEALTH IGNORED** chip; click it to watch the check again. Kept per host and compose service (or container name), so it survives the container being recreated, and included in the profile export.
+
 ## [1.20.0] - 2026-11-20
 
 ### Added

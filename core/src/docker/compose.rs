@@ -529,6 +529,7 @@ mod tests {
             state: state.into(),
             status: String::new(),
             health: None,
+            health_ignored: false,
             created: 0,
             ports: vec![],
             project: Some(project.into()),
