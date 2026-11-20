@@ -61,6 +61,9 @@
   async function apply() {
     applyError = await firewall.apply(secs, firewall.proposal?.check.risk ? typed : null);
     if (!applyError) {
+      wport = "";
+      wfrom = "";
+      wcomment = "";
       port = "";
       from = "";
       comment = "";
@@ -69,7 +72,13 @@
       source = "";
     }
   }
-  const BACKEND: Record<string, string> = { ufw: "ufw", firewalld: "firewalld", nftables: "nftables (read-only)", iptables: "iptables (read-only)", none: "none found" };
+  const BACKEND: Record<string, string> = { ufw: "ufw", firewalld: "firewalld", nftables: "nftables (read-only)", iptables: "iptables (read-only)", windows: "Windows Defender Firewall", none: "none found" };
+  // Windows add form.
+  let wport = $state("");
+  let wproto = $state<"tcp" | "udp">("tcp");
+  let wfrom = $state("");
+  let wcomment = $state("");
+  const winBlocks = $derived((r?.windows?.profiles ?? []).every((p) => p.defaultIn !== "Allow"));
   const sourceRule = (rule: string) => /^rule family="ipv[46]" source address="([^"]+)"(?: port port="([^"]+)" protocol="(tcp|udp)")? accept$/.exec(rule);
 </script>
 
@@ -78,7 +87,7 @@
     {#if r}
       <span class="label">FIREWALL</span>
       <b>{BACKEND[r.backend]}</b>
-      {#if r.backend === "ufw" || r.backend === "firewalld"}<span class="state" class:on={r.active}>{r.active ? "ACTIVE" : "INACTIVE"}</span>{/if}
+      {#if r.backend === "ufw" || r.backend === "firewalld" || r.backend === "windows"}<span class="state" class:on={r.active}>{r.active ? "ACTIVE" : "INACTIVE"}</span>{/if}
       {#if r.ufw}<span class="muted small">incoming {r.ufw.defaultIn || "?"} · outgoing {r.ufw.defaultOut || "?"}</span>{/if}
     {/if}
     <span class="spacer"></span>
@@ -136,6 +145,45 @@
             <input class="input" bind:value={from} placeholder="from (any, 192.168.1.0/24)" aria-label="From" />
             <input class="input" bind:value={comment} placeholder="comment" aria-label="Comment" />
             <button type="submit" class="btn primary tiny" data-guide="firewall-add" disabled={!!pending || !port.trim()}>Add…</button>
+          </form>
+        </section>
+      {:else if r.backend === "windows" && r.windows}
+        {@const w = r.windows}
+        <section>
+          <div class="row head">
+            <h3 class="label">// PROFILES</h3>
+            <span class="spacer"></span>
+            <label class="small">Incoming default
+              <select class="input tiny" value={winBlocks ? "block" : "allow"} disabled={!!pending} onchange={(e) => propose({ op: "winDefault", policy: (e.currentTarget as HTMLSelectElement).value })}>
+                <option value="block">block</option><option value="allow">allow</option>
+              </select>
+            </label>
+            <button type="button" class="btn tiny" disabled={!!pending} onclick={() => propose({ op: "winEnable", enabled: !r.active })}>{r.active ? "Turn off…" : "Turn on…"}</button>
+          </div>
+          <p class="small">
+            {#each w.profiles as p (p.name)}<span class="chip">{p.name}: {p.enabled ? "on" : "OFF"} · in {p.defaultIn === "NotConfigured" ? "block" : p.defaultIn.toLowerCase()}</span> {/each}
+          </p>
+        </section>
+        <section>
+          <h3 class="label">// YOUR INBOUND RULES</h3>
+          {#each w.rules as rule (rule.name)}
+            <div class="rule" class:off={!rule.enabled}>
+              <span class="act {rule.action === 'Allow' ? 'allow' : 'deny'}">{rule.action.toUpperCase()}</span>
+              <code>{rule.protocol} {rule.ports || "any"}{rule.remote && rule.remote !== "Any" ? ` from ${rule.remote}` : ""}</code>
+              <span class="muted small" title={rule.program ?? ""}>{rule.display}{rule.enabled ? "" : " · disabled"}{rule.program ? " · one program" : ""}</span>
+              <button type="button" class="btn ghost tiny" disabled={!!pending} onclick={() => propose({ op: "winRuleEnable", name: rule.name, enabled: !rule.enabled })}>{rule.enabled ? "Disable…" : "Enable…"}</button>
+              <button type="button" class="btn ghost tiny" disabled={!!pending} onclick={() => propose({ op: "winDelete", name: rule.name })}>Delete…</button>
+            </div>
+          {:else}
+            <p class="muted small">No rules of your own.</p>
+          {/each}
+          <p class="muted small">Plus {w.builtinAllow} enabled allow rules that Windows and installed apps ship (not listed; change them in Windows Defender Firewall).</p>
+          <form class="add" onsubmit={(e) => (e.preventDefault(), propose({ op: "winAllow", port: wport.trim(), proto: wproto, from: wfrom.trim() || null, comment: wcomment.trim() || null }))}>
+            <input class="input port" bind:value={wport} placeholder="port or 8000-8100" aria-label="Port" />
+            <select class="input" bind:value={wproto} aria-label="Protocol"><option value="tcp">tcp</option><option value="udp">udp</option></select>
+            <input class="input" bind:value={wfrom} placeholder="from (any, 192.168.1.0/24)" aria-label="From" />
+            <input class="input" bind:value={wcomment} placeholder="name" aria-label="Name" />
+            <button type="submit" class="btn primary tiny" disabled={!!pending || !wport.trim()}>Allow…</button>
           </form>
         </section>
       {:else if r.backend === "firewalld"}

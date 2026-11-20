@@ -174,7 +174,10 @@ pub struct Sample {
 pub fn is_virtual_iface(name: &str) -> bool {
     const PREFIXES: [&str; 11] =
         ["lo", "veth", "docker", "br-", "virbr", "vnet", "cni", "flannel", "cali", "kube", "lxcbr"];
-    PREFIXES.iter().any(|p| name.starts_with(p))
+    // Windows: Hyper-V switches carry the same traffic as the NIC under them;
+    // tunnel pseudo-interfaces and WAN miniports aren't links of their own.
+    const WINDOWS: [&str; 6] = ["vEthernet", "Hyper-V Virtual", "isatap", "Teredo", "WAN Miniport", "Loopback"];
+    PREFIXES.iter().any(|p| name.starts_with(p)) || WINDOWS.iter().any(|p| name.starts_with(p))
 }
 
 /// Whole disks counted in the disk total (no loop/ram/zram/dm/md/optical).

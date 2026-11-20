@@ -18,6 +18,11 @@ export const commands = {
 	settingsGet: (options?: InvokeOptions) => __TAURI_INVOKE<AppSettings_Serialize>("settings_get", undefined, options),
 	settingsSet: (settings: AppSettings_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<AppSettings_Serialize>("settings_set", { settings }, options),
 	hostsList: (options?: InvokeOptions) => __TAURI_INVOKE<Host_Serialize[]>("hosts_list", undefined, options),
+	/**
+	 *  What works on Windows hosts and why the rest doesn't (one table for the
+	 *  whole app, see `nightgrid_core::win::support`).
+	 */
+	platformWindowsSupport: (options?: InvokeOptions) => __TAURI_INVOKE<Support[]>("platform_windows_support", undefined, options),
 	hostCreate: (input: HostInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Host_Serialize>("host_create", { input }, options),
 	hostUpdate: (id: number, input: HostInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<Host_Serialize>("host_update", { id, input }, options),
 	hostDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("host_delete", { id }, options),
@@ -240,6 +245,11 @@ export const commands = {
 	systemUnits: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Unit_Serialize[]>("system_units", { hostId }, options),
 	/**  Systemd timers and cron jobs (read-only). */
 	systemSchedules: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<Schedules_Serialize>("system_schedules", { hostId }, options),
+	/**
+	 *  Runs, enables or disables a Windows scheduled task (Windows hosts only;
+	 *  disabling was confirmed in the UI).
+	 */
+	systemTaskAction: (hostId: number, task: string, action: TaskAction, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_task_action", { hostId, task, action }, options),
 	/**
 	 *  Searches the login user's shell history (opt-in setting). Secret-looking
 	 *  lines are dropped in core; nothing is stored.
@@ -974,7 +984,7 @@ export const commands = {
 	 */
 	netmapDiscover: (hostId: number, sweep: boolean, ranges: string[], options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover", { hostId, sweep, ranges }, options),
 	/**
-	 *  Network discovery run on this computer (macOS and Linux), for the map's
+	 *  Network discovery run on this computer (macOS, Linux or Windows), for the map's
 	 *  "This computer" option. Same script as on a host, run with the local `sh`.
 	 */
 	netmapDiscoverLocal: (sweep: boolean, ranges: string[], options?: InvokeOptions) => __TAURI_INVOKE<Discovery_Serialize>("netmap_discover_local", { sweep, ranges }, options),
@@ -1961,7 +1971,9 @@ export type AutomationEvent_Serialize = { kind: "hostStart"; hostId: number } | 
 /**  Exit code of the last command step that ran. */
 code: number | null; error: string | null; needs: HostNeeds | null; ms: number; stopped: boolean } | { kind: "done"; stopped: boolean };
 
-export type Backend = "ufw" | "firewalld" | "nftables" | "iptables" | "none";
+export type Backend = "ufw" | "firewalld" | "nftables" | "iptables" | 
+/**  Windows Defender Firewall (Windows hosts). */
+"windows" | "none";
 
 export type BackupFolder = BackupFolder_Serialize | BackupFolder_Deserialize;
 
@@ -3888,6 +3900,8 @@ export type FirewallReport_Deserialize = {
 	raw: string,
 	/**  A rollback is armed on the host right now. */
 	rollbackArmed: boolean,
+	/**  Windows Defender Firewall's profiles and rules (Windows hosts). */
+	windows?: WinFirewall_Deserialize | null,
 };
 
 export type FirewallReport_Serialize = {
@@ -3899,6 +3913,8 @@ export type FirewallReport_Serialize = {
 	raw: string,
 	/**  A rollback is armed on the host right now. */
 	rollbackArmed: boolean,
+	/**  Windows Defender Firewall's profiles and rules (Windows hosts). */
+	windows: WinFirewall_Serialize | null,
 };
 
 export type FirewallView = FirewallView_Serialize | FirewallView_Deserialize;
@@ -3940,7 +3956,15 @@ export type FwChange_Deserialize = { op: "ufwAdd"; action: UfwAction; port: stri
 /**  The incoming default: `allow`, `deny` or `reject`. */
 { op: "ufwDefault"; policy: string } | { op: "firewalldService"; zone: string; service: string; add: boolean } | { op: "firewalldPort"; zone: string; port: string; proto: Proto; add: boolean } | 
 /**  Accept traffic from a source address (optionally to one port). */
-{ op: "firewalldSource"; zone: string; source: string; port?: string | null; proto: Proto; add: boolean };
+{ op: "firewalldSource"; zone: string; source: string; port?: string | null; proto: Proto; add: boolean } | 
+/**  Windows: an inbound allow rule for a port (optionally from one source). */
+{ op: "winAllow"; port: string; proto: Proto; from?: string | null; comment?: string | null } | 
+/**  Windows: a rule from the report, by its unique name. */
+{ op: "winDelete"; name: string } | { op: "winRuleEnable"; name: string; enabled: boolean } | 
+/**  Windows: every profile on or off. */
+{ op: "winEnable"; enabled: boolean } | 
+/**  Windows: the inbound default for every profile, `block` or `allow`. */
+{ op: "winDefault"; policy: string };
 
 /**  One change to the firewall. */
 export type FwChange_Serialize = { op: "ufwAdd"; action: UfwAction; port: string; proto: Proto; from: string | null; comment: string | null } | 
@@ -3949,7 +3973,15 @@ export type FwChange_Serialize = { op: "ufwAdd"; action: UfwAction; port: string
 /**  The incoming default: `allow`, `deny` or `reject`. */
 { op: "ufwDefault"; policy: string } | { op: "firewalldService"; zone: string; service: string; add: boolean } | { op: "firewalldPort"; zone: string; port: string; proto: Proto; add: boolean } | 
 /**  Accept traffic from a source address (optionally to one port). */
-{ op: "firewalldSource"; zone: string; source: string; port: string | null; proto: Proto; add: boolean };
+{ op: "firewalldSource"; zone: string; source: string; port: string | null; proto: Proto; add: boolean } | 
+/**  Windows: an inbound allow rule for a port (optionally from one source). */
+{ op: "winAllow"; port: string; proto: Proto; from: string | null; comment: string | null } | 
+/**  Windows: a rule from the report, by its unique name. */
+{ op: "winDelete"; name: string } | { op: "winRuleEnable"; name: string; enabled: boolean } | 
+/**  Windows: every profile on or off. */
+{ op: "winEnable"; enabled: boolean } | 
+/**  Windows: the inbound default for every profile, `block` or `allow`. */
+{ op: "winDefault"; policy: string };
 
 export type GitCommit = {
 	id: string,
@@ -4689,6 +4721,11 @@ export type Host_Deserialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**
+	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
+	 *  Not user-edited (not in [`HostInput`]).
+	 */
+	os?: string,
 };
 
 export type Host_Serialize = {
@@ -4728,6 +4765,11 @@ export type Host_Serialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**
+	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
+	 *  Not user-edited (not in [`HostInput`]).
+	 */
+	os: string,
 };
 
 export type HubEventView = {
@@ -5947,7 +5989,9 @@ export type Manager = "apt" | "dnf" | "pacman" |
  *  Image-based OS (Fedora Atomic, Bazzite, ...): updated as one image
  *  with rpm-ostree, which stages it for the next boot.
  */
-"ostree";
+"ostree" | 
+/**  Windows Update (Windows hosts). */
+"windowsUpdate";
 
 /**  A secret kept outside Nightgrid, listed by hand. No value is stored. */
 export type ManualSecret = ManualSecret_Serialize | ManualSecret_Deserialize;
@@ -7124,7 +7168,9 @@ export type PoolDevice_Serialize = {
 	errors: string | null,
 };
 
-export type PoolKind = "zfs" | "mdraid" | "btrfs";
+export type PoolKind = "zfs" | "mdraid" | "btrfs" | 
+/**  Windows Storage Spaces. */
+"storageSpaces";
 
 export type Pool_Deserialize = {
 	kind: PoolKind,
@@ -9937,6 +9983,26 @@ export type SudoState =
 /**  sudo isn't installed. */
 "missing";
 
+export type Support = {
+	/**  Feature id (`system.units`, `docker`, ...). */
+	feature: string,
+	/**  What the user calls it. */
+	label: string,
+	level: SupportLevel,
+	/**  One or two sentences for the user. */
+	why: string,
+};
+
+export type SupportLevel = 
+/**  Works the same as on Linux. */
+"full" | 
+/**  Works, with differences explained in `why`. */
+"partial" | 
+/**  Not yet: a Windows version is planned (`why` says what it will use). */
+"planned" | 
+/**  Can't work on Windows (`why` says why, and what to do instead). */
+"none";
+
 /**  What one sync brought in. */
 export type SyncReport = {
 	/**  Minute points and rollups stored. */
@@ -10062,6 +10128,9 @@ export type TailnetStatus_Serialize = {
 	/**  The last error the client reported, in words. */
 	error: string | null,
 };
+
+/**  What can be done to a task. */
+export type TaskAction = "run" | "enable" | "disable";
 
 /**  One temperature sensor. */
 export type Temp = {
@@ -11167,6 +11236,72 @@ export type Widget = {
 	y: number,
 	w: number,
 	h: number,
+};
+
+export type WinFirewall = WinFirewall_Serialize | WinFirewall_Deserialize;
+
+export type WinFirewall_Deserialize = {
+	profiles: WinProfile[],
+	/**  Inbound rules you (or Nightgrid) made: no rule group. */
+	rules: WinRule_Deserialize[],
+	/**  Enabled inbound allow rules that Windows and apps ship (not listed). */
+	builtinAllow: number,
+};
+
+export type WinFirewall_Serialize = {
+	profiles: WinProfile[],
+	/**  Inbound rules you (or Nightgrid) made: no rule group. */
+	rules: WinRule_Serialize[],
+	/**  Enabled inbound allow rules that Windows and apps ship (not listed). */
+	builtinAllow: number,
+};
+
+export type WinProfile = {
+	/**  `Domain`, `Private` or `Public`. */
+	name: string,
+	enabled: boolean,
+	/**  `Block`, `Allow` or `NotConfigured` (which blocks). */
+	defaultIn: string,
+};
+
+export type WinRule = WinRule_Serialize | WinRule_Deserialize;
+
+export type WinRule_Deserialize = {
+	/**  The rule's unique name (what changes refer to). */
+	name: string,
+	display: string,
+	enabled: boolean,
+	/**  `Allow` or `Block`. */
+	action: string,
+	/**  `TCP`, `UDP`, `Any`, ... */
+	protocol: string,
+	/**  Local ports (`22`, `8000-8100`, `Any`). */
+	ports: string,
+	/**  Remote addresses (`Any`, `192.168.1.0/24`, ...). */
+	remote: string,
+	/**  Profiles it applies to (`Any`, `Private, Public`). */
+	profiles: string,
+	/**  The program it's limited to, if any. */
+	program?: string | null,
+};
+
+export type WinRule_Serialize = {
+	/**  The rule's unique name (what changes refer to). */
+	name: string,
+	display: string,
+	enabled: boolean,
+	/**  `Allow` or `Block`. */
+	action: string,
+	/**  `TCP`, `UDP`, `Any`, ... */
+	protocol: string,
+	/**  Local ports (`22`, `8000-8100`, `Any`). */
+	ports: string,
+	/**  Remote addresses (`Any`, `192.168.1.0/24`, ...). */
+	remote: string,
+	/**  Profiles it applies to (`Any`, `Private, Public`). */
+	profiles: string,
+	/**  The program it's limited to, if any. */
+	program: string | null,
 };
 
 export type Zone = {

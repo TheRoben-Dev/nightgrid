@@ -17,7 +17,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::state::AppState;
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
-use crate::term_cmd::{connect_host, resolve_host};
+use crate::term_cmd::{connect_posix, resolve_host};
 
 /// A change waiting for Keep. The sudo auth is held in memory only until
 /// then, so keeping or undoing works even if sudo would prompt again.
@@ -90,10 +90,20 @@ fn pending_of(hub: &FirewallHub, host_id: HostId) -> Option<PendingChange> {
 #[specta::specta]
 pub async fn firewall_read(app: AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<FirewallView> {
     let (_, port) = ssh_port(&app, host_id)?;
-    let conn = connect_host(&app, host_id).await?;
-    let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
-    let o = sudo::run(&conn, &auth, firewall::READ_COMMAND).await?;
-    let report = firewall::parse_read(&o.stdout);
+    let conn = connect_posix(&app, host_id, "system.firewall").await?;
+    let report = if conn.is_windows() {
+        let o = nightgrid_core::win::run(&conn, &nightgrid_core::win::firewall::read_script())
+            .await
+            .map_err(SystemError::other)?;
+        if o.code != 0 {
+            return Err(SystemError::other(o.error_text()).into());
+        }
+        nightgrid_core::win::firewall::parse(&o.stdout).map_err(SystemError::other)?
+    } else {
+        let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
+        let o = sudo::run(&conn, &auth, firewall::READ_COMMAND).await?;
+        firewall::parse_read(&o.stdout)
+    };
     let hub = app.state::<AppState>().firewall.clone();
     hub.reports.lock().expect("poisoned").insert(host_id, report.clone());
     Ok(FirewallView { pending: pending_of(&hub, host_id), report, ssh_port: port })
@@ -115,7 +125,7 @@ fn check_against(
         .ok_or_else(|| SystemError::other("read the firewall first"))?;
     let want = change.backend();
     let usable = match report.backend {
-        Backend::Ufw | Backend::Firewalld => report.backend,
+        Backend::Ufw | Backend::Firewalld | Backend::Windows => report.backend,
         _ => Backend::None,
     };
     if want != usable {
@@ -127,7 +137,11 @@ fn check_against(
         }
     }
     firewall::change_command(change).map_err(SystemError::other)?;
-    let check = ChangeCheck { summary: change.describe(), risk: firewall::lockout_risk(&report, change, port) };
+    let risk = match &report.windows {
+        Some(w) => nightgrid_core::win::firewall::lockout_risk(w, change, port),
+        None => firewall::lockout_risk(&report, change, port),
+    };
+    let check = ChangeCheck { summary: change.describe(), risk };
     Ok((name, report, check))
 }
 
@@ -159,13 +173,19 @@ pub async fn firewall_apply(
     if pending_of(&hub, host_id).is_some() {
         return Err(SystemError::other("keep or undo the last change first").into());
     }
-    let conn = connect_host(&app, host_id).await?;
-    let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
+    let conn = connect_posix(&app, host_id, "system.firewall").await?;
+    let windows = change.backend() == Backend::Windows;
+    let auth = if windows { SudoAuth::User } else { resolve_sudo(&app, host_id, &conn, sudo).await? };
     let token = now().to_string();
     let secs = secs.clamp(30, 900);
     tracing::info!(host = %host_id, change = %check.summary, secs, "firewall change");
-    let o =
-        sudo::run(&conn, &auth, &firewall::apply_command(&change, &token, secs).map_err(SystemError::other)?).await?;
+    let o = if windows {
+        let script = nightgrid_core::win::firewall::apply_script(&change, &token, secs).map_err(SystemError::other)?;
+        let o = nightgrid_core::win::run(&conn, &script).await.map_err(SystemError::other)?;
+        sudo::Output { code: o.code, stderr: o.error_text(), stdout: o.stdout }
+    } else {
+        sudo::run(&conn, &auth, &firewall::apply_command(&change, &token, secs).map_err(SystemError::other)?).await?
+    };
     if !o.stdout.contains("@@armed") {
         return Err(SystemError::other(format!("nothing was changed: {}", o.stderr.trim())).into());
     }
@@ -225,10 +245,18 @@ async fn finish(app: &AppHandle, host_id: HostId, token: &str, keep: bool) -> Sy
             .ok_or_else(|| SystemError::other("no change is waiting on this host (it may have rolled back already)"))?;
         p.auth.clone()
     };
-    let cmd = if keep { firewall::confirm_command(token) } else { firewall::rollback_command(token) }
-        .map_err(SystemError::other)?;
-    let conn = connect_host(app, host_id).await?;
-    let o = sudo::run(&conn, &auth, &cmd).await?;
+    let conn = connect_posix(app, host_id, "system.firewall").await?;
+    let o = if conn.is_windows() {
+        use nightgrid_core::win::firewall as wf;
+        let script =
+            if keep { wf::confirm_script() } else { wf::rollback_script(token).map_err(SystemError::other)? };
+        let o = nightgrid_core::win::run(&conn, &script).await.map_err(SystemError::other)?;
+        sudo::Output { code: o.code, stderr: o.error_text(), stdout: o.stdout }
+    } else {
+        let cmd = if keep { firewall::confirm_command(token) } else { firewall::rollback_command(token) }
+            .map_err(SystemError::other)?;
+        sudo::run(&conn, &auth, &cmd).await?
+    };
     let ok = if keep { o.stdout.contains("kept") } else { o.stdout.contains("restored") };
     if !ok {
         return Err(SystemError::other(format!("the host didn't confirm: {}", o.stderr.trim())).into());

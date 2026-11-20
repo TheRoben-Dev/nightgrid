@@ -36,7 +36,7 @@ use crate::commands::{CmdResult, CommandError};
 use crate::journal_cmd::{record, Change};
 use crate::state::AppState;
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult, SystemCmdError};
-use crate::term_cmd::connect_host;
+use crate::term_cmd::{connect_host, connect_posix};
 
 /// Look again this long after finding no usable node on a connection.
 const RECHECK_SECS: i64 = 30 * 60;
@@ -154,6 +154,10 @@ pub(crate) async fn ensure(app: &AppHandle, host: HostId) -> Option<Arc<NodeClie
         return with_link(host, |l| l.client.clone().filter(|c| !c.is_closed()));
     }
     let conn = connect_host(app, host).await.ok()?;
+    // Nightgrid Node has no Windows build (win::support "node").
+    if conn.is_windows() {
+        return None;
+    }
     let ptr = Arc::as_ptr(&conn) as usize;
     let now = now_unix();
     let (cached, stale) = with_link(host, |l| {
@@ -576,7 +580,7 @@ pub fn node_list(app: AppHandle) -> CmdResult<Vec<NodeView>> {
 #[tauri::command]
 #[specta::specta]
 pub async fn node_check(app: AppHandle, host_id: HostId) -> SysResult<NodeView> {
-    connect_host(&app, host_id).await?;
+    connect_posix(&app, host_id, "node").await?;
     with_link(host_id, |l| {
         if l.client.as_ref().map_or(true, |c| c.is_closed()) {
             l.checked = 0;
@@ -746,7 +750,7 @@ pub async fn node_install(
     from_file: bool,
     sudo: Option<SudoInput>,
 ) -> SysResult<Option<NodeInstallResult>> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "node").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     let (_, out, _) = conn.exec(&install::probe_script()).await?;
     let probe = install::parse_probe(&String::from_utf8_lossy(&out));
@@ -810,7 +814,7 @@ pub async fn node_uninstall(
     purge: bool,
     sudo: Option<SudoInput>,
 ) -> SysResult<NodeInstallResult> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "node").await?;
     let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
     with_link(host_id, Link::drop_client);
     let o = sudo::run(&conn, &auth, &install::uninstall_command(purge)).await?;

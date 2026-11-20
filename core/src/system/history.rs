@@ -51,9 +51,28 @@ echo "{MARK} end""#
     ))
 }
 
-pub async fn search(conn: &Connection, query: &str) -> SystemResult<HistoryResult> {
+/// PSReadLine's history file (PowerShell 5.1 and 7 both write it) on Windows hosts.
+pub fn read_script_windows() -> String {
+    format!(
+        r#"$f = (Get-PSReadLineOption -ErrorAction SilentlyContinue).HistorySavePath
+if (-not $f) {{ $f = Join-Path $env:APPDATA 'Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt' }}
+if (Test-Path -LiteralPath $f) {{ [Console]::Out.WriteLine('{MARK} powershell'); Get-Content -LiteralPath $f -Tail {TAIL} | ForEach-Object {{ [Console]::Out.WriteLine($_) }} }}
+[Console]::Out.WriteLine('{MARK} end')"#
+    )
+}
+
+/// The raw history output of the login user's shells ([`parse`] reads it).
+pub async fn read(conn: &Connection) -> SystemResult<String> {
+    if conn.is_windows() {
+        let o = crate::win::run(conn, &read_script_windows()).await.map_err(SystemError::other)?;
+        return Ok(o.stdout);
+    }
     let (_, out, _) = conn.exec(&read_command()).await.map_err(SystemError::other)?;
-    Ok(filter(&parse(&String::from_utf8_lossy(&out)), query))
+    Ok(String::from_utf8_lossy(&out).into_owned())
+}
+
+pub async fn search(conn: &Connection, query: &str) -> SystemResult<HistoryResult> {
+    Ok(filter(&parse(&read(conn).await?), query))
 }
 
 /// All commands in file order (oldest first within each shell).
@@ -62,19 +81,33 @@ pub fn parse(out: &str) -> Vec<HistoryEntry> {
     let mut shell = "";
     let mut bash_ts: Option<i64> = None;
     let mut fish_cmd: Option<usize> = None;
+    // PSReadLine ends each line of a multi-line command with a backtick.
+    let mut ps_cont = String::new();
     for line in out.lines() {
         if let Some(rest) = line.strip_prefix(MARK) {
             shell = match rest.trim() {
                 "bash" => "bash",
                 "zsh" => "zsh",
                 "fish" => "fish",
+                "powershell" => "powershell",
                 _ => "",
             };
             bash_ts = None;
             fish_cmd = None;
+            ps_cont.clear();
             continue;
         }
         match shell {
+            "powershell" => {
+                if let Some(head) = line.strip_suffix('`') {
+                    ps_cont.push_str(head);
+                    ps_cont.push('\n');
+                    continue;
+                }
+                ps_cont.push_str(line);
+                push(&mut v, &ps_cont, "powershell", None);
+                ps_cont.clear();
+            }
             "bash" => {
                 // HISTTIMEFORMAT writes "#<unix>" before each command.
                 if let Some(ts) = line.strip_prefix('#').and_then(|t| t.trim().parse::<i64>().ok()) {
@@ -250,10 +283,22 @@ plain zsh line
 
 #[cfg(test)]
 mod script_tests {
+    use super::*;
     #[test]
     fn script_runs_under_sh() {
-        let out = std::process::Command::new("sh").arg("-c").arg(super::read_command()).output().unwrap();
+        let out = std::process::Command::new("sh").arg("-c").arg(read_command()).output().unwrap();
         assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
         assert!(String::from_utf8_lossy(&out.stdout).contains("@@NGHIST@@ end"));
+    }
+
+    #[test]
+    fn powershell_history() {
+        let out = format!("{MARK} powershell\nGet-Service sshd\nforeach ($x in 1..2) {{`\n  $x`\n}}\n{MARK} end\n");
+        let v = parse(&out);
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0].command, "Get-Service sshd");
+        assert_eq!(v[1].command, "foreach ($x in 1..2) {\n  $x\n}");
+        assert_eq!(v[1].shell, "powershell");
+        assert!(!read_script_windows().contains("&&"));
     }
 }

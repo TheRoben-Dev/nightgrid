@@ -118,13 +118,13 @@
       <button type="button" class="chip" class:on={q.hosts.includes(h.id)} onclick={() => toggleHost(h.id)}>{h.name}</button>
     {/each}
     <span class="sep"></span>
-    <label class="check"><input type="checkbox" bind:checked={q.journal} /> journal</label>
+    <label class="check"><input type="checkbox" bind:checked={q.journal} /> journal{#if hosts.hosts.some((h) => h.os === "windows")} / event log{/if}</label>
     <label class="check"><input type="checkbox" bind:checked={q.containers} /> containers</label>
     <button type="button" class="btn ghost tiny" onclick={() => (more = !more)}>{more ? "Fewer filters" : "More filters"}</button>
   </div>
   {#if more}
     <div class="row small">
-      <input class="input" value={q.unit ?? ""} oninput={(e) => (q.unit = e.currentTarget.value || null)} placeholder="unit, e.g. nginx.service" aria-label="Unit" spellcheck="false" />
+      <input class="input" value={q.unit ?? ""} oninput={(e) => (q.unit = e.currentTarget.value || null)} placeholder={hosts.hosts.some((h) => h.os === "windows") ? "unit or event source" : "unit, e.g. nginx.service"} aria-label="Unit" spellcheck="false" />
       <input class="input" value={q.container ?? ""} oninput={(e) => (q.container = e.currentTarget.value || null)} placeholder="container name contains" aria-label="Container" spellcheck="false" />
       <select class="input" value={q.priority ?? ""} onchange={(e) => (q.priority = e.currentTarget.value === "" ? null : Number(e.currentTarget.value))} aria-label="Journal priority">
         <option value="">any priority</option>

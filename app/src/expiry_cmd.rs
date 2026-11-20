@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::commands::{CmdResult, CommandError};
 use crate::state::AppState;
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 /// Certificate files are re-read in the background this often.
 pub(crate) const REFRESH_EVERY: i64 = 12 * 3600;
@@ -86,7 +86,7 @@ pub async fn watch_lookup(app: AppHandle, id: WatchId, via: HostId) -> CmdResult
         return Err(CommandError::msg("only domains can be looked up"));
     }
     let cmd = expiry::whois_command(&item.target).ok_or_else(|| CommandError::msg("not a domain name"))?;
-    let conn = connect_host(&app, via).await.map_err(|e| CommandError::msg(e.to_string()))?;
+    let conn = connect_posix(&app, via, "system.expiry").await.map_err(|e| CommandError::msg(e.to_string()))?;
     tracing::info!(host = %via, "whois lookup for a watched domain");
     let r = match tokio::time::timeout(std::time::Duration::from_secs(30), conn.exec(&cmd)).await {
         Ok(Ok((_, out, _))) => expiry::parse_whois(&String::from_utf8_lossy(&out)),
@@ -115,7 +115,7 @@ pub(crate) async fn read_cert_files(app: &AppHandle, items: &[WatchItem]) {
     for (host, list) in by_host {
         let paths: Vec<String> = list.iter().map(|i| i.target.clone()).collect();
         let result: Result<Vec<FileDate>, String> = async {
-            let conn = connect_host(app, host).await.map_err(|e| e.to_string())?;
+            let conn = connect_posix(app, host, "system.expiry").await.map_err(|e| e.to_string())?;
             let (_, out, _) = tokio::time::timeout(
                 std::time::Duration::from_secs(20),
                 conn.exec(&expiry::cert_files_command(&paths)),

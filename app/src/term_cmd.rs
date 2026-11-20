@@ -15,7 +15,7 @@ use nightgrid_core::term::{self, ConnectFuture, Connector, Sink, TermEvent, Term
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use tauri::ipc::Channel;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::commands::{CmdResult, CommandError};
 use crate::state::AppState;
@@ -106,8 +106,53 @@ pub(crate) async fn connect_host(app: &AppHandle, host_id: HostId) -> Result<Arc
         }
     }
     let conn = res?;
+    note_os(app, host_id, &conn);
     crate::tunnels_cmd::host_connected(app, host_id, &conn);
     Ok(conn)
+}
+
+/// [`connect_host`] for features that run POSIX shell on the host: on a
+/// Windows host it fails at once with the reason from the support table
+/// (`feature` is its id) instead of sending cmd a shell script.
+#[allow(clippy::result_large_err)]
+pub(crate) async fn connect_posix(
+    app: &AppHandle,
+    host_id: HostId,
+    feature: &str,
+) -> Result<Arc<client::Connection>, ConnectError> {
+    let conn = connect_host(app, host_id).await?;
+    if conn.is_windows() {
+        if let Some(message) = nightgrid_core::win::support::unavailable(feature) {
+            return Err(ConnectError::Other { message });
+        }
+    }
+    Ok(conn)
+}
+
+/// Fired when a host's OS family is learned or changes (payload: [`HostOs`]).
+pub const EVENT_HOST_OS: &str = "hosts://os";
+
+#[derive(Debug, Clone, Serialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HostOs {
+    pub host_id: HostId,
+    pub os: String,
+}
+
+/// Records which OS family the host runs (from its SSH version line), so
+/// views know what works there before connecting next time.
+fn note_os(app: &AppHandle, host_id: HostId, conn: &client::Connection) {
+    use nightgrid_core::hosts::{OS_POSIX, OS_WINDOWS};
+    let os = if conn.is_windows() { OS_WINDOWS } else { OS_POSIX };
+    let changed = app.state::<AppState>().store().set_host_os(host_id, os);
+    match changed {
+        Ok(true) => {
+            tracing::info!(host_id, os, server = %conn.server_id, "host OS learned");
+            let _ = app.emit(EVENT_HOST_OS, HostOs { host_id, os: os.to_owned() });
+        }
+        Ok(false) => {}
+        Err(e) => tracing::warn!(host_id, "couldn't save the host's OS: {e}"),
+    }
 }
 
 /// A login notice for a host that is still connecting.
@@ -360,4 +405,39 @@ pub fn ssh_provide_secret(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod posix_guard_tests {
+    /// Every feature named in a `connect_posix` call has a Windows entry, so
+    /// none of them slips through to cmd unexplained.
+    #[test]
+    fn every_guarded_feature_is_in_the_support_table() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut seen = 0;
+        for e in std::fs::read_dir(dir).unwrap() {
+            let path = e.unwrap().path();
+            let text = std::fs::read_to_string(&path).unwrap_or_default();
+            for (i, _) in text.match_indices("connect_posix(") {
+                let rest = &text[i..];
+                let Some(end) = rest.find(").await") else { continue };
+                let call = &rest[..end];
+                let Some(q) = call.rfind('"') else { continue };
+                let Some(open) = call[..q].rfind('"') else { continue };
+                let id = &call[open + 1..q];
+                // Only real calls name an id (the definition and this test don't).
+                if id.is_empty() || !id.bytes().all(|b| b.is_ascii_lowercase() || b == b'.') {
+                    continue;
+                }
+                // Partial features branch to PowerShell after the guard.
+                assert!(
+                    nightgrid_core::win::support::windows(id).is_some(),
+                    "{}: {id:?} is not in win::support",
+                    path.display()
+                );
+                seen += 1;
+            }
+        }
+        assert!(seen > 50, "found only {seen} guarded calls");
+    }
 }

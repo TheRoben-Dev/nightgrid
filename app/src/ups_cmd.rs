@@ -79,7 +79,7 @@ fn notify(app: &AppHandle, title: &str, body: &str) {
 }
 
 async fn read(app: &AppHandle, w: &UpsWatch) -> Option<UpsReading> {
-    let conn = crate::term_cmd::connect_host(app, w.host_id).await.ok()?;
+    let conn = crate::term_cmd::connect_posix(app, w.host_id, "fleet.ups").await.ok()?;
     let (_, out, _) = conn.exec(&ups::command(&w.target)).await.ok()?;
     Some(ups::parse(&String::from_utf8_lossy(&out)))
 }
@@ -260,7 +260,9 @@ pub async fn ups_read_now(app: AppHandle, host_id: HostId, target: String) -> Cm
     if !ups::valid_target(&target) {
         return Err(CommandError::msg("a NUT name like ups or ups@localhost"));
     }
-    let conn = crate::term_cmd::connect_host(&app, host_id).await.map_err(|e| CommandError::msg(e.to_string()))?;
+    let conn = crate::term_cmd::connect_posix(&app, host_id, "fleet.ups")
+        .await
+        .map_err(|e| CommandError::msg(e.to_string()))?;
     let (_, out, _) = conn.exec(&ups::command(&target)).await.map_err(|e| CommandError::msg(e.to_string()))?;
     Ok(ups::parse(&String::from_utf8_lossy(&out)))
 }

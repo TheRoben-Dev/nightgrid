@@ -16,10 +16,10 @@ use crate::timeline::{days_from_civil, iso_offset};
 /// Days of login history read.
 pub const DAYS: u32 = 7;
 /// Lines of sshd log read at most.
-const LOG_LINES: usize = 20_000;
+pub(crate) const LOG_LINES: usize = 20_000;
 const MAX_LOGINS: usize = 200;
 const MAX_SOURCES: usize = 100;
-const MAX_SESSIONS: usize = 30;
+pub(crate) const MAX_SESSIONS: usize = 30;
 const MAX_DECISIONS: usize = 200;
 /// Failed attempts in [`DAYS`] that make a host without a ban tool worth a
 /// warning.
@@ -187,7 +187,7 @@ pub struct AccessReport {
     pub findings: Vec<Finding>,
 }
 
-const SSHD_KEYS: &str = "permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|permitemptypasswords|maxauthtries|port|allowusers|allowgroups";
+pub(crate) const SSHD_KEYS: &str = "permitrootlogin|passwordauthentication|kbdinteractiveauthentication|pubkeyauthentication|permitemptypasswords|maxauthtries|port|allowusers|allowgroups";
 
 /// The audit script: read-only, POSIX sh, sections marked `@@name`.
 pub fn script(since: i64) -> String {

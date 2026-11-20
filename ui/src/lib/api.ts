@@ -196,6 +196,8 @@ import {
   type HostInput_Serialize as HostInput,
   type HostKeyInfo,
   type HostPing_Serialize as HostPing,
+  type Support as PlatformSupport,
+  type SupportLevel,
   type ImportResult,
   type PromptKind,
   type SshConfigCandidate_Serialize as SshConfigCandidate,
@@ -389,6 +391,7 @@ import {
   type Periodic,
   type Gpu_Serialize as Gpu,
   type UnitAction,
+  type TaskAction,
   type UpdatesReport_Serialize as UpdatesReport,
   type UpgradeOp,
   type AuthNotice_Serialize as AuthNotice,
@@ -475,7 +478,7 @@ import { mockSystem } from "./mockSystem";
 /** Browser preview: what `sshAuthNotices` returns (tests fill it). */
 export const mockAuthNotices: HostAuthNotice[] = [];
 
-export type { AuthNotice, HostAuthNotice, LogEventView, LogNote };
+export type { AuthNotice, HostAuthNotice, LogEventView, LogNote, PlatformSupport, SupportLevel };
 
 export type {
   ChatTurn,
@@ -848,6 +851,7 @@ export type {
   Periodic,
   Gpu,
   UnitAction,
+  TaskAction,
   UpdatesReport,
   UpgradeOp,
   UpdateProgress,
@@ -1051,6 +1055,8 @@ export const api = {
   settingsSet: (s: AppSettings): Promise<AppSettings> => (T() ? commands.settingsSet(s) : mock.settingsSet(s)),
 
   hostsList: (): Promise<Host[]> => (T() ? commands.hostsList() : mockBackend.hostsList()),
+  /** What works on Windows hosts (the browser preview has no Windows hosts). */
+  platformWindowsSupport: (): Promise<PlatformSupport[]> => (T() ? commands.platformWindowsSupport() : Promise.resolve([])),
   hostCreate: (i: HostInput): Promise<Host> => (T() ? commands.hostCreate(i) : mockBackend.hostCreate(i)),
   hostUpdate: (id: number, i: HostInput): Promise<Host> =>
     T() ? commands.hostUpdate(id, i) : mockBackend.hostUpdate(id, i),
@@ -1234,6 +1240,8 @@ export const api = {
     T() ? commands.backupTestRestore(jobId, sudo) : mockOps.testRestore(jobId, sudo),
   backupJobsDetect: (hostId: number): Promise<BackupSuggestion[]> => (T() ? commands.backupJobsDetect(hostId) : mockOps.jobsDetect(hostId)),
   systemSchedules: (hostId: number): Promise<Schedules> => (T() ? commands.systemSchedules(hostId) : mockSystem.schedules(hostId)),
+  systemTaskAction: (hostId: number, task: string, action: TaskAction): Promise<null> =>
+    T() ? commands.systemTaskAction(hostId, task, action) : Promise.resolve(null),
   systemUnitStatus: (hostId: number, unit: string): Promise<string> =>
     T() ? commands.systemUnitStatus(hostId, unit) : mockSystem.unitStatus(hostId, unit),
   systemUnitAction: (hostId: number, unit: string, action: UnitAction, sudo: SudoInput | null): Promise<null> =>

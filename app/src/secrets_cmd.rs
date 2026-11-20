@@ -228,11 +228,8 @@ pub async fn secret_key_hosts(app: AppHandle, fingerprint: String) -> CmdResult<
             let app = app.clone();
             let fingerprint = fingerprint.as_str();
             async move {
-                let r = tokio::time::timeout(
-                    Duration::from_secs(20),
-                    crate::keys_cmd::exec(&app, h.id, keys::READ_AUTHORIZED),
-                )
-                .await;
+                let r =
+                    tokio::time::timeout(Duration::from_secs(20), crate::keys_cmd::read_authorized(&app, h.id)).await;
                 match r {
                     Ok(Ok(text)) => KeyHost {
                         host_id: h.id,

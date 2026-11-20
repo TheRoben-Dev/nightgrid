@@ -27,6 +27,7 @@ const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   wakeRelayId: null,
   sleepWindow: null,
   role: "server",
+  os: "",
   tags: [],
   ...extra,
 });

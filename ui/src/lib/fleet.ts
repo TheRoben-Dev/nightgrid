@@ -26,7 +26,7 @@ export interface ImageRow {
   update: ImageUpdate;
 }
 
-export const MANAGER_WORD: Record<PackageManager, string> = { apt: "APT", dnf: "DNF", pacman: "PACMAN", ostree: "RPM-OSTREE" };
+export const MANAGER_WORD: Record<PackageManager, string> = { apt: "APT", dnf: "DNF", pacman: "PACMAN", ostree: "RPM-OSTREE", windowsUpdate: "WINDOWS UPDATE" };
 
 export type RowTone = "bad" | "warn" | "ok" | "unknown" | "busy";
 
@@ -247,7 +247,7 @@ export function diskRows(hosts: Host[], state: Record<number, HostDisks>, within
     .sort((a, b) => ORDER[a.tone] - ORDER[b.tone] || a.host.name.localeCompare(b.host.name));
 }
 
-export const POOL_WORD: Record<PoolKind, string> = { zfs: "ZFS", mdraid: "RAID", btrfs: "BTRFS" };
+export const POOL_WORD: Record<PoolKind, string> = { zfs: "ZFS", mdraid: "RAID", btrfs: "BTRFS", storageSpaces: "SPACES" };
 
 /** Plain text for DRIFT. */
 export function disksText(rows: { host: Host; state: HostDisks | undefined }[]): string {

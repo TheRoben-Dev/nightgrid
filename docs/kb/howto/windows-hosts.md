@@ -1,12 +1,13 @@
 # Add a Windows Server host
 
-Manage a Windows Server (or a Windows 10/11 PC) from Nightgrid over its built-in OpenSSH server: key login as an administrator, a terminal and files. This article also says what Nightgrid can't do on Windows yet, and why.
+Manage a Windows Server (or a Windows 10/11 PC) from Nightgrid over its built-in OpenSSH server: monitoring, Docker, services, the Event Log, Windows Update, the firewall and more, with nothing installed on the host. This article also says what Nightgrid can't do on Windows yet, and why.
 
 ## What you end up with
 
 - A Windows host that logs in with your SSH key, or your Windows password when no key is set up yet
 - A terminal on it in cmd or PowerShell, and its disks in the [Files](view:files) view
-- Knowing which views have nothing to show for it, so an empty panel isn't a surprise
+- Overview numbers, System tabs and Fleet checks for it, read through Windows PowerShell
+- Knowing which views can't run on it, so a note in place of a panel isn't a surprise
 
 ## Before you start
 
@@ -51,7 +52,7 @@ icacls.exe C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /gra
 ```
 
 - [ ] Standard (non-admin) account: the key goes in `C:\Users\<user>\.ssh\authorized_keys` instead, like on Linux.
-- [ ] **Settings → Connections → SSH keys → CHECK HOSTS** and the **+** button that pushes a key use Linux shell commands, so they can't add the key to a Windows host. Add it by hand as above.
+- [ ] Or let Nightgrid do it: log in once with the password, then **Settings → Connections → SSH keys** pushes the key to the right file with the right permissions.
 
 ## Part 3 · Save the host
 
@@ -67,11 +68,21 @@ icacls.exe C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /gra
 
 ## What works and what doesn't
 
-- **Terminal**: works. It's a plain cmd or PowerShell session; the key-hint strip and the hook that opens `nano` in Nightgrid's editor are left out, because they are Linux shell code.
-- **Files**: browsing, uploads and downloads work over SFTP. Paths start with the drive letter, like `/C:/Users/<user>`. Saving over an existing file from Nightgrid's editor can fail with "replace failed", because the fallback for that step is a Linux `mv`; edit that file in the terminal or over RDP instead.
-- **Tunnels**: work, because they only need sshd to forward ports. Reach a web admin page on the server through a local forward (see [Reach admin web UIs through SSH tunnels](kb:howto/tunnels)).
-- **Overview numbers, Docker, System, Fleet checks and DRIFT's server checks**: nothing to show. They read Linux tools (`/proc`, `systemctl`, `journalctl`, `apt`), which Windows doesn't have.
+Nightgrid learns that a host runs Windows the first time it connects and runs everything through Windows PowerShell 5.1, which every supported Windows has. A view or tab that can't run on the host shows a note saying why, instead of an error.
+
+- **Terminal, Files, Tunnels**: work. The terminal is a plain cmd or PowerShell session (no key-hint strip or `nano` hook, which are Linux shell code). File paths start with the drive letter, like `/C:/Users/<user>`.
+- **Overview and history**: CPU, memory, disks, network, uptime, NVIDIA GPUs and temperatures where the firmware reports them, from performance counters. There is no load average on Windows.
+- **Docker**: containers, images, logs and stats through `docker.exe`; Compose stacks start, update and stop through PowerShell. Container shells start `sh`, so they work in Linux containers only.
+- **System**: services (UNITS), the Event Log (JOURNAL), Task Scheduler (SCHEDULES), disk health and Storage Spaces (DISKS), Windows Update (UPDATES), Windows Defender Firewall with the same automatic rollback as on Linux (FIREWALL), and security checks (SECURITY).
+- **Fleet**: log search over the event logs, the access audit from the OpenSSH log, backups from scheduled tasks or folders, and speed tests if `iperf3.exe` is on the host (put it on the PATH or in `C:\iperf3`; Nightgrid installs nothing).
+- **Reboot, shut down, Wake-on-LAN**: work. Suspend only where Windows supports sleep, which most servers and VMs don't.
+- **Not yet on Windows**: config drift, the cron and timer editor, power schedules, Hyper-V VMs, certificate expiry on the host, DRIFT's host checks, backup test restores, and the Compose deploy wizard, stacks from git and the .env vault.
+- **Can't work on Windows**: Proxmox, Nightgrid Node, UPS through NUT, blueprints and starters, which are Linux-only.
 - For Windows guests on Proxmox, the screen and RDP are in [Open VM screens and RDP](kb:howto/vm-desktops).
+
+### Windows Update and the firewall
+
+Windows Update refuses to install over an SSH login, so Nightgrid starts the install as a one-off task that runs as SYSTEM (under `\Nightgrid\` in Task Scheduler) and streams its log back. A firewall change exports the old rules first and arms a SYSTEM task that imports them back when the countdown ends, unless you press **Keep** after a fresh login worked. Both need an administrator account.
 
 ## Limits and gotchas
 

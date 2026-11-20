@@ -61,7 +61,25 @@ async fn search_host(
     let mut hits = Vec::new();
     let mut journal_err = None;
     if q.journal {
-        match crate::term_cmd::connect_host(app, id).await {
+        match crate::term_cmd::connect_posix(app, id, "fleet.logs").await {
+            Ok(conn) if conn.is_windows() => {
+                // The Event Log stands in for the journal on Windows hosts.
+                use nightgrid_core::win::{self, events};
+                let ago = (nightgrid_core::services::check::now_unix() - since).clamp(1, i64::from(u32::MAX)) as u32;
+                match events::search_script(q, ago) {
+                    Ok(script) => match win::run(&conn, &script).await {
+                        Ok(o) => {
+                            hits.extend(events::search_hits(id, &o.stdout, m));
+                            let err = o.error_text();
+                            if o.code != 0 && !err.trim().is_empty() && !events::is_empty_notice(err.trim()) {
+                                journal_err = Some(err);
+                            }
+                        }
+                        Err(e) => journal_err = Some(e.to_string()),
+                    },
+                    Err(e) => return Err(e.to_string()),
+                }
+            }
             Ok(conn) => match conn.exec(&logsearch::journal_command(q, since)).await {
                 Ok((_, out, _)) => hits.extend(logsearch::journal_hits(id, &String::from_utf8_lossy(&out), m)),
                 Err(e) => journal_err = Some(e.to_string()),

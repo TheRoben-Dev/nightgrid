@@ -10,6 +10,7 @@ use nightgrid_core::hosts::HostId;
 use nightgrid_core::secrets::Secret;
 use nightgrid_core::ssh::client::{self, Auth};
 use nightgrid_core::ssh::keys::{self, AuthorizedKey, SshKey};
+use nightgrid_core::win::keys as win_keys;
 use serde::Serialize;
 use specta::Type;
 use tauri::{AppHandle, Manager as _, State};
@@ -64,6 +65,28 @@ async fn find(state: &AppState, fingerprint: &str) -> CmdResult<String> {
         .ok_or_else(|| CommandError::msg("that key isn't in ~/.ssh or the agent any more"))
 }
 
+/// Runs the POSIX `command`, or on a Windows host the PowerShell `windows`
+/// script, and returns stdout.
+async fn exec_either(app: &AppHandle, host_id: HostId, command: &str, windows: &str) -> CmdResult<String> {
+    let conn = crate::term_cmd::connect_host(app, host_id).await.map_err(|e| CommandError::msg(e.to_string()))?;
+    if !conn.is_windows() {
+        return exec(app, host_id, command).await;
+    }
+    let o = tokio::time::timeout(EXEC_TIMEOUT, nightgrid_core::win::run(&conn, windows))
+        .await
+        .map_err(|_| CommandError::msg("the host took too long to answer"))?
+        .map_err(CommandError::msg)?;
+    if o.code != 0 {
+        return Err(CommandError::msg(format!("exit {}: {}", o.code, o.error_text())));
+    }
+    Ok(o.stdout)
+}
+
+/// The host's `authorized_keys` text (the file sshd reads, on Windows too).
+pub(crate) async fn read_authorized(app: &AppHandle, host_id: HostId) -> CmdResult<String> {
+    exec_either(app, host_id, keys::READ_AUTHORIZED, &win_keys::read_script()).await
+}
+
 pub(crate) async fn exec(app: &AppHandle, host_id: HostId, command: &str) -> CmdResult<String> {
     let conn = crate::term_cmd::connect_host(app, host_id).await.map_err(|e| CommandError::msg(e.to_string()))?;
     let (code, out, err) = tokio::time::timeout(EXEC_TIMEOUT, conn.exec(command))
@@ -102,7 +125,8 @@ pub fn keys_generate(
 #[tauri::command]
 #[specta::specta]
 pub async fn keys_authorized(app: AppHandle, host_id: HostId) -> CmdResult<Vec<AuthorizedKey>> {
-    Ok(keys::parse_authorized(&exec(&app, host_id, keys::READ_AUTHORIZED).await?))
+    let text = exec_either(&app, host_id, keys::READ_AUTHORIZED, &win_keys::read_script()).await?;
+    Ok(keys::parse_authorized(&text))
 }
 
 /// Adds a key to a host's `authorized_keys` (no-op when it's there).
@@ -110,7 +134,7 @@ pub async fn keys_authorized(app: AppHandle, host_id: HostId) -> CmdResult<Vec<A
 #[specta::specta]
 pub async fn keys_push(app: AppHandle, host_id: HostId, fingerprint: String) -> CmdResult<PushOutcome> {
     let key = find(&app.state::<AppState>(), &fingerprint).await?;
-    let out = exec(&app, host_id, &keys::add_command(&key)?).await?;
+    let out = exec_either(&app, host_id, &keys::add_command(&key)?, &win_keys::add_script(&key)?).await?;
     let added = out.contains("added");
     if added {
         let title = format!("Authorized key {fingerprint}");
@@ -132,11 +156,11 @@ pub async fn keys_remove(app: AppHandle, host_id: HostId, fingerprint: String) -
     let key = match find(&state, &fingerprint).await {
         Ok(k) => k,
         Err(_) => {
-            let text = exec(&app, host_id, keys::READ_AUTHORIZED).await?;
+            let text = exec_either(&app, host_id, keys::READ_AUTHORIZED, &win_keys::read_script()).await?;
             keys::find_authorized(&text, &fingerprint).ok_or_else(|| CommandError::msg("that key isn't on the host"))?
         }
     };
-    let out = exec(&app, host_id, &keys::remove_command(&key)?).await?;
+    let out = exec_either(&app, host_id, &keys::remove_command(&key)?, &win_keys::remove_script(&key)?).await?;
     let n = keys::parse_removed(&out).ok_or_else(|| CommandError::msg(format!("unexpected answer: {}", out.trim())))?;
     if n > 0 {
         let title = format!("Removed key {fingerprint}");

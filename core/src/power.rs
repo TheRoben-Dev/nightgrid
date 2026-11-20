@@ -31,6 +31,16 @@ pub enum PowerAction {
     Suspend,
 }
 
+const WINDOWS_SUSPEND: &str = r#"$l = @(powercfg /a)
+$av = @()
+for ($i = 1; $i -lt $l.Count; $i++) { if ([string]::IsNullOrWhiteSpace($l[$i])) { break }; $av += $l[$i] }
+if (-not ($av -match '\(S[0-3]')) {
+  [Console]::Error.WriteLine('This Windows host has no sleep state (see powercfg /a). Windows Server and most virtual machines can''t sleep: shut it down instead.')
+  exit 3
+}
+Add-Type -AssemblyName System.Windows.Forms
+[void][System.Windows.Forms.Application]::SetSuspendState('Suspend', $false, $false)"#;
+
 impl PowerAction {
     /// Run as root (through sudo). Falls back from systemd to the classic tools.
     pub fn command(self) -> &'static str {
@@ -38,6 +48,18 @@ impl PowerAction {
             Self::Reboot => "systemctl reboot 2>&1 || shutdown -r now 2>&1",
             Self::Shutdown => "systemctl poweroff 2>&1 || shutdown -h now 2>&1",
             Self::Suspend => "systemctl suspend 2>&1 || loginctl suspend 2>&1 || pm-suspend 2>&1",
+        }
+    }
+
+    /// PowerShell for a Windows host (run as the login user, who must be an
+    /// administrator). Reboot and shutdown wait three seconds so the answer
+    /// gets back first. Suspend checks `powercfg /a` (its "(S3)"-style
+    /// tokens aren't translated) and says plainly when the host can't sleep.
+    pub fn windows_script(self) -> &'static str {
+        match self {
+            Self::Reboot => "shutdown.exe /r /t 3 /d p:0:0 /c 'Restarted from Nightgrid'; exit $LASTEXITCODE",
+            Self::Shutdown => "shutdown.exe /s /t 3 /d p:0:0 /c 'Shut down from Nightgrid'; exit $LASTEXITCODE",
+            Self::Suspend => WINDOWS_SUSPEND,
         }
     }
 
@@ -273,6 +295,16 @@ pub fn magic_packet(mac: &[u8; 6]) -> [u8; 102] {
         p[6 + i * 6..12 + i * 6].copy_from_slice(mac);
     }
     p
+}
+
+/// PowerShell that sends the magic packet from a Windows relay host (UDP
+/// broadcast on ports 9 and 7, like [`wake_relay_command`]).
+pub fn wake_relay_windows(mac: &[u8; 6]) -> String {
+    let bytes: Vec<String> = mac.iter().map(|b| format!("0x{b:02X}")).collect();
+    format!(
+        "$m = [byte[]]({})\n$p = [byte[]]((@(0xFF) * 6) + ($m * 16))\n$u = New-Object Net.Sockets.UdpClient\n$u.EnableBroadcast = $true\nforeach ($port in 9, 7) {{ [void]$u.Send($p, $p.Length, '255.255.255.255', $port) }}\n$u.Close()\n",
+        bytes.join(",")
+    )
 }
 
 /// Sends the magic packet from this computer: to the limited broadcast

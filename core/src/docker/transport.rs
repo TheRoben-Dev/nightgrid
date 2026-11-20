@@ -33,6 +33,10 @@ pub enum Route {
     /// Exec channel running `docker system dial-stdio`; `Some(socket)` sets
     /// `DOCKER_HOST` for a non-default (e.g. rootless) socket.
     DialStdio(Option<String>),
+    /// Windows host: exec channel running `docker system dial-stdio` from
+    /// the host's own shell (cmd or PowerShell; the CLI finds the engine's
+    /// named pipe, which SSH can't forward).
+    WindowsCli,
     /// `sudo -n <docker> system dial-stdio`: the user may not open the socket
     /// but has passwordless sudo. Holds the docker binary's absolute path
     /// (sudo's secure_path may not include it); see [`safe_bin`].
@@ -44,6 +48,7 @@ impl Route {
         match self {
             Route::Socket(p) => format!("socket {p} over SSH"),
             Route::DialStdio(_) => "docker system dial-stdio over SSH".into(),
+            Route::WindowsCli => "docker.exe system dial-stdio over SSH (Windows)".into(),
             Route::Sudo(_) => "sudo docker system dial-stdio over SSH".into(),
         }
     }
@@ -54,6 +59,7 @@ impl Route {
             Route::Socket(s) | Route::DialStdio(Some(s)) if s != DEFAULT_SOCKET => {
                 format!("{PATH_FIX}export DOCKER_HOST={}; ", shell_quote(&format!("unix://{s}")))
             }
+            Route::WindowsCli => String::new(),
             _ => PATH_FIX.to_owned(),
         }
     }
@@ -92,6 +98,8 @@ async fn send(
     let channel = match &route {
         Route::Socket(path) => conn.open_streamlocal(path).await,
         Route::DialStdio(_) | Route::Sudo(_) => conn.open_exec(&dial_stdio_command(&route)).await,
+        // No `exec` or env assignment: cmd and PowerShell know neither.
+        Route::WindowsCli => conn.open_exec("docker system dial-stdio").await,
     }
     .map_err(|e| io_err(format!("could not open Docker channel ({}): {e}", route.describe())))?;
 

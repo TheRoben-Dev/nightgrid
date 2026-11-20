@@ -13,6 +13,14 @@ use tauri::State;
 use crate::commands::{CmdResult, CommandError};
 use crate::state::AppState;
 
+/// What works on Windows hosts and why the rest doesn't (one table for the
+/// whole app, see `nightgrid_core::win::support`).
+#[tauri::command]
+#[specta::specta]
+pub fn platform_windows_support() -> Vec<nightgrid_core::win::support::Support> {
+    nightgrid_core::win::support::WINDOWS.to_vec()
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn hosts_list(state: State<'_, AppState>) -> CmdResult<Vec<Host>> {

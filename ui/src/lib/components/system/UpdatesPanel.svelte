@@ -12,7 +12,8 @@
     void tick().then(() => out && (out.scrollTop = out.scrollHeight));
   });
 
-  const MGR: Record<string, string> = { apt: "APT", dnf: "DNF", pacman: "PACMAN", ostree: "RPM-OSTREE" };
+  const MGR: Record<string, string> = { apt: "APT", dnf: "DNF", pacman: "PACMAN", ostree: "RPM-OSTREE", windowsUpdate: "WINDOWS UPDATE" };
+  const win = $derived(r?.manager === "windowsUpdate");
 </script>
 
 <div class="updates" data-guide="system-updates">
@@ -58,7 +59,9 @@
       {/if}
       {#if r?.updates.length}
         <table>
-          <thead><tr><th>PACKAGE</th><th>INSTALLED</th><th>AVAILABLE</th><th>FROM</th></tr></thead>
+          <thead>
+            {#if win}<tr><th>UPDATE</th><th></th><th>ARTICLE</th><th>CATEGORY</th></tr>{:else}<tr><th>PACKAGE</th><th>INSTALLED</th><th>AVAILABLE</th><th>FROM</th></tr>{/if}
+          </thead>
           <tbody>
             {#each r.updates as p (p.name)}
               <tr class:sec={(p.repo ?? "").includes("security")}>

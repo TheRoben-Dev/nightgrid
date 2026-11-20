@@ -13,7 +13,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::state::AppState;
 use crate::system_cmd::SysResult;
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 fn other(e: impl std::fmt::Display) -> crate::system_cmd::SystemCmdError {
     SystemError::other(e.to_string()).into()
@@ -44,7 +44,7 @@ pub async fn starter_target(app: AppHandle, host_id: HostId) -> SysResult<Starte
     if let Some(d) = dirs.iter().find(|d| starters::valid_parent(&d.path)) {
         return Ok(StarterTarget { parent: d.path.clone(), why: "this host's stack folder".into() });
     }
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "blueprints").await?;
     let (_, out, _) = conn.exec("printf '%s' \"$HOME\"").await.map_err(other)?;
     let home = String::from_utf8_lossy(&out).trim().to_owned();
     if !starters::valid_parent(&home) {

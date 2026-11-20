@@ -46,7 +46,9 @@ pub async fn helper_host_lookups(
         return Err(CommandError::msg("read-only checks are off for this host"));
     };
     let extra = lookup::extra_paths(host.drift_paths.as_deref());
-    let conn = crate::term_cmd::connect_host(&app, host_id).await.map_err(|e| CommandError::msg(e.to_string()))?;
+    let conn = crate::term_cmd::connect_posix(&app, host_id, "drift.lookups")
+        .await
+        .map_err(|e| CommandError::msg(e.to_string()))?;
     let start = Instant::now();
     let terms: Vec<String> = terms.into_iter().filter(|t| lookup::check_name(t).is_ok()).take(8).collect();
     let found = if terms.is_empty() {

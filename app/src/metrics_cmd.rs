@@ -225,6 +225,10 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
     let mut watcher: Option<tauri::async_runtime::JoinHandle<()>> = None;
     // Disk usage for the forecast: at most every ten minutes (one row per hour is kept).
     let mut usage_at = 0i64;
+    // Windows hosts: the PowerShell sampler kept running on the host, and
+    // the connection it rides on (a new connection needs a new sampler).
+    let mut win: Option<(nightgrid_core::win::metrics::Sampler, Arc<nightgrid_core::ssh::client::Connection>)> = None;
+    let mut windows = false;
     loop {
         let cfg = settings(&app);
         let pause = if hub().is_visible(host_id) { cfg.metrics_interval_secs } else { cfg.metrics_background_secs };
@@ -259,6 +263,31 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
                 NodeSample::Same => return Ok(Got::Nothing),
                 NodeSample::None => {}
             }
+            windows = conn.is_windows();
+            if windows {
+                if win.as_ref().is_some_and(|(_, c)| !Arc::ptr_eq(c, &conn)) {
+                    win = None;
+                }
+                if win.is_none() {
+                    let s = nightgrid_core::win::metrics::Sampler::start(&conn)
+                        .await
+                        .map_err(|message| ConnectError::Network { host: String::new(), message })?;
+                    win = Some((s, conn.clone()));
+                }
+                let sampler = &mut win.as_mut().expect("just set").0;
+                let got = tokio::time::timeout(Duration::from_secs(20), sampler.sample()).await;
+                return match got {
+                    Ok(Ok(text)) => Ok(Got::Collected(text.into_bytes(), Vec::new())),
+                    Ok(Err(e)) => {
+                        win = None;
+                        Ok(Got::Collected(Vec::new(), e.into_bytes()))
+                    }
+                    Err(_) => {
+                        win = None;
+                        Err(ConnectError::Network { host: String::new(), message: "sample timed out".into() })
+                    }
+                };
+            }
             let (_, out, err) = tokio::time::timeout(Duration::from_secs(15), conn.exec(COLLECT))
                 .await
                 .map_err(|_| ConnectError::Network { host: String::new(), message: "sample timed out".into() })??;
@@ -276,8 +305,10 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
                 let text = String::from_utf8_lossy(&out);
                 let raw = parse(&text);
                 if raw.cpu.is_none() && raw.mem.total == 0 {
-                    let msg = String::from_utf8_lossy(&err).lines().next().unwrap_or("no /proc data").to_owned();
-                    set_state(&mut state, PollState::Error, Some(format!("can't read /proc: {msg}")), None);
+                    let (what, none) =
+                        if windows { ("Windows counters", "no data") } else { ("/proc", "no /proc data") };
+                    let msg = String::from_utf8_lossy(&err).lines().next().unwrap_or(none).to_owned();
+                    set_state(&mut state, PollState::Error, Some(format!("can't read {what}: {msg}")), None);
                     backoff = 300;
                     continue;
                 }
@@ -290,7 +321,8 @@ async fn poll_host(app: AppHandle, host_id: HostId, wake: Arc<Notify>) {
             Ok(Some(sample)) => {
                 backoff = 0;
                 nightgrid_core::power::clear(host_id);
-                if watcher.as_ref().map_or(true, |w| w.inner().is_finished()) {
+                // The power watch listens to systemd-logind: none on Windows.
+                if !windows && watcher.as_ref().map_or(true, |w| w.inner().is_finished()) {
                     watcher = Some(watch_power(app.clone(), host_id));
                 }
                 set_state(&mut state, PollState::Ok, None, None);

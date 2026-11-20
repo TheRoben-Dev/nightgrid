@@ -5,6 +5,8 @@
    * SUMMARY (nodes), GUESTS (power actions, screen, console), STORAGE and
    * TASKS (with their logs). Nothing needs an API token or the web UI.
    */
+  import { platform } from "../stores/platform.svelte";
+  import PlatformNote from "../components/PlatformNote.svelte";
   import Modal from "../components/Modal.svelte";
   import SudoPrompt from "../components/system/SudoPrompt.svelte";
   import PveBackupsTab from "../components/proxmox/PveBackupsTab.svelte";
@@ -53,8 +55,10 @@
   $effect(() => {
     if (proxmox.hostId != null && !hosts.hosts.some((h) => h.id === proxmox.hostId)) proxmox.pick(null);
   });
+  // A Windows host can't be a Proxmox node: say so instead of reading it.
+  const winBlock = $derived(platform.blocked(proxmox.hostId == null ? undefined : hosts.byId(proxmox.hostId), "proxmox"));
   $effect(() => {
-    if (proxmox.hostId != null && !proxmox.overview && !proxmox.loading && !proxmox.error) void proxmox.load();
+    if (proxmox.hostId != null && !winBlock && !proxmox.overview && !proxmox.loading && !proxmox.error) void proxmox.load();
   });
 
   const o = $derived(proxmox.overview);
@@ -127,6 +131,8 @@
         <p class="label">PROXMOX VE</p>
         <p class="muted">Pick the host that runs Proxmox VE. Nightgrid reads the cluster with <code>pvesh</code> over SSH as root (the sudo prompt asks when needed), so no API token, open port or web UI is needed. Any node of a cluster shows the whole cluster.</p>
       </div>
+    {:else if winBlock}
+      <PlatformNote note={winBlock} host={proxmox.host?.name ?? ""} />
     {:else if !o}
       <p class="muted small pad">{proxmox.loading ? "Reading the cluster…" : ""}</p>
     {:else if !o.present}

@@ -78,7 +78,7 @@ impl BackupTool {
             Some(BackupTool::Rclone)
         } else if has(&["rsync", "rsnapshot"]) {
             Some(BackupTool::Rsync)
-        } else if has(&["kopia", "duplicity", "duplicati", "duplicacy", "bupstash", "tar"]) {
+        } else if has(&["kopia", "duplicity", "duplicati", "duplicacy", "bupstash", "tar", "robocopy", "wbadmin"]) {
             Some(BackupTool::Other)
         } else {
             None
@@ -138,7 +138,15 @@ pub fn valid_unit(s: &str) -> bool {
     !s.is_empty()
         && s.len() <= 200
         && !s.starts_with('-')
-        && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '@' | '.' | '_' | ':' | '-' | '\\'))
+        && s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '@' | '.' | '_' | ':' | '-' | '\\' | ' '))
+}
+
+/// An absolute path: POSIX (`/srv/backup`) or Windows (`D:\Backups`, `\\nas\share`).
+pub fn absolute_path(p: &str) -> bool {
+    let b = p.as_bytes();
+    p.starts_with('/')
+        || p.starts_with("\\\\")
+        || (b.len() >= 3 && b[0].is_ascii_alphabetic() && b[1] == b':' && (b[2] == b'\\' || b[2] == b'/'))
 }
 
 /// Trims and checks a job before it is stored.
@@ -150,10 +158,13 @@ pub fn normalize_job(i: &BackupJobInput) -> Result<BackupJobInput> {
     let target = i.target.trim().to_owned();
     match i.source {
         BackupSource::Unit if !valid_unit(&target) => {
-            return Err(Error::Invalid { field: "target", reason: "isn't a systemd unit name".into() })
+            return Err(Error::Invalid {
+                field: "target",
+                reason: "isn't a systemd unit or scheduled task name".into(),
+            })
         }
         BackupSource::Path
-            if !target.starts_with('/') || target.len() > 4096 || target.chars().any(char::is_control) =>
+            if !absolute_path(&target) || target.len() > 4096 || target.chars().any(char::is_control) =>
         {
             return Err(Error::Invalid { field: "target", reason: "must be an absolute path".into() })
         }
@@ -270,7 +281,7 @@ pub struct BackupStatus {
 }
 
 impl BackupStatus {
-    fn empty(job_id: BackupJobId) -> Self {
+    pub(crate) fn empty(job_id: BackupJobId) -> Self {
         BackupStatus {
             job_id,
             result: BackupResult::Unknown,
@@ -363,20 +374,25 @@ pub fn parse_status(out: &str, jobs: &[BackupJob], now: f64) -> Vec<BackupStatus
                     ..BackupStatus::empty(j.id)
                 },
             };
-            let limit = f64::from(j.stale_hours) * 3600.0;
-            st.stale = st.error.is_none()
-                && st.result != BackupResult::Running
-                && match (st.last_ok, st.last_run) {
-                    (Some(t), _) => host_now - t > limit,
-                    // A failed run with no good one since boot.
-                    (None, Some(_)) => true,
-                    // No run since the host booted: only stale once it has
-                    // been up longer than the limit.
-                    (None, None) => j.source == BackupSource::Path || uptime.map_or(true, |u| u > limit),
-                };
+            mark_stale(&mut st, j, host_now, uptime);
             st
         })
         .collect()
+}
+
+/// Sets `stale` from the job's limit, the host's clock and uptime (seconds).
+pub(crate) fn mark_stale(st: &mut BackupStatus, j: &BackupJob, host_now: f64, uptime: Option<f64>) {
+    let limit = f64::from(j.stale_hours) * 3600.0;
+    st.stale = st.error.is_none()
+        && st.result != BackupResult::Running
+        && match (st.last_ok, st.last_run) {
+            (Some(t), _) => host_now - t > limit,
+            // A failed run with no good one since boot.
+            (None, Some(_)) => true,
+            // No run since the host booted: only stale once it has
+            // been up longer than the limit.
+            (None, None) => j.source == BackupSource::Path || uptime.map_or(true, |u| u > limit),
+        };
 }
 
 fn unit_status(id: BackupJobId, props: &[&str], log: &[&str], now: f64, uptime: Option<f64>) -> BackupStatus {
@@ -583,6 +599,16 @@ pub async fn check(conn: &Connection, jobs: &[BackupJob], now: f64) -> std::resu
     if jobs.is_empty() {
         return Ok(Vec::new());
     }
+    if conn.is_windows() {
+        let o = crate::win::run(conn, &crate::win::backups::status_script(jobs)).await.map_err(|e| e.to_string())?;
+        return crate::win::backups::parse_status(&o.stdout, jobs, now).map_err(|e| {
+            if o.code != 0 {
+                o.error_text()
+            } else {
+                e
+            }
+        });
+    }
     let (_, out, _) = conn.exec(&status_command(jobs)).await.map_err(|e| e.to_string())?;
     Ok(parse_status(&String::from_utf8_lossy(&out), jobs, now))
 }
@@ -668,7 +694,7 @@ fn exec_path(exec: &str) -> String {
         .unwrap_or_else(|| exec.trim().to_owned())
 }
 
-fn masked(s: &str) -> String {
+pub(crate) fn masked(s: &str) -> String {
     if line_has_secret(s) {
         let head: String = s.split(':').next().unwrap_or("").chars().take(120).collect();
         format!("{head}: (command hidden: it looks like it holds a secret)")
@@ -710,6 +736,10 @@ pub fn local_target(tool: BackupTool, cmd: &str) -> Option<String> {
 }
 
 pub async fn detect(conn: &Connection) -> std::result::Result<Vec<BackupSuggestion>, String> {
+    if conn.is_windows() {
+        let o = crate::win::run(conn, crate::win::backups::DETECT).await.map_err(|e| e.to_string())?;
+        return Ok(crate::win::backups::parse_detect(&o.stdout));
+    }
     let (_, out, _) = conn.exec(&detect_command()).await.map_err(|e| e.to_string())?;
     Ok(parse_detect(&String::from_utf8_lossy(&out)))
 }

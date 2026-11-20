@@ -1,6 +1,12 @@
 <script lang="ts">
   import type { Unit } from "../../api";
+  import { hosts } from "../../stores/hosts.svelte";
+  import { platform } from "../../stores/platform.svelte";
   import { actionVerb, system, UNIT_ACTIONS, unitCounts, unitTone, type UnitFilter } from "../../stores/system.svelte";
+
+  // Windows services: no reload, and "manual" startup can be set to automatic or disabled.
+  const onWindows = $derived(platform.isWindows(system.hostId === null ? undefined : hosts.byId(system.hostId)));
+  const logsHere = $derived(!platform.blocked(system.hostId === null ? undefined : hosts.byId(system.hostId), "system.journal"));
 
   const counts = $derived(unitCounts(system.units));
   const list = $derived(system.filteredUnits);
@@ -16,10 +22,11 @@
   function actionsFor(u: Unit) {
     const up = u.active === "active" || u.active === "activating" || u.active === "reloading";
     const enabled = u.fileState === "enabled" || u.fileState === "enabled-runtime";
-    const canToggle = u.fileState === "enabled" || u.fileState === "disabled";
+    const canToggle = u.fileState === "enabled" || u.fileState === "disabled" || (onWindows && u.fileState === "manual");
     return UNIT_ACTIONS.filter((a) => {
-      if (a === "start") return !up && u.load !== "masked";
-      if (a === "stop" || a === "restart" || a === "reload") return up;
+      if (a === "start") return !up && u.load !== "masked" && !(onWindows && u.fileState === "disabled");
+      if (a === "reload") return up && !onWindows;
+      if (a === "stop" || a === "restart") return up;
       if (a === "enable") return canToggle && !enabled;
       if (a === "disable") return canToggle && enabled;
       return false;
@@ -96,7 +103,7 @@
             >
           {/each}
           <span class="spacer"></span>
-          <button type="button" class="btn ghost tiny" onclick={() => system.openLogs(selected.name)}>Logs</button>
+          {#if logsHere}<button type="button" class="btn ghost tiny" onclick={() => system.openLogs(selected.name)}>Logs</button>{/if}
         </div>
         <pre class="status">{system.unitStatus ?? "…"}</pre>
       </aside>

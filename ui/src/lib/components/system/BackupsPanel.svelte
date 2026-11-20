@@ -10,6 +10,7 @@
   import { ui } from "../../stores/ui.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { system } from "../../stores/system.svelte";
+  import { platform } from "../../stores/platform.svelte";
   import Modal from "../Modal.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
 
@@ -76,6 +77,7 @@
   }
 
   const e = $derived(backups.editing);
+  const eWin = $derived(!!e && platform.isWindows(hosts.hosts.find((h) => h.id === e.input.hostId)));
   let detectPick = $state<number | null>(null);
   const detectId = $derived(detectPick ?? system.hostId ?? hosts.preferred("system")?.id ?? null);
   const tr = $derived(backups.testResult);
@@ -216,13 +218,13 @@
       <div class="fld">
         <span class="label">READ FROM</span>
         <div class="seg" role="radiogroup" aria-label="Read from">
-          <label><input type="radio" bind:group={e.input.source} value="unit" /> systemd unit</label>
+          <label><input type="radio" bind:group={e.input.source} value="unit" /> {eWin ? "scheduled task" : "systemd unit"}</label>
           <label><input type="radio" bind:group={e.input.source} value="path" /> path</label>
         </div>
       </div>
       <label class="fld"
-        ><span class="label">{e.input.source === "unit" ? "TIMER OR SERVICE" : "REPOSITORY, TARGET OR MARKER FILE"}</span>
-        <input class="input mono" bind:value={e.input.target} placeholder={e.input.source === "unit" ? "restic-backup.timer" : "/mnt/backup/restic"} />
+        ><span class="label">{e.input.source === "unit" ? (eWin ? "TASK PATH" : "TIMER OR SERVICE") : "REPOSITORY, TARGET OR MARKER FILE"}</span>
+        <input class="input mono" bind:value={e.input.target} placeholder={e.input.source === "unit" ? (eWin ? "\\Backups\\Nightly" : "restic-backup.timer") : eWin ? "D:\\Backups" : "/mnt/backup/restic"} />
       </label>
       <label class="fld"><span class="label">STALE AFTER</span>
         <select class="input" bind:value={e.input.staleHours}>

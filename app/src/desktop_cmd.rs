@@ -28,7 +28,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 struct Session {
     input: mpsc::Sender<VncInput>,
@@ -90,7 +90,7 @@ pub async fn desktop_open(
     if !target::has_display(kind) {
         return Err(err("containers have no screen: open a console instead"));
     }
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "desktops").await?;
     let auth =
         if elevate || kind == VmKind::Qemu { resolve_sudo(&app, host_id, &conn, sudo).await? } else { SudoAuth::User };
 
@@ -186,7 +186,7 @@ pub async fn desktop_guest_addrs(
     sudo: Option<SudoInput>,
 ) -> SysResult<GuestAddrs> {
     let cmd = target::guest_addr_command(kind, &id)?;
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "desktops").await?;
     let auth = if elevate || kind != VmKind::Libvirt {
         resolve_sudo(&app, host_id, &conn, sudo).await?
     } else {
@@ -214,7 +214,7 @@ pub async fn desktop_rdp_open(
         return Err(err(format!("invalid address {addr:?}")));
     }
     let port = port.unwrap_or(3389);
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "desktops").await?;
     let listener = forward::listen("127.0.0.1", 0).await.map_err(err)?;
     let local_port = listener.local_addr().map_err(err)?.port();
     let id = desktops.id();

@@ -27,6 +27,7 @@ const ufw = (): FirewallReport => ({
   zones: [],
   raw: "table inet filter {\n\tchain input {\n\t\ttype filter hook input priority filter; policy accept;\n\t}\n}",
   rollbackArmed: false,
+  windows: null,
 });
 const fwd = (): FirewallReport => ({
   backend: "firewalld",
@@ -38,6 +39,7 @@ const fwd = (): FirewallReport => ({
   ],
   raw: "",
   rollbackArmed: false,
+  windows: null,
 });
 
 const state: Record<number, { report: FirewallReport; before: FirewallReport | null; pending: PendingChange | null }> = {};
@@ -61,6 +63,8 @@ function describe(c: FwChange): string {
       return `${c.add ? "open" : "close"} port ${c.port}/${c.proto} in zone ${c.zone}`;
     case "firewalldSource":
       return `${c.add ? "accept" : "stop accepting"} ${c.source}${c.port ? ` on port ${c.port}` : ""} in zone ${c.zone}`;
+    default:
+      return c.op;
   }
 }
 function risk(r: FirewallReport, c: FwChange): string | null {

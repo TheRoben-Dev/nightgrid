@@ -78,7 +78,7 @@ async fn scan(app: &AppHandle, hub: &Arc<NetWatchHub>, cfg: &NetWatchSettings, n
     let (origin, scanner, res) = match cfg.scanner {
         Some(id) => {
             let name = state.store().get_host(id).ok().flatten().map_or_else(|| format!("host {id}"), |h| h.name);
-            let res = match crate::term_cmd::connect_host(app, id).await {
+            let res = match crate::term_cmd::connect_posix(app, id, "network.scan").await {
                 Ok(conn) => nightgrid_core::netmap::discover(&conn, cfg.sweep, &[]).await,
                 Err(e) => Err(e.to_string()),
             };

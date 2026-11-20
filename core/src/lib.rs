@@ -79,5 +79,6 @@ pub mod ups;
 pub mod uptime;
 pub mod vnc;
 pub mod webui;
+pub mod win;
 
 pub use error::{Error, Result};

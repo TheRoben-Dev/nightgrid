@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager as _, State};
 use crate::commands::CmdResult;
 use crate::state::AppState;
 use crate::system_cmd::{SudoInput, SysResult};
-use crate::term_cmd::connect_host;
+use crate::term_cmd::connect_posix;
 
 #[tauri::command]
 #[specta::specta]
@@ -55,7 +55,7 @@ pub async fn backup_jobs_check(app: AppHandle, host_id: HostId) -> SysResult<Vec
     if jobs.is_empty() {
         return Ok(Vec::new());
     }
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "fleet.backups").await?;
     Ok(backup_jobs::check(&conn, &jobs, now_unix() as f64).await.map_err(SystemError::other)?)
 }
 
@@ -63,7 +63,7 @@ pub async fn backup_jobs_check(app: AppHandle, host_id: HostId) -> SysResult<Vec
 #[tauri::command]
 #[specta::specta]
 pub async fn backup_jobs_detect(app: AppHandle, host_id: HostId) -> SysResult<Vec<BackupSuggestion>> {
-    let conn = connect_host(&app, host_id).await?;
+    let conn = connect_posix(&app, host_id, "fleet.backups").await?;
     Ok(backup_jobs::detect(&conn).await.map_err(SystemError::other)?)
 }
 
@@ -112,7 +112,13 @@ pub async fn backup_test_restore(
         return Err(SystemError::other(why).into());
     }
     let cmd = backup_restore::test_command(&job).ok_or_else(|| SystemError::other("can't be tested"))?;
-    let conn = connect_host(&app, job.host_id).await?;
+    let conn = connect_posix(&app, job.host_id, "fleet.backups").await?;
+    if conn.is_windows() {
+        return Err(SystemError::other(
+            "test restores run restic, borg or rsync through a POSIX shell, which Windows hosts don't have: restore a file by hand with the tool's own command to check it",
+        )
+        .into());
+    }
     let auth = crate::system_cmd::resolve_sudo(&app, job.host_id, &conn, sudo).await?;
     tracing::info!(host = %job.host_id, job = job.id, tool = job.tool.as_str(), "test restore");
     let out = tokio::time::timeout(std::time::Duration::from_secs(20 * 60), sudo::run(&conn, &auth, &cmd))

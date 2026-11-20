@@ -1273,7 +1273,14 @@ pub fn parse_range(r: &str) -> Result<(Ipv4Addr, u32), String> {
 /// Runs discovery on `conn`, optionally sweeping its LAN subnet and any
 /// routed `ranges` it can reach.
 pub async fn discover(conn: &Connection, sweep: bool, ranges: &[String]) -> Result<Discovery, String> {
-    discover_with(sweep, ranges, |script| async move {
+    if conn.is_windows() {
+        return discover_with(sweep, ranges, crate::win::netscan::discover_script, |script| async move {
+            let o = crate::win::run(conn, &script).await?;
+            Ok(o.stdout)
+        })
+        .await;
+    }
+    discover_with(sweep, ranges, discover_command, |script| async move {
         let (_, out, _) = conn.exec(&script).await.map_err(|e| e.to_string())?;
         Ok(String::from_utf8_lossy(&out).into_owned())
     })
@@ -1283,7 +1290,7 @@ pub async fn discover(conn: &Connection, sweep: bool, ranges: &[String]) -> Resu
 /// Runs discovery on this computer (macOS, Linux and BSDs; `sh` with the same script).
 #[cfg(unix)]
 pub async fn discover_local(sweep: bool, ranges: &[String]) -> Result<Discovery, String> {
-    discover_with(sweep, ranges, |script| async move {
+    discover_with(sweep, ranges, discover_command, |script| async move {
         let run = tokio::process::Command::new("/bin/sh")
             .arg("-c")
             .arg(&script)
@@ -1299,12 +1306,32 @@ pub async fn discover_local(sweep: bool, ranges: &[String]) -> Result<Discovery,
     .await
 }
 
-#[cfg(not(unix))]
-pub async fn discover_local(_sweep: bool, _ranges: &[String]) -> Result<Discovery, String> {
-    Err("Scanning from this computer works on macOS and Linux. On Windows, scan from one of your hosts.".into())
+/// On Windows the scan runs in PowerShell (see `win::netscan`).
+#[cfg(windows)]
+pub async fn discover_local(sweep: bool, ranges: &[String]) -> Result<Discovery, String> {
+    discover_with(sweep, ranges, crate::win::netscan::discover_script, |script| async move {
+        let work = tokio::task::spawn_blocking(move || crate::win::run_local(&script, b""));
+        let o = tokio::time::timeout(std::time::Duration::from_secs(150), work)
+            .await
+            .map_err(|_| "discovery took too long".to_string())?
+            .map_err(|e| e.to_string())?
+            .map_err(|e| e.to_string())?;
+        Ok(o.stdout)
+    })
+    .await
 }
 
-async fn discover_with<F, Fut>(sweep: bool, ranges: &[String], exec: F) -> Result<Discovery, String>
+#[cfg(not(any(unix, windows)))]
+pub async fn discover_local(_sweep: bool, _ranges: &[String]) -> Result<Discovery, String> {
+    Err("Scanning from this computer works on macOS, Linux and Windows. Scan from one of your hosts.".into())
+}
+
+async fn discover_with<F, Fut>(
+    sweep: bool,
+    ranges: &[String],
+    build: fn(&[(Ipv4Addr, u32)]) -> String,
+    exec: F,
+) -> Result<Discovery, String>
 where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Result<String, String>>,
@@ -1321,7 +1348,7 @@ where
     }
     let mut own_missing = false;
     if sweep {
-        let out = exec(discover_command(&[])).await?;
+        let out = exec(build(&[])).await?;
         let first = parse_discovery(&out);
         let gw = first.gateway.as_deref().and_then(|g| g.parse::<Ipv4Addr>().ok());
         // The interface that holds the gateway, else the first private /24.
@@ -1339,7 +1366,7 @@ where
             None => own_missing = true,
         }
     }
-    let out = exec(discover_command(&sweeps)).await?;
+    let out = exec(build(&sweeps)).await?;
     let mut d = parse_discovery(&out);
     if own_missing {
         d.notes.push("No private /24 (or smaller) subnet to sweep on this host.".into());

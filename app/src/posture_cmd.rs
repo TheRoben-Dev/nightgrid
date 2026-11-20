@@ -27,11 +27,16 @@ static AUTO_RUNNING: AtomicBool = AtomicBool::new(false);
 
 async fn read(app: &AppHandle, host_id: HostId) -> PostureRun {
     let now = now_unix();
-    let conn = match crate::term_cmd::connect_host(app, host_id).await {
+    let conn = match crate::term_cmd::connect_posix(app, host_id, "security.posture").await {
         Ok(c) => c,
         Err(e) => return posture::failed(host_id, now, e.to_string()),
     };
     let work = async {
+        if conn.is_windows() {
+            // The quest checks are Linux commands; Windows scores its own checks.
+            let report = nightgrid_core::win::security::audit(&conn).await.map_err(|e| e.to_string())?;
+            return Ok(posture::combine(host_id, now, &report, &[]));
+        }
         let report = security::audit(&conn).await.map_err(|e| e.to_string())?;
         let (planned, _) = quest::plan(&posture::EXTRA_CHECKS.map(String::from));
         let extras = match conn.exec(&quest::script(&planned)).await {
