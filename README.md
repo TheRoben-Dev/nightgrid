@@ -123,11 +123,21 @@ Nightgrid checks GitHub Releases shortly after launch and offers **Install & res
 
 ### macOS: opening an unsigned build
 
-CI builds are not signed or notarized yet, so Gatekeeper will say the app is damaged or from an unidentified developer. After copying `Nightgrid.app` to `/Applications`:
+CI builds are signed with Nightgrid's own self-signed certificate (so the keychain keeps trusting updated copies, D-193) but not notarized, so Gatekeeper will say the app is damaged or from an unidentified developer. After copying `Nightgrid.app` to `/Applications`:
 
 ```sh
 xattr -dr com.apple.quarantine /Applications/Nightgrid.app
 ```
+
+### macOS: release signing certificate
+
+macOS ties "Always Allow" on keychain items to the app's code signature. Ad-hoc signatures change with every build, which made every update ask again for each saved secret. CI now signs the app and the tailnet sidecar with one self-signed certificate kept in the repo's Actions secrets (`MACOS_SIGNING_CERT`, a base64 `.p12`, and `MACOS_SIGNING_CERT_PASSWORD`). Create it once with:
+
+```sh
+sh scripts/macos-signing-cert.sh
+```
+
+It writes the certificate to `~/.nightgrid-signing` (keep that folder; it is never overwritten) and, when the GitHub CLI is signed in, sets both secrets. Without the secrets, macOS builds stay ad-hoc signed and CI warns. The build checks that the app's designated requirement names the certificate. Hardened runtime stays off: it only matters for notarization.
 
 ### macOS: testing M1 (hosts + terminal)
 
