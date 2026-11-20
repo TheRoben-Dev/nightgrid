@@ -379,6 +379,18 @@ export const commands = {
 	 *  ready for `blueprint_plan` on `host_id`. Nothing is written to the host.
 	 */
 	starterOpen: (id: string, values: StarterValue[], parent: string, options?: InvokeOptions) => __TAURI_INVOKE<BlueprintSummary_Serialize>("starter_open", { id, values, parent }, options),
+	/**  Every hold still in force (ended snoozes are dropped). */
+	updateHoldsList: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateHold_Serialize[]>("update_holds_list", undefined, options),
+	/**  Adds a hold, or changes the one for the same thing. */
+	updateHoldSave: (input: HoldInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<UpdateHold_Serialize>("update_hold_save", { input }, options),
+	/**  Releases a hold. */
+	updateHoldDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("update_hold_delete", { id }, options),
+	/**
+	 *  Holds (or releases) packages on the host itself: `apt-mark hold`, `dnf
+	 *  versionlock`, or hiding Windows updates. Every tool on the host then
+	 *  leaves them alone, not just Nightgrid (D-195).
+	 */
+	systemPackageHold: (hostId: number, manager: Manager, names: string[], hold: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_package_hold", { hostId, manager, names, hold, sudo }, options),
 	watchList: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_list", undefined, options),
 	/**  Adds or updates an item; a certificate file is read right away. */
 	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
@@ -4375,6 +4387,48 @@ export type HistoryResult_Serialize = {
 	truncated: boolean,
 };
 
+export type HoldInput = HoldInput_Serialize | HoldInput_Deserialize;
+
+export type HoldInput_Deserialize = {
+	hostId: number,
+	kind: HoldKind,
+	target?: string,
+	stack?: string,
+	version?: string | null,
+	until?: number | null,
+	note?: string,
+};
+
+export type HoldInput_Serialize = {
+	hostId: number,
+	kind: HoldKind,
+	target: string,
+	stack: string,
+	version: string | null,
+	until: number | null,
+	note: string,
+};
+
+export type HoldKind = "host" | "package" | "image" | "stack";
+
+/**  How this host can hold a package back. */
+export type HoldSupport = 
+/**
+ *  The package manager holds it (apt-mark hold, dnf versionlock, hiding a
+ *  Windows update), so every tool on the host respects it.
+ */
+"host" | 
+/**
+ *  Only Nightgrid's upgrades leave it out (pacman, dnf without the
+ *  versionlock plugin).
+ */
+"nightgrid" | 
+/**
+ *  Packages can't be held one by one (image-based systems, no manager):
+ *  hold the whole host instead.
+ */
+"none";
+
 export type HomepageCandidate = {
 	container: string,
 	/**  Host directory mounted at the container's `/app/config`. */
@@ -4977,6 +5031,11 @@ export type ImageUpdate_Deserialize = {
 	source?: string | null,
 	/**  Release notes or a commit comparison (https), when it can be worked out. */
 	notes?: string | null,
+	/**
+	 *  Held in Nightgrid (D-195): still checked, but not counted and not
+	 *  pulled by Pull / Update.
+	 */
+	held: boolean,
 };
 
 export type ImageUpdate_Serialize = {
@@ -4991,6 +5050,11 @@ export type ImageUpdate_Serialize = {
 	source: string | null,
 	/**  Release notes or a commit comparison (https), when it can be worked out. */
 	notes: string | null,
+	/**
+	 *  Held in Nightgrid (D-195): still checked, but not counted and not
+	 *  pulled by Pull / Update.
+	 */
+	held: boolean,
 };
 
 export type ImportMode = 
@@ -6945,6 +7009,11 @@ export type PackageUpdate_Deserialize = {
 	available: string,
 	/**  apt suite / dnf repository. */
 	repo?: string | null,
+	/**
+	 *  Held: on the host (apt-mark hold, IgnorePkg, a hidden Windows
+	 *  update) or in Nightgrid. Upgrades leave it alone; it isn't pending.
+	 */
+	held: boolean,
 };
 
 export type PackageUpdate_Serialize = {
@@ -6953,6 +7022,11 @@ export type PackageUpdate_Serialize = {
 	available: string,
 	/**  apt suite / dnf repository. */
 	repo: string | null,
+	/**
+	 *  Held: on the host (apt-mark hold, IgnorePkg, a hidden Windows
+	 *  update) or in Nightgrid. Upgrades leave it alone; it isn't pending.
+	 */
+	held: boolean,
 };
 
 export type PendingChange = {
@@ -10628,6 +10702,40 @@ export type Unit_Serialize = {
 	fileState: string | null,
 };
 
+export type UpdateHold = UpdateHold_Serialize | UpdateHold_Deserialize;
+
+export type UpdateHold_Deserialize = {
+	id: number,
+	hostId: number,
+	kind: HoldKind,
+	/**  Package name, image reference or stack name; empty for a host. */
+	target: string,
+	/**  The stack an image belongs to; empty otherwise. */
+	stack: string,
+	/**  What was installed or running when it was held. */
+	version?: string | null,
+	/**  Unix seconds the hold ends by itself; `None` = until released. */
+	until?: number | null,
+	note: string,
+	createdAt: number,
+};
+
+export type UpdateHold_Serialize = {
+	id: number,
+	hostId: number,
+	kind: HoldKind,
+	/**  Package name, image reference or stack name; empty for a host. */
+	target: string,
+	/**  The stack an image belongs to; empty otherwise. */
+	stack: string,
+	/**  What was installed or running when it was held. */
+	version: string | null,
+	/**  Unix seconds the hold ends by itself; `None` = until released. */
+	until: number | null,
+	note: string,
+	createdAt: number,
+};
+
 export type UpdateInfo = UpdateInfo_Serialize | UpdateInfo_Deserialize;
 
 export type UpdateInfo_Deserialize = {
@@ -10690,6 +10798,12 @@ export type UpdatesReport_Deserialize = {
 	rebootReasons: string[],
 	/**  Something the user should know (stale package lists, ...). */
 	note?: string | null,
+	/**
+	 *  Packages held on the host (some aren't in `updates`: dnf hides
+	 *  locked ones from its list).
+	 */
+	held: string[],
+	holdSupport: HoldSupport,
 };
 
 export type UpdatesReport_Serialize = {
@@ -10704,6 +10818,12 @@ export type UpdatesReport_Serialize = {
 	rebootReasons: string[],
 	/**  Something the user should know (stale package lists, ...). */
 	note: string | null,
+	/**
+	 *  Packages held on the host (some aren't in `updates`: dnf hides
+	 *  locked ones from its list).
+	 */
+	held: string[],
+	holdSupport: HoldSupport,
 };
 
 /**  What an upgrade run does. */

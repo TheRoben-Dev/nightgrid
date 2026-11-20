@@ -68,6 +68,7 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         M::up(include_str!("migrations/0051_uptime_cleanup.sql")),
         M::up(include_str!("migrations/0052_expiry_prefs.sql")),
         M::up(include_str!("migrations/0053_host_os.sql")),
+        M::up(include_str!("migrations/0054_update_holds.sql")),
     ])
 });
 

@@ -34,6 +34,7 @@ Find out which images have new versions, read what changed, update with a snapsh
 
 - [ ] **Snapshots** → **Roll back…** lists every file and service it changes and saves the current state first.
 - [ ] After a rollback, pin the tag to the version that worked, so the next check doesn't offer the broken one silently.
+- [ ] Or **Hold** the image (or **Hold stack**) in the stack's **Updates** dialog: Pull and Update leave it on the version it runs, and its update isn't counted until you **Release** it. See [Patch every host from one place](kb:howto/fleet-updates).
 
 ## Part 4 · Automating it (or not)
 

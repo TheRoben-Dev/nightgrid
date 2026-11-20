@@ -7,12 +7,35 @@
   import { openExternal } from "../../clipboard";
   import { docker } from "../../stores/docker.svelte";
   import { availableCount, stackKey, stacks } from "../../stores/stacks.svelte";
+  import { holds } from "../../stores/holds.svelte";
   import Modal from "../Modal.svelte";
 
   const hostName = $derived(docker.host?.name ?? "");
   const uf = $derived(stacks.updatesFor);
   const check = $derived(uf ? stacks.updates[stackKey(uf)] : undefined);
   const sf = $derived(stacks.snapshotsFor);
+  const stackHold = $derived(uf && docker.hostId !== null ? holds.stack(docker.hostId, uf.name) : null);
+  $effect(() => holds.ensure());
+
+  /** Holds or releases one image; the check is re-read so the badges follow. */
+  async function toggleImage(image: string, version: string | null) {
+    const hostId = docker.hostId;
+    const s = uf;
+    if (hostId === null || !s) return;
+    const h = holds.image(hostId, s.name, image);
+    if (h) await holds.release(h.id);
+    else await holds.holdImage(hostId, s.name, image, version);
+    void stacks.checkUpdates(s);
+  }
+
+  async function toggleStack() {
+    const hostId = docker.hostId;
+    const s = uf;
+    if (hostId === null || !s) return;
+    if (stackHold) await holds.release(stackHold.id);
+    else await holds.holdStack(hostId, s.name);
+    void stacks.checkUpdates(s);
+  }
   const pr = $derived(stacks.pendingRollback);
 
   const statusWord: Record<ImageStatus, string> = {
@@ -45,6 +68,9 @@
 <Modal open={!!uf} title={uf ? `UPDATES · ${uf.name}` : ""} width={720} onclose={() => (stacks.updatesFor = null)}>
   {#if uf}
     <p class="muted small">Asks each image's registry whether its tag moved. Nothing is pulled until you choose <strong>Update</strong>.</p>
+    {#if stackHold}
+      <p class="hint small">This whole stack is held: Pull and Update leave every service alone and its updates aren't counted. Release it to update again.</p>
+    {/if}
     {#if check?.loading && !check.list}
       <p class="muted">Asking the registries…</p>
     {:else if check?.error}
@@ -53,10 +79,15 @@
       {#if !check.list.length}<p class="muted">This stack has no containers to check.</p>{/if}
       <ul class="ups">
         {#each check.list as u (u.image)}
-          <li class:avail={u.status === "available"}>
+          <li class:avail={u.status === "available" && !u.held}>
             <div class="top">
               <code class="img">{u.image}</code>
+              {#if u.held}<span class="badge held" title="Held in Nightgrid: Pull and Update leave its services on the image they run now">HELD</span>{/if}
               <span class="badge {u.status}" title={u.error ?? statusHint[u.status]}>{statusWord[u.status]}</span>
+              {#if !stackHold}
+                <button type="button" class="btn ghost tiny" data-guide="docker-hold-image" title={u.held ? "Release: Update pulls it again" : "Keep this image where it is: Pull and Update skip its services"}
+                  onclick={() => toggleImage(u.image, u.current.version ?? u.current.revision ?? null)}>{u.held ? "Release" : "Hold"}</button>
+              {/if}
             </div>
             <div class="sub muted small">
               {u.services.join(", ")}
@@ -85,6 +116,10 @@
   {/if}
   {#snippet footer()}
     {#if uf}
+      <button type="button" class="btn ghost" data-guide="docker-hold-stack" title={stackHold ? "Release the stack: Update pulls its images again" : "Hold every image of this stack: Pull and Update leave it alone"} onclick={toggleStack}
+        >{stackHold ? "Release stack" : "Hold stack"}</button
+      >
+      <span class="grow"></span>
       <button type="button" class="btn ghost" disabled={check?.loading} onclick={() => uf && stacks.checkUpdates(uf)}>{check?.loading ? "Checking…" : "Check again"}</button>
       <button
         type="button"
@@ -200,6 +235,16 @@
     white-space: nowrap;
     display: inline-block;
     line-height: calc(var(--tag-h) - 2px);
+  }
+  .badge.held {
+    color: var(--text-1);
+    border-style: dashed;
+  }
+  .grow {
+    flex: 1;
+  }
+  .hint {
+    color: var(--warn);
   }
   .badge.current {
     color: var(--mint);

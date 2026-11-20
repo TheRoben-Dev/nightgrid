@@ -19,8 +19,9 @@
   import CapacityPanel from "../components/fleet/CapacityPanel.svelte";
   import ReplayPanel from "../components/fleet/ReplayPanel.svelte";
   import { notices } from "../stores/notices.svelte";
+  import { holds } from "../stores/holds.svelte";
   import { alerts } from "../stores/alerts.svelte";
-  import { diskTone, type FleetTab } from "../fleet";
+  import { diskTone, pendingCount, type FleetTab } from "../fleet";
   import { settings } from "../stores/settings.svelte";
   import { fleet } from "../stores/fleet.svelte";
   import { hosts } from "../stores/hosts.svelte";
@@ -70,7 +71,7 @@
       return t === "bad" || worst === "bad" ? "bad" : t === "warn" || worst === "warn" ? "warn" : worst;
     }, "ok"),
   );
-  const pending = $derived(Object.values(fleet.updates).reduce((n, s) => n + (s.report?.updates.length ?? 0), 0));
+  const pending = $derived(Object.entries(fleet.updates).reduce((n, [id, s]) => n + (holds.host(Number(id)) ? 0 : pendingCount(s.report)), 0));
 </script>
 
 <div class="fleet">

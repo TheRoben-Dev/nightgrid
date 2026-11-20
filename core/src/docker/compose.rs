@@ -328,12 +328,43 @@ impl DockerHost {
         &self,
         stack: &Stack,
         op: ComposeOp,
+        cancel: watch::Receiver<bool>,
+        sink: &mut (dyn FnMut(Vec<String>) + Send),
+    ) -> DockerResult<(i32, Option<Vec<ImageChange>>)> {
+        self.compose_holding(stack, op, None, cancel, sink).await
+    }
+
+    /// [`Self::compose`], where Pull and Update pull only `pull_only`'s
+    /// services when given (the rest are held, D-195; empty = all held).
+    /// Held services keep their image: `up -d` only recreates services
+    /// whose image changed.
+    pub async fn compose_holding(
+        &self,
+        stack: &Stack,
+        op: ComposeOp,
+        pull_only: Option<&[String]>,
         mut cancel: watch::Receiver<bool>,
         sink: &mut (dyn FnMut(Vec<String>) + Send),
     ) -> DockerResult<(i32, Option<Vec<ImageChange>>)> {
         check_stack(stack)?;
+        let pulls = matches!(op, ComposeOp::Pull | ComposeOp::Update);
+        let pull_only = pull_only.filter(|_| pulls).map(|l| {
+            l.iter().filter(|s| crate::holds::valid_service(s)).cloned().collect::<Vec<String>>()
+        });
+        if let Some(list) = &pull_only {
+            if list.is_empty() {
+                sink(vec!["Every service of this stack is held: nothing pulled.".into()]);
+                return Ok((0, (op == ComposeOp::Update).then(Vec::new)));
+            }
+            sink(vec![format!("Held services are left out; pulling {}.", list.join(", "))]);
+        }
         let before = if op == ComposeOp::Update { Some(self.service_images(&stack.name).await?) } else { None };
-        let code = self.run_op(stack, op, &mut cancel, sink).await?;
+        let code = match &pull_only {
+            // Service names are checked (letters, digits, . _ -), so they
+            // are safe as words in both shells.
+            Some(list) => self.run_args(stack, &format!("pull {}", list.join(" ")), &mut cancel, sink).await?,
+            None => self.run_op(stack, op, &mut cancel, sink).await?,
+        };
         if op != ComposeOp::Update || code != 0 {
             return Ok((code, None));
         }
@@ -363,15 +394,26 @@ impl DockerHost {
         cancel: &mut watch::Receiver<bool>,
         sink: &mut (dyn FnMut(Vec<String>) + Send),
     ) -> DockerResult<i32> {
+        self.run_args(stack, op.args(), cancel, sink).await
+    }
+
+    /// `args` is built in this crate (fixed words and checked service names).
+    async fn run_args(
+        &self,
+        stack: &Stack,
+        args: &str,
+        cancel: &mut watch::Receiver<bool>,
+        sink: &mut (dyn FnMut(Vec<String>) + Send),
+    ) -> DockerResult<i32> {
         if self.route != Route::WindowsCli {
-            return self.run_streaming(&compose_command(stack, op, &self.route), cancel, sink).await;
+            return self.run_streaming(&compose_shell(stack, args, &self.route), cancel, sink).await;
         }
         let mut send = |_: crate::system::sudo::Stream, line: String| {
             sink(vec![strip_ansi(line.rsplit('\r').find(|p| !p.is_empty()).unwrap_or(""))]);
             true
         };
         // Cancelling closes the channel, which ends compose on the host.
-        let code = crate::win::stream(&self.conn, &compose_ps(stack, op.args()), Some(cancel.clone()), &mut send)
+        let code = crate::win::stream(&self.conn, &compose_ps(stack, args), Some(cancel.clone()), &mut send)
             .await
             .map_err(DockerError::other)?;
         Ok(code.unwrap_or(130))

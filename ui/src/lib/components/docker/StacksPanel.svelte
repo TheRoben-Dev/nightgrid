@@ -3,6 +3,7 @@
   import { onMount, tick } from "svelte";
   import type { ComposeOp, Stack } from "../../api";
   import { docker } from "../../stores/docker.svelte";
+  import { holds } from "../../stores/holds.svelte";
   import { files } from "../../stores/files.svelte";
   import { availableCount, composeFile, envFile, opConsequence, opLabel, runLabel, stackKey, stacks } from "../../stores/stacks.svelte";
   import DeployWizard from "./DeployWizard.svelte";
@@ -18,6 +19,7 @@
   import Resizer from "../Resizer.svelte";
 
   onMount(() => {
+    holds.ensure();
     void stacks.load();
     const t = setInterval(() => void stacks.load(true), 15000);
     return () => clearInterval(t);
@@ -108,6 +110,7 @@
       {#each stacks.visible as s (s.name + s.dir)}
         {@const active = run?.stack.name === s.name && run.stack.dir === s.dir}
         {@const uc = stacks.updates[stackKey(s)]}
+        {@const stackHeld = docker.hostId !== null && !!holds.stack(docker.hostId, s.name)}
         <div class="row" class:active role="row">
           <span class="name" role="cell"><span class="dot" class:on={s.running > 0} aria-hidden="true"></span>{s.name}</span>
           <span class="dir muted" role="cell" title={s.dir}>{s.dir}</span>
@@ -138,7 +141,7 @@
               onclick={() => {
                 stacks.updatesFor = s;
                 if (!uc || (!uc.loading && Date.now() - uc.at > 60_000)) void stacks.checkUpdates(s);
-              }}>{uc?.loading ? "Checking…" : availableCount(uc) ? `${availableCount(uc)} update${availableCount(uc) > 1 ? "s" : ""}` : "Updates"}</button
+              }}>{uc?.loading ? "Checking…" : stackHeld ? "Held" : availableCount(uc) ? `${availableCount(uc)} update${availableCount(uc) > 1 ? "s" : ""}` : "Updates"}</button
             >
             <button type="button" class="btn ghost tiny" title="Snapshots and rollback" onclick={() => void stacks.openSnapshots(s)}>Snapshots</button>
             {#each ops as op (op)}
@@ -149,7 +152,7 @@
                 class:danger={op === "down"}
                 class:warnbtn={op === "update" || op === "restart"}
                 disabled={stacks.busy}
-                title={opConsequence[op]}
+                title={stackHeld && (op === "pull" || op === "update") ? `${opConsequence[op]} This stack is held: nothing is pulled.` : opConsequence[op]}
                 onclick={() => stacks.request(s, op)}>{opLabel[op]}</button
               >
             {/each}

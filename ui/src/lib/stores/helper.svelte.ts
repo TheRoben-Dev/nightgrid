@@ -22,6 +22,7 @@ import { wantsSummary, type SummaryInput } from "../helper/skills/summary";
 import { diskRows, disksText, totals, updateRows, updatesText } from "../fleet";
 import { backups, jobState } from "./backups.svelte";
 import { fleet } from "./fleet.svelte";
+import { holds } from "./holds.svelte";
 import { healthOf, services } from "./services.svelte";
 import { alerts } from "./alerts.svelte";
 import { docker } from "./docker.svelte";
@@ -503,7 +504,7 @@ class HelperStore {
     const svc = services.services.filter((v) => v.hostId === h.id).map((v) => `${v.name}: ${healthOf(v, services.status[v.id])}`);
     if (svc.length) out.push(`Service checks (Services view): ${clip(svc, 12).join("; ")}`);
     if (fleet.updates[h.id]) {
-      const t = updatesText(updateRows([h], fleet.updates), []).trim();
+      const t = updatesText(updateRows([h], fleet.updates, (id) => holds.host(id)), []).trim();
       if (t) out.push(`Updates (Fleet → UPDATES): ${t.split("\n").slice(0, 6).join(" / ")}`);
     }
     if (fleet.disks[h.id]) {
@@ -533,7 +534,7 @@ class HelperStore {
       return up != null && up < 86400 ? [{ host: h.name, agoSecs: up }] : [];
     });
     const svc = services.services.map((v) => ({ name: v.name, h: healthOf(v, services.status[v.id]) }));
-    const upd = updateRows(hosts.hosts, fleet.updates);
+    const upd = updateRows(hosts.hosts, fleet.updates, (id) => holds.host(id));
     const t = totals(upd);
     const disks = diskRows(hosts.hosts, fleet.disks, settings.value.alerts.forecastDays).filter((r) => r.tone === "bad" || r.tone === "warn");
     return {
