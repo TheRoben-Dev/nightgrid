@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../confirm";
+  import { enterConfirms, typedMatches } from "../confirm";
   /**
    * Proxmox (M10r): a Proxmox VE host's cluster through `pvesh` over SSH.
    * SUMMARY (nodes), GUESTS (power actions, screen, console), STORAGE and
@@ -341,12 +341,12 @@
   {#if proxmox.confirm}
     <p>{proxmox.confirm.body}</p>
     {#if proxmox.confirm.typed}
-      <label class="typed small">Type <strong class="mono verbatim">{proxmox.confirm.typed}</strong> to confirm <input class="input mono" bind:value={typed} spellcheck="false" /></label>
+      <label class="typed small">Type <strong class="mono verbatim">{proxmox.confirm.typed}</strong> to confirm <input class="input mono" use:enterConfirms bind:value={typed} spellcheck="false" /></label>
     {/if}
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (proxmox.confirm = null)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={!!proxmox.confirm?.typed && !typedMatches(typed, proxmox.confirm.typed)} onclick={() => proxmox.runConfirm()}>{proxmox.confirm?.button ?? ""}</button>
+    <button type="button" class="btn danger" data-confirm disabled={!!proxmox.confirm?.typed && !typedMatches(typed, proxmox.confirm.typed)} onclick={() => proxmox.runConfirm()}>{proxmox.confirm?.button ?? ""}</button>
   {/snippet}
 </Modal>
 

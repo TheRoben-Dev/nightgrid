@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../confirm";
+  import { enterConfirms, typedMatches } from "../confirm";
   import { scramble } from "../scramble";
   import { onMount } from "svelte";
   import type { ContainerView, DockerAction } from "../api";
@@ -404,7 +404,7 @@
     {#if needsTyping}
       <label class="field">
         <span>Type <strong class="verbatim">{hostName}</strong> to confirm</span>
-        <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
+        <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
   {/if}
@@ -413,6 +413,7 @@
     <button
       type="button"
       class="btn danger"
+      data-confirm
       disabled={!confirmOk}
       onclick={() => pending && pendingAction && docker.run(pendingAction, pending.targets)}
     >

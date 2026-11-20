@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../../confirm";
+  import { enterConfirms, typedMatches } from "../../confirm";
   /**
    * Fleet → UPDATES (M10m): pending package updates on every host, reboot
    * flags, batch upgrade with a typed confirmation (rule 5), and container
@@ -404,11 +404,11 @@
   </p>
   <label class="field">
     <span>Type <strong class="verbatim">{phrase}</strong> to confirm</span>
-    <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
+    <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" />
   </label>
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (fleet.confirm = false)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={!picked.length || !typedMatches(typed, phrase)} onclick={() => fleet.upgradeSelected()}
+    <button type="button" class="btn danger" data-confirm disabled={!picked.length || !typedMatches(typed, phrase)} onclick={() => fleet.upgradeSelected()}
       >Upgrade {picked.length} host{picked.length === 1 ? "" : "s"}</button
     >
   {/snippet}

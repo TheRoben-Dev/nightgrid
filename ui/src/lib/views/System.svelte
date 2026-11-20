@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../confirm";
+  import { enterConfirms, typedMatches } from "../confirm";
   import { scramble } from "../scramble";
   import Modal from "../components/Modal.svelte";
   import AuthPrompt from "../components/terminal/AuthPrompt.svelte";
@@ -230,13 +230,14 @@
   <p class="muted">{system.confirmPower ? POWER_TEXT[system.confirmPower] : ""} Nightgrid shows it as {system.confirmPower === "suspend" ? "suspended" : system.confirmPower === "shutdown" ? "shut down" : "rebooting"}, not offline, and raises no offline alert.</p>
   <label class="field">
     <span>Type <strong class="verbatim">{hostName}</strong> to confirm</span>
-    <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
+    <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" />
   </label>
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (system.confirmPower = null)}>Cancel</button>
     <button
       type="button"
       class="btn danger"
+      data-confirm
       disabled={!typedMatches(typed, hostName)}
       onclick={() => system.confirmPower && system.power(system.confirmPower)}>{system.confirmPower ? POWER_LABEL[system.confirmPower] : ""} {hostName}</button
     >
@@ -275,7 +276,7 @@
     <p class="muted">{POWER_TEXT[g.action]} Hosts whose sudo needs a password that Nightgrid doesn't remember are skipped and listed.</p>
     <label class="field">
       <span>Type <strong class="verbatim">{groupName}</strong> to confirm</span>
-      <input class="input" bind:value={groupTyped} autocomplete="off" spellcheck="false" />
+      <input class="input" use:enterConfirms bind:value={groupTyped} autocomplete="off" spellcheck="false" />
     </label>
   {/if}
   {#snippet footer()}
@@ -283,6 +284,7 @@
     <button
       type="button"
       class="btn danger"
+      data-confirm
       disabled={!groupMembers.length || !typedMatches(groupTyped, groupName)}
       onclick={() => system.confirmGroupPower && system.groupPower(system.confirmGroupPower.groupId, system.confirmGroupPower.action)}
       >{system.confirmGroupPower ? POWER_LABEL[system.confirmGroupPower.action] : ""} {groupMembers.length} host{groupMembers.length === 1 ? "" : "s"}</button
