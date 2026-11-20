@@ -246,6 +246,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         integrations_cmd::integration_test,
         integrations_cmd::amp_instance_action,
         integrations_cmd::dns_filter_action,
+        integrations_cmd::synology_trust_device,
+        integrations_cmd::synology_forget_device,
         integrations_cmd::integration_action,
         envvault_cmd::env_vars_list,
         envvault_cmd::env_stacks,

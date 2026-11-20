@@ -65,6 +65,7 @@ pub mod services;
 pub mod settings;
 pub mod silence;
 pub mod sla;
+pub mod snmp;
 pub mod ssh;
 pub mod stack_dirs;
 pub mod starter_presets;

@@ -87,6 +87,13 @@ impl SecretRef {
         Self::new(SecretKind::IntegrationToken, format!("integration-{id}"))
     }
 
+    /// DSM's trusted-device token for a Synology integration with 2-step
+    /// verification (D-199). Never exported in profiles: another computer
+    /// asks for its own code.
+    pub fn integration_device(id: crate::integrations::IntegrationId) -> Self {
+        Self::new(SecretKind::IntegrationToken, format!("integration-{id}-device"))
+    }
+
     /// The alerts webhook URL (it can carry a token).
     pub fn alerts_webhook() -> Self {
         Self::new(SecretKind::IntegrationToken, "alerts-webhook")

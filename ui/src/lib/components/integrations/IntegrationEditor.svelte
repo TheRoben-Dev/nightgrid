@@ -1,7 +1,17 @@
 <script lang="ts">
   import { api, errorText, type IntegrationInput, type IntegrationKind } from "../../api";
   import { hosts } from "../../stores/hosts.svelte";
-  import { emptyIntegrationInput, integrations, KIND_META, kindsByGroup, summary, toIntegrationInput } from "../../stores/integrations.svelte";
+  import {
+    addressOk,
+    emptyIntegrationInput,
+    integrations,
+    KIND_META,
+    kindsByGroup,
+    needsDsmCode,
+    SNMP_PROTOCOLS,
+    summary,
+    toIntegrationInput,
+  } from "../../stores/integrations.svelte";
   import Modal from "../Modal.svelte";
   import Toggle from "../Toggle.svelte";
 
@@ -10,6 +20,10 @@
 
   let form = $state<IntegrationInput>(emptyIntegrationInput());
   let secret = $state("");
+  /** SNMPv3 privacy password (saved after a newline in the same keychain entry). */
+  let privSecret = $state("");
+  /** Synology: a 2-step code, used once on save to have DSM trust this computer. */
+  let otp = $state("");
   let reveal = $state(false);
   let clearSecret = $state(false);
   let error = $state<string | null>(null);
@@ -24,6 +38,8 @@
     const v = integrations.editing ? integrations.byId(integrations.editing) : undefined;
     form = v ? toIntegrationInput(v.integration) : emptyIntegrationInput();
     secret = "";
+    privSecret = "";
+    otp = "";
     reveal = false;
     clearSecret = false;
     error = null;
@@ -35,15 +51,21 @@
   const kind = $derived(form.kind ?? "plex");
   const meta = $derived(KIND_META[kind]);
   const needsSecret = $derived(!!meta.secret);
-  const secretLabel = $derived(meta.secret?.label ?? "Password");
-  const urlOk = $derived(/^https?:\/\/[^/\s@?#]+/i.test(form.baseUrl?.trim() ?? ""));
+  const snmpV3 = $derived(kind === "snmp" && !!form.username?.trim());
+  const snmpPrivacy = $derived(snmpV3 && (form.slug || "sha-aes").includes("-"));
+  const secretLabel = $derived(snmpV3 ? "Password" : (meta.secret?.label ?? "Password"));
+  const urlOk = $derived(addressOk(kind, form.baseUrl));
 
   function pick(k: IntegrationKind) {
     form = { ...emptyIntegrationInput(k), baseUrl: form.baseUrl };
   }
 
-  /** null keeps the saved secret, "" removes it. */
-  const secretArg = (): string | null => (clearSecret ? "" : secret.trim() ? secret.trim() : null);
+  /** null keeps the saved secret, "" removes it. SNMPv3 keeps both passwords, one per line. */
+  const secretArg = (): string | null => {
+    if (clearSecret) return "";
+    if (snmpV3 && (secret.trim() || privSecret.trim())) return `${secret.trim()}\n${snmpPrivacy ? privSecret.trim() : ""}`;
+    return secret.trim() ? secret.trim() : null;
+  };
 
   function close() {
     integrations.editing = null;
@@ -56,7 +78,8 @@
     }
     if (existing?.hasSecret && !secret) {
       try {
-        secret = (await api.integrationRevealSecret(existing.integration.id)) ?? "";
+        const saved = (await api.integrationRevealSecret(existing.integration.id)) ?? "";
+        [secret, privSecret = ""] = kind === "snmp" ? saved.split("\n") : [saved];
       } catch (e) {
         error = errorText(e);
       }
@@ -69,10 +92,15 @@
     error = null;
     tested = null;
     try {
-      const s = await api.integrationTest(existing?.integration.id ?? null, form, secret.trim() || null);
+      const s = await api.integrationTest(existing?.integration.id ?? null, form, secretArg() || null);
       tested = `Connected: ${summary(s)}`;
     } catch (e) {
-      error = errorText(e);
+      const text = errorText(e);
+      if (kind === "synology" && needsDsmCode(text) && !existing?.trustedDevice) {
+        tested = `Login name and password work. DSM wants a 2-step code: enter one below and press ${existing ? "Save" : "Add"}.`;
+      } else {
+        error = text;
+      }
     } finally {
       busy = false;
     }
@@ -84,8 +112,30 @@
     busy = true;
     error = null;
     try {
-      await integrations.save(integrations.editing ?? 0, form, secretArg());
+      // Read before saving: saving reloads the list, which resets the form.
+      const code = kind === "synology" ? otp.trim() : "";
+      const v = await integrations.save(integrations.editing ?? 0, form, secretArg());
+      if (code) {
+        integrations.editing = v.integration.id;
+        const trusted = await integrations.trustDsm(v.integration.id, code);
+        if (!trusted) {
+          tested = "Saved. DSM didn't hand out a device token: this account doesn't use 2-step verification.";
+          return;
+        }
+      }
       close();
+    } catch (err) {
+      error = errorText(err);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function forgetDevice() {
+    if (!existing) return;
+    busy = true;
+    try {
+      await integrations.forgetDsm(existing.integration.id);
     } catch (err) {
       error = errorText(err);
     } finally {
@@ -138,13 +188,22 @@
         <input class="input" bind:value={form.name} placeholder={meta.name} autocomplete="off" />
       </label>
       <label class="field span4">
-        <span>URL</span>
+        <span>{kind === "snmp" ? "Address" : "URL"}</span>
         <input class="input" bind:value={form.baseUrl} placeholder={meta.placeholder} required autocomplete="off" spellcheck="false" aria-invalid={!!form.baseUrl?.trim() && !urlOk} />
       </label>
       {#if meta.username}
         <label class="field span3">
           <span>{meta.username.label}</span>
           <input class="input" bind:value={form.username} placeholder={meta.username.placeholder ?? ""} autocomplete="off" spellcheck="false" required={meta.username.required} />
+        </label>
+      {/if}
+      {#if snmpV3}
+        <label class="field span3">
+          <span>Protocols</span>
+          <select class="input" value={form.slug || "sha-aes"} onchange={(e) => (form.slug = e.currentTarget.value)}>
+            {#each SNMP_PROTOCOLS as p (p.id)}<option value={p.id}>{p.label}</option>{/each}
+          </select>
+          <span class="field-hint">Authentication + privacy, as set in the agent (DSM: Terminal & SNMP → SNMPv3).</span>
         </label>
       {/if}
       {#if meta.extra}
@@ -194,7 +253,26 @@
               <button type="button" class="btn ghost tiny" onclick={() => ((clearSecret = !clearSecret), (secret = ""))}>{clearSecret ? "Keep" : "Remove"}</button>
             {/if}
           </div>
-          <span class="field-hint">{meta.secret?.hint ?? "Kept in the OS keychain only."}</span>
+          <span class="field-hint">{meta.secret?.hint ?? "Kept in the OS keychain only."}{snmpV3 && existing?.hasSecret ? " To change either password, enter both." : ""}</span>
+        </div>
+      {/if}
+      {#if snmpPrivacy}
+        <label class="field span3">
+          <span>Privacy password</span>
+          <input class="input" type={reveal ? "text" : "password"} bind:value={privSecret} placeholder={existing?.hasSecret && !clearSecret ? "•••••••• saved in the keychain" : "empty = same as the password"} autocomplete="off" spellcheck="false" disabled={clearSecret} />
+          <span class="field-hint">Kept in the OS keychain only.</span>
+        </label>
+      {/if}
+      {#if kind === "synology"}
+        <div class="field span6 twostep">
+          <span>2-step verification</span>
+          {#if existing?.trustedDevice}
+            <p class="ok-line">DSM trusts this computer: its device token is in the keychain, so no codes are needed. <button type="button" class="btn ghost tiny" disabled={busy} onclick={forgetDevice}>Forget</button></p>
+            <span class="field-hint">Forgetting only removes Nightgrid's copy. In DSM, remove "Nightgrid" from the trusted devices under Personal → Security too.</span>
+          {:else}
+            <input class="input otp" bind:value={otp} inputmode="numeric" autocomplete="one-time-code" placeholder="123456" maxlength="12" aria-label="2-step code" />
+            <span class="field-hint">Only when the account uses 2-step verification: enter a current code from the authenticator once. DSM then trusts Nightgrid and doesn't ask again. The code isn't stored.</span>
+          {/if}
         </div>
       {/if}
       {#if /^https:/i.test(form.baseUrl ?? "")}
@@ -286,6 +364,18 @@
   .help {
     margin: 0;
     font-size: var(--fs-sm);
+  }
+  .twostep .otp {
+    max-width: 160px;
+    letter-spacing: 0.2em;
+  }
+  .ok-line {
+    color: var(--ok);
+    margin: 0;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
   }
   .secret {
     display: flex;

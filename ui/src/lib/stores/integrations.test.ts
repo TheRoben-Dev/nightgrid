@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { IntegrationStatus, IntegrationView } from "../api";
-import { emptyIntegrationInput, KIND_GROUPS, KIND_META, kindsByGroup, portainerUrl, summary, toneOf } from "./integrations.svelte";
+import { addressOk, DSM_NEEDS_OTP, needsDsmCode, SNMP_PROTOCOLS, emptyIntegrationInput, KIND_GROUPS, KIND_META, kindsByGroup, portainerUrl, summary, toneOf } from "./integrations.svelte";
 
 const view = (over: Partial<IntegrationView["integration"]>): IntegrationView => ({
   hasSecret: false,
+  trustedDevice: false,
   integration: {
     id: 1,
     kind: "portainer",
@@ -19,6 +20,24 @@ const view = (over: Partial<IntegrationView["integration"]>): IntegrationView =>
 });
 
 describe("integrations helpers", () => {
+  it("checks addresses per kind", () => {
+    expect(addressOk("plex", "http://server01:32400")).toBe(true);
+    expect(addressOk("plex", "server01")).toBe(false);
+    expect(addressOk("snmp", "nas.lan")).toBe(true);
+    expect(addressOk("snmp", "snmp://10.0.0.5:1161")).toBe(true);
+    expect(addressOk("snmp", "[fd00::5]:161")).toBe(true);
+    expect(addressOk("snmp", "http://nas.lan")).toBe(false);
+    expect(addressOk("snmp", "user@nas")).toBe(false);
+  });
+
+  it("spots DSM's 2-step request", () => {
+    expect(needsDsmCode(`${DSM_NEEDS_OTP}: enter one`)).toBe(true);
+    expect(needsDsmCode("DSM refused the login name or password")).toBe(false);
+    expect(needsDsmCode(null)).toBe(false);
+    expect(toneOf({ status: null, error: `${DSM_NEEDS_OTP}: enter one`, loading: false, at: 1 })).toBe("warn");
+    expect(SNMP_PROTOCOLS[0].id).toBe("sha-aes");
+  });
+
   it("summarises statuses", () => {
     const plex: IntegrationStatus = {
       kind: "plex",
@@ -87,7 +106,7 @@ describe("integrations helpers", () => {
   it("describes every kind and groups them for the picker", () => {
     for (const [k, m] of Object.entries(KIND_META)) {
       expect(m.name, k).not.toBe("");
-      expect(m.placeholder, k).toMatch(/^https?:\/\//);
+      expect(addressOk(k as keyof typeof KIND_META, m.placeholder), k).toBe(true);
       expect(KIND_GROUPS, k).toContain(m.group);
     }
     const all = kindsByGroup().flatMap((g) => g.kinds);

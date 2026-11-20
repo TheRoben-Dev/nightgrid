@@ -14,6 +14,8 @@ import type {
 
 let nextId = 1;
 const secrets = new Map<number, string>();
+/** Synology integrations DSM trusts (2-step device token saved). */
+const trusted = new Set<number>();
 let list: IntegrationView[] = [];
 
 const add = (input: IntegrationInput, secret?: string) => {
@@ -32,6 +34,7 @@ const add = (input: IntegrationInput, secret?: string) => {
       allowUntrusted: !!input.allowUntrusted,
     },
     hasSecret: secrets.has(id),
+    trustedDevice: false,
   };
   list = [...list, v];
   return v;
@@ -46,6 +49,9 @@ add({ kind: "sonarr", name: "Sonarr", baseUrl: "http://server01:8989" }, "key");
 add({ kind: "overseerr", name: "Requests", baseUrl: "http://server01:5055" }, "key");
 add({ kind: "qbittorrent", name: "qBittorrent", baseUrl: "http://server01:8080", username: "admin" }, "pw");
 add({ kind: "syncthing", name: "Syncthing", baseUrl: "http://server01:8384" }, "key");
+// 2-step on: asks for a code until "Enter 2-step code" trusts this computer.
+add({ kind: "synology", name: "NAS (DSM)", baseUrl: "https://nas.lan:5001", username: "nightgrid" }, "pw");
+add({ kind: "snmp", name: "NAS (SNMP)", baseUrl: "snmp://nas.lan", username: "nightgrid", slug: "sha-aes" }, "authpass1\nprivpass1");
 
 const now = () => Date.now() / 1000;
 const dns: DnsStatus & { pausedUntil: number | null } = {
@@ -101,6 +107,41 @@ let queue = [
 function appStatus(kind: string): AppStatus {
   const base = { version: null, health: "ok" as const, tiles: [], rowsTitle: "", rows: [], more: 0, notes: [], actions: [] };
   switch (kind) {
+    case "synology":
+      return {
+        ...base,
+        version: "DSM 7.2.2-72806 (DS920+)",
+        summary: "1 volume · 4 disks",
+        tiles: [
+          { label: "Volumes", value: "1" },
+          { label: "Disks", value: "4" },
+          { label: "Temp", value: "41 °C" },
+          { label: "CPU", value: "6 %" },
+          { label: "Memory", value: "31 %" },
+        ],
+        rowsTitle: "Volumes",
+        rows: [{ id: "volume_1", title: "volume 1", meta: "normal · 7.2 TB of 10.9 TB used (66 %)", state: "ok", progress: 66, actions: [] }],
+      };
+    case "snmp":
+      return {
+        ...base,
+        health: "warn",
+        version: "DSM 7.2.2-72806 (DS920+)",
+        summary: "1 pool · 4 disks (1 with problems)",
+        tiles: [
+          { label: "Disks", value: "4" },
+          { label: "Temp", value: "41 °C" },
+          { label: "CPU", value: "6 %" },
+          { label: "Memory", value: "31 %" },
+          { label: "Up", value: "12d 4h" },
+        ],
+        rowsTitle: "Storage",
+        rows: [
+          { id: "raid0", title: "Storage Pool 1", meta: "normal · 7.2 TB of 10.9 TB used (66 %)", state: "ok", progress: 66, actions: [] },
+          { id: "hr31", title: "/volume1", meta: "7.1 TB of 10.5 TB used (68 %)", state: "ok", progress: 68, actions: [] },
+        ],
+        notes: ["Drive 3 (WD40EFRX): health warning"],
+      };
     case "jellyfin":
     case "emby":
       return {
@@ -230,10 +271,11 @@ function statusFor(kind: string): IntegrationStatus {
 
 export const mockIntegrations = {
   async list(): Promise<IntegrationView[]> {
-    return list.map((v) => ({ ...v, hasSecret: secrets.has(v.integration.id) }));
+    return list.map((v) => ({ ...v, hasSecret: secrets.has(v.integration.id), trustedDevice: trusted.has(v.integration.id) }));
   },
   async create(input: IntegrationInput, secret: string | null): Promise<IntegrationView> {
-    if (!/^https?:\/\/[^/\s@]+/i.test(input.baseUrl ?? "")) throw { message: "baseUrl: must start with http:// or https://" };
+    if (input.kind === "snmp") input = { ...input, baseUrl: `snmp://${(input.baseUrl ?? "").replace(/^snmp:\/\//i, "")}` };
+    else if (!/^https?:\/\/[^/\s@]+/i.test(input.baseUrl ?? "")) throw { message: "baseUrl: must start with http:// or https://" };
     return add(input, secret ?? undefined);
   },
   async update(id: number, input: IntegrationInput, secret: string | null): Promise<IntegrationView> {
@@ -244,11 +286,22 @@ export const mockIntegrations = {
         ? { ...v, integration: { ...v.integration, ...input, kind: v.integration.kind, baseUrl: (input.baseUrl ?? "").replace(/\/+$/, "") } as IntegrationView["integration"] }
         : v,
     );
-    return { ...list.find((v) => v.integration.id === id)!, hasSecret: secrets.has(id) };
+    return { ...list.find((v) => v.integration.id === id)!, hasSecret: secrets.has(id), trustedDevice: trusted.has(id) };
   },
   async remove(id: number): Promise<null> {
     list = list.filter((v) => v.integration.id !== id);
     secrets.delete(id);
+    trusted.delete(id);
+    return null;
+  },
+  async trustDevice(id: number, code: string): Promise<boolean> {
+    await new Promise((r) => setTimeout(r, 300));
+    if (!/^\d{6}$/.test(code)) throw { message: "DSM didn't accept that 2-step code. Codes change every 30 seconds; also check the clocks on this computer and the NAS" };
+    trusted.add(id);
+    return true;
+  },
+  async forgetDevice(id: number): Promise<null> {
+    trusted.delete(id);
     return null;
   },
   async reveal(id: number): Promise<string | null> {
@@ -257,6 +310,9 @@ export const mockIntegrations = {
   async status(id: number): Promise<IntegrationStatus> {
     const v = list.find((x) => x.integration.id === id);
     if (!v) throw { message: "integration not found" };
+    if (v.integration.kind === "synology" && !trusted.has(id)) {
+      throw { message: "DSM asks for a 2-step code: enter one from your authenticator in the integration's settings, once. DSM then trusts Nightgrid and doesn't ask again" };
+    }
     return statusFor(v.integration.kind);
   },
   async test(input: IntegrationInput): Promise<IntegrationStatus> {

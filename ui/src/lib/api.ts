@@ -1406,6 +1406,9 @@ export const api = {
   ampInstanceAction: (id: number, instance: string, action: AmpAction): Promise<null> =>
     T() ? commands.ampInstanceAction(id, instance, action) : mockIntegrations.ampAction(id, instance, action),
   dnsFilterAction: (id: number, action: DnsAction): Promise<null> => (T() ? commands.dnsFilterAction(id, action) : mockIntegrations.dnsAction(id, action)),
+  synologyTrustDevice: (id: number, code: string): Promise<boolean> =>
+    T() ? commands.synologyTrustDevice(id, code) : mockIntegrations.trustDevice(id, code),
+  synologyForgetDevice: (id: number): Promise<null> => (T() ? commands.synologyForgetDevice(id) : mockIntegrations.forgetDevice(id)),
   integrationAction: (id: number, target: string, action: string): Promise<null> =>
     T() ? commands.integrationAction(id, target, action) : mockIntegrations.action(id, target, action),
   snippetsList: (): Promise<Snippet[]> => (T() ? commands.snippetsList() : mockAutomation.snippets()),

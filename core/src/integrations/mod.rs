@@ -16,7 +16,8 @@
 //!   **Immich**, **Nextcloud**, **Syncthing**, **Gotify**, **Frigate** (1.11.0);
 //!   **TrueNAS**, **Synology DSM**, **Unraid**, **Proxmox Backup Server**,
 //!   **OPNsense**, **UniFi Network**, **Nginx Proxy Manager**, **Grafana** and
-//!   **Prometheus** (1.13).
+//!   **Prometheus** (1.13); **SNMP** (read-only health and disks, with
+//!   Synology's MIB when present; D-199).
 //!
 //! The database stores the kind as text with no CHECK on it (0050): a kind is
 //! valid when [`IntegrationKind::parse`] knows it.
@@ -41,6 +42,7 @@ pub mod plex;
 pub mod portainer;
 pub mod qbittorrent;
 pub mod seerr;
+pub mod snmp;
 pub mod storage;
 pub mod syncthing;
 pub mod tautulli;
@@ -95,6 +97,7 @@ pub enum IntegrationKind {
     Npm,
     Grafana,
     Prometheus,
+    Snmp,
 }
 
 /// Whether a kind uses a token, password or API key from the keychain.
@@ -107,7 +110,7 @@ pub enum SecretUse {
 
 impl IntegrationKind {
     /// Every kind (tests save each one).
-    pub const ALL: [Self; 34] = [
+    pub const ALL: [Self; 35] = [
         Self::Plex,
         Self::Amp,
         Self::Kuma,
@@ -142,6 +145,7 @@ impl IntegrationKind {
         Self::Npm,
         Self::Grafana,
         Self::Prometheus,
+        Self::Snmp,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -180,6 +184,7 @@ impl IntegrationKind {
             Self::Npm => "npm",
             Self::Grafana => "grafana",
             Self::Prometheus => "prometheus",
+            Self::Snmp => "snmp",
         }
     }
 
@@ -220,6 +225,7 @@ impl IntegrationKind {
             Self::Npm => "Nginx Proxy Manager",
             Self::Grafana => "Grafana",
             Self::Prometheus => "Prometheus",
+            Self::Snmp => "SNMP",
         }
     }
 
@@ -259,6 +265,7 @@ impl IntegrationKind {
             "npm" => Self::Npm,
             "grafana" => Self::Grafana,
             "prometheus" => Self::Prometheus,
+            "snmp" => Self::Snmp,
             _ => return None,
         })
     }
@@ -288,6 +295,7 @@ impl IntegrationKind {
             Self::Opnsense => Some(("OPNsense needs the API key (the secret goes in the password field)", true)),
             Self::Npm => Some(("Nginx Proxy Manager needs the login email", true)),
             Self::Qbittorrent | Self::Transmission | Self::Frigate | Self::Prometheus => Some(("", false)),
+            Self::Snmp => Some(("", false)),
             _ => None,
         }
     }
@@ -354,7 +362,11 @@ pub fn normalize(i: &IntegrationInput) -> Result<(IntegrationKind, IntegrationIn
     let kind = i.kind.ok_or_else(|| inv("kind", "pick an integration type"))?;
     let mut n = i.clone();
     n.name = n.name.trim().chars().take(80).collect();
-    n.base_url = normalize_url(&n.base_url).map_err(|r| inv("baseUrl", r))?;
+    n.base_url = if kind == IntegrationKind::Snmp {
+        snmp::normalize_address(&n.base_url).map_err(|r| inv("baseUrl", r))?
+    } else {
+        normalize_url(&n.base_url).map_err(|r| inv("baseUrl", r))?
+    };
     n.username = n.username.trim().to_owned();
     n.slug = n.slug.trim().trim_matches('/').to_owned();
     if n.name.is_empty() {
@@ -373,7 +385,15 @@ pub fn normalize(i: &IntegrationInput) -> Result<(IntegrationKind, IntegrationIn
             return Err(inv("slug", "letters, digits, - and _ only"));
         }
     }
-    if !matches!(kind, IntegrationKind::Kuma | IntegrationKind::Unifi) {
+    if kind == IntegrationKind::Snmp {
+        n.slug = n.slug.to_ascii_lowercase();
+        if n.username.is_empty() {
+            n.slug.clear();
+        } else if !n.slug.is_empty() && !snmp::PROTOCOLS.contains(&n.slug.as_str()) {
+            return Err(inv("slug", "pick the SNMPv3 protocols"));
+        }
+        n.allow_untrusted = false;
+    } else if !matches!(kind, IntegrationKind::Kuma | IntegrationKind::Unifi) {
         n.slug.clear();
     }
     if kind != IntegrationKind::Portainer {
@@ -403,6 +423,16 @@ pub enum IntegrationStatus {
 /// Reads an integration's status. `secret` is the token/password from the
 /// keychain, when the kind uses one.
 pub async fn status(i: &Integration, secret: Option<&str>) -> std::result::Result<IntegrationStatus, String> {
+    status_with_device(i, secret, None).await
+}
+
+/// [`status`] with DSM's trusted-device token for a Synology account that
+/// has 2-step verification (D-199). Other kinds ignore it.
+pub async fn status_with_device(
+    i: &Integration,
+    secret: Option<&str>,
+    device_id: Option<&str>,
+) -> std::result::Result<IntegrationStatus, String> {
     match i.kind {
         IntegrationKind::Plex => {
             plex::status(i, secret.ok_or("no Plex token saved")?).await.map(IntegrationStatus::Plex)
@@ -423,12 +453,16 @@ pub async fn status(i: &Integration, secret: Option<&str>) -> std::result::Resul
             if kind.secret_use() == SecretUse::Required && key.is_none() {
                 return Err(format!("no {} API key saved", kind.label()));
             }
-            app_status(i, key.unwrap_or("")).await.map(IntegrationStatus::App)
+            app_status(i, key.unwrap_or(""), device_id).await.map(IntegrationStatus::App)
         }
     }
 }
 
-async fn app_status(i: &Integration, key: &str) -> std::result::Result<app::AppStatus, String> {
+async fn app_status(
+    i: &Integration,
+    key: &str,
+    device_id: Option<&str>,
+) -> std::result::Result<app::AppStatus, String> {
     use IntegrationKind as K;
     match i.kind {
         K::Jellyfin | K::Emby => jellyfin::status(i, key).await,
@@ -443,10 +477,11 @@ async fn app_status(i: &Integration, key: &str) -> std::result::Result<app::AppS
         K::Syncthing => syncthing::status(i, key).await,
         K::Gotify => gotify::status(i, key).await,
         K::Frigate => frigate::status(i, key).await,
-        K::Truenas | K::Synology | K::Pbs => storage::status(i, key).await,
+        K::Truenas | K::Synology | K::Pbs => storage::status(i, key, device_id).await,
         K::Unraid => unraid::status(i, key).await,
         K::Opnsense | K::Unifi | K::Npm => netapps::status(i, key).await,
         K::Grafana | K::Prometheus => monitoring::status(i, key).await,
+        K::Snmp => snmp::status(i, key).await,
         K::Plex | K::Amp | K::Kuma | K::Portainer | K::Pihole | K::Adguard => {
             Err("this integration has its own status".into())
         }
@@ -634,9 +669,9 @@ mod tests {
     fn input_for(kind: IntegrationKind) -> IntegrationInput {
         IntegrationInput {
             kind: Some(kind),
-            base_url: "http://x.lan".into(),
+            base_url: if kind == IntegrationKind::Snmp { "x.lan" } else { "http://x.lan" }.into(),
             username: "admin".into(),
-            slug: "home".into(),
+            slug: if kind == IntegrationKind::Snmp { "sha-aes" } else { "home" }.into(),
             ..Default::default()
         }
     }
@@ -680,7 +715,8 @@ mod tests {
                 | IntegrationKind::Unifi
                 | IntegrationKind::Npm
                 | IntegrationKind::Grafana
-                | IntegrationKind::Prometheus => {}
+                | IntegrationKind::Prometheus
+                | IntegrationKind::Snmp => {}
             }
         }
         let mut s = Store::open_in_memory().unwrap();
