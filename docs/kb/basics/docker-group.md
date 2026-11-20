@@ -24,6 +24,29 @@ sudo usermod -aG docker "$USER"
 
 Log out and back in (or reconnect the SSH session) for the group to apply. Check with `id`.
 
+## Synology NAS (DSM)
+
+Synology does things its own way, so the commands above fail there (`usermod: command not found`):
+
+- DSM manages users and groups with `synogroup`, not `usermod`/`groupadd`.
+- Container Manager (formerly the Docker package) creates `/var/run/docker.sock` owned by `root:root`, so even a docker group can't use it until the socket's group is changed.
+- The `docker` binary lives in `/usr/local/bin`, which non-interactive SSH sessions don't have on `PATH`. Nightgrid adds it for you.
+
+Your user must be in DSM's **administrators** group to use `sudo`. Then, over SSH:
+
+```sh
+sudo synogroup --add docker "$USER"            # creates the group with you in it
+# or, if a docker group already exists:
+sudo synogroup --memberadd docker "$USER"
+sudo chown root:docker /var/run/docker.sock
+```
+
+Reconnect for the group to apply. Nightgrid's **NO ACCESS TO DOCKER** card detects DSM, shows exactly these commands for your user, and its **Fix it for me** button runs them (asking for your sudo password) and reconnects.
+
+If the socket goes back to `root` after Container Manager restarts (a package update or a reboot), the card comes back; one more click fixes it. To make it stick, add a **Triggered Task** in DSM's Control Panel → Task Scheduler (user root, event Boot-up) that runs `sleep 60; chown root:docker /var/run/docker.sock`.
+
+Portainer and similar tools get the same access by mounting the socket into their container: it's root-equivalent either way.
+
 ## When it isn't
 
 - A shared machine where other users shouldn't have root.
@@ -32,7 +55,7 @@ Log out and back in (or reconnect the SSH session) for the group to apply. Check
 
 ## Alternatives
 
-- **sudo for docker only**: keep the user out of the group and let Nightgrid ask for the sudo password (it's fed over the SSH channel, never on a command line). Slower, but explicit.
+- **sudo for docker only**: keep the user out of the group and give it passwordless sudo for docker. When the socket is off limits but `sudo -n` works, Nightgrid reaches Docker through `sudo docker system dial-stdio` on its own.
 - **Rootless Docker** runs the daemon as your user. Containers can't become root on the host, at the cost of some features (ports below 1024, some network modes).
 - **Podman** is daemonless and rootless by default, with a mostly compatible CLI.
 

@@ -29,6 +29,27 @@ const deployed: Stack[] = [];
 
 const now = () => Math.floor(Date.now() / 1000);
 
+/** `?mockDockerDenied=synology|linux` shows the NO ACCESS card until fixed. */
+let accessFixed = false;
+function deniedError(): unknown {
+  let mode: string | null;
+  try {
+    mode = new URLSearchParams(location.search).get("mockDockerDenied");
+  } catch {
+    return null;
+  }
+  if (!mode || accessFixed) return null;
+  const synology = mode === "synology";
+  const steps = synology
+    ? ["synogroup --add docker admin", "chown root:docker /var/run/docker.sock"]
+    : ["usermod -aG docker admin"];
+  return {
+    message: "permission denied on /var/run/docker.sock: add admin to the docker group, then reconnect",
+    connect: null,
+    docker: { kind: "permissionDenied", socket: "/var/run/docker.sock", user: "admin", synology, socketGroup: synology ? "root" : "docker", steps, relogin: true },
+  };
+}
+
 interface Fake {
   view: ContainerView;
   env: string[];
@@ -145,7 +166,16 @@ export const mockDocker = {
   info: (hostId: number): Promise<EngineInfo> =>
     delay({ version: "27.5.1", apiVersion: "1.47", os: "linux/amd64", route: `socket /var/run/docker.sock over SSH (mock ${hostId})` }),
 
-  containers: (hostId: number): Promise<ContainerView[]> => delay(list(hostId).map((c) => ({ ...c.view }))),
+  containers: (hostId: number): Promise<ContainerView[]> => {
+    const denied = deniedError();
+    if (denied) return Promise.reject(denied);
+    return delay(list(hostId).map((c) => ({ ...c.view })));
+  },
+
+  fixAccess: (_hostId: number): Promise<null> => {
+    accessFixed = true;
+    return delay(null);
+  },
 
   stats: (hostId: number, ids: string[]): Promise<ContainerStats[]> =>
     delay(

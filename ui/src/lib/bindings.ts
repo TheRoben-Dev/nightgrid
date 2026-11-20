@@ -109,6 +109,14 @@ export const commands = {
 	 */
 	dockerForget: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_forget", { hostId }, options),
 	/**
+	 *  Gives the SSH user the Docker socket by running the steps from a
+	 *  `PermissionDenied` error as root (sudo password asked for like System's
+	 *  commands). Only steps the core itself produces are accepted. With
+	 *  `relogin`, the host's SSH connection is dropped afterwards so the next
+	 *  login picks up the new group (its open terminals close).
+	 */
+	dockerFixAccess: (hostId: number, steps: string[], relogin: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_fix_access", { hostId, steps, relogin, sudo }, options),
+	/**
 	 *  Compose stacks on the host: from container labels plus the host's stack
 	 *  folders.
 	 */
@@ -3387,7 +3395,21 @@ export type DockerCmdError_Serialize = {
 	docker: DockerError | null,
 };
 
-export type DockerError = { kind: "notInstalled" } | { kind: "permissionDenied"; socket: string; user: string } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
+export type DockerError = { kind: "notInstalled" } | { kind: "permissionDenied"; socket: string; user: string; 
+/**
+ *  Synology DSM: no usermod/groupadd there; groups go through
+ *  `synogroup`, and the socket starts out root:root.
+ */
+synology: boolean; 
+/**  Group that owns the socket ("" if unknown). */
+socketGroup: string; 
+/**
+ *  Commands that fix it, each to run as root, in order (see
+ *  [`access_steps`]). Empty when only a new login is missing.
+ */
+steps: string[]; 
+/**  The group change needs a new SSH login to apply. */
+relogin: boolean } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
 
 /**  One finding of `nightgrid-node doctor --json`. */
 export type DoctorFinding = DoctorFinding_Serialize | DoctorFinding_Deserialize;

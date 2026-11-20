@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use crate::files::path::shell_quote;
 use crate::hosts::HostId;
 use crate::ssh::client::Connection;
-pub use transport::Route;
+pub use transport::{Route, PATH_FIX};
 
 /// Compose labels set by `docker compose` on every container it creates.
 pub const LABEL_PROJECT: &str = "com.docker.compose.project";
@@ -52,7 +52,20 @@ pub enum DockerError {
     #[error("Docker was not found on this host (no socket and no docker command)")]
     NotInstalled,
     #[error("permission denied on {socket}: add {user} to the docker group, then reconnect")]
-    PermissionDenied { socket: String, user: String },
+    PermissionDenied {
+        socket: String,
+        user: String,
+        /// Synology DSM: no usermod/groupadd there; groups go through
+        /// `synogroup`, and the socket starts out root:root.
+        synology: bool,
+        /// Group that owns the socket ("" if unknown).
+        socket_group: String,
+        /// Commands that fix it, each to run as root, in order (see
+        /// [`access_steps`]). Empty when only a new login is missing.
+        steps: Vec<String>,
+        /// The group change needs a new SSH login to apply.
+        relogin: bool,
+    },
     #[error("no such container: {id}")]
     NotFound { id: String },
     #[error("Docker: {message}")]
@@ -83,32 +96,151 @@ impl DockerError {
 
 pub type DockerResult<T> = std::result::Result<T, DockerError>;
 
-/// Shell probe run once per connection to find the daemon socket.
-/// Prints `<ok|denied|missing> <socket>`, the user name, and `cli|nocli`.
-const PROBE: &str = r#"s=""; st=missing
+/// Shell probe run once per connection to find the daemon socket. Prints
+/// `<ok|denied|missing> <socket>`, the user name, `cli <path>|nocli`,
+/// `dsm|linux`, and, when the socket is denied, what [`access_steps`] needs.
+const PROBE: &str = r#"PATH="$PATH:/usr/local/bin:/usr/local/sbin"; export PATH
+s=""; st=missing
 for c in /var/run/docker.sock "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/docker.sock"; do
   [ -S "$c" ] || continue
   if [ -r "$c" ] && [ -w "$c" ]; then s=$c; st=ok; break; fi
   [ -n "$s" ] || { s=$c; st=denied; }
 done
-echo "$st $s"; id -un; command -v docker >/dev/null 2>&1 && echo cli || echo nocli"#;
+u=$(id -un); echo "$st $s"; echo "$u"
+d=$(command -v docker 2>/dev/null); if [ -n "$d" ]; then echo "cli $d"; else echo nocli; fi
+if [ -f /etc.defaults/synoinfo.conf ] || [ -x /usr/syno/sbin/synogroup ]; then echo dsm; else echo linux; fi
+if [ "$st" = denied ]; then
+  if grep -q '^docker:' /etc/group 2>/dev/null; then
+    grep '^docker:' /etc/group | cut -d: -f4 | tr ',' '\n' | grep -qx "$u" && echo "group member" || echo group
+  else echo nogroup; fi
+  id -Gn 2>/dev/null | tr ' ' '\n' | grep -qx docker && echo session
+  ls -l "$s" 2>/dev/null | awk '{print "sockgroup " $4}'
+  [ -n "$d" ] && sudo -n "$d" version >/dev/null 2>&1 && echo sudo
+fi"#;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct Probe {
     status: String,
     socket: String,
     user: String,
     cli: bool,
+    /// Absolute path of the docker CLI, when the probe printed one.
+    cli_path: Option<String>,
+    synology: bool,
+    group_exists: bool,
+    in_group: bool,
+    session_group: bool,
+    socket_group: String,
+    sudo: bool,
 }
 
 fn parse_probe(out: &str) -> Probe {
     let mut lines = out.lines();
     let (status, socket) = lines.next().unwrap_or("missing").split_once(' ').unwrap_or(("missing", ""));
-    Probe {
+    let mut p = Probe {
         status: status.to_owned(),
         socket: socket.trim().to_owned(),
         user: lines.next().unwrap_or("").trim().to_owned(),
-        cli: lines.next().map(str::trim) == Some("cli"),
+        ..Default::default()
+    };
+    if let Some(l) = lines.next().map(str::trim) {
+        if l == "cli" || l.starts_with("cli ") {
+            p.cli = true;
+            p.cli_path = l.strip_prefix("cli ").map(str::trim).filter(|s| !s.is_empty()).map(str::to_owned);
+        }
+    }
+    for l in lines.map(str::trim) {
+        match l {
+            "dsm" => p.synology = true,
+            "group" => p.group_exists = true,
+            "group member" => (p.group_exists, p.in_group) = (true, true),
+            "session" => p.session_group = true,
+            "sudo" => p.sudo = true,
+            _ => {
+                if let Some(g) = l.strip_prefix("sockgroup ") {
+                    p.socket_group = g.trim().to_owned();
+                }
+            }
+        }
+    }
+    p
+}
+
+/// A user or path printed in a command: plain when it needs no quoting.
+fn arg(s: &str) -> String {
+    if !s.is_empty() && s.chars().all(|c| c.is_ascii_alphanumeric() || "/._-@+".contains(c)) {
+        s.to_owned()
+    } else {
+        shell_quote(s)
+    }
+}
+
+/// Root commands that give `user` the Docker socket, skipping what's already
+/// in place. Synology DSM has no usermod/groupadd (`synogroup` manages
+/// groups there) and ships the socket as root:root, so it also needs a chown.
+fn access_steps(p: &Probe) -> Vec<String> {
+    let (u, sock) = (arg(&p.user), arg(&p.socket));
+    let mut steps = Vec::new();
+    if p.synology {
+        if !p.group_exists {
+            steps.push(format!("synogroup --add docker {u}"));
+        } else if !p.in_group {
+            steps.push(format!("synogroup --memberadd docker {u}"));
+        }
+    } else {
+        if !p.group_exists {
+            steps.push("groupadd docker".to_owned());
+        }
+        if !p.in_group {
+            steps.push(format!("usermod -aG docker {u}"));
+        }
+    }
+    // The system socket only: a rootless daemon's socket belongs to its user.
+    let system_socket = p.socket == "/var/run/docker.sock" || p.socket == "/run/docker.sock";
+    if system_socket && p.socket_group != "docker" {
+        steps.push(format!("chown root:docker {sock}"));
+    }
+    steps
+}
+
+fn permission_denied(p: &Probe) -> DockerError {
+    DockerError::PermissionDenied {
+        socket: p.socket.clone(),
+        user: p.user.clone(),
+        synology: p.synology,
+        socket_group: p.socket_group.clone(),
+        steps: access_steps(p),
+        relogin: !p.session_group,
+    }
+}
+
+/// The steps from a permission error as one root script (`set -e`: stops
+/// at the first failure).
+pub fn access_fix_script(steps: &[String]) -> String {
+    // sudo may hand over the login user's thin non-interactive PATH, which
+    // lacks DSM's synogroup (/usr/syno/sbin) and sometimes the sbin tools.
+    let mut s = String::from(
+        "set -e\nPATH=\"$PATH:/usr/syno/sbin:/usr/syno/bin:/usr/local/sbin:/usr/sbin:/sbin\"; export PATH\n",
+    );
+    for step in steps {
+        s.push_str(step);
+        s.push('\n');
+    }
+    s
+}
+
+/// Checks that steps sent back from the UI are ones [`access_steps`] can
+/// produce, so the fix command never runs arbitrary text as root.
+pub fn valid_access_step(step: &str) -> bool {
+    let w: Vec<&str> = step.split(' ').collect();
+    let name_ok = |s: &str| {
+        !s.is_empty() && !s.starts_with('-') && s.chars().all(|c| c.is_ascii_alphanumeric() || "._-@+".contains(c))
+    };
+    match w.as_slice() {
+        ["groupadd", "docker"] => true,
+        ["usermod", "-aG", "docker", u] | ["synogroup", "--add" | "--memberadd", "docker", u] => name_ok(u),
+        ["chown", "root:docker", p] => *p == "/var/run/docker.sock" || *p == "/run/docker.sock",
+        _ => false,
     }
 }
 
@@ -137,7 +269,19 @@ impl DockerHost {
         let (_, out, _) = conn.exec(PROBE).await.map_err(DockerError::other)?;
         let probe = parse_probe(&String::from_utf8_lossy(&out));
         match probe.status.as_str() {
-            "denied" => Err(DockerError::PermissionDenied { socket: probe.socket, user: probe.user }),
+            "denied" => {
+                // Passwordless sudo can reach the daemon while the group
+                // isn't set up; anything else gets the fix-it card.
+                if let Some(bin) = probe.cli_path.as_deref().filter(|b| probe.sudo && transport::safe_bin(b)) {
+                    if probe.socket == "/var/run/docker.sock" || probe.socket == "/run/docker.sock" {
+                        match Self::with_route(conn.clone(), Route::Sudo(bin.to_owned())).await {
+                            Ok(d) => return Ok(d),
+                            Err(e) => tracing::info!("docker through sudo failed ({e})"),
+                        }
+                    }
+                }
+                Err(permission_denied(&probe))
+            }
             "ok" => {
                 let route = Route::Socket(probe.socket.clone());
                 match Self::with_route(conn.clone(), route).await {
@@ -342,14 +486,10 @@ impl DockerHost {
 /// Command for an interactive shell in a container (run in a PTY channel).
 /// Prefers bash, falls back to sh. The docker CLI handles the TTY.
 pub fn exec_shell_command(container: &str, route: &Route) -> String {
-    let host = match route {
-        Route::Socket(s) | Route::DialStdio(Some(s)) if s != "/var/run/docker.sock" => {
-            format!("DOCKER_HOST={} ", shell_quote(&format!("unix://{s}")))
-        }
-        _ => String::new(),
-    };
     format!(
-        "{host}docker exec -it {} sh -c 'command -v bash >/dev/null 2>&1 && exec bash || exec sh'",
+        "{}{} exec -it {} sh -c 'command -v bash >/dev/null 2>&1 && exec bash || exec sh'",
+        route.shell_env(),
+        route.docker_cli(),
         shell_quote(container)
     )
 }
@@ -868,6 +1008,9 @@ mod tests {
         assert_eq!(p.status, "missing");
         assert!(!p.cli);
         assert_eq!(parse_probe("").status, "missing");
+        let p = parse_probe("ok /var/run/docker.sock\nadmin\ncli /usr/local/bin/docker\ndsm\n");
+        assert_eq!(p.cli_path.as_deref(), Some("/usr/local/bin/docker"));
+        assert!(p.synology && p.cli);
     }
 
     #[test]
@@ -990,11 +1133,18 @@ mod tests {
         let def = Route::Socket("/var/run/docker.sock".into());
         assert_eq!(
             exec_shell_command("web", &def),
-            "docker exec -it 'web' sh -c 'command -v bash >/dev/null 2>&1 && exec bash || exec sh'"
+            format!(
+                "{}docker exec -it 'web' sh -c 'command -v bash >/dev/null 2>&1 && exec bash || exec sh'",
+                PATH_FIX
+            )
         );
         let rootless = Route::Socket("/run/user/1000/docker.sock".into());
         assert!(exec_shell_command("web", &rootless)
-            .starts_with("DOCKER_HOST='unix:///run/user/1000/docker.sock' docker exec"));
+            .starts_with(&format!("{PATH_FIX}export DOCKER_HOST='unix:///run/user/1000/docker.sock'; docker exec")));
+        let sudo = Route::Sudo("/usr/local/bin/docker".into());
+        assert!(
+            exec_shell_command("web", &sudo).starts_with(&format!("{PATH_FIX}sudo -n /usr/local/bin/docker exec -it"))
+        );
     }
 
     #[test]
@@ -1019,5 +1169,82 @@ mod tests {
         assert!(Action::Remove { force: false }.is_destructive());
         assert!(!Action::Start.is_destructive());
         assert!(!Action::Pause.is_destructive());
+    }
+
+    fn denied(out: &str) -> (Probe, Vec<String>) {
+        let p = parse_probe(out);
+        let steps = access_steps(&p);
+        (p, steps)
+    }
+
+    #[test]
+    fn synology_gets_synogroup_and_chown() {
+        // Stock DSM: no docker group, socket root:root.
+        let (p, steps) =
+            denied("denied /var/run/docker.sock\nnasuser\ncli /usr/local/bin/docker\ndsm\nnogroup\nsockgroup root\n");
+        assert!(p.synology && !p.group_exists && !p.session_group);
+        assert_eq!(steps, ["synogroup --add docker nasuser", "chown root:docker /var/run/docker.sock"]);
+        // Group made earlier by someone else.
+        let (_, steps) =
+            denied("denied /var/run/docker.sock\nnasuser\ncli /usr/local/bin/docker\ndsm\ngroup\nsockgroup docker\n");
+        assert_eq!(steps, ["synogroup --memberadd docker nasuser"]);
+        // Container Manager restarted and the socket went back to root.
+        let (p, steps) = denied(
+            "denied /var/run/docker.sock\nnasuser\ncli /usr/local/bin/docker\ndsm\ngroup member\nsession\nsockgroup root\n",
+        );
+        assert!(p.in_group && p.session_group);
+        assert_eq!(steps, ["chown root:docker /var/run/docker.sock"]);
+        match permission_denied(&p) {
+            DockerError::PermissionDenied { synology, relogin, .. } => assert!(synology && !relogin),
+            e => panic!("{e:?}"),
+        }
+    }
+
+    #[test]
+    fn linux_gets_usermod() {
+        let (p, steps) =
+            denied("denied /var/run/docker.sock\nsam\ncli /usr/bin/docker\nlinux\ngroup\nsockgroup docker\n");
+        assert!(!p.synology);
+        assert_eq!(steps, ["usermod -aG docker sam"]);
+        let (_, steps) = denied("denied /var/run/docker.sock\nsam\nnocli\nlinux\nnogroup\nsockgroup root\n");
+        assert_eq!(steps, ["groupadd docker", "usermod -aG docker sam", "chown root:docker /var/run/docker.sock"]);
+        // Already a member, this login just predates it.
+        let (p, steps) =
+            denied("denied /var/run/docker.sock\nsam\ncli /usr/bin/docker\nlinux\ngroup member\nsockgroup docker\n");
+        assert!(steps.is_empty());
+        assert!(matches!(permission_denied(&p), DockerError::PermissionDenied { relogin: true, .. }));
+        // Someone else's rootless socket is never chowned.
+        let (_, steps) = denied("denied /run/user/1001/docker.sock\nsam\nnocli\nlinux\nnogroup\nsockgroup ann\n");
+        assert_eq!(steps, ["groupadd docker", "usermod -aG docker sam"]);
+    }
+
+    #[test]
+    fn odd_user_names_are_quoted_and_steps_are_checked() {
+        let (_, steps) = denied("denied /var/run/docker.sock\nj doe\nnocli\nlinux\ngroup\nsockgroup docker\n");
+        assert_eq!(steps, ["usermod -aG docker 'j doe'"]);
+        assert!(!valid_access_step(&steps[0]));
+        for ok in [
+            "groupadd docker",
+            "usermod -aG docker sam",
+            "synogroup --add docker nasuser",
+            "synogroup --memberadd docker nas.user",
+            "chown root:docker /var/run/docker.sock",
+        ] {
+            assert!(valid_access_step(ok), "{ok}");
+        }
+        for bad in [
+            "chown root:docker /etc/shadow",
+            "usermod -aG wheel sam",
+            "usermod -aG docker sam;reboot",
+            "synogroup --add docker -x",
+            "rm -rf /",
+            "",
+        ] {
+            assert!(!valid_access_step(bad), "{bad}");
+        }
+        let s = access_fix_script(&["groupadd docker".into(), "usermod -aG docker sam".into()]);
+        assert!(s.starts_with("set -e\nPATH="), "{s}");
+        assert!(s.contains("/usr/syno/sbin"));
+        assert!(s.ends_with("export PATH\ngroupadd docker\nusermod -aG docker sam\n"), "{s}");
     }
 }
