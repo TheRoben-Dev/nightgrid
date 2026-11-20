@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Fixed
+- **macOS stops asking for keychain access after every update.** Releases are now signed with one stable certificate instead of a new ad-hoc signature each time, so macOS keeps recognising the updated app and remembers "Always Allow" for saved passwords and tokens. The first update with the new signature asks one last time per saved secret; choose **Always Allow** and later updates stay quiet. No Apple developer account or notarization is involved, and opening a freshly downloaded build still needs the quarantine step in the README.
+
 ## [1.16.0] - 2026-11-20
 
 Windows Server hosts get close to everything Nightgrid does on Linux, using only what Windows ships with. Every view says plainly what can't run on a Windows host and why.
