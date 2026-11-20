@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [Unreleased]
+## [1.19.0] - 2026-11-20
 
 ### Added
 - **Acknowledge alerts.** **✓ Ack** on an alert keeps it in the list but takes it off the badge and tray and stops every notification for it (desktop, inbox, ntfy, webhooks). Pick **Until it clears**, a time (1 hour to 30 days, or custom) or **Permanently**. Whatever you pick, it comes back if it gets worse, such as a disk crossing from WARN into CRITICAL.
