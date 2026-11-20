@@ -29,7 +29,7 @@ Pairing is done on both sides, each given the other's id, address and certificat
 - [ ] On host B: the same with A's values.
 - [ ] Within about 10 seconds, `nightgrid-node query peers.latest | jq .readings` on A shows B with `ok: true` and a round-trip time.
 - [ ] `peers.set` replaces the whole list, so with three or more hosts send every peer each time (up to 64).
-- [ ] What a peer may ask is root's `[peers] serve`: `["ping"]` by default (version, host name, uptime). Add `"ups"` only on hosts that should follow another host's UPS shutdown ([Shut down cleanly on a power cut](kb:guides/node-ups-shutdown)).
+- [ ] What a peer may ask is root's `[peers] serve`: `["ping"]` by default (version, host name, uptime). Add `"ups"` only on hosts that should follow another host's UPS shutdown ([Shut down cleanly on a power cut](kb:guides/node-ups-shutdown)). `sudo nightgrid-node serve` with no arguments opens a menu of `ping`, `ups` and `sync` to switch each on or off; the named forms (`serve add sync`) still work.
 
 ## Part 3 · What linking tells you
 
