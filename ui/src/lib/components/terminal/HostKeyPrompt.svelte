@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../../confirm";
   import { scramble } from "../../scramble";
   import type { ConnectError } from "../../api";
   import { errorText } from "../../api";
@@ -17,7 +18,7 @@
   const changed = $derived(prompt.kind === "hostKeyChanged");
   const previous = $derived(prompt.kind === "hostKeyChanged" ? prompt.previous : []);
   const confirmName = $derived(prompt.host);
-  const canAccept = $derived(!changed || typed.trim() === confirmName);
+  const canAccept = $derived(!changed || typedMatches(typed, confirmName));
 
   /** Per-character diff of a new fingerprint against an old one. */
   function diff(next: string, prev: string): { ch: string; same: boolean }[] {
@@ -67,7 +68,7 @@
       </div>
     </div>
     <label class="field confirm">
-      <span>Type <strong>{confirmName}</strong> to replace the recorded key</span>
+      <span>Type <strong class="verbatim">{confirmName}</strong> to replace the recorded key</span>
       <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" aria-invalid={typed !== "" && !canAccept} />
     </label>
   {:else}

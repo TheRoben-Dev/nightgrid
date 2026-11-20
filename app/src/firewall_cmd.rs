@@ -151,7 +151,8 @@ pub async fn firewall_apply(
     sudo: Option<SudoInput>,
 ) -> SysResult<PendingChange> {
     let (name, _, check) = check_against(&app, host_id, &change)?;
-    if check.risk.is_some() && typed.as_deref().map(str::trim) != Some(name.as_str()) {
+    if check.risk.is_some() && !typed.as_deref().is_some_and(|t| t.trim().to_lowercase() == name.trim().to_lowercase())
+    {
         return Err(SystemError::other(format!("type {name} to confirm a change that could lock you out")).into());
     }
     let hub = app.state::<AppState>().firewall.clone();

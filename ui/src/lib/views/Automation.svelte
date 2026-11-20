@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../confirm";
   import { onMount } from "svelte";
   import ExplainButton from "../components/helper/ExplainButton.svelte";
   import Modal from "../components/Modal.svelte";
@@ -83,7 +84,7 @@
   $effect(() => {
     if (automation.confirm) typed = "";
   });
-  const confirmOk = $derived(!automation.confirm?.word || typed.trim() === automation.confirm.word);
+  const confirmOk = $derived(!automation.confirm?.word || typedMatches(typed, automation.confirm.word));
 
   // Keep the output scrolled to the bottom while new lines arrive.
   let outEl: HTMLPreElement | undefined = $state();
@@ -347,7 +348,7 @@
       {#if c.hostNames.length > 1}<p class="hostlist">{c.hostNames.join(", ")}</p>{/if}
       {#if c.word}
         <label class="field">
-          <span>TYPE <code>{c.word}</code> TO CONTINUE{Number.isInteger(Number(c.word)) ? " (THE NUMBER OF HOSTS)" : " (THE GROUP)"}</span>
+          <span>TYPE <code class="verbatim">{c.word}</code> TO CONTINUE{Number.isInteger(Number(c.word)) ? " (THE NUMBER OF HOSTS)" : " (THE GROUP)"}</span>
           <input class="input" bind:value={typed} autocomplete="off" aria-label="Type {c.word} to confirm" />
         </label>
       {/if}

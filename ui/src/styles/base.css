@@ -234,3 +234,12 @@ textarea.input {
 nightgrid-style {
   display: none !important;
 }
+
+/* A name the user must type back (type-to-confirm): shown exactly as stored,
+   even inside an uppercased label, so `braincage` never reads as BRAINCAGE. */
+.verbatim {
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--cyan);
+}

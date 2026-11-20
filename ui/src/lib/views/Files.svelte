@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../confirm";
   import { scramble } from "../scramble";
   import { api, errorText, type Entry } from "../api";
   import Modal from "../components/Modal.svelte";
@@ -24,7 +25,7 @@
 
   /** Bulk deletes on a host need the host name typed. */
   const delNeedsTyping = $derived(!!del && del.pane.side.kind === "host" && del.entries.length > 1);
-  const delOk = $derived(!delNeedsTyping || delTyped.trim() === del?.pane.label);
+  const delOk = $derived(!delNeedsTyping || typedMatches(delTyped, del?.pane.label));
 
   function askDelete(p: Pane) {
     if (!p.selectedEntries.length) return;
@@ -190,7 +191,7 @@
     </ul>
     {#if delNeedsTyping}
       <label class="field">
-        <span>Type <strong>{del.pane.label}</strong> to confirm</span>
+        <span>Type <strong class="verbatim">{del.pane.label}</strong> to confirm</span>
         <input class="input" bind:value={delTyped} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
