@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Fixed
+- **Keys reach `sudo` programs in SSH terminals again.** With key hints or "edit in Nightgrid" on, a program run with `sudo` that switches terminal modes (menus, `[y/N]` prompts, like `sudo nightgrid-node fix`) could stop receiving keys: no letters, no Enter, not even Ctrl+C, while the cursor kept blinking. The session hook now hands the shell the terminal's own device instead of `/dev/tty`, which `sudo` didn't recognise as the user's terminal.
+
 ## [1.21.0] - 2026-11-20
 
 ### Added
