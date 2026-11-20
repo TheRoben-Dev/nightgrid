@@ -51,7 +51,8 @@ export interface UpdateCheck {
   at: number;
 }
 
-export const availableCount = (c: UpdateCheck | undefined): number => c?.list?.filter((u) => u.status === "available").length ?? 0;
+/** Newer images that aren't held (D-195). */
+export const availableCount = (c: UpdateCheck | undefined): number => c?.list?.filter((u) => u.status === "available" && !u.held).length ?? 0;
 
 class StacksStore {
   stacks = $state<Stack[]>([]);

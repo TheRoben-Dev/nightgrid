@@ -59,7 +59,7 @@ pub(crate) fn record_alerts(app: &AppHandle, changes: &[Change], silences: &[Sil
         } else {
             a.resolved.unwrap_or_else(now_unix)
         };
-        // Acknowledged or muted alerts stay on the timeline, marked (D-196).
+        // Acknowledged or muted alerts stay on the timeline, marked (D-198).
         let marked = nightgrid_core::silence::covering(silences, a, now).map(|s| s.mode);
         let r = state.store().event_add_marked(host, at, kind, level, &title, &detail, marked);
         if let Err(e) = r {
@@ -105,7 +105,8 @@ pub async fn timeline_get(app: AppHandle, host_id: HostId, days: u32) -> SysResu
                 Err(e) => notes.push(format!("Couldn't read the host's logs: {e}")),
             }
             let state = app.state::<AppState>();
-            match state.docker.get(host_id, conn).await {
+            let user = crate::docker_cmd::docker_user_of(&state, host_id);
+            match state.docker.get(host_id, conn, user.as_deref()).await {
                 Ok(d) => match tokio::time::timeout(std::time::Duration::from_secs(20), d.events(since, now)).await {
                     Ok(Ok(raw)) => read.extend(timeline::container_events(raw)),
                     Ok(Err(e)) => notes.push(format!("Docker events: {e}")),

@@ -1,4 +1,4 @@
--- 0054: acknowledged and muted alerts (D-196). State of this computer, like
+-- 0056: acknowledged and muted alerts (D-198). State of this computer, like
 -- the inbox, so not part of a profile export. Timeline entries recorded
 -- while an alert was silenced say so.
 

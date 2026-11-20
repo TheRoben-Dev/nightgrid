@@ -83,7 +83,7 @@ export function dayLabel(day: string, now = new Date()): string {
 
 /**
  * Problems (warn/critical) and counts by level, for the header. Alerts that
- * were acknowledged or muted (D-196) aren't counted as problems.
+ * were acknowledged or muted (D-198) aren't counted as problems.
  */
 export function tally(events: HostEvent[]): Record<Level, number> {
   const t: Record<Level, number> = { info: 0, ok: 0, warn: 0, critical: 0 };

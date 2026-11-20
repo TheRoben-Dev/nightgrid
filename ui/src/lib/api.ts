@@ -238,6 +238,10 @@ import {
   type ComposeOp,
   type ImageChange_Serialize as ImageChange,
   type ImageUpdate_Serialize as ImageUpdate,
+  type UpdateHold_Serialize as UpdateHold,
+  type HoldInput_Deserialize as HoldInput,
+  type HoldKind,
+  type HoldSupport,
   type ImageStatus,
   type VersionInfo_Serialize as VersionInfo,
   type RemoteImage_Serialize as RemoteImage,
@@ -464,6 +468,7 @@ import { mockProxmox } from "./mockProxmox";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
+import { mockHolds } from "./mockHolds";
 import { mockDesktop } from "./mockDesktop";
 import { mockTailnet } from "./mockTailnet";
 import { mockKeys } from "./mockKeys";
@@ -712,6 +717,10 @@ export type {
   ComposeOp,
   ImageChange,
   ImageUpdate,
+  UpdateHold,
+  HoldInput,
+  HoldKind,
+  HoldSupport,
   ImageStatus,
   VersionInfo,
   RemoteImage,
@@ -1144,6 +1153,8 @@ export const api = {
   dockerForget: (hostId: number): Promise<null> => (T() ? commands.dockerForget(hostId) : Promise.resolve(null)),
   dockerFixAccess: (hostId: number, steps: string[], relogin: boolean, sudo: SudoInput | null): Promise<null> =>
     T() ? commands.dockerFixAccess(hostId, steps, relogin, sudo) : mockDocker.fixAccess(hostId),
+  dockerSetUser: (hostId: number, user: string | null): Promise<null> =>
+    T() ? commands.dockerSetUser(hostId, user) : mockBackend.hostSetDockerUser(hostId, user).then(() => mockDocker.setUser(hostId, user)),
   dockerStacks: (hostId: number): Promise<Stack[]> => (T() ? commands.dockerStacks(hostId) : mockDocker.stacks(hostId)),
   dockerComposeRun: (hostId: number, stack: Stack, op: ComposeOp, on: (e: ComposeEvent) => void): Promise<number> => {
     if (!T()) return mockDocker.composeRun(hostId, stack, op, on);
@@ -1269,6 +1280,12 @@ export const api = {
   },
   systemStreamStop: (run: number): Promise<null> => (T() ? commands.systemStreamStop(run) : mockSystem.streamStop(run)),
   systemUpdates: (hostId: number): Promise<UpdatesReport> => (T() ? commands.systemUpdates(hostId) : mockSystem.updates(hostId)),
+  /** Holds or releases packages on the host itself (apt-mark, dnf versionlock, hidden Windows updates). */
+  systemPackageHold: (hostId: number, manager: PackageManager, names: string[], hold: boolean, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.systemPackageHold(hostId, manager, names, hold, sudo) : mockHolds.packageHold(hostId, manager, names, hold),
+  updateHoldsList: (): Promise<UpdateHold[]> => (T() ? commands.updateHoldsList() : mockHolds.list()),
+  updateHoldSave: (input: HoldInput): Promise<UpdateHold> => (T() ? commands.updateHoldSave(input) : mockHolds.save(input)),
+  updateHoldDelete: (id: number): Promise<null> => (T() ? commands.updateHoldDelete(id) : mockHolds.remove(id)),
   systemUpgradeRun: (hostId: number, manager: PackageManager, op: UpgradeOp, sudo: SudoInput | null, on: (e: RunEvent) => void): Promise<number> => {
     if (!T()) return mockSystem.upgradeRun(hostId, manager, op, sudo, on);
     const ch = new Channel<RunEvent>();

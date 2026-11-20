@@ -122,6 +122,11 @@ export const commands = {
 	 */
 	dockerFixAccess: (hostId: number, steps: string[], relogin: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_fix_access", { hostId, steps, relogin, sudo }, options),
 	/**
+	 *  Sets or clears the host's Docker user (the NO ACCESS card's "Use another
+	 *  user"), then drops the cached engine so the next call uses it.
+	 */
+	dockerSetUser: (hostId: number, user: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_set_user", { hostId, user }, options),
+	/**
 	 *  Compose stacks on the host: from container labels plus the host's stack
 	 *  folders.
 	 */
@@ -379,6 +384,18 @@ export const commands = {
 	 *  ready for `blueprint_plan` on `host_id`. Nothing is written to the host.
 	 */
 	starterOpen: (id: string, values: StarterValue[], parent: string, options?: InvokeOptions) => __TAURI_INVOKE<BlueprintSummary_Serialize>("starter_open", { id, values, parent }, options),
+	/**  Every hold still in force (ended snoozes are dropped). */
+	updateHoldsList: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateHold_Serialize[]>("update_holds_list", undefined, options),
+	/**  Adds a hold, or changes the one for the same thing. */
+	updateHoldSave: (input: HoldInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<UpdateHold_Serialize>("update_hold_save", { input }, options),
+	/**  Releases a hold. */
+	updateHoldDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("update_hold_delete", { id }, options),
+	/**
+	 *  Holds (or releases) packages on the host itself: `apt-mark hold`, `dnf
+	 *  versionlock`, or hiding Windows updates. Every tool on the host then
+	 *  leaves them alone, not just Nightgrid (D-195).
+	 */
+	systemPackageHold: (hostId: number, manager: Manager, names: string[], hold: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_package_hold", { hostId, manager, names, hold, sudo }, options),
 	watchList: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_list", undefined, options),
 	/**  Adds or updates an item; a certificate file is read right away. */
 	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
@@ -661,13 +678,13 @@ export const commands = {
 	alertsRefresh: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_refresh", undefined, options),
 	alertsClearHistory: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_clear_history", undefined, options),
 	/**
-	 *  Acknowledges an active alert (D-196): no badge or notifications while it
+	 *  Acknowledges an active alert (D-198): no badge or notifications while it
 	 *  stays as it is. It ends when the alert gets worse, and otherwise when it
 	 *  clears, after a while, or never, as chosen.
 	 */
 	alertsAck: (key: string, how: AckFor, options?: InvokeOptions) => __TAURI_INVOKE<Silence_Serialize>("alerts_ack", { key, how }, options),
 	/**
-	 *  Mutes alerts like this one (D-196): this alert, its kind on its host, its
+	 *  Mutes alerts like this one (D-198): this alert, its kind on its host, its
 	 *  host, or its kind everywhere; for `secs` seconds or (`None`) for good.
 	 */
 	alertsMute: (key: string, scope: MuteScope, secs: number | null, options?: InvokeOptions) => __TAURI_INVOKE<Silence_Serialize>("alerts_mute", { key, scope, secs }, options),
@@ -1246,7 +1263,7 @@ export type AlertSettings_Deserialize = {
 	diskPercent?: number,
 	/**
 	 *  No DISK FULL for read-only and by-design-full system mounts (WSL and
-	 *  Docker Desktop mounts, snaps, CD/DVD and other images) (D-196).
+	 *  Docker Desktop mounts, snaps, CD/DVD and other images) (D-198).
 	 */
 	diskSkipSystem?: boolean,
 	serviceDown?: boolean,
@@ -1325,7 +1342,7 @@ export type AlertSettings_Serialize = {
 	diskPercent: number,
 	/**
 	 *  No DISK FULL for read-only and by-design-full system mounts (WSL and
-	 *  Docker Desktop mounts, snaps, CD/DVD and other images) (D-196).
+	 *  Docker Desktop mounts, snaps, CD/DVD and other images) (D-198).
 	 */
 	diskSkipSystem: boolean,
 	serviceDown: boolean,
@@ -1415,7 +1432,7 @@ export type Alert_Deserialize = {
 	 */
 	causedBy?: number | null,
 	/**
-	 *  The acknowledgement or mute that silences it (D-196,
+	 *  The acknowledgement or mute that silences it (D-198,
 	 *  [`crate::silence`]). Filled in for the snapshot only.
 	 */
 	silenced?: number | null,
@@ -1439,7 +1456,7 @@ export type Alert_Serialize = {
 	 */
 	causedBy: number | null,
 	/**
-	 *  The acknowledgement or mute that silences it (D-196,
+	 *  The acknowledgement or mute that silences it (D-198,
 	 *  [`crate::silence`]). Filled in for the snapshot only.
 	 */
 	silenced: number | null,
@@ -1460,7 +1477,7 @@ export type AlertsSnapshot_Deserialize = {
 	/**  Log events left out by a mute or as 404 noise, per source, since the app started. */
 	logQuiet: LogQuiet[],
 	/**
-	 *  Acknowledged alerts and mutes, newest first (D-196). Active alerts
+	 *  Acknowledged alerts and mutes, newest first (D-198). Active alerts
 	 *  they cover carry the silence's id in `silenced`.
 	 */
 	silences: Silence_Deserialize[],
@@ -1479,7 +1496,7 @@ export type AlertsSnapshot_Serialize = {
 	/**  Log events left out by a mute or as 404 noise, per source, since the app started. */
 	logQuiet: LogQuiet[],
 	/**
-	 *  Acknowledged alerts and mutes, newest first (D-196). Active alerts
+	 *  Acknowledged alerts and mutes, newest first (D-198). Active alerts
 	 *  they cover carry the silence's id in `silenced`.
 	 */
 	silences: Silence_Serialize[],
@@ -3476,7 +3493,18 @@ socketGroup: string;
  */
 steps: string[]; 
 /**  The group change needs a new SSH login to apply. */
-relogin: boolean } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
+relogin: boolean } | 
+/**
+ *  The host has a Docker user set, and the SSH login may not run
+ *  docker as that user without a password.
+ */
+{ kind: "dockerUserSudo"; 
+/**  The SSH login. */
+login: string; 
+/**  The host's Docker user. */
+user: string; synology: boolean; 
+/**  Root commands that add the rule (see [`sudoers_step`]). */
+steps: string[] } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
 
 /**  One finding of `nightgrid-node doctor --json`. */
 export type DoctorFinding = DoctorFinding_Serialize | DoctorFinding_Deserialize;
@@ -4430,6 +4458,48 @@ export type HistoryResult_Serialize = {
 	truncated: boolean,
 };
 
+export type HoldInput = HoldInput_Serialize | HoldInput_Deserialize;
+
+export type HoldInput_Deserialize = {
+	hostId: number,
+	kind: HoldKind,
+	target?: string,
+	stack?: string,
+	version?: string | null,
+	until?: number | null,
+	note?: string,
+};
+
+export type HoldInput_Serialize = {
+	hostId: number,
+	kind: HoldKind,
+	target: string,
+	stack: string,
+	version: string | null,
+	until: number | null,
+	note: string,
+};
+
+export type HoldKind = "host" | "package" | "image" | "stack";
+
+/**  How this host can hold a package back. */
+export type HoldSupport = 
+/**
+ *  The package manager holds it (apt-mark hold, dnf versionlock, hiding a
+ *  Windows update), so every tool on the host respects it.
+ */
+"host" | 
+/**
+ *  Only Nightgrid's upgrades leave it out (pacman, dnf without the
+ *  versionlock plugin).
+ */
+"nightgrid" | 
+/**
+ *  Packages can't be held one by one (image-based systems, no manager):
+ *  hold the whole host instead.
+ */
+"none";
+
 export type HomepageCandidate = {
 	container: string,
 	/**  Host directory mounted at the container's `/app/config`. */
@@ -4541,7 +4611,7 @@ export type HostEvent_Deserialize = {
 	title: string,
 	detail: string,
 	origin: Origin,
-	/**  Recorded while the alert was acknowledged or muted (D-196). */
+	/**  Recorded while the alert was acknowledged or muted (D-198). */
 	silenced?: SilenceMode | null,
 };
 
@@ -4553,7 +4623,7 @@ export type HostEvent_Serialize = {
 	title: string,
 	detail: string,
 	origin: Origin,
-	/**  Recorded while the alert was acknowledged or muted (D-196). */
+	/**  Recorded while the alert was acknowledged or muted (D-198). */
 	silenced: SilenceMode | null,
 };
 
@@ -4614,6 +4684,8 @@ export type HostInput_Deserialize = {
 	role?: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline?: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser?: string | null,
 };
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
@@ -4651,6 +4723,8 @@ export type HostInput_Serialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser: string | null,
 };
 
 /**  A host key as shown to the user. */
@@ -4792,6 +4866,8 @@ export type Host_Deserialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser?: string | null,
 	/**
 	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
 	 *  Not user-edited (not in [`HostInput`]).
@@ -4836,6 +4912,8 @@ export type Host_Serialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser: string | null,
 	/**
 	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
 	 *  Not user-edited (not in [`HostInput`]).
@@ -5048,6 +5126,11 @@ export type ImageUpdate_Deserialize = {
 	source?: string | null,
 	/**  Release notes or a commit comparison (https), when it can be worked out. */
 	notes?: string | null,
+	/**
+	 *  Held in Nightgrid (D-195): still checked, but not counted and not
+	 *  pulled by Pull / Update.
+	 */
+	held: boolean,
 };
 
 export type ImageUpdate_Serialize = {
@@ -5062,6 +5145,11 @@ export type ImageUpdate_Serialize = {
 	source: string | null,
 	/**  Release notes or a commit comparison (https), when it can be worked out. */
 	notes: string | null,
+	/**
+	 *  Held in Nightgrid (D-195): still checked, but not counted and not
+	 *  pulled by Pull / Update.
+	 */
+	held: boolean,
 };
 
 export type ImportMode = 
@@ -7044,6 +7132,11 @@ export type PackageUpdate_Deserialize = {
 	available: string,
 	/**  apt suite / dnf repository. */
 	repo?: string | null,
+	/**
+	 *  Held: on the host (apt-mark hold, IgnorePkg, a hidden Windows
+	 *  update) or in Nightgrid. Upgrades leave it alone; it isn't pending.
+	 */
+	held: boolean,
 };
 
 export type PackageUpdate_Serialize = {
@@ -7052,6 +7145,11 @@ export type PackageUpdate_Serialize = {
 	available: string,
 	/**  apt suite / dnf repository. */
 	repo: string | null,
+	/**
+	 *  Held: on the host (apt-mark hold, IgnorePkg, a hidden Windows
+	 *  update) or in Nightgrid. Upgrades leave it alone; it isn't pending.
+	 */
+	held: boolean,
 };
 
 export type PendingChange = {
@@ -10781,6 +10879,40 @@ export type Unit_Serialize = {
 	fileState: string | null,
 };
 
+export type UpdateHold = UpdateHold_Serialize | UpdateHold_Deserialize;
+
+export type UpdateHold_Deserialize = {
+	id: number,
+	hostId: number,
+	kind: HoldKind,
+	/**  Package name, image reference or stack name; empty for a host. */
+	target: string,
+	/**  The stack an image belongs to; empty otherwise. */
+	stack: string,
+	/**  What was installed or running when it was held. */
+	version?: string | null,
+	/**  Unix seconds the hold ends by itself; `None` = until released. */
+	until?: number | null,
+	note: string,
+	createdAt: number,
+};
+
+export type UpdateHold_Serialize = {
+	id: number,
+	hostId: number,
+	kind: HoldKind,
+	/**  Package name, image reference or stack name; empty for a host. */
+	target: string,
+	/**  The stack an image belongs to; empty otherwise. */
+	stack: string,
+	/**  What was installed or running when it was held. */
+	version: string | null,
+	/**  Unix seconds the hold ends by itself; `None` = until released. */
+	until: number | null,
+	note: string,
+	createdAt: number,
+};
+
 export type UpdateInfo = UpdateInfo_Serialize | UpdateInfo_Deserialize;
 
 export type UpdateInfo_Deserialize = {
@@ -10843,6 +10975,12 @@ export type UpdatesReport_Deserialize = {
 	rebootReasons: string[],
 	/**  Something the user should know (stale package lists, ...). */
 	note?: string | null,
+	/**
+	 *  Packages held on the host (some aren't in `updates`: dnf hides
+	 *  locked ones from its list).
+	 */
+	held: string[],
+	holdSupport: HoldSupport,
 };
 
 export type UpdatesReport_Serialize = {
@@ -10857,6 +10995,12 @@ export type UpdatesReport_Serialize = {
 	rebootReasons: string[],
 	/**  Something the user should know (stale package lists, ...). */
 	note: string | null,
+	/**
+	 *  Packages held on the host (some aren't in `updates`: dnf hides
+	 *  locked ones from its list).
+	 */
+	held: string[],
+	holdSupport: HoldSupport,
 };
 
 /**  What an upgrade run does. */

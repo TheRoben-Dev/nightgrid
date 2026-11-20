@@ -66,7 +66,7 @@ pub struct AlertsSnapshot {
     pub log_notes: Vec<LogNote>,
     /// Log events left out by a mute or as 404 noise, per source, since the app started.
     pub log_quiet: Vec<LogQuiet>,
-    /// Acknowledged alerts and mutes, newest first (D-196). Active alerts
+    /// Acknowledged alerts and mutes, newest first (D-198). Active alerts
     /// they cover carry the silence's id in `silenced`.
     pub silences: Vec<Silence>,
 }
@@ -893,7 +893,7 @@ fn deliver(
     let hushed = |a: &Alert| silence::covering(silences, a, now).is_some();
     // Alerts explained by an outage upstream stay quiet; those whose cause
     // may still fire wait a little (M10s). Acknowledged and muted ones send
-    // nothing at all (D-196).
+    // nothing at all (D-198).
     let mut fired: Vec<Alert> = released.into_iter().filter(|a| !hushed(a)).collect();
     let mut notes: HashMap<u32, String> = HashMap::new();
     for (a, why) in reminders {
@@ -1004,7 +1004,7 @@ pub(crate) fn import_from_node(app: &AppHandle, host_name: &str, list: Vec<Alert
         return;
     }
     let hub = app.state::<AppState>().alerts.clone();
-    // The node doesn't know about system mounts (D-196): leave them out here.
+    // The node doesn't know about system mounts (D-198): leave them out here.
     let list: Vec<Alert> = list
         .into_iter()
         .filter(|a| {
@@ -1241,7 +1241,7 @@ fn silences_changed(app: &AppHandle) {
     crate::tray::refresh(app);
 }
 
-/// Acknowledges an active alert (D-196): no badge or notifications while it
+/// Acknowledges an active alert (D-198): no badge or notifications while it
 /// stays as it is. It ends when the alert gets worse, and otherwise when it
 /// clears, after a while, or never, as chosen.
 #[tauri::command]
@@ -1256,7 +1256,7 @@ pub fn alerts_ack(app: AppHandle, state: State<'_, AppState>, key: String, how: 
     Ok(s)
 }
 
-/// Mutes alerts like this one (D-196): this alert, its kind on its host, its
+/// Mutes alerts like this one (D-198): this alert, its kind on its host, its
 /// host, or its kind everywhere; for `secs` seconds or (`None`) for good.
 #[tauri::command]
 #[specta::specta]

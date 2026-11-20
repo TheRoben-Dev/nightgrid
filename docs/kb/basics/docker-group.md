@@ -47,6 +47,27 @@ If the socket goes back to `root` after Container Manager restarts (a package up
 
 Portainer and similar tools get the same access by mounting the socket into their container: it's root-equivalent either way.
 
+## A separate Docker user
+
+Some setups keep Docker under its own account: a dedicated `docker` user with its own UID and GID that owns the stack folders and the socket, while you log in over SSH as your normal user. On a Synology NAS that's common, since only administrators may use SSH but a service account shouldn't be one.
+
+Nightgrid can keep logging in as you and run Docker as that account. Set **Docker user** in the host's settings (**Edit host**), or open **Use a separate Docker user instead** on the **NO ACCESS TO DOCKER** card and type the name. Every Docker action on that host (the container list, logs, shells, stacks and compose, routes) then runs as `sudo -n -u <docker user> docker …` over your usual SSH login. Only the user name is saved, with the host, and it travels in the profile export. No second login, key or password is involved.
+
+For that, sudo must let your login run docker as that user without a password. The first time, Nightgrid shows **DOCKER USER NEEDS SUDO** with the rule it needs, and **Fix it for me** adds it (asking for your sudo password once). It's one line in its own file, `/etc/sudoers.d/nightgrid-docker-<user>`, mode 0440, checked with `visudo` before it's kept:
+
+```sh
+you ALL=(dockeruser) NOPASSWD: /usr/local/bin/docker, /usr/local/bin/docker-compose
+```
+
+If the Docker user itself can't open the socket, the usual NO ACCESS card follows, with the group steps for that user instead of yours (no reconnect needed: sudo starts it with fresh groups). **Stop using <user>** on either card clears the setting, and Docker runs as your login again.
+
+Good to know:
+
+- This is still root-equivalent: whoever can run docker, as any user, can become root on that host. It just keeps your own account out of the `docker` group.
+- Some systems, DSM included, may not read `/etc/sudoers.d`, or may reset it on a system update. Fix it for me says so instead of editing `/etc/sudoers` itself; add the line with `sudo visudo` then, and press **Retry**. If an update removes it, the card comes back.
+- Files you edit in Nightgrid's Files view and stack editor are still written by your SSH login, so give it write access to the stack folders (a shared group works) if the Docker user owns them.
+- Windows hosts ignore the setting.
+
 ## When it isn't
 
 - A shared machine where other users shouldn't have root.
@@ -56,6 +77,7 @@ Portainer and similar tools get the same access by mounting the socket into thei
 ## Alternatives
 
 - **sudo for docker only**: keep the user out of the group and give it passwordless sudo for docker. When the socket is off limits but `sudo -n` works, Nightgrid reaches Docker through `sudo docker system dial-stdio` on its own.
+- **A separate Docker user**: run Docker as another account through `sudo -u` (see above).
 - **Rootless Docker** runs the daemon as your user. Containers can't become root on the host, at the cost of some features (ports below 1024, some network modes).
 - **Podman** is daemonless and rootless by default, with a mostly compatible CLI.
 

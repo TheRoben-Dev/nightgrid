@@ -143,7 +143,7 @@ pub struct Alert {
     /// (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
     #[serde(default)]
     pub caused_by: Option<u32>,
-    /// The acknowledgement or mute that silences it (D-196,
+    /// The acknowledgement or mute that silences it (D-198,
     /// [`crate::silence`]). Filled in for the snapshot only.
     #[serde(default)]
     pub silenced: Option<u32>,

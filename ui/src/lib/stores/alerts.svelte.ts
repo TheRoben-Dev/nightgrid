@@ -98,7 +98,7 @@ export function fromHhmm(s: string): number | null {
   return h < 24 && min < 60 ? h * 60 + min : null;
 }
 
-/** Active alerts nobody acknowledged or muted (D-196): these badge and notify. */
+/** Active alerts nobody acknowledged or muted (D-198): these badge and notify. */
 export const loud = (active: Alert[]): Alert[] => active.filter((a) => a.silenced == null);
 
 /** Durations offered for acknowledging and muting, in seconds. */
@@ -194,7 +194,7 @@ class AlertsStore {
     return groupByCause(loud(this.active)).map((g) => g.alert);
   }
 
-  /** Acknowledgements and mutes, newest first (D-196). */
+  /** Acknowledgements and mutes, newest first (D-198). */
   get silences(): Silence[] {
     return this.snap?.silences ?? [];
   }

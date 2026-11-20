@@ -3,6 +3,7 @@
  * compose stack, ticking stats and logs. Used by `pnpm dev`, tests and
  * screenshots; never talks to a real daemon.
  */
+import { mockImageHeld } from "./mockHolds";
 import type {
   Action,
   ActionResult_Serialize as ActionResult,
@@ -29,17 +30,33 @@ const deployed: Stack[] = [];
 
 const now = () => Math.floor(Date.now() / 1000);
 
-/** `?mockDockerDenied=synology|linux` shows the NO ACCESS card until fixed. */
+/**
+ * `?mockDockerDenied=synology|linux` shows the NO ACCESS card until fixed.
+ * Setting a Docker user on the card then shows the sudoers card for it.
+ */
 let accessFixed = false;
-function deniedError(): unknown {
+const dockerUsers = new Map<number, string>();
+const sudoFixed = new Set<string>();
+function deniedError(hostId: number): unknown {
   let mode: string | null;
   try {
     mode = new URLSearchParams(location.search).get("mockDockerDenied");
   } catch {
     return null;
   }
-  if (!mode || accessFixed) return null;
+  if (!mode) return null;
   const synology = mode === "synology";
+  const user = dockerUsers.get(hostId);
+  if (user) {
+    if (sudoFixed.has(`${hostId}:${user}`)) return null;
+    const step = `sh -c 'umask 337; echo "admin ALL=(${user}) NOPASSWD: /usr/local/bin/docker" > /etc/sudoers.d/nightgrid-docker-${user}'`;
+    return {
+      message: `admin can't run docker as ${user} without a password`,
+      connect: null,
+      docker: { kind: "dockerUserSudo", login: "admin", user, synology, steps: [step] },
+    };
+  }
+  if (accessFixed) return null;
   const steps = synology
     ? ["synogroup --add docker admin", "chown root:docker /var/run/docker.sock"]
     : ["usermod -aG docker admin"];
@@ -167,13 +184,21 @@ export const mockDocker = {
     delay({ version: "27.5.1", apiVersion: "1.47", os: "linux/amd64", route: `socket /var/run/docker.sock over SSH (mock ${hostId})` }),
 
   containers: (hostId: number): Promise<ContainerView[]> => {
-    const denied = deniedError();
+    const denied = deniedError(hostId);
     if (denied) return Promise.reject(denied);
     return delay(list(hostId).map((c) => ({ ...c.view })));
   },
 
-  fixAccess: (_hostId: number): Promise<null> => {
-    accessFixed = true;
+  fixAccess: (hostId: number): Promise<null> => {
+    const user = dockerUsers.get(hostId);
+    if (user) sudoFixed.add(`${hostId}:${user}`);
+    else accessFixed = true;
+    return delay(null);
+  },
+
+  setUser: (hostId: number, user: string | null): Promise<null> => {
+    if (user?.trim()) dockerUsers.set(hostId, user.trim());
+    else dockerUsers.delete(hostId);
     return delay(null);
   },
 
@@ -413,10 +438,11 @@ export const mockDocker = {
             latest: { version: "1.5.0", revision: "e5f6a7b8", created: "2026-11-10T08:30:00Z" },
             source: src,
             notes: `${src}/compare/a1b2c3d4...e5f6a7b8`,
+            held: mockImageHeld(hostId, stack.name, image),
           };
         if (i % 3 === 1)
-          return { image, services: [service], status: "current", error: null, current: { version: "2.0.1", revision: null, created: "2026-10-20T00:00:00Z" }, latest: null, source: src, notes: `${src}/releases` };
-        return { image, services: [service], status: "needsLogin", error: null, current: { version: null, revision: null, created: null }, latest: null, source: null, notes: null };
+          return { image, services: [service], status: "current", error: null, current: { version: "2.0.1", revision: null, created: "2026-10-20T00:00:00Z" }, latest: null, source: src, notes: `${src}/releases`, held: mockImageHeld(hostId, stack.name, image) };
+        return { image, services: [service], status: "needsLogin", error: null, current: { version: null, revision: null, created: null }, latest: null, source: null, notes: null, held: mockImageHeld(hostId, stack.name, image) };
       }),
       700,
     );

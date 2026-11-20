@@ -29,6 +29,7 @@ pub mod error;
 pub mod expiry;
 pub mod files;
 pub mod helper;
+pub mod holds;
 pub mod hosts;
 pub mod http;
 pub mod integrations;

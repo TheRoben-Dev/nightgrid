@@ -155,7 +155,8 @@ class DockerStore {
       if (seq !== this.seq || id !== this.hostId) return;
       const { connect, docker } = dockerError(e);
       if (connect && connect.kind !== "network" && connect.kind !== "other") this.prompt = connect;
-      else if (docker && (docker.kind === "permissionDenied" || docker.kind === "notInstalled")) this.problem = docker;
+      else if (docker && (docker.kind === "permissionDenied" || docker.kind === "notInstalled" || docker.kind === "dockerUserSudo"))
+        this.problem = docker;
       else this.error = errorText(e);
     } finally {
       if (seq === this.seq) this.loading = false;
@@ -195,18 +196,45 @@ class DockerStore {
   async fixAccess() {
     const p = this.problem;
     const id = this.hostId;
-    if (!p || p.kind !== "permissionDenied" || id === null || this.fixing) return;
+    if (!p || (p.kind !== "permissionDenied" && p.kind !== "dockerUserSudo") || id === null || this.fixing) return;
     const name = hosts.hosts.find((h) => h.id === id)?.name;
+    const relogin = p.kind === "permissionDenied" && p.relogin;
+    const what = p.kind === "dockerUserSudo" ? `let ${p.login} run Docker as ${p.user}` : `give ${p.user} access to Docker`;
     this.fixing = true;
     try {
-      await system.withSudo(`give ${p.user} access to Docker`, (sudo) => api.dockerFixAccess(id, p.steps, p.relogin, sudo), name);
-      this.notice = { text: `${p.user} can use Docker on ${name ?? "the host"} now.`, tone: "ok" };
+      await system.withSudo(what, (sudo) => api.dockerFixAccess(id, p.steps, relogin, sudo), name);
+      this.notice = {
+        text: p.kind === "dockerUserSudo" ? `Docker on ${name ?? "the host"} now runs as ${p.user}.` : `${p.user} can use Docker on ${name ?? "the host"} now.`,
+        tone: "ok",
+      };
       await this.retry();
     } catch (e) {
       if (errorText(e) !== "Cancelled.") this.notice = { text: `Couldn't fix Docker access: ${errorText(e)}`, tone: "err" };
     } finally {
       this.fixing = false;
     }
+  }
+
+  /**
+   * Sets (or with null clears) the host's Docker user from the NO ACCESS
+   * card, then retries: docker then runs as that account via `sudo -u`.
+   */
+  async setDockerUser(user: string | null) {
+    const id = this.hostId;
+    if (id === null || this.fixing) return;
+    const u = user?.trim() || null;
+    this.fixing = true;
+    try {
+      await api.dockerSetUser(id, u);
+      await hosts.refresh();
+      this.notice = null;
+    } catch (e) {
+      this.notice = { text: `Couldn't set the Docker user: ${errorText(e)}`, tone: "err" };
+      return;
+    } finally {
+      this.fixing = false;
+    }
+    await this.retry();
   }
 
   toggle(id: string) {

@@ -329,7 +329,7 @@ pub struct AlertSettings {
     /// Percent used that counts as full, 50–99.
     pub disk_percent: u8,
     /// No DISK FULL for read-only and by-design-full system mounts (WSL and
-    /// Docker Desktop mounts, snaps, CD/DVD and other images) (D-196).
+    /// Docker Desktop mounts, snaps, CD/DVD and other images) (D-198).
     pub disk_skip_system: bool,
     pub service_down: bool,
     pub cert_expiring: bool,

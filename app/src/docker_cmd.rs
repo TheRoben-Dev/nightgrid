@@ -65,7 +65,24 @@ pub(crate) type DockerResult<T> = Result<T, DockerCmdError>;
 pub(crate) async fn docker_for(app: &AppHandle, host_id: HostId) -> DockerResult<Arc<DockerHost>> {
     let conn = connect_host(app, host_id).await?;
     let state = app.state::<AppState>();
-    Ok(state.docker.get(host_id, conn).await?)
+    let user = docker_user_of(&state, host_id);
+    Ok(state.docker.get(host_id, conn, user.as_deref()).await?)
+}
+
+/// The host's Docker user setting (None: docker runs as the SSH login).
+pub(crate) fn docker_user_of(state: &AppState, host_id: HostId) -> Option<String> {
+    state.store().get_host(host_id).ok().flatten().and_then(|h| h.docker_user)
+}
+
+/// Sets or clears the host's Docker user (the NO ACCESS card's "Use another
+/// user"), then drops the cached engine so the next call uses it.
+#[tauri::command]
+#[specta::specta]
+pub fn docker_set_user(state: State<'_, AppState>, host_id: HostId, user: Option<String>) -> CmdResult<()> {
+    state.store().set_host_docker_user(host_id, user.as_deref())?;
+    state.docker.drop_host(host_id);
+    tracing::info!(host_id, docker_user = ?user, "docker user set");
+    Ok(())
 }
 
 fn check_ref(id: &str) -> DockerResult<()> {
@@ -396,7 +413,13 @@ pub async fn docker_compose_run(
                 Err(e) => sink(vec![format!("Couldn't save a snapshot first: {}", e.message)]),
             }
         }
-        let done = match d.compose(&stack, op, rx, &mut sink).await {
+        // Held images and stacks aren't pulled (D-195).
+        let pull_only = if matches!(op, ComposeOp::Pull | ComposeOp::Update) {
+            held_pull_list(&app2, host_id, &d, &stack).await
+        } else {
+            None
+        };
+        let done = match d.compose_holding(&stack, op, pull_only.as_deref(), rx, &mut sink).await {
             Ok((code, changes)) => ComposeEvent::Done { code: Some(code), changes, error: None },
             Err(e) => ComposeEvent::Done { code: None, changes: None, error: Some(e.to_string()) },
         };
@@ -413,6 +436,22 @@ pub async fn docker_compose_run(
         app2.state::<AppState>().compose_runs.lock().expect("poisoned").remove(&run_id);
     });
     Ok(run_id)
+}
+
+/// The services a Pull / Update may pull when some of the stack is held
+/// (`None` = nothing held, pull as usual).
+async fn held_pull_list(app: &AppHandle, host_id: HostId, d: &DockerHost, stack: &Stack) -> Option<Vec<String>> {
+    let holds = app.state::<AppState>().store().update_holds().unwrap_or_default();
+    if !holds.iter().any(|h| h.host_id == host_id && (h.stack == stack.name || h.target == stack.name)) {
+        return None;
+    }
+    let images: Vec<(String, Vec<String>)> = match d.local_images(&stack.name).await {
+        Ok(l) => l.into_iter().map(|i| (i.image, i.services)).collect(),
+        // Can't tell which services are held: pull nothing rather than
+        // something held.
+        Err(_) => return Some(Vec::new()),
+    };
+    nightgrid_core::holds::pull_services(&holds, host_id, &stack.name, &images)
 }
 
 pub(crate) async fn take_snapshot(
@@ -525,7 +564,14 @@ pub async fn docker_stack_check_updates(
     let d = docker_for(&app, host_id).await?;
     let locals = d.local_images(&stack.name).await?;
     let checks = locals.iter().map(registry::check);
-    Ok(futures_util::future::join_all(checks).await)
+    let mut list = futures_util::future::join_all(checks).await;
+    // Held images are still checked (so you know a newer one exists), but
+    // marked: they aren't counted and Update leaves them (D-195).
+    let holds = app.state::<AppState>().store().update_holds().unwrap_or_default();
+    for u in &mut list {
+        u.held = nightgrid_core::holds::image_held(&holds, host_id, &stack.name, &u.image);
+    }
+    Ok(list)
 }
 
 /// Reverse proxy routes (Caddy, Traefik, Nginx Proxy Manager) on the host,

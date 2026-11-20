@@ -123,7 +123,7 @@
   const hushedCount = $derived(alerts.active.length - loudActive.length);
   let openFold = $state<number | null>(null);
 
-  // Acknowledge and mute (D-196).
+  // Acknowledge and mute (D-198).
   let menu = $state<{ id: number; what: "ack" | "mute" } | null>(null);
   let scope = $state<MuteScope["type"]>("alert");
   let customN = $state(2);

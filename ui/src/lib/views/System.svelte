@@ -53,7 +53,7 @@
 
   const hostName = $derived(system.host?.name ?? "");
   const pending = $derived(system.pendingUnit);
-  const upCount = $derived(system.updates?.updates.length ?? 0);
+  const upCount = $derived(system.updates?.updates.filter((u) => !u.held).length ?? 0);
   let typed = $state("");
   $effect(() => {
     if (!system.confirmPower) typed = "";
@@ -203,11 +203,12 @@
 <Modal open={system.confirmUpgrade} title="UPGRADE PACKAGES" tone="danger" width={560} onclose={() => (system.confirmUpgrade = false)}>
   <p>Install <strong>{upCount}</strong> package upgrade{upCount === 1 ? "" : "s"} on <strong>{hostName}</strong>?</p>
   <ul class="targets">
-    {#each (system.updates?.updates ?? []).slice(0, 12) as p (p.name)}
+    {#each (system.updates?.updates ?? []).filter((u) => !u.held).slice(0, 12) as p (p.name)}
       <li><code>{p.name}</code> <span class="muted">{p.current ?? ""} → {p.available}</span></li>
     {/each}
     {#if upCount > 12}<li class="muted">…and {upCount - 12} more</li>{/if}
   </ul>
+  {#if system.updates?.held.length}<p class="muted">Held packages are left out: {system.updates.held.join(", ")}.</p>{/if}
   <p class="muted">
     Runs non-interactively with sudo; existing config files are kept. Services may restart. Keep Nightgrid connected until
     it finishes: a dropped connection can interrupt the package manager.

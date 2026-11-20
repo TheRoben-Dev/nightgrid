@@ -1,4 +1,4 @@
-//! Acknowledging and muting alerts (D-196).
+//! Acknowledging and muting alerts (D-198).
 //!
 //! A silenced alert stays in the active list and on the timeline, marked,
 //! but doesn't count toward the badge or the tray, and sends nothing: no

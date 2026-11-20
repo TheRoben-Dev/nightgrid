@@ -140,7 +140,7 @@ pub struct HostEvent {
     pub title: String,
     pub detail: String,
     pub origin: Origin,
-    /// Recorded while the alert was acknowledged or muted (D-196).
+    /// Recorded while the alert was acknowledged or muted (D-198).
     pub silenced: Option<crate::silence::SilenceMode>,
 }
 

@@ -78,7 +78,8 @@ export function updateLines(rows: UpdateRow[]): UpdLine[] {
       out.push({ host: r.host, tone: "unknown", text: "couldn't check", detail: s.error ?? "" });
       continue;
     }
-    const bits = [r.count ? `${r.count} pending` : "up to date"];
+    const bits = [r.held ? "held" : r.count ? `${r.count} pending` : "up to date"];
+    if (r.heldCount && !r.held) bits.push(`${r.heldCount} held`);
     if (r.security) bits.push(`${r.security} security`);
     if (r.reboot) bits.push("reboot");
     out.push({ host: r.host, tone: r.tone, text: bits.join(" · "), detail: s.report?.rebootReasons.join("; ") ?? "" });

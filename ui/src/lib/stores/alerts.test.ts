@@ -65,7 +65,7 @@ describe("groupByCause", () => {
   });
 });
 
-describe("acknowledged and muted alerts (D-196)", () => {
+describe("acknowledged and muted alerts (D-198)", () => {
   const snap = (active: Alert[]): AlertsSnapshot => ({ active, history: [], quiet: false, enabled: true, upsCountdown: null, logNotes: [], logQuiet: [], silences: [] });
   const nas = alert({ id: 7, key: "disk:2:/volume1", kind: "diskFull", severity: "warn", silenced: 1 });
 

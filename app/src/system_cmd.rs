@@ -720,10 +720,51 @@ pub fn system_stream_stop(state: State<'_, AppState>, run: SystemRunId) -> CmdRe
 #[specta::specta]
 pub async fn system_updates(app: AppHandle, host_id: HostId) -> SysResult<UpdatesReport> {
     let conn = connect_posix(&app, host_id, "system.updates").await?;
-    if conn.is_windows() {
-        return Ok(nightgrid_core::win::updates::check(&conn).await?);
+    let mut report = if conn.is_windows() {
+        nightgrid_core::win::updates::check(&conn).await?
+    } else {
+        packages::check(&conn).await?
+    };
+    report.apply_holds(&nightgrid_package_holds(&app, host_id));
+    Ok(report)
+}
+
+/// Packages Nightgrid holds for the host (where the host can't).
+fn nightgrid_package_holds(app: &AppHandle, host_id: HostId) -> Vec<String> {
+    let holds = app.state::<AppState>().store().update_holds().unwrap_or_default();
+    nightgrid_core::holds::held_packages(&holds, host_id)
+}
+
+/// Holds (or releases) packages on the host itself: `apt-mark hold`, `dnf
+/// versionlock`, or hiding Windows updates. Every tool on the host then
+/// leaves them alone, not just Nightgrid (D-195).
+#[tauri::command]
+#[specta::specta]
+pub async fn system_package_hold(
+    app: AppHandle,
+    host_id: HostId,
+    manager: Manager,
+    names: Vec<String>,
+    hold: bool,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    let conn = connect_posix(&app, host_id, "system.updates").await?;
+    tracing::info!(host = %host_id, manager = manager.label(), count = names.len(), hold, "package hold");
+    if manager == Manager::WindowsUpdate {
+        if !conn.is_windows() {
+            return Err(SystemError::other("Windows Update doesn't run on this host").into());
+        }
+        nightgrid_core::win::updates::hold(&conn, &names, hold).await?;
+        return Ok(());
     }
-    Ok(packages::check(&conn).await?)
+    let cmd = packages::hold_command(manager, &names, hold)?;
+    let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
+    let o = sudo::run(&conn, &auth, &cmd).await?;
+    if o.code != 0 {
+        let why = if o.stdout.trim().is_empty() { o.stderr.trim() } else { o.stdout.trim() };
+        return Err(SystemError::other(format!("{} said: {why}", manager.label())).into());
+    }
+    Ok(())
 }
 
 /// What an upgrade run's channel carries.
@@ -756,8 +797,13 @@ pub async fn system_upgrade_run(
     if windows && op != UpgradeOp::Upgrade {
         return Err(SystemError::other("Windows Update refreshes while checking; no separate refresh needed").into());
     }
-    let cmd =
-        if windows { nightgrid_core::win::updates::install_script() } else { packages::upgrade_command(manager, op)? };
+    // Packages Nightgrid holds are left out (apt and Windows hold on the host).
+    let held = nightgrid_package_holds(&app, host_id);
+    let cmd = if windows {
+        nightgrid_core::win::updates::install_script()
+    } else {
+        packages::upgrade_command_excluding(manager, op, &held)?
+    };
     let auth = if windows { SudoAuth::User } else { resolve_sudo(&app, host_id, &conn, sudo).await? };
     tracing::info!(host = %host_id, manager = manager.label(), op = ?op, "package run");
     let id = state.next_term_id();

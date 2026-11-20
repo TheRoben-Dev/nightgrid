@@ -41,6 +41,11 @@ pub enum Route {
     /// but has passwordless sudo. Holds the docker binary's absolute path
     /// (sudo's secure_path may not include it); see [`safe_bin`].
     Sudo(String),
+    /// `sudo -n -u <user> <docker> …`: the host's Docker user setting. The
+    /// SSH login stays the host's user; Docker runs as `user` (a dedicated
+    /// account that owns the socket or the stacks). Needs a sudoers rule
+    /// letting the login run docker as that user without a password.
+    AsUser { user: String, bin: String },
 }
 
 impl Route {
@@ -50,6 +55,7 @@ impl Route {
             Route::DialStdio(_) => "docker system dial-stdio over SSH".into(),
             Route::WindowsCli => "docker.exe system dial-stdio over SSH (Windows)".into(),
             Route::Sudo(_) => "sudo docker system dial-stdio over SSH".into(),
+            Route::AsUser { user, .. } => format!("docker as {user} (sudo -u) over SSH"),
         }
     }
 
@@ -70,6 +76,8 @@ impl Route {
             // `safe_bin` paths need no quoting, so the result also survives
             // word splitting in `$dc` (compose).
             Route::Sudo(bin) => format!("sudo -n {bin}"),
+            // `valid_docker_user` names need no quoting either.
+            Route::AsUser { user, bin } => format!("sudo -n -u {user} {bin}"),
             _ => "docker".into(),
         }
     }
@@ -79,6 +87,15 @@ impl Route {
 /// quoting (what `command -v docker` prints on real systems).
 pub fn safe_bin(p: &str) -> bool {
     p.starts_with('/') && p.len() < 256 && p.chars().all(|c| c.is_ascii_alphanumeric() || "/._-+".contains(c))
+}
+
+/// A user name Nightgrid accepts as a host's Docker user: a plain Unix
+/// account name, so it needs no quoting in shell or sudoers.
+pub fn valid_docker_user(u: &str) -> bool {
+    let mut c = u.chars();
+    c.next().is_some_and(|f| f.is_ascii_alphanumeric() || f == '_')
+        && u.len() <= 64
+        && c.all(|ch| ch.is_ascii_alphanumeric() || "._-".contains(ch))
 }
 
 /// Command that starts the stdio bridge for the exec routes.
@@ -97,7 +114,9 @@ async fn send(
 ) -> Result<Response<Incoming>, bollard::errors::Error> {
     let channel = match &route {
         Route::Socket(path) => conn.open_streamlocal(path).await,
-        Route::DialStdio(_) | Route::Sudo(_) => conn.open_exec(&dial_stdio_command(&route)).await,
+        Route::DialStdio(_) | Route::Sudo(_) | Route::AsUser { .. } => {
+            conn.open_exec(&dial_stdio_command(&route)).await
+        }
         // No `exec` or env assignment: cmd and PowerShell know neither.
         Route::WindowsCli => conn.open_exec("docker system dial-stdio").await,
     }
@@ -157,6 +176,17 @@ mod tests {
     #[test]
     fn path_fix_adds_usr_local() {
         assert!(PATH_FIX.contains("/usr/local/bin"));
+        let r = Route::AsUser { user: "dockeruser".into(), bin: "/usr/local/bin/docker".into() };
+        assert_eq!(
+            dial_stdio_command(&r),
+            format!("{PATH_FIX}exec sudo -n -u dockeruser /usr/local/bin/docker system dial-stdio")
+        );
+        for ok in ["dockeruser", "svc-docker", "j.doe", "_docker", "u1000"] {
+            assert!(valid_docker_user(ok), "{ok}");
+        }
+        for bad in ["", "-u", "+netgroup", "%admin", "a b", "x;id", "root\n", &"a".repeat(65)] {
+            assert!(!valid_docker_user(bad), "{bad}");
+        }
         assert!(PATH_FIX.ends_with("export PATH; "));
     }
 }

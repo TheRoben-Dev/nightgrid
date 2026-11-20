@@ -23,6 +23,7 @@ mod files_cmd;
 mod firewall_cmd;
 mod gitstack_cmd;
 mod helper_cmd;
+mod holds_cmd;
 mod hosts_cmd;
 mod hub_cmd;
 mod integrations_cmd;
@@ -133,6 +134,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         docker_cmd::docker_logs_stop,
         docker_cmd::docker_forget,
         docker_cmd::docker_fix_access,
+        docker_cmd::docker_set_user,
         docker_cmd::docker_stacks,
         docker_cmd::docker_compose_run,
         docker_cmd::docker_compose_cancel,
@@ -217,6 +219,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         starters_cmd::starters_list,
         starters_cmd::starter_target,
         starters_cmd::starter_open,
+        holds_cmd::update_holds_list,
+        holds_cmd::update_hold_save,
+        holds_cmd::update_hold_delete,
+        system_cmd::system_package_hold,
         expiry_cmd::watch_list,
         expiry_cmd::watch_save,
         expiry_cmd::watch_delete,

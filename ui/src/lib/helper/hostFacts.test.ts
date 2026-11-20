@@ -23,6 +23,7 @@ const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   driftHistory: false,
   driftLookups: false,
   alertOffline: false,
+  dockerUser: null,
   driftPaths: null,
   macAddress: null,
   wakeRelayId: null,

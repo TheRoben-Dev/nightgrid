@@ -20,6 +20,7 @@
   import { backups, jobState } from "../../stores/backups.svelte";
   import { desktopLabel, desktops } from "../../stores/desktops.svelte";
   import { fleet } from "../../stores/fleet.svelte";
+  import { holds } from "../../stores/holds.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { notes } from "../../stores/notes.svelte";
   import { healthOf, services } from "../../stores/services.svelte";
@@ -84,7 +85,7 @@
   const activeAlerts = $derived([...alerts.roots].sort((a, b) => sevRank(a.severity) - sevRank(b.severity) || b.since - a.since));
   const incidents = $derived(activeAlerts.length ? [] : recentIncidents(alerts.history, nowS));
   const svcRows = $derived(serviceRows(services.services, services.status, healthOf));
-  const updRows = $derived(updateRows(hosts.hosts, fleet.updates));
+  const updRows = $derived(updateRows(hosts.hosts, fleet.updates, (id) => holds.host(id)));
   const updLines = $derived(updateLines(updRows));
   const updPkgs = $derived(updRows.reduce((n, r) => n + r.count, 0));
   const updNewest = $derived(Math.max(0, ...Object.values(fleet.updates).map((u) => u.checkedAt ?? 0)) || null);

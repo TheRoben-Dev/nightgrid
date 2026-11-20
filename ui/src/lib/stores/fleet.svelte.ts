@@ -8,6 +8,7 @@
 import { api, errorText, systemError, type PoolsReport } from "../api";
 import type { FleetTab, HostDisks, HostRun, HostUpdates, ImageRow } from "../fleet";
 import { backups } from "./backups.svelte";
+import { holds } from "./holds.svelte";
 import { hosts } from "./hosts.svelte";
 import { nav } from "./nav.svelte";
 
@@ -124,6 +125,7 @@ class FleetStore {
   async checkAll(ids?: number[]) {
     if (this.checking) return;
     this.checking = true;
+    holds.ensure();
     this.runs = Object.fromEntries(Object.entries(this.runs).filter(([, r]) => r.running));
     try {
       await pool(
@@ -145,13 +147,14 @@ class FleetStore {
     } catch (e) {
       this.updates = { ...this.updates, [id]: { status: "error", report: null, error: hostError(e), checkedAt: Date.now() } };
     }
-    this.selected = this.selected.filter((x) => x !== id || (this.updates[id]?.report?.updates.length ?? 0) > 0);
+    this.selected = this.selected.filter((x) => x !== id || (this.updates[id]?.report?.updates.some((u) => !u.held) ?? false));
   }
 
   /** Asks registries whether any stack's image tags moved (rule 7: registries, on request). */
   async checkImages() {
     if (this.imagesChecking) return;
     this.imagesChecking = true;
+    holds.ensure();
     const rows: ImageRow[] = [];
     const skipped: Record<number, string> = {};
     try {
@@ -207,7 +210,11 @@ class FleetStore {
 
   private async upgradeHost(id: number) {
     const manager = this.updates[id]?.report?.manager;
-    if (!manager || !this.updates[id]?.report?.updates.length) {
+    if (holds.host(id)) {
+      this.setRun(id, { running: false, skipped: "updates are held on this host" });
+      return;
+    }
+    if (!manager || !this.updates[id]?.report?.updates.some((u) => !u.held)) {
       this.setRun(id, { running: false, skipped: "nothing to upgrade" });
       return;
     }
