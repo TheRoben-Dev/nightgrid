@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [Unreleased]
+## [1.14.1] - 2026-11-20
 
 ### Fixed
 - Type-to-confirm dialogs (upgrade hosts, power, removing containers, deleting files, SSH keys, firewall, VMs, Proxmox, UPS, automation runs) showed the name to type in uppercase, so a host called `braincage` read as BRAINCAGE and typing that kept the button disabled. The name is now shown exactly as stored, and the typed name is matched ignoring case.
