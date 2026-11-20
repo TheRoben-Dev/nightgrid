@@ -43,6 +43,7 @@ Run your router and firewall as a VM: OPNsense gives you VLANs, a stateful firew
 - [Proxmox](view:proxmox) shows the VM; **NETWORK** stages bridge changes with an automatic rollback, which is exactly what you want when changing the bridge your router sits on.
 - [Network](view:network) → scans from a host on each VLAN show what's there; **Watch the network** alerts on new devices.
 - The firewall itself isn't a Nightgrid host (FreeBSD, no Docker); add its web UI to [Services](view:services).
+- [Services](view:services) → **Add integration** → **OPNsense** with an API key and secret (System → Access → Users → API keys): gateways with delay and loss, firmware updates, and stopped services you can start from the card (see [Add app cards](kb:howto/integrations)).
 
 ## Limits and gotchas
 

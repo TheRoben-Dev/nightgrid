@@ -3,6 +3,7 @@
   import { openExternal } from "../../clipboard";
   import { hosts } from "../../stores/hosts.svelte";
   import { CERT_WARN_DAYS, certDays, healthOf, hostOfUrl, nowSecs, services, uptime } from "../../stores/services.svelte";
+  import { expiry } from "../../stores/expiry.svelte";
   import Sparkline from "../metrics/Sparkline.svelte";
   import { errorText } from "../../api";
   import { tunnels } from "../../stores/tunnels.svelte";
@@ -15,12 +16,17 @@
   let { service, showHost = true }: Props = $props();
 
   const st = $derived(services.status[service.id]);
-  const health = $derived(healthOf(service, st));
+  // A certificate the user trusted in Expiry Watch (by its fingerprint).
+  const pinned = $derived(
+    expiry.prefs.find((p) => p.target.kind === "service" && p.target.serviceId === service.id)?.trustedFingerprint ?? null,
+  );
+  const health = $derived(healthOf(service, st, nowSecs(), pinned));
   const points = $derived(services.history[service.id] ?? []);
   const latency = $derived(points.filter((p) => p.latencyMs != null).map((p) => p.latencyMs as number));
   const up24 = $derived(uptime(points));
   const tls = $derived(st?.result.tls ?? null);
   const days = $derived(certDays(tls));
+  const pinnedOk = $derived(!!tls && !tls.trusted && !!pinned && tls.fingerprint === pinned);
   const host = $derived(service.hostId != null ? hosts.byId(service.hostId) : undefined);
   const busy = $derived(services.checking.includes(service.id));
   let viaBusy = $state(false);
@@ -58,15 +64,25 @@
     if (!tls) return null;
     if (days !== null && days < 0) return "CERT EXPIRED";
     const d = days === null ? "" : `${days}d`;
-    return tls.trusted ? `TLS ${d}` : `UNTRUSTED ${d}`.trim();
+    return tls.trusted || pinnedOk ? `TLS ${d}` : `UNTRUSTED ${d}`.trim();
   });
   const certTone = $derived(
-    !tls ? "" : (days !== null && days < 3) || (!tls.trusted && !service.allowUntrusted) ? "bad" : !tls.trusted || (days !== null && days < CERT_WARN_DAYS) ? "warn" : "ok",
+    !tls
+      ? ""
+      : (days !== null && days < 3) || (!tls.trusted && !service.allowUntrusted)
+        ? "bad"
+        : (!tls.trusted && !pinnedOk) || (days !== null && days < CERT_WARN_DAYS)
+          ? "warn"
+          : "ok",
   );
   const certTitle = $derived(
     tls
       ? [
-          tls.trusted ? "Trusted certificate" : `Not trusted: ${tls.problem ?? "unknown reason"}`,
+          tls.trusted
+            ? "Trusted certificate"
+            : pinnedOk
+              ? `Trusted by you in Expiry Watch (${tls.problem ?? "not trusted by this computer"})`
+              : `Not trusted: ${tls.problem ?? "unknown reason"}`,
           tls.subject ? `Subject: ${tls.subject}` : "",
           tls.issuer ? `Issuer: ${tls.issuer}` : "",
           tls.expires ? `Expires: ${new Date(tls.expires * 1000).toLocaleString()}` : "",
@@ -314,27 +330,27 @@
   footer {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2) var(--sp-3);
     font-size: var(--fs-xs);
+    flex-wrap: wrap;
   }
   .chip {
-    padding: 0 5px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     color: var(--text-1);
     letter-spacing: 0.06em;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .chip.src {
     color: var(--mint);
   }
   .when {
     color: var(--text-1);
+    white-space: nowrap;
   }
   .spacer {
     flex: 1;
-  }
-  .tiny {
-    min-height: 20px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
   }
 </style>

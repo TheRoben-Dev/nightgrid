@@ -102,7 +102,7 @@
     <form class="grid" id="tunnel-form" onsubmit={save}>
       <fieldset class="span6">
         <legend class="field-label">Type</legend>
-        <div class="seg" role="radiogroup" aria-label="Tunnel type">
+        <div class="seg tabstrip choice" role="radiogroup" aria-label="Tunnel type">
           {#each KINDS as k (k.id)}
             <button type="button" role="radio" aria-checked={form.kind === k.id} class:active={form.kind === k.id} onclick={() => setKind(k.id)}>
               {KIND_LABEL[k.id]}
@@ -213,31 +213,6 @@
     color: var(--text-1);
     padding: 0;
     margin-bottom: 4px;
-  }
-  .seg {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    flex: 1;
-    min-height: var(--hit);
-    border: 0;
-    border-right: 1px solid var(--line);
-    background: transparent;
-    color: var(--text-1);
-    cursor: pointer;
-    font-family: var(--font-display);
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    font-size: var(--fs-sm);
-  }
-  .seg button:last-child {
-    border-right: 0;
-  }
-  .seg button.active {
-    color: var(--text-0);
-    background: color-mix(in srgb, var(--magenta) 16%, transparent);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   fieldset p {
     margin: 6px 0 0;

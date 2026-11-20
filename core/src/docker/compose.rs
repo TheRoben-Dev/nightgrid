@@ -166,16 +166,17 @@ pub fn compose_command(stack: &Stack, op: ComposeOp, route: &Route) -> String {
 /// `docker compose -p NAME [-f …] ARGS` in the stack folder. `args` is a
 /// fixed string from this crate, never user input.
 pub fn compose_shell(stack: &Stack, args: &str, route: &Route) -> String {
-    let host = match route {
-        Route::Socket(s) | Route::DialStdio(Some(s)) if s != "/var/run/docker.sock" => {
-            format!("export DOCKER_HOST={}; ", shell_quote(&format!("unix://{s}")))
-        }
-        _ => String::new(),
+    let env = route.shell_env();
+    let docker = route.docker_cli();
+    // Through sudo, docker-compose needs its absolute path too.
+    let legacy = match route {
+        Route::Sudo(_) => "\"sudo -n $(command -v docker-compose)\"",
+        _ => "docker-compose",
     };
     let files: String = stack.files.iter().map(|f| format!(" -f {}", shell_quote(f))).collect();
     format!(
-        "exec 2>&1; {host}if docker compose version >/dev/null 2>&1; then dc='docker compose'; \
-         elif command -v docker-compose >/dev/null 2>&1; then dc=docker-compose; \
+        "exec 2>&1; {env}if {docker} compose version >/dev/null 2>&1; then dc=\"{docker} compose\"; \
+         elif command -v docker-compose >/dev/null 2>&1; then dc={legacy}; \
          else echo 'neither \"docker compose\" nor docker-compose is installed'; exit 127; fi; \
          cd {} && $dc -p {}{files} {}",
         shell_quote(&stack.dir),
@@ -440,6 +441,7 @@ fn take_lines(buf: &mut Vec<u8>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::docker::PATH_FIX;
 
     fn win_stack() -> Stack {
         Stack {
@@ -542,10 +544,13 @@ mod tests {
             c.contains("cd '/opt/my stacks/media' && $dc -p 'media' -f '/opt/my stacks/media/compose.yaml' up -d"),
             "{c}"
         );
-        assert!(c.starts_with("exec 2>&1; if docker compose version"));
+        assert!(c.starts_with(&format!("exec 2>&1; {PATH_FIX}if docker compose version")), "{c}");
         let r = compose_command(&s, ComposeOp::Down, &Route::Socket("/run/user/1000/docker.sock".into()));
         assert!(r.contains("export DOCKER_HOST='unix:///run/user/1000/docker.sock'; "));
         assert!(r.ends_with(" down"));
+        let sudo = compose_command(&s, ComposeOp::Up, &Route::Sudo("/usr/local/bin/docker".into()));
+        assert!(sudo.contains("if sudo -n /usr/local/bin/docker compose version"), "{sudo}");
+        assert!(sudo.contains("dc=\"sudo -n /usr/local/bin/docker compose\""), "{sudo}");
         let bad = Stack { name: "x;reboot".into(), ..s.clone() };
         assert!(check_stack(&bad).is_err());
         let rel = Stack { dir: "media".into(), ..s };

@@ -270,9 +270,4 @@
   .raw {
     font-family: var(--font-mono);
   }
-  .tiny {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
-  }
 </style>

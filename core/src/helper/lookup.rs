@@ -274,7 +274,7 @@ pub fn command(l: &Lookup, extra: &[String]) -> Result<String, String> {
         _ => {}
     }
     let q = quote(t);
-    Ok(match l.kind {
+    let cmd: String = match l.kind {
         LookupKind::Overview => "uptime; echo; df -hP 2>/dev/null | grep -vE '^(tmpfs|devtmpfs|overlay|shm|udev|efivarfs|none) '; echo; free -m 2>/dev/null || vm_stat 2>/dev/null | head -n 8".into(),
         LookupKind::Disk => "df -hP; echo; df -iP 2>/dev/null | grep -vE '^(tmpfs|devtmpfs|overlay|shm|udev) '".into(),
         LookupKind::Memory => "free -m 2>/dev/null || vm_stat | head -n 8; echo; ps aux | head -n 1; ps aux | sort -nrk 6 | head -n 10".into(),
@@ -313,11 +313,13 @@ pub fn command(l: &Lookup, extra: &[String]) -> Result<String, String> {
         LookupKind::DockerStats => "docker stats --no-stream --format '{{.Name}}\\t{{.CPUPerc}}\\t{{.MemUsage}}\\t{{.NetIO}}\\t{{.BlockIO}}'".into(),
         LookupKind::DockerEvents => "docker events --since 1h --until 0s --format '{{.Time}} {{.Type}} {{.Action}} {{.Actor.Attributes.name}}' 2>&1 | grep -vE ' (exec_create|exec_start|exec_die) ' | tail -n 40".into(),
         LookupKind::DockerDisk => "docker system df".into(),
-    })
+    };
+    // Synology keeps docker in /usr/local/bin, outside non-interactive PATH.
+    Ok(if cmd.contains("docker") { format!("{}{cmd}", crate::docker::PATH_FIX) } else { cmd })
 }
 
 /// Lists container and service names, to match the question's words against.
-pub const NAMES_COMMAND: &str = "echo '#containers'; docker ps -a --format '{{.Names}}' 2>/dev/null; echo '#units'; systemctl list-units --all --type=service --plain --no-legend --no-pager 2>/dev/null | awk '{print $1}'";
+pub const NAMES_COMMAND: &str = "PATH=\"$PATH:/usr/local/bin\"; echo '#containers'; docker ps -a --format '{{.Names}}' 2>/dev/null; echo '#units'; systemctl list-units --all --type=service --plain --no-legend --no-pager 2>/dev/null | awk '{print $1}'";
 
 /// `(containers, units)` from [`NAMES_COMMAND`] output.
 pub fn parse_names(out: &str) -> (Vec<String>, Vec<String>) {

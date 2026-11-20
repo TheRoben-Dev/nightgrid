@@ -250,8 +250,13 @@
     color: var(--text-0);
     font: inherit;
     font-size: var(--fs-xs);
-    padding: 2px 8px;
+    padding: 0 var(--chip-px);
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--chip-h);
+    white-space: nowrap;
   }
   .chip:hover {
     border-color: var(--cyan);

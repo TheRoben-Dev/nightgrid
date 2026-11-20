@@ -86,7 +86,7 @@
     </label>
     <div class="field">
       <span>SHOW FOR</span>
-      <div class="seg" role="radiogroup" aria-label="Scope">
+      <div class="seg tabstrip choice" role="radiogroup" aria-label="Scope">
         {#each [["global", "All hosts"], ["host", "One host"], ["group", "A group"]] as [k, l] (k)}
           <button type="button" role="radio" aria-checked={form.scope.kind === k} class:on={form.scope.kind === k} disabled={(k === "host" && !hosts.hosts.length) || (k === "group" && !hosts.groups.length)} onclick={() => setScope(k as ScopeKind)}>{l}</button>
         {/each}
@@ -140,30 +140,7 @@
     line-height: 1.5;
   }
   .seg {
-    display: flex;
-    gap: 0;
     margin-bottom: 6px;
-  }
-  .seg button {
-    border: 1px solid var(--line);
-    background: transparent;
-    color: var(--text-1);
-    padding: 4px 10px;
-    font: inherit;
-    font-size: var(--fs-sm);
-    cursor: pointer;
-  }
-  .seg button + button {
-    border-left: 0;
-  }
-  .seg button.on {
-    color: var(--text-0);
-    border-color: var(--magenta);
-    background: color-mix(in srgb, var(--magenta) 12%, transparent);
-  }
-  .seg button:disabled {
-    opacity: 0.4;
-    cursor: default;
   }
   .check {
     display: flex;

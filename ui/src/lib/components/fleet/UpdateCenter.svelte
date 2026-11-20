@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../../confirm";
   /**
    * Fleet → UPDATES (M10m): pending package updates on every host, reboot
    * flags, batch upgrade with a typed confirmation (rule 5), and container
@@ -256,12 +257,12 @@
     listed. Nothing reboots by itself.
   </p>
   <label class="field">
-    <span>Type <strong>{phrase}</strong> to confirm</span>
+    <span>Type <strong class="verbatim">{phrase}</strong> to confirm</span>
     <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
   </label>
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (fleet.confirm = false)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={!picked.length || typed.trim() !== phrase} onclick={() => fleet.upgradeSelected()}
+    <button type="button" class="btn danger" disabled={!picked.length || !typedMatches(typed, phrase)} onclick={() => fleet.upgradeSelected()}
       >Upgrade {picked.length} host{picked.length === 1 ? "" : "s"}</button
     >
   {/snippet}
@@ -346,9 +347,12 @@
   .chip {
     font-size: var(--fs-xs);
     letter-spacing: 0.08em;
-    padding: 0 5px;
+    padding: 0 var(--tag-px);
     border: 1px solid currentColor;
     margin-right: 6px;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .chip.bad {
     color: var(--danger);

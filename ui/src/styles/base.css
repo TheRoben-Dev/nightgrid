@@ -54,6 +54,8 @@ a {
 /* Handheld preset: finger-sized targets (Apple/Material guidance is 44-48px). */
 :root[data-handheld="on"] {
   --hit: 44px;
+  --ctl-h-sm: 34px;
+  --chip-h: 30px;
 }
 :root[data-handheld="on"] .btn {
   padding: 0 18px;
@@ -231,4 +233,13 @@ textarea.input {
 /* Inert stand-ins for runtime <style> elements (see lib/term/cspStyles.ts). */
 nightgrid-style {
   display: none !important;
+}
+
+/* A name the user must type back (type-to-confirm): shown exactly as stored,
+   even inside an uppercased label, so `braincage` never reads as BRAINCAGE. */
+.verbatim {
+  font-family: var(--font-mono);
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--cyan);
 }

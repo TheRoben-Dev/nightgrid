@@ -232,7 +232,7 @@
       </div>
       {#if mode === "replace"}
         <label class="field">
-          <span>TYPE <code>replace</code> TO CONTINUE</span>
+          <span>TYPE <code class="verbatim">replace</code> TO CONTINUE</span>
           <input class="input" bind:value={typed} autocomplete="off" aria-label="Type replace to confirm" />
         </label>
       {/if}

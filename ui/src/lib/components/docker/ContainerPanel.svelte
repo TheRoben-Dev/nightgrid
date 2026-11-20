@@ -99,9 +99,9 @@
     {/if}
     <button type="button" class="x" aria-label="Close panel" title="Close" onclick={onclose}>×</button>
   </header>
-  <div class="tabs" role="tablist">
+  <div class="tabs tabstrip line" role="tablist">
     {#each tabs as t (t.id)}
-      <button type="button" role="tab" aria-selected={tab === t.id} class:active={tab === t.id} onclick={() => (tab = t.id)}
+      <button type="button" role="tab" aria-selected={tab === t.id} class:on={tab === t.id} onclick={() => (tab = t.id)}
         >{t.label}{#if t.id === "env" && detail}<span class="n">{detail.env.length}</span>{/if}</button
       >
     {/each}
@@ -305,25 +305,6 @@
   .dot.dead {
     background: var(--danger);
   }
-  .tabs {
-    display: flex;
-    border-bottom: 1px solid var(--line);
-  }
-  .tabs button {
-    border: 0;
-    border-right: 1px solid var(--line);
-    background: transparent;
-    color: var(--text-1);
-    padding: 5px 12px;
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    cursor: pointer;
-  }
-  .tabs button.active {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
   .n {
     margin-left: 6px;
     color: var(--cyan);
@@ -450,9 +431,5 @@
   }
   .h-starting {
     color: var(--warn);
-  }
-  .tiny {
-    padding: 2px 10px;
-    font-size: var(--fs-xs);
   }
 </style>

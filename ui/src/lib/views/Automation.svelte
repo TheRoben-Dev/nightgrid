@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../confirm";
   import { onMount } from "svelte";
   import ExplainButton from "../components/helper/ExplainButton.svelte";
   import Modal from "../components/Modal.svelte";
@@ -83,7 +84,7 @@
   $effect(() => {
     if (automation.confirm) typed = "";
   });
-  const confirmOk = $derived(!automation.confirm?.word || typed.trim() === automation.confirm.word);
+  const confirmOk = $derived(!automation.confirm?.word || typedMatches(typed, automation.confirm.word));
 
   // Keep the output scrolled to the bottom while new lines arrive.
   let outEl: HTMLPreElement | undefined = $state();
@@ -347,7 +348,7 @@
       {#if c.hostNames.length > 1}<p class="hostlist">{c.hostNames.join(", ")}</p>{/if}
       {#if c.word}
         <label class="field">
-          <span>TYPE <code>{c.word}</code> TO CONTINUE{Number.isInteger(Number(c.word)) ? " (THE NUMBER OF HOSTS)" : " (THE GROUP)"}</span>
+          <span>TYPE <code class="verbatim">{c.word}</code> TO CONTINUE{Number.isInteger(Number(c.word)) ? " (THE NUMBER OF HOSTS)" : " (THE GROUP)"}</span>
           <input class="input" bind:value={typed} autocomplete="off" aria-label="Type {c.word} to confirm" />
         </label>
       {/if}
@@ -379,11 +380,6 @@
     min-width: 0;
   }
   .small {
-    font-size: var(--fs-xs);
-  }
-  .tiny {
-    min-height: 20px;
-    padding: 0 8px;
     font-size: var(--fs-xs);
   }
   .items {
@@ -454,9 +450,11 @@
     font-size: 10px;
     letter-spacing: var(--tracking-label);
     border: 1px solid var(--line);
-    padding: 0 4px;
+    padding: 0 var(--tag-px);
     color: var(--text-1);
     white-space: nowrap;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
   }
   .chip.root {
     color: var(--warn);

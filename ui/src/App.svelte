@@ -294,7 +294,7 @@
           <button type="button" class="help" class:solo={siblings.length < 2} data-guide="view-help" title={`Help: ${helpFor.title}`} aria-label={`Help: ${helpFor.title}`} onclick={() => library.open(helpFor.id)}>?</button>
         {/if}
         {#if siblings.length > 1}
-          <div class="viewtabs" role="tablist" aria-label="Related views">
+          <div class="viewtabs tabstrip sm" role="tablist" aria-label="Related views">
             {#each siblings as v (v.id)}
               <button type="button" role="tab" data-guide="viewtab-{v.id}" class:on={v.id === section.id} aria-selected={v.id === section.id} onclick={() => ui.go(v.id)}>{v.label.toUpperCase()}</button>
             {/each}
@@ -403,31 +403,9 @@
     border-bottom: 1px solid var(--line);
   }
   .viewtabs {
-    display: flex;
     margin-left: 16px;
     margin-right: auto;
-    border: 1px solid var(--line);
     align-self: center;
-  }
-  .viewtabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 12px;
-    cursor: pointer;
-  }
-  .viewtabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .viewtabs button:hover {
-    color: var(--text-0);
-  }
-  .viewtabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   h1 {
     margin: 0;

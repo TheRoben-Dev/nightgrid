@@ -794,6 +794,7 @@ mod tests {
             expires: Some(now + days * 86_400 + 60),
             subject: None,
             issuer: None,
+            fingerprint: None,
         };
         let up = CheckResult { up: true, status: Some(200), latency_ms: Some(3), error: None, tls: Some(tls(30)) };
         assert!(service(1, "web", None, &up, 14, now).is_empty());

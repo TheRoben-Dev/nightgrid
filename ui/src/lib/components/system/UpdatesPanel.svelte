@@ -110,9 +110,12 @@
     letter-spacing: 0.1em;
   }
   .chip {
-    padding: 0 6px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     color: var(--mint);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .count {
     color: var(--cyan);
@@ -221,10 +224,5 @@
     font-size: var(--fs-xs);
     white-space: pre-wrap;
     word-break: break-word;
-  }
-  .tiny {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
   }
 </style>

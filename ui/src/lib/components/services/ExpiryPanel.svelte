@@ -3,11 +3,14 @@
    * Services → EXPIRY WATCH (M10l): service and proxy certificates, plus
    * certificate files on hosts, domains, tokens and licences you add. Dates
    * of certificate files are read over SSH; a domain's date can be looked up
-   * with `whois` on one of your hosts (only on a click).
+   * with `whois` on one of your hosts (only on a click). Rows found
+   * automatically (service and proxy certificates) have their own Edit: trust
+   * one self-signed certificate by its fingerprint, mute alerts, use your own
+   * date or warning days.
    */
   import { onMount } from "svelte";
-  import type { WatchInput, WatchKind } from "../../api";
-  import { expiryCounts, expiryRows, fromDateInput, leftText, toDateInput, type ExpiryRow } from "../../expiry";
+  import type { ExpiryPref, WatchInput, WatchKind } from "../../api";
+  import { expiryCounts, expiryRows, fingerprintText, fromDateInput, leftText, sameTarget, toDateInput, type ExpiryRow } from "../../expiry";
   import { docker } from "../../stores/docker.svelte";
   import { expiry } from "../../stores/expiry.svelte";
   import { hosts } from "../../stores/hosts.svelte";
@@ -38,6 +41,7 @@
         proxy: proxy.report ? { report: proxy.report, hostName: hostName(docker.hostId) } : null,
         hostName,
         certDays: settings.value.alerts.certDays,
+        prefs: expiry.prefs,
       },
       now,
     ),
@@ -52,7 +56,7 @@
     { id: "license", label: "Licence or subscription", hint: "" },
     { id: "other", label: "Something else", hint: "" },
   ];
-  const blank = (): WatchInput => ({ id: null, kind: "domain", name: "", hostId: null, target: "", expiresAt: null, warnDays: 30, note: "" });
+  const blank = (): WatchInput => ({ id: null, kind: "domain", name: "", hostId: null, target: "", expiresAt: null, warnDays: 30, note: "", muted: false });
   let form = $state<WatchInput>(blank());
   let date = $state("");
   let confirmDelete = $state(false);
@@ -61,7 +65,7 @@
     if (expiry.editing === null) return;
     const i = expiry.editing ? expiry.items.find((x) => x.id === expiry.editing) : undefined;
     form = i
-      ? { id: i.id, kind: i.kind, name: i.name, hostId: i.hostId ?? null, target: i.target, expiresAt: i.expiresAt ?? null, warnDays: i.warnDays, note: i.note }
+      ? { id: i.id, kind: i.kind, name: i.name, hostId: i.hostId ?? null, target: i.target, expiresAt: i.expiresAt ?? null, warnDays: i.warnDays, note: i.note, muted: i.muted }
       : blank();
     date = toDateInput(i?.expiresAt ?? null);
     confirmDelete = false;
@@ -81,6 +85,55 @@
     if (!valid) return;
     const input = { ...form, expiresAt: form.kind === "certFile" ? null : fromDateInput(date), warnDays: Number(form.warnDays) };
     if (await expiry.save(input)) expiry.editing = null;
+  }
+
+  // ---- edits for automatic rows (service and proxy certificates) ----
+  const autoRow = $derived(expiry.editingAuto ? rows.find((r) => r.target && sameTarget(r.target, expiry.editingAuto!)) : undefined);
+  const autoTls = $derived(autoRow?.target?.kind === "service" ? services.status[autoRow.target.serviceId]?.result.tls : undefined);
+  const autoService = $derived(autoRow?.target?.kind === "service" ? services.services.find((x) => autoRow.target?.kind === "service" && x.id === autoRow.target.serviceId) : undefined);
+  let auto = $state({ trust: false, muted: false, date: "", warn: "", note: "" });
+  $effect(() => {
+    if (!expiry.editingAuto) return;
+    const r = autoRow;
+    const p = r?.pref;
+    auto = {
+      // A changed certificate starts unticked: the new one has to be trusted on purpose.
+      trust: r?.trust === "pinned",
+      muted: !!p?.muted,
+      date: toDateInput(p?.expiresAt ?? null),
+      warn: p?.warnDays != null ? String(p.warnDays) : "",
+      note: p?.note ?? "",
+    };
+    expiry.error = null;
+  });
+  const autoWarnOk = $derived(auto.warn.trim() === "" || (/^\d+$/.test(auto.warn.trim()) && Number(auto.warn) >= 1 && Number(auto.warn) <= 365));
+  const canTrust = $derived(autoRow?.trust !== undefined && autoRow.trust !== "trusted" && !!autoRow.fingerprint);
+
+  async function saveAuto(e?: Event) {
+    e?.preventDefault();
+    const r = autoRow;
+    if (!r?.target || !autoWarnOk) return;
+    const keepPin = r.trust === "pinned" || r.trust === "changed" ? (r.pref?.trustedFingerprint ?? null) : null;
+    const pref: ExpiryPref = {
+      target: r.target,
+      trustedFingerprint: canTrust ? (auto.trust ? (r.fingerprint ?? null) : r.trust === "changed" ? keepPin : null) : null,
+      muted: auto.muted,
+      expiresAt: fromDateInput(auto.date),
+      warnDays: auto.warn.trim() ? Number(auto.warn) : null,
+      note: auto.note,
+    };
+    if (await expiry.savePref(pref)) expiry.editingAuto = null;
+  }
+
+  async function resetAuto() {
+    const t = autoRow?.target;
+    if (!t) return;
+    if (await expiry.savePref({ target: t, trustedFingerprint: null, muted: false, expiresAt: null, warnDays: null, note: "" })) expiry.editingAuto = null;
+  }
+
+  function editRow(r: ExpiryRow) {
+    if (r.item) expiry.editing = r.item.id;
+    else if (r.target) expiry.editingAuto = r.target;
   }
 
   // ---- domain lookup ----
@@ -118,8 +171,15 @@
           <span class="kind" role="cell">{r.kind}</span>
           <span class="name" role="cell">
             <span>{r.name}</span>
-            <span class="muted small where">{r.where}{r.item?.note ? ` · ${r.item.note}` : ""}</span>
+            <span class="muted small where">{r.where}{r.item?.note ? ` · ${r.item.note}` : r.pref?.note ? ` · ${r.pref.note}` : ""}</span>
             {#if r.error}<span class="err small">{r.error}</span>{/if}
+            {#if r.trust === "pinned" || r.muted || r.pref?.expiresAt != null}
+              <span class="muted small flags">
+                {#if r.trust === "pinned"}<span title={r.problem ?? ""}>trusted by you ({fingerprintText(r.fingerprint).slice(0, 11)}…)</span>{/if}
+                {#if r.muted}<span>alerts muted</span>{/if}
+                {#if r.pref?.expiresAt != null}<span>your date{r.certExpiresAt ? `, certificate says ${toDateInput(r.certExpiresAt)}` : ""}</span>{/if}
+              </span>
+            {/if}
           </span>
           <span class="when" role="cell" title={r.expiresAt ? new Date(r.expiresAt * 1000).toLocaleString() : ""}>
             <span class="left">{leftText(r.days)}</span>
@@ -144,9 +204,10 @@
               >
             {/if}
             {#if r.item}
-              <button type="button" class="btn ghost tiny" onclick={() => (expiry.editing = r.item?.id ?? null)}>Edit</button>
+              <button type="button" class="btn ghost tiny" onclick={() => editRow(r)}>Edit</button>
             {:else}
               <span class="muted small">{r.source === "service" ? "from Services" : "from Docker → Routes"}</span>
+              <button type="button" class="btn ghost tiny" data-guide="expiry-edit" title="Trust, mute, or set your own date or warning days" onclick={() => editRow(r)}>Edit</button>
             {/if}
           </span>
         </div>
@@ -203,6 +264,10 @@
         <span>Note</span>
         <input class="input" bind:value={form.note} placeholder="How to renew it (optional)" autocomplete="off" />
       </label>
+      <label class="check span6">
+        <input type="checkbox" bind:checked={form.muted} />
+        <span>Mute alerts for this item <span class="muted small">(it stays on the list, greyed out, and never raises EXPIRING)</span></span>
+      </label>
     </form>
   {/if}
   {#if expiry.error}<p class="error-text" role="alert">{expiry.error}</p>{/if}
@@ -223,6 +288,63 @@
       <button type="button" class="btn ghost" onclick={() => (expiry.editing = null)}>Cancel</button>
       <button type="submit" form="expiry-form" class="btn primary" disabled={!valid || expiry.busy}>{editingItem ? "Save" : "Watch it"}</button>
     {/if}
+  {/snippet}
+</Modal>
+
+<Modal open={expiry.editingAuto !== null} title={autoRow ? `EDIT :: ${autoRow.name}` : "EDIT"} width={580} onclose={() => (expiry.editingAuto = null)}>
+  {#if autoRow}
+    <form class="grid" id="expiry-auto-form" onsubmit={saveAuto}>
+      <div class="span6 cert">
+        <span class="muted small">{autoRow.source === "service" ? "Certificate of the service" : "Certificate of the proxy route"} · {autoRow.where}</span>
+        {#if autoTls?.subject}<span class="small">Subject: {autoTls.subject}</span>{/if}
+        {#if autoTls?.issuer}<span class="small">Issuer: {autoTls.issuer}</span>{/if}
+        <span class="small">Expires (certificate): {autoRow.certExpiresAt ? toDateInput(autoRow.certExpiresAt) : "unknown"}</span>
+        {#if autoRow.fingerprint}<span class="small mono">SHA-256: {fingerprintText(autoRow.fingerprint)}</span>{/if}
+      </div>
+      {#if canTrust}
+        <label class="check span6">
+          <input type="checkbox" bind:checked={auto.trust} />
+          <span>
+            Trust this certificate
+            <span class="muted small"
+              >It isn't trusted by this computer ({autoRow.problem}). Ticked, the warning goes away for this exact certificate only: if the server ever sends a different one, it warns again.</span
+            >
+            {#if autoRow.trust === "changed"}<span class="err small">The server now sends a different certificate than the one you trusted. Tick to trust the new one.</span>{/if}
+          </span>
+        </label>
+        {#if autoService && !autoService.allowUntrusted}
+          <p class="span6 muted small hint">
+            This only changes Expiry Watch. The service's up/down check still counts it as down until you tick <strong>Allow untrusted certificate</strong> on the service itself.
+          </p>
+        {/if}
+      {/if}
+      <label class="check span6">
+        <input type="checkbox" bind:checked={auto.muted} />
+        <span>Mute expiry alerts <span class="muted small">(the row stays, greyed out; good for internal certificates you renew by hand or that don't run out)</span></span>
+      </label>
+      <label class="field span3">
+        <span>Expires on (your date)</span>
+        <input class="input" type="date" bind:value={auto.date} />
+        <span class="field-hint">Empty: use the certificate's date.</span>
+      </label>
+      <label class="field span3">
+        <span>Warn days before</span>
+        <input class="input" inputmode="numeric" bind:value={auto.warn} placeholder={String(settings.value.alerts.certDays)} />
+        <span class="field-hint">Empty: Settings → Alerts ({settings.value.alerts.certDays} days).</span>
+      </label>
+      <label class="field span6">
+        <span>Note</span>
+        <input class="input" bind:value={auto.note} placeholder="Why, or how it's renewed (optional)" autocomplete="off" />
+      </label>
+    </form>
+  {:else}
+    <p class="muted">This row isn't on the list any more.</p>
+  {/if}
+  {#if expiry.error}<p class="error-text" role="alert">{expiry.error}</p>{/if}
+  {#snippet footer()}
+    {#if autoRow?.pref}<button type="button" class="btn ghost left" disabled={expiry.busy} onclick={resetAuto}>Reset to found</button>{/if}
+    <button type="button" class="btn ghost" onclick={() => (expiry.editingAuto = null)}>Cancel</button>
+    <button type="submit" form="expiry-auto-form" class="btn primary" disabled={!autoRow || !autoWarnOk || expiry.busy}>Save</button>
   {/snippet}
 </Modal>
 
@@ -258,7 +380,7 @@
   }
   .row {
     display: grid;
-    grid-template-columns: 110px minmax(0, 1fr) 130px 270px;
+    grid-template-columns: 110px minmax(0, 1fr) 130px fit-content(270px);
     gap: 10px;
     align-items: center;
     padding: 4px 8px;
@@ -274,6 +396,38 @@
   .row.bad {
     border-left-color: var(--danger);
   }
+  .row.muted {
+    opacity: 0.6;
+  }
+  .flags {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .cert {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    border-left: 2px solid var(--line);
+  }
+  .mono {
+    font-family: var(--font-mono, monospace);
+    word-break: break-all;
+  }
+  .check {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .check > span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hint {
+    margin: 0;
+  }
   .kind {
     font-size: var(--fs-xs);
     letter-spacing: 0.1em;
@@ -283,6 +437,11 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+  }
+  .name > :not(.err) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .where {
     overflow: hidden;
@@ -304,6 +463,7 @@
   }
   .acts {
     display: flex;
+    flex-wrap: wrap;
     gap: 4px;
     align-items: center;
     justify-content: flex-end;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { ProxyReport, Service, ServiceStatus, WatchItem } from "./api";
-import { daysLeft, expiryCounts, expiryRows, fromDateInput, leftText, toDateInput, toneOf } from "./expiry";
+import type { ExpiryPref, ProxyReport, Service, ServiceStatus, WatchItem } from "./api";
+import { daysLeft, expiryCounts, expiryRows, fingerprintText, fromDateInput, leftText, toDateInput, toneOf, trustOf } from "./expiry";
 
 const NOW = 1_800_000_000;
 const DAY = 86_400;
@@ -15,6 +15,7 @@ const item = (id: number, days: number | null, warn = 30, extra: Partial<WatchIt
   note: "",
   checkedAt: null,
   checkError: null,
+  muted: false,
   ...extra,
 });
 
@@ -69,5 +70,40 @@ describe("expiry watch", () => {
     expect(rows[1].tone).toBe("warn");
     expect(rows[2].where).toBe("docker1 → wiki");
     expect(expiryCounts(rows)).toEqual({ bad: 1, warn: 1 });
+  });
+
+  it("applies edits to automatic rows: trust by fingerprint, mute, own date and days", () => {
+    const FP = "ab".repeat(32);
+    const services = [
+      { id: 7, name: "Shoko", url: "https://shoko.lan/" },
+      { id: 8, name: "Wiki", url: "https://wiki.lan/" },
+    ] as Service[];
+    const tls = (fingerprint: string) => ({ expires: NOW + 5000 * DAY, trusted: false, problem: "unknown issuer or self-signed", fingerprint });
+    const status = { 7: { result: { tls: tls(FP) } }, 8: { result: { tls: tls("cd".repeat(32)) } } } as unknown as Record<number, ServiceStatus>;
+    const base = { items: [item(1, 10, 30, { muted: true })], services, status, hostName: () => "", certDays: 14 };
+    const before = expiryRows(base, NOW);
+    expect(before.find((r) => r.key === "s7")?.error).toBe("unknown issuer or self-signed");
+    expect(before.find((r) => r.key === "s7")?.tone).toBe("ok");
+    expect(before.at(-1)?.key).toBe("w1");
+    expect(before.at(-1)?.tone).toBe("muted");
+    const prefs: ExpiryPref[] = [
+      { target: { kind: "service", serviceId: 7 }, trustedFingerprint: FP, muted: false, expiresAt: NOW + 20 * DAY, warnDays: 30, note: "internal CA" },
+      { target: { kind: "service", serviceId: 8 }, trustedFingerprint: FP, muted: true, expiresAt: null, warnDays: null, note: "" },
+    ];
+    const rows = expiryRows({ ...base, prefs }, NOW);
+    const shoko = rows.find((r) => r.key === "s7")!;
+    expect(shoko.trust).toBe("pinned");
+    expect(shoko.error).toBeNull();
+    expect(shoko.days).toBe(20);
+    expect(shoko.certExpiresAt).toBe(NOW + 5000 * DAY);
+    expect(shoko.tone).toBe("warn");
+    // A different certificate than the trusted one warns again, even muted.
+    const wiki = rows.find((r) => r.key === "s8")!;
+    expect(wiki.trust).toBe("changed");
+    expect(wiki.error).toContain("changed since you trusted it");
+    expect(wiki.tone).toBe("warn");
+    expect(expiryCounts(rows)).toEqual({ bad: 0, warn: 2 });
+    expect(trustOf({ trusted: true }, null)).toBe("trusted");
+    expect(fingerprintText("ab12cd")).toBe("AB:12:CD");
   });
 });

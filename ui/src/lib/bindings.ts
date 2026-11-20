@@ -114,6 +114,14 @@ export const commands = {
 	 */
 	dockerForget: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_forget", { hostId }, options),
 	/**
+	 *  Gives the SSH user the Docker socket by running the steps from a
+	 *  `PermissionDenied` error as root (sudo password asked for like System's
+	 *  commands). Only steps the core itself produces are accepted. With
+	 *  `relogin`, the host's SSH connection is dropped afterwards so the next
+	 *  login picks up the new group (its open terminals close).
+	 */
+	dockerFixAccess: (hostId: number, steps: string[], relogin: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_fix_access", { hostId, steps, relogin, sudo }, options),
+	/**
 	 *  Compose stacks on the host: from container labels plus the host's stack
 	 *  folders.
 	 */
@@ -375,6 +383,10 @@ export const commands = {
 	/**  Adds or updates an item; a certificate file is read right away. */
 	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
 	watchDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("watch_delete", { id }, options),
+	/**  Edits for rows Nightgrid finds by itself (service and proxy certificates). */
+	expiryPrefs: (options?: InvokeOptions) => __TAURI_INVOKE<ExpiryPref_Serialize[]>("expiry_prefs", undefined, options),
+	/**  Saves the edits for one automatic row (all defaults removes them). */
+	expiryPrefSave: (pref: ExpiryPref_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ExpiryPref_Serialize[]>("expiry_pref_save", { pref }, options),
 	/**  Re-reads every certificate file now. */
 	watchCheck: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_check", undefined, options),
 	/**
@@ -3395,7 +3407,21 @@ export type DockerCmdError_Serialize = {
 	docker: DockerError | null,
 };
 
-export type DockerError = { kind: "notInstalled" } | { kind: "permissionDenied"; socket: string; user: string } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
+export type DockerError = { kind: "notInstalled" } | { kind: "permissionDenied"; socket: string; user: string; 
+/**
+ *  Synology DSM: no usermod/groupadd there; groups go through
+ *  `synogroup`, and the socket starts out root:root.
+ */
+synology: boolean; 
+/**  Group that owns the socket ("" if unknown). */
+socketGroup: string; 
+/**
+ *  Commands that fix it, each to run as root, in order (see
+ *  [`access_steps`]). Empty when only a new login is missing.
+ */
+steps: string[]; 
+/**  The group change needs a new SSH login to apply. */
+relogin: boolean } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
 
 /**  One finding of `nightgrid-node doctor --json`. */
 export type DoctorFinding = DoctorFinding_Serialize | DoctorFinding_Deserialize;
@@ -3699,6 +3725,52 @@ export type EventKind =
 "stack" | 
 /**  An automation (snippet or playbook) run. */
 "automation";
+
+/**
+ *  The user's edits for one automatic row. Saved with every field at its
+ *  default, the row is removed (the row goes back to how it was found).
+ */
+export type ExpiryPref = ExpiryPref_Serialize | ExpiryPref_Deserialize;
+
+/**
+ *  The user's edits for one automatic row. Saved with every field at its
+ *  default, the row is removed (the row goes back to how it was found).
+ */
+export type ExpiryPref_Deserialize = {
+	target: PrefTarget,
+	/**
+	 *  SHA-256 of the one certificate accepted although the OS doesn't trust
+	 *  it (self-signed, private CA). Another certificate warns again.
+	 */
+	trustedFingerprint?: string | null,
+	/**  Shown, but never alerts. */
+	muted: boolean,
+	/**  A date to use instead of the certificate's (unix seconds). */
+	expiresAt?: number | null,
+	/**  Instead of Settings → Alerts → certificate days. */
+	warnDays?: number | null,
+	note: string,
+};
+
+/**
+ *  The user's edits for one automatic row. Saved with every field at its
+ *  default, the row is removed (the row goes back to how it was found).
+ */
+export type ExpiryPref_Serialize = {
+	target: PrefTarget,
+	/**
+	 *  SHA-256 of the one certificate accepted although the OS doesn't trust
+	 *  it (self-signed, private CA). Another certificate warns again.
+	 */
+	trustedFingerprint: string | null,
+	/**  Shown, but never alerts. */
+	muted: boolean,
+	/**  A date to use instead of the certificate's (unix seconds). */
+	expiresAt: number | null,
+	/**  Instead of Settings → Alerts → certificate days. */
+	warnDays: number | null,
+	note: string,
+};
 
 export type Exposure = Exposure_Serialize | Exposure_Deserialize;
 
@@ -5056,7 +5128,7 @@ export type IntegrationInput_Serialize = {
 	allowUntrusted: boolean,
 };
 
-export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate";
+export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate" | "truenas" | "synology" | "unraid" | "pbs" | "opnsense" | "unifi" | "npm" | "grafana" | "prometheus";
 
 /**  What an integration reports right now. */
 export type IntegrationStatus = IntegrationStatus_Serialize | IntegrationStatus_Deserialize;
@@ -7300,6 +7372,12 @@ export type PowerSettings_Serialize = {
 	/**  Shown with prices: `€`, `$`, `kr`, `£` … (up to 8 characters). */
 	currency: string,
 };
+
+/**
+ *  What an Expiry Watch row Nightgrid found by itself is about: a service's
+ *  HTTPS certificate or a reverse-proxy route's certificate.
+ */
+export type PrefTarget = { kind: "service"; serviceId: number } | { kind: "proxy"; domain: string };
 
 /**  Drills added for each backup job that has none yet. */
 export type PresetDrills = {
@@ -10209,6 +10287,11 @@ export type TlsInfo_Deserialize = {
 	expires?: number | null,
 	subject?: string | null,
 	issuer?: string | null,
+	/**
+	 *  SHA-256 of the leaf certificate (lowercase hex), so a certificate the
+	 *  user chose to trust can be told apart from a replacement.
+	 */
+	fingerprint?: string | null,
 };
 
 export type TlsInfo_Serialize = {
@@ -10220,6 +10303,11 @@ export type TlsInfo_Serialize = {
 	expires: number | null,
 	subject: string | null,
 	issuer: string | null,
+	/**
+	 *  SHA-256 of the leaf certificate (lowercase hex), so a certificate the
+	 *  user chose to trust can be told apart from a replacement.
+	 */
+	fingerprint: string | null,
 };
 
 export type Tone = "info" | "ok" | "warn" | "bad";
@@ -10998,6 +11086,7 @@ export type WatchInput_Deserialize = {
 	expiresAt?: number | null,
 	warnDays: number,
 	note: string,
+	muted?: boolean,
 };
 
 export type WatchInput_Serialize = {
@@ -11011,6 +11100,7 @@ export type WatchInput_Serialize = {
 	expiresAt: number | null,
 	warnDays: number,
 	note: string,
+	muted: boolean,
 };
 
 export type WatchItem = WatchItem_Serialize | WatchItem_Deserialize;
@@ -11031,6 +11121,8 @@ export type WatchItem_Deserialize = {
 	/**  When the date was last read from the host. */
 	checkedAt?: number | null,
 	checkError?: string | null,
+	/**  Shown, but never alerts. */
+	muted: boolean,
 };
 
 export type WatchItem_Serialize = {
@@ -11049,6 +11141,8 @@ export type WatchItem_Serialize = {
 	/**  When the date was last read from the host. */
 	checkedAt: number | null,
 	checkError: string | null,
+	/**  Shown, but never alerts. */
+	muted: boolean,
 };
 
 export type WatchKind = 

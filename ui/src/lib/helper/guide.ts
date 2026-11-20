@@ -261,6 +261,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "timeline-filters", view: "system", what: "timeline filters: alerts, boots and power, containers and stacks, units and OOM, packages, automation, problems only" },
   { id: "timeline-summary", view: "system", what: "Summarize: DRIFT reads the shown timeline and explains the incidents, likely causes and what needs attention" },
   { id: "services-expiry", view: "services", what: "expiry watch: service and proxy certificates, certificate files on hosts, domains, API tokens and licences, soonest first, with alerts before they run out" },
+  { id: "expiry-edit", view: "services", what: "Edit on an automatic expiry row (SERVICE TLS or PROXY TLS): trust one self-signed or private-CA service certificate by its fingerprint (a different certificate warns again), mute its expiry alerts, set your own expiry date or warning days, Reset to found" },
   { id: "expiry-add", view: "services", what: "add something to the expiry watch: a certificate file on a host (date read over SSH), a domain (date typed or looked up with whois on a host), a token or licence (date typed; the token itself is never stored)" },
   { id: "config-baseline", view: "system", what: "save (or replace) the host's config baseline: /etc, compose files and the package list, stored on the host in ~/.nightgrid/baselines" },
   { id: "config-compare", view: "system", what: "compare the host's config and packages with its baseline or another host" },

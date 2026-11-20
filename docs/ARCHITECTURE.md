@@ -307,6 +307,7 @@ _Last updated: M2 (SFTP + editor)._
 
 ## Frontend
 
+- **Shared layout pieces** in `ui/src/styles/components.css` (D-187): the small button, the tab bar and its variants, toolbar rows and control heights, sized from the spacing and control tokens. Components keep colours and layout local; `layout.test.ts` guards against local copies.
 - **Design tokens** in `ui/src/styles/tokens.css` (first paint) and `ui/src/lib/theme/themes.ts` (runtime source of truth). A vitest keeps them in sync and checks WCAG AA contrast for body text in every theme.
 - **Effects** are gated by `data-effects="on|off"` on `<html>`, computed as `theme.effects && !reduceEffects && !prefers-reduced-motion`. Off zeroes durations and glow, hides scanlines and skips the scramble effect.
 - **Visual language:** sharp 1px hairline boxes with wide-tracked uppercase labels; magenta = selected/active (with glow), mint = completed/neutral highlight, yellow = primary action and keyboard focus, cyan = data and prefixes. Chamfers are reserved for primary buttons and the palette. Decorative barcodes/hex IDs appear only in headers, margins and the status strip.

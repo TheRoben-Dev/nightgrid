@@ -26,7 +26,10 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::commands::{CmdResult, CommandError};
 use crate::state::AppState;
+use crate::system_cmd::{resolve_sudo, SudoInput, SysResult};
 use crate::term_cmd::{connect_host, connect_posix};
+use nightgrid_core::system::sudo;
+use nightgrid_core::system::SystemError;
 
 /// Docker command error: a message plus the structured cause, so the UI can
 /// show a host-key / password prompt or the docker-group hint.
@@ -248,6 +251,45 @@ pub fn docker_logs_stop(state: State<'_, AppState>, stream: LogStreamId) -> CmdR
 #[specta::specta]
 pub fn docker_forget(state: State<'_, AppState>, host_id: HostId) -> CmdResult<()> {
     state.docker.drop_host(host_id);
+    Ok(())
+}
+
+/// Gives the SSH user the Docker socket by running the steps from a
+/// `PermissionDenied` error as root (sudo password asked for like System's
+/// commands). Only steps the core itself produces are accepted. With
+/// `relogin`, the host's SSH connection is dropped afterwards so the next
+/// login picks up the new group (its open terminals close).
+#[tauri::command]
+#[specta::specta]
+pub async fn docker_fix_access(
+    app: AppHandle,
+    host_id: HostId,
+    steps: Vec<String>,
+    relogin: bool,
+    sudo: Option<SudoInput>,
+) -> SysResult<()> {
+    if let Some(bad) = steps.iter().find(|s| !nightgrid_core::docker::valid_access_step(s)) {
+        return Err(SystemError::other(format!("refusing an unexpected step: {bad}")).into());
+    }
+    let conn = connect_host(&app, host_id).await?;
+    if !steps.is_empty() {
+        let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
+        let out = sudo::run(&conn, &auth, &nightgrid_core::docker::access_fix_script(&steps)).await?;
+        if out.code != 0 {
+            let why = out.stderr.trim();
+            return Err(SystemError::other(if why.is_empty() {
+                format!("exit code {}", out.code)
+            } else {
+                why.to_owned()
+            })
+            .into());
+        }
+    }
+    let state = app.state::<AppState>();
+    state.docker.drop_host(host_id);
+    if relogin {
+        state.pool.disconnect(host_id).await;
+    }
     Ok(())
 }
 

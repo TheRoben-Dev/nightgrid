@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../confirm";
   /**
    * Proxmox (M10r): a Proxmox VE host's cluster through `pvesh` over SSH.
    * SUMMARY (nodes), GUESTS (power actions, screen, console), STORAGE and
@@ -107,7 +108,7 @@
     {/if}
     <span class="spacer"></span>
     {#if o?.present}
-      <div class="tabs" role="tablist" aria-label="Proxmox view">
+      <div class="tabstrip" role="tablist" aria-label="Proxmox view">
         {#each TABS.filter((t) => t.id !== "sandbox" || settings.on("proxmox.sandbox")) as t (t.id)}
           <button type="button" role="tab" data-guide="proxmox-tab-{t.id}" class:on={proxmox.tab === t.id} aria-selected={proxmox.tab === t.id} onclick={() => (proxmox.tab = t.id)}>
             {t.label}{#if t.id === "guests"}<span class="badge">{c.running}/{c.vms + c.cts}</span>{/if}{#if t.id === "tasks" && (running || failed)}<span class="badge {failed ? 'bad' : 'warn'}">{running || failed}</span>{/if}
@@ -340,12 +341,12 @@
   {#if proxmox.confirm}
     <p>{proxmox.confirm.body}</p>
     {#if proxmox.confirm.typed}
-      <label class="typed small">Type <strong class="mono">{proxmox.confirm.typed}</strong> to confirm <input class="input mono" bind:value={typed} spellcheck="false" /></label>
+      <label class="typed small">Type <strong class="mono verbatim">{proxmox.confirm.typed}</strong> to confirm <input class="input mono" bind:value={typed} spellcheck="false" /></label>
     {/if}
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (proxmox.confirm = null)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={!!proxmox.confirm?.typed && typed.trim() !== proxmox.confirm.typed} onclick={() => proxmox.runConfirm()}>{proxmox.confirm?.button ?? ""}</button>
+    <button type="button" class="btn danger" disabled={!!proxmox.confirm?.typed && !typedMatches(typed, proxmox.confirm.typed)} onclick={() => proxmox.runConfirm()}>{proxmox.confirm?.button ?? ""}</button>
   {/snippet}
 </Modal>
 
@@ -394,39 +395,6 @@
   }
   .spacer {
     flex: 1;
-  }
-  .tabs {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .tabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
-  .badge {
-    margin-left: 6px;
-    padding: 0 4px;
-    color: var(--bg-0);
-    background: var(--cyan);
-  }
-  .badge.warn {
-    background: var(--warn);
-  }
-  .badge.bad {
-    background: var(--danger);
   }
   .pane {
     flex: 1;
@@ -566,10 +534,12 @@
   .tag {
     font-size: var(--fs-xs);
     border: 1px solid var(--line);
-    padding: 0 4px;
+    padding: 0 var(--tag-px);
     color: var(--cyan);
     margin-left: 4px;
     white-space: nowrap;
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
   }
   .tag.warn {
     color: var(--warn);

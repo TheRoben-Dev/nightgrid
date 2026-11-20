@@ -144,7 +144,7 @@
       <option value={null}>all hosts</option>
       {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
     </select>
-    <div class="seg" role="group" aria-label="How far back">
+    <div class="seg tabstrip sm" role="group" aria-label="How far back">
       {#each RANGES as r (r.id)}
         <button type="button" class:on={range === r.id} aria-pressed={range === r.id} onclick={() => (range = r.id)}>{r.label}</button>
       {/each}
@@ -279,33 +279,19 @@
   .small {
     font-size: var(--fs-xs);
   }
-  .seg {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    border: 0;
-    background: none;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    padding: 3px 8px;
-    cursor: pointer;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--line);
-  }
-  .seg button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
   .chip {
     background: none;
     border: 1px solid var(--line);
     color: var(--text-1);
-    padding: 1px 8px;
+    padding: 0 var(--chip-px);
     font: inherit;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--chip-h);
+    font-size: var(--fs-xs);
+    white-space: nowrap;
   }
   .chip.on {
     color: var(--text-0);

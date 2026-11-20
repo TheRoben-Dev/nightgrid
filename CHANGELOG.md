@@ -30,6 +30,60 @@ Windows Server hosts get close to everything Nightgrid does on Linux, using only
 - Backup jobs accept Windows paths (`D:\Backups`, `\\nas\share`) and scheduled task paths.
 - The deploy wizard, stacks from git and the .env vault say plainly that they need a POSIX shell on Windows hosts.
 
+## [1.15.0] - 2026-11-20
+
+### Added: Docker on Synology NAS
+- **NO ACCESS TO DOCKER knows Synology DSM.** DSM has no `usermod`, so the old hint failed with "command not found". On a Synology the card now shows the DSM way: `sudo synogroup --add docker <you>` (or `--memberadd` if the group exists) plus `sudo chown root:docker /var/run/docker.sock`, because Container Manager creates the socket owned by root. Plain Linux hosts get `usermod -aG docker` (and `groupadd docker` if the group is missing). Steps that are already done are left out.
+- **Fix it for me**: one button runs those steps as root on the host (it asks for the sudo password like System does), then reconnects so the new group applies. If you're already in the group and only the SSH login is older, the card says so and offers **Reconnect**.
+- **Passwordless sudo works as a fallback**: when your user can't open the socket but may run docker through sudo without a password, Nightgrid talks to Docker through `sudo docker system dial-stdio` instead of showing the card.
+
+### Fixed
+- Docker on hosts that keep the `docker` binary in `/usr/local/bin` (Synology DSM, some NAS systems): non-interactive SSH sessions don't have it on `PATH`, so Docker views, stacks, container shells and DRIFT lookups couldn't find it. Nightgrid now adds `/usr/local/bin` itself.
+
+## [1.14.1] - 2026-11-20
+
+### Fixed
+- Type-to-confirm dialogs (upgrade hosts, power, removing containers, deleting files, SSH keys, firewall, VMs, Proxmox, UPS, automation runs) showed the name to type in uppercase, so a host called `braincage` read as BRAINCAGE and typing that kept the button disabled. The name is now shown exactly as stored, and the typed name is matched ignoring case.
+
+## [1.14.0] - 2026-11-19
+
+### Added: Edit on every Expiry Watch row
+- **Rows Nightgrid finds by itself** (SERVICE TLS from Services, PROXY TLS from Docker → Routes) now have an **Edit** button too. It shows the certificate (subject, issuer, end date, SHA-256 fingerprint) and lets you:
+  - **Trust this certificate**: hides the "unknown issuer or self-signed" warning for that exact certificate. If the server ever sends a different one, the row warns again ("certificate changed since you trusted it"). The service card shows it as trusted too.
+  - **Mute expiry alerts**: the row stays, greyed out at the bottom, and never raises a certificate alert.
+  - Your own **expiry date** and **warn days** instead of the certificate's date and Settings → Alerts.
+  - **Reset to found** removes your edits.
+- Items you add can be muted the same way (**Mute alerts for this item**).
+- All of it is included in profile exports.
+
+### Fixed
+- DRIFT described an Expiry Watch edit button that didn't exist yet. The guide now describes the real controls, and DRIFT is told never to describe buttons or options its guide doesn't name.
+
+## [1.13.0] - 2026-11-19
+
+### Added: storage, network and monitoring integrations
+Nine more integration types, 34 in all.
+- **TrueNAS**: pools with health and fill level, alerts, uptime, load and memory.
+- **Synology DSM**: volumes, disks with SMART problems, CPU, memory and temperature.
+- **Unraid** (7.2+): array state and capacity, disks with temperature and errors, containers and VMs.
+- **Proxmox Backup Server**: datastores with fill level and full-by estimate, failed tasks.
+- **OPNsense**: gateways with delay and loss, stopped services with **Start**, firmware updates.
+- **UniFi Network** (9.0+): devices, offline first, clients and **Restart** for a device.
+- **Nginx Proxy Manager**: proxy hosts, nginx errors, expiring certificates, **Enable** and **Disable**.
+- **Grafana**: dashboards and firing or pending alert rules.
+- **Prometheus**: targets down with their errors, firing alerts.
+
+### Changed: layout sweep
+- **One tab bar.** View tabs (System, Fleet, Docker, Proxmox, Security, Settings, Services), sub-tabs inside panels and every segmented picker (unit filter, time ranges, map style, webhook kind, auth method …) now share one style and one height. Primary tabs line up with the host picker, filter box and buttons beside them; pickers had five different "selected" looks and now all use the magenta underline (form pickers in dialogs keep the tinted fill).
+- **Small buttons** are one size (22 px) everywhere. About seventy panels used the small-button class without defining it and showed full-height buttons in table rows.
+- **Filter chips and status tags** share two sizes, so a row of chips or tags no longer mixes 16, 18, 20 and 24 px heights.
+- Dimmed text that asked for an undefined colour now uses the muted text colour, as intended.
+
+### Fixed: layout at narrow widths
+- Narrow windows: container rows, proxy routes, systemd timers, speed tests, power, Nightgrid Node and expiry rows fit their pane instead of pushing action buttons off the edge; the Files panes keep the file name column (MODE hides when a pane is narrow); the Network map keeps at least 360 px of height and the view scrolls instead of squashing it to nothing; Settings tabs wrap instead of running off the page.
+- The top bar keeps its breadcrumb readable in a narrow window: the search box drops its placeholder words (the shortcut stays) and the indicators no longer break onto two lines.
+- Service cards wrap their buttons instead of clipping EDIT at the card edge; the MCP port field no longer overflows its box; disk usage text no longer splits "61.0 / GB"; the Network ping sweep option and the saved-network "on map" boxes line up.
+
 ## [1.12.1] - 2026-11-19
 
 ### Fixed: false downtime in Fleet → UPTIME

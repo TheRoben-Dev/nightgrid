@@ -31,6 +31,7 @@ Put every web app on one board with up/down checks, response times and certifica
 - [ ] At the bottom of Services. HTTPS services appear automatically; proxy certificates appear once you've opened Docker → **Routes**.
 - [ ] **Add…** a certificate file on a host (read with `openssl` over SSH), a domain (type the date, or **Look up** with `whois` from a host), or an API token or licence with a typed date. Only the name and date are stored.
 - [ ] Set **Warn days before** per item. Inside that window an **EXPIRING** alert fires (critical in the last 3 days).
+- [ ] Internal or self-signed certificate on a service row? Click **Edit** on that row: **Trust this certificate** hides the "unknown issuer or self-signed" warning for that exact certificate (a different one warns again), **Mute expiry alerts** stops its alerts, and you can set your own date or warning days.
 
 #### Check
 

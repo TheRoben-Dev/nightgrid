@@ -284,13 +284,13 @@
     <section class="history">
       <div class="hbar">
         <h3 class="label">HISTORY</h3>
-        <div class="seg" role="tablist" aria-label="Metric">
+        <div class="seg tabstrip sm" role="tablist" aria-label="Metric">
           {#each KINDS.filter((k) => (k !== "gpu" || hasGpu) && (k !== "power" || hasPower)) as k (k)}
             <button type="button" role="tab" aria-selected={kind === k} class:on={kind === k} onclick={() => (kind = k)}>{kindLabel[k]}</button>
           {/each}
         </div>
         <span class="spacer"></span>
-        <div class="seg" role="tablist" aria-label="Range">
+        <div class="seg tabstrip sm" role="tablist" aria-label="Range">
           {#each RANGES as r (r.id)}
             <button type="button" role="tab" aria-selected={!zoom && range === r.id} class:on={!zoom && range === r.id} onclick={() => ((range = r.id), (zoom = null))}>{r.label}</button>
           {/each}
@@ -455,26 +455,5 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-  }
-  .seg {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 9px;
-    cursor: pointer;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--line);
-  }
-  .seg button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
 </style>

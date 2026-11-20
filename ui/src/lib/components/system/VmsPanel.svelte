@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../../confirm";
   import Modal from "../Modal.svelte";
   import RdpDialog from "../desktop/RdpDialog.svelte";
   import { desktops } from "../../stores/desktops.svelte";
@@ -109,7 +110,7 @@
     <p class="muted">{VM_CONSEQUENCE[pending.action] ?? ""}</p>
     {#if needsTyping}
       <label class="field">
-        <span>Type <strong>{pending.vm.name}</strong> to confirm</span>
+        <span>Type <strong class="verbatim">{pending.vm.name}</strong> to confirm</span>
         <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
@@ -119,7 +120,7 @@
     <button
       type="button"
       class="btn danger"
-      disabled={!pending || (needsTyping && typed.trim() !== pending.vm.name)}
+      disabled={!pending || (needsTyping && !typedMatches(typed, pending.vm.name))}
       onclick={() => pending && vms.act(pending.vm, pending.action)}>{pending ? `${VM_ACTION_WORD[pending.action]} ${pending.vm.name}` : ""}</button
     >
   {/snippet}
@@ -148,9 +149,12 @@
   }
   .tag {
     margin-left: 8px;
-    padding: 0 5px;
+    padding: 0 var(--tag-px);
     border: 1px solid var(--line);
     color: var(--cyan);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .note {
     margin: 0;

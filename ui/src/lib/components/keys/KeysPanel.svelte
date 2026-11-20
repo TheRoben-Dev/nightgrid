@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../../confirm";
   /** Settings → SSH KEYS (M10k): your keys, which hosts accept them, new keys and rotation. */
   import { onMount } from "svelte";
   import type { AuthorizedKey, Host, SshKey } from "../../api";
@@ -293,13 +294,13 @@
       <p class="danger-text">Nightgrid is set to log in to {confirmRemove.host.name} with this key. Unless another key or the agent works, you'll be locked out.</p>
     {/if}
     <label class="field">
-      <span>Type <strong>{confirmRemove.host.name}</strong> to confirm</span>
+      <span>Type <strong class="verbatim">{confirmRemove.host.name}</strong> to confirm</span>
       <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
     </label>
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (confirmRemove = null)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={typed.trim() !== confirmRemove?.host.name} onclick={doRemove}>Remove from {confirmRemove?.host.name}</button>
+    <button type="button" class="btn danger" disabled={!typedMatches(typed, confirmRemove?.host.name)} onclick={doRemove}>Remove from {confirmRemove?.host.name}</button>
   {/snippet}
 </Modal>
 
@@ -314,14 +315,14 @@
     </p>
     {#if removeOld}
       <label class="field">
-        <span>Type <strong>{keyLabel(fromKey)}</strong> to confirm</span>
+        <span>Type <strong class="verbatim">{keyLabel(fromKey)}</strong> to confirm</span>
         <input class="input" bind:value={rotTyped} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (confirmRotate = false)}>Cancel</button>
-    <button type="button" class={removeOld ? "btn danger" : "btn primary"} disabled={removeOld && (!fromKey || rotTyped.trim() !== keyLabel(fromKey))} onclick={doRotate}
+    <button type="button" class={removeOld ? "btn danger" : "btn primary"} disabled={removeOld && (!fromKey || !typedMatches(rotTyped, keyLabel(fromKey)))} onclick={doRotate}
       >Rotate on {rotNames.length} host{rotNames.length === 1 ? "" : "s"}</button
     >
   {/snippet}
@@ -370,7 +371,10 @@
     letter-spacing: var(--tracking-label);
     border: 1px solid var(--mint);
     color: var(--mint);
-    padding: 0 4px;
+    padding: 0 var(--tag-px);
+    display: inline-block;
+    line-height: calc(var(--tag-h) - 2px);
+    white-space: nowrap;
   }
   .badge.dim {
     border-color: var(--text-1);

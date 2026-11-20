@@ -43,7 +43,7 @@
 
 <div class="units" class:with-side={!!selected}>
   <div class="bar">
-    <div class="seg" role="radiogroup" aria-label="Unit filter">
+    <div class="seg tabstrip sm" role="radiogroup" aria-label="Unit filter">
       {#each FILTERS as f (f.id)}
         <button type="button" role="radio" aria-checked={system.unitFilter === f.id} class:on={system.unitFilter === f.id} onclick={() => (system.unitFilter = f.id)}>
           {f.label}{#if f.id === "failed" && counts.failed}<span class="bad">&nbsp;{counts.failed}</span>{/if}
@@ -126,27 +126,6 @@
     align-items: center;
     flex-wrap: wrap;
     font-size: var(--fs-xs);
-  }
-  .seg {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .seg button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 9px;
-    cursor: pointer;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--line);
-  }
-  .seg button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
   }
   .counts {
     color: var(--text-1);
@@ -302,10 +281,5 @@
     font-size: var(--fs-xs);
     white-space: pre-wrap;
     word-break: break-word;
-  }
-  .tiny {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
   }
 </style>

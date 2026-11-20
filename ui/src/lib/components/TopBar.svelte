@@ -131,7 +131,7 @@
     display: flex;
     gap: 4px;
     flex: 1;
-    min-width: 0;
+    min-width: 120px;
     max-width: 560px;
   }
   .crumbs li {
@@ -168,13 +168,14 @@
     align-items: center;
     gap: 10px;
     min-height: var(--hit);
-    width: min(360px, 32vw);
     padding: 0 8px 0 10px;
     border: 1px solid var(--line);
     background: var(--bg-1);
     color: var(--text-1);
     cursor: pointer;
     text-align: left;
+    flex: 0 1 360px;
+    min-width: 170px;
   }
   .search:hover {
     border-color: color-mix(in srgb, var(--mint) 40%, var(--line));
@@ -196,6 +197,8 @@
     font-size: var(--fs-xs);
     letter-spacing: 0.08em;
     color: var(--text-1);
+    flex: none;
+    white-space: nowrap;
   }
   .ind b {
     color: var(--text-0);
@@ -203,5 +206,15 @@
   }
   .glyph {
     color: var(--cyan);
+  }
+  /* Narrow windows: the search box keeps its prompt and shortcut, drops the words. */
+  @media (max-width: 1180px) {
+    .search {
+      flex: none;
+      min-width: 0;
+    }
+    .placeholder {
+      display: none;
+    }
   }
 </style>

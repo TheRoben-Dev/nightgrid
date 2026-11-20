@@ -313,6 +313,8 @@ import {
   type WatchItem_Serialize as WatchItem,
   type WatchInput_Deserialize as WatchInput,
   type WatchKind,
+  type ExpiryPref_Serialize as ExpiryPref,
+  type PrefTarget,
   type Timeline,
   type EventKind,
   type Level,
@@ -773,6 +775,8 @@ export type {
   WatchItem,
   WatchInput,
   WatchKind,
+  ExpiryPref,
+  PrefTarget,
   Timeline,
   EventKind,
   Level,
@@ -1129,6 +1133,8 @@ export const api = {
   },
   dockerLogsStop: (stream: number): Promise<null> => (T() ? commands.dockerLogsStop(stream) : mockDocker.logsStop(stream)),
   dockerForget: (hostId: number): Promise<null> => (T() ? commands.dockerForget(hostId) : Promise.resolve(null)),
+  dockerFixAccess: (hostId: number, steps: string[], relogin: boolean, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.dockerFixAccess(hostId, steps, relogin, sudo) : mockDocker.fixAccess(hostId),
   dockerStacks: (hostId: number): Promise<Stack[]> => (T() ? commands.dockerStacks(hostId) : mockDocker.stacks(hostId)),
   dockerComposeRun: (hostId: number, stack: Stack, op: ComposeOp, on: (e: ComposeEvent) => void): Promise<number> => {
     if (!T()) return mockDocker.composeRun(hostId, stack, op, on);
@@ -1278,6 +1284,8 @@ export const api = {
   watchDelete: (id: number): Promise<null> => (T() ? commands.watchDelete(id) : mockOps.watchDelete(id)),
   watchCheck: (): Promise<WatchItem[]> => (T() ? commands.watchCheck() : mockOps.watchList()),
   watchLookup: (id: number, via: number): Promise<WatchItem> => (T() ? commands.watchLookup(id, via) : mockOps.watchLookup(id)),
+  expiryPrefs: (): Promise<ExpiryPref[]> => (T() ? commands.expiryPrefs() : mockOps.expiryPrefs()),
+  expiryPrefSave: (pref: ExpiryPref): Promise<ExpiryPref[]> => (T() ? commands.expiryPrefSave(pref) : mockOps.expiryPrefSave(pref)),
   confdiffBaseline: (hostId: number): Promise<SideInfo | null> => (T() ? commands.confdiffBaseline(hostId) : mockOps.confdiffBaseline(hostId)),
   confdiffSaveBaseline: (hostId: number): Promise<SideInfo> => (T() ? commands.confdiffSaveBaseline(hostId) : mockOps.confdiffSaveBaseline(hostId)),
   confdiffCompare: (hostId: number, other: number | null, hideHostSpecific: boolean): Promise<DriftReport> =>

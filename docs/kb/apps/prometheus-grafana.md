@@ -69,6 +69,7 @@ scrape_configs:
 ## Part 3 · With Nightgrid
 
 - [ ] Nightgrid already keeps host history for a year and alerts on it; use Grafana for exporter metrics (SNMP, UPS, apps) and custom panels.
+- [ ] [Services](view:services) → **Add integration** → **Prometheus** shows scrape targets that are down and alerts firing; **Grafana** (a Viewer service account token) shows alert rules firing or pending (see [Add app cards](kb:howto/integrations)).
 - [ ] A command widget can show a Prometheus query result: `curl -s 'localhost:9090/api/v1/query?query=up' | grep -o '"value":\[[^]]*' | grep -c '"1"'` counts targets that are up.
 
 #### Check

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use nightgrid_core::expiry::{self, WatchId, WatchInput, WatchItem, WatchKind};
+use nightgrid_core::expiry::{self, ExpiryPref, WatchId, WatchInput, WatchItem, WatchKind};
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::services::check::now_unix;
 use tauri::{AppHandle, Manager, State};
@@ -47,6 +47,22 @@ pub fn watch_delete(state: State<'_, AppState>, id: WatchId) -> CmdResult<()> {
     state.store().watch_delete(id)?;
     state.alerts.wake();
     Ok(())
+}
+
+/// Edits for rows Nightgrid finds by itself (service and proxy certificates).
+#[tauri::command]
+#[specta::specta]
+pub fn expiry_prefs(state: State<'_, AppState>) -> CmdResult<Vec<ExpiryPref>> {
+    Ok(state.store().expiry_prefs()?)
+}
+
+/// Saves the edits for one automatic row (all defaults removes them).
+#[tauri::command]
+#[specta::specta]
+pub fn expiry_pref_save(state: State<'_, AppState>, pref: ExpiryPref) -> CmdResult<Vec<ExpiryPref>> {
+    state.store().expiry_pref_save(&pref)?;
+    state.alerts.wake();
+    Ok(state.store().expiry_prefs()?)
 }
 
 /// Re-reads every certificate file now.

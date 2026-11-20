@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../confirm";
   import { scramble } from "../scramble";
   import Modal from "../components/Modal.svelte";
   import AuthPrompt from "../components/terminal/AuthPrompt.svelte";
@@ -84,7 +85,7 @@
         {#each hosts.hosts as h (h.id)}<option value={h.id}>{h.name}</option>{/each}
       </select>
     </label>
-    <div class="tabs" role="tablist" aria-label="System view">
+    <div class="tabstrip" role="tablist" aria-label="System view">
       {#each TABS as t (t.id)}
         <button type="button" role="tab" data-guide="system-tab-{t.id}" class:on={system.tab === t.id} aria-selected={system.tab === t.id} onclick={() => system.openTab(t.id)}>
           {t.label}{#if t.id === "updates" && upCount}<span class="badge">{upCount}</span>{/if}{#if t.id === "security" && system.security && system.security.score < 75}<span class="badge {system.security.score < 60 ? 'bad' : 'warn'}"
@@ -227,7 +228,7 @@
   <p>{system.confirmPower ? POWER_LABEL[system.confirmPower] : ""} <strong>{hostName}</strong> now?</p>
   <p class="muted">{system.confirmPower ? POWER_TEXT[system.confirmPower] : ""} Nightgrid shows it as {system.confirmPower === "suspend" ? "suspended" : system.confirmPower === "shutdown" ? "shut down" : "rebooting"}, not offline, and raises no offline alert.</p>
   <label class="field">
-    <span>Type <strong>{hostName}</strong> to confirm</span>
+    <span>Type <strong class="verbatim">{hostName}</strong> to confirm</span>
     <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
   </label>
   {#snippet footer()}
@@ -235,7 +236,7 @@
     <button
       type="button"
       class="btn danger"
-      disabled={typed.trim() !== hostName}
+      disabled={!typedMatches(typed, hostName)}
       onclick={() => system.confirmPower && system.power(system.confirmPower)}>{system.confirmPower ? POWER_LABEL[system.confirmPower] : ""} {hostName}</button
     >
   {/snippet}
@@ -272,7 +273,7 @@
     </ul>
     <p class="muted">{POWER_TEXT[g.action]} Hosts whose sudo needs a password that Nightgrid doesn't remember are skipped and listed.</p>
     <label class="field">
-      <span>Type <strong>{groupName}</strong> to confirm</span>
+      <span>Type <strong class="verbatim">{groupName}</strong> to confirm</span>
       <input class="input" bind:value={groupTyped} autocomplete="off" spellcheck="false" />
     </label>
   {/if}
@@ -281,7 +282,7 @@
     <button
       type="button"
       class="btn danger"
-      disabled={!groupMembers.length || groupTyped.trim() !== groupName}
+      disabled={!groupMembers.length || !typedMatches(groupTyped, groupName)}
       onclick={() => system.confirmGroupPower && system.groupPower(system.confirmGroupPower.groupId, system.confirmGroupPower.action)}
       >{system.confirmGroupPower ? POWER_LABEL[system.confirmGroupPower.action] : ""} {groupMembers.length} host{groupMembers.length === 1 ? "" : "s"}</button
     >
@@ -336,39 +337,6 @@
     display: flex;
     gap: 8px;
     align-items: center;
-  }
-  .tabs {
-    display: flex;
-    border: 1px solid var(--line);
-  }
-  .tabs button {
-    border: 0;
-    background: transparent;
-    color: var(--text-1);
-    font-family: var(--font-display);
-    font-size: var(--fs-xs);
-    letter-spacing: var(--tracking-label);
-    padding: 3px 10px;
-    cursor: pointer;
-  }
-  .tabs button + button {
-    border-left: 1px solid var(--line);
-  }
-  .tabs button.on {
-    color: var(--magenta);
-    box-shadow: inset 0 -2px 0 var(--magenta);
-  }
-  .badge {
-    margin-left: 6px;
-    padding: 0 4px;
-    color: var(--bg-0);
-    background: var(--cyan);
-  }
-  .badge.warn {
-    background: var(--warn);
-  }
-  .badge.bad {
-    background: var(--danger);
   }
   .sudo {
     color: var(--text-1);
@@ -433,10 +401,5 @@
     display: grid;
     gap: 6px;
     margin-top: 10px;
-  }
-  .tiny {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: var(--fs-xs);
   }
 </style>
