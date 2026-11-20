@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../../confirm";
   /**
    * Fleet → UPS (M10s): UPSes read with NUT's `upsc` on the host they're
    * plugged into, alerts when one goes on battery, and an optional shutdown
@@ -72,7 +73,7 @@
       validTarget(form.target.trim()) &&
       form.hostId > 0 &&
       (!form.shutdown || form.groupId != null) &&
-      (!typedNeeded || typed.trim() === group),
+      (!typedNeeded || typedMatches(typed, group)),
   );
 
   async function runTest() {
@@ -248,7 +249,7 @@
         <p class="span6 muted small">{triggerText(form, group ?? undefined)} Low battery reported by the UPS always counts.</p>
         {#if typedNeeded && group}
           <label class="field span6 arm">
-            <span>Type <strong>{group}</strong> to let this UPS shut down {members(form.groupId).map((h) => h.name).join(", ") || "its hosts"}</span>
+            <span>Type <strong class="verbatim">{group}</strong> to let this UPS shut down {members(form.groupId).map((h) => h.name).join(", ") || "its hosts"}</span>
             <input class="input" bind:value={typed} placeholder={group} autocomplete="off" spellcheck="false" />
           </label>
         {/if}

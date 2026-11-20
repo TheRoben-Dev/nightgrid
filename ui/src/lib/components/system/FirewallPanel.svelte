@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../../confirm";
   /**
    * System → FIREWALL (M10v): ufw rules or firewalld zones with changes that
    * roll back on the host unless kept; nftables / iptables read-only.
@@ -205,7 +206,7 @@
     {#if p.check.risk}
       <p class="bad">{p.check.risk}</p>
       <label class="field">
-        <span>Type <b>{hostName}</b> to confirm</span>
+        <span>Type <b class="verbatim">{hostName}</b> to confirm</span>
         <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
@@ -217,7 +218,7 @@
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (firewall.proposal = null)}>Cancel</button>
-    <button type="button" class="btn primary" data-guide="firewall-apply" disabled={firewall.busy || (!!firewall.proposal?.check.risk && typed.trim() !== hostName)} onclick={apply}>{firewall.busy ? "Applying…" : "Apply with rollback"}</button>
+    <button type="button" class="btn primary" data-guide="firewall-apply" disabled={firewall.busy || (!!firewall.proposal?.check.risk && !typedMatches(typed, hostName))} onclick={apply}>{firewall.busy ? "Applying…" : "Apply with rollback"}</button>
   {/snippet}
 </Modal>
 

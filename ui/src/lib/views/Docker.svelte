@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { typedMatches } from "../confirm";
   import { scramble } from "../scramble";
   import { onMount } from "svelte";
   import type { ContainerView, DockerAction } from "../api";
@@ -42,7 +43,7 @@
   const needsTyping = $derived(!!pending && pending.action.kind === "remove" && pending.targets.length > 1);
   const hostName = $derived(docker.host?.name ?? "");
   const confirmOk = $derived(
-    !!pending && (!needsTyping || typed.trim() === hostName) && !(pending.action.kind === "remove" && runningTargets.length && !forceRemove),
+    !!pending && (!needsTyping || typedMatches(typed, hostName)) && !(pending.action.kind === "remove" && runningTargets.length && !forceRemove),
   );
 
   const consequence: Record<string, string> = {
@@ -366,7 +367,7 @@
     {/if}
     {#if needsTyping}
       <label class="field">
-        <span>Type <strong>{hostName}</strong> to confirm</span>
+        <span>Type <strong class="verbatim">{hostName}</strong> to confirm</span>
         <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
