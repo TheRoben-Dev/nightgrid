@@ -211,6 +211,49 @@ jobs:
             fi
           done
 
+      # Stable macOS code signature (D-193): every release is signed with the
+      # same self-signed certificate, so the keychain keeps recognising updated
+      # copies as the same app instead of asking again for every saved secret.
+      # No Apple account or notarization; scripts/macos-signing-cert.sh makes
+      # the certificate and stores it in these secrets.
+      - name: macOS signing identity
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          MACOS_SIGNING_CERT: ${{ secrets.MACOS_SIGNING_CERT }}
+          MACOS_SIGNING_CERT_PASSWORD: ${{ secrets.MACOS_SIGNING_CERT_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_SIGNING_CERT" ]; then
+            echo "::warning::MACOS_SIGNING_CERT is not set: this macOS build is ad-hoc signed, so installed copies will ask for keychain access again after updating. See scripts/macos-signing-cert.sh."
+            exit 0
+          fi
+          kc="$RUNNER_TEMP/nightgrid-signing.keychain-db"
+          kcpw=$(openssl rand -hex 16)
+          p12="$RUNNER_TEMP/nightgrid-signing.p12"
+          printf '%s' "$MACOS_SIGNING_CERT" | base64 --decode > "$p12"
+          security create-keychain -p "$kcpw" "$kc"
+          security set-keychain-settings -t 3600 -u "$kc"
+          security unlock-keychain -p "$kcpw" "$kc"
+          security import "$p12" -k "$kc" -P "$MACOS_SIGNING_CERT_PASSWORD" -T /usr/bin/codesign
+          rm -f "$p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$kcpw" "$kc" >/dev/null
+          # shellcheck disable=SC2046
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          # Trust it for code signing on this runner only, so codesign treats
+          # it as a valid identity. Installed apps never need to trust it.
+          security find-certificate -a -p "$kc" > "$RUNNER_TEMP/nightgrid-signing.pem"
+          sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain "$RUNNER_TEMP/nightgrid-signing.pem" \
+            || echo "::warning::could not mark the signing certificate trusted on the runner"
+          security find-identity -p codesigning "$kc"
+          id=$(security find-identity -p codesigning "$kc" | awk '/^ *1\)/ {print $2; exit}')
+          if [ -z "$id" ]; then
+            echo "::error::MACOS_SIGNING_CERT holds no code-signing identity"
+            exit 1
+          fi
+          # Tauri signs the app and the tailnet sidecar with this identity.
+          echo "APPLE_SIGNING_IDENTITY=$id" >> "$GITHUB_ENV"
+          echo "NIGHTGRID_SIGNING_SHA1=$id" >> "$GITHUB_ENV"
+
       - name: Tauri build
         shell: bash
         env:
@@ -223,6 +266,28 @@ jobs:
             pnpm tauri build --bundles ${{ matrix.bundles }} --config '{"bundle":{"createUpdaterArtifacts":true,"externalBin":["binaries/nightgrid-tailnet"]}}'
           else
             pnpm tauri build --bundles ${{ matrix.bundles }} --config '{"bundle":{"externalBin":["binaries/nightgrid-tailnet"]}}'
+          fi
+
+      # A release signed with anything but the stable certificate would bring
+      # the keychain prompts back on every Mac: check the signature and that its
+      # designated requirement names the certificate, not a per-build hash.
+      - name: Verify macOS signature
+        if: runner.os == 'macOS' && env.NIGHTGRID_SIGNING_SHA1 != ''
+        shell: bash
+        run: |
+          app=$(ls -d target/release/bundle/macos/*.app | head -n1)
+          codesign --verify --strict --verbose=2 "$app"
+          codesign --verify --strict --verbose=2 "$app/Contents/MacOS/nightgrid-tailnet"
+          codesign -dvv "$app" 2>&1 | grep -E '^(Identifier|Authority|Signature)='
+          req=$(codesign -d -r- "$app" 2>&1)
+          echo "$req"
+          if ! echo "$req" | grep -q 'designated =>.*certificate'; then
+            echo "::error::Nightgrid.app's designated requirement doesn't name the signing certificate"
+            exit 1
+          fi
+          if ! echo "$req" | grep -q 'identifier "dev.nightgrid.Nightgrid"'; then
+            echo "::error::Nightgrid.app's designated requirement doesn't name the bundle identifier"
+            exit 1
           fi
 
       - name: Portable zip (Windows)
