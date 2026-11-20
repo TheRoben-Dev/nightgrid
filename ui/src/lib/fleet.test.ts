@@ -26,15 +26,32 @@ import {
 const host = (id: number, name: string, groupId: number | null = null) => ({ id, name, groupId }) as unknown as Host;
 const rep = (n: number, o: Partial<UpdatesReport> = {}): UpdatesReport => ({
   manager: "apt",
-  updates: Array.from({ length: n }, (_, i) => ({ name: `p${i}`, current: "1", available: "2", repo: i === 0 && o.note === "sec" ? "jammy-security" : "jammy-updates" })),
+  updates: Array.from({ length: n }, (_, i) => ({ name: `p${i}`, current: "1", available: "2", repo: i === 0 && o.note === "sec" ? "jammy-security" : "jammy-updates", held: false })),
   rebootRequired: false,
   rebootReasons: [],
   note: null,
+  held: [],
+  holdSupport: "host",
   ...o,
 });
 const ok = (r: UpdatesReport): HostUpdates => ({ status: "ok", report: r, error: null, checkedAt: 1 });
 
 describe("fleet updates", () => {
+  it("leaves held hosts and packages out (D-195)", () => {
+    const r = rep(3, { note: "sec" });
+    r.updates[0].held = true;
+    expect(securityCount(r)).toBe(0);
+    const hold = { id: 1, hostId: 2, kind: "host" as const, target: "", stack: "", version: null, until: null, note: "", createdAt: 0 };
+    const rows = updateRows([host(1, "a"), host(2, "b")], { 1: ok(r), 2: ok(rep(4)) }, (id) => (id === 2 ? hold : null));
+    const a = rows.find((x) => x.host.id === 1)!;
+    const b = rows.find((x) => x.host.id === 2)!;
+    expect([a.count, a.heldCount, a.upgradable, a.tone]).toEqual([2, 1, true, "warn"]);
+    expect([b.count, b.heldCount, b.upgradable, b.tone]).toEqual([0, 4, false, "held"]);
+    expect(rows[1].host.id).toBe(2);
+    expect(totals(rows)).toMatchObject({ hosts: 1, packages: 2 });
+    expect(updatesText(rows, [])).toContain("b (apt): updates held by the user");
+  });
+
   it("counts security packages", () => {
     expect(securityCount(rep(3, { note: "sec" }))).toBe(1);
     expect(securityCount(null)).toBe(0);

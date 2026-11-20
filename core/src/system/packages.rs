@@ -1,10 +1,14 @@
 //! Package updates: count what's upgradable (apt, dnf, pacman), spot a
-//! pending reboot and build the upgrade command.
+//! pending reboot and build the upgrade command. Packages held on the host
+//! (apt-mark hold, dnf versionlock, pacman IgnorePkg) are listed and marked,
+//! and can be held or released (D-195).
 
 use serde::{Deserialize, Serialize};
 
 use super::sudo::sh;
 use super::{sections, SystemError, SystemResult, SECTION};
+use crate::files::path::shell_quote;
+use crate::holds::valid_package;
 use crate::ssh::client::Connection;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -42,6 +46,25 @@ pub struct PackageUpdate {
     pub available: String,
     /// apt suite / dnf repository.
     pub repo: Option<String>,
+    /// Held: on the host (apt-mark hold, IgnorePkg, a hidden Windows
+    /// update) or in Nightgrid. Upgrades leave it alone; it isn't pending.
+    pub held: bool,
+}
+
+/// How this host can hold a package back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "specta", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum HoldSupport {
+    /// The package manager holds it (apt-mark hold, dnf versionlock, hiding a
+    /// Windows update), so every tool on the host respects it.
+    Host,
+    /// Only Nightgrid's upgrades leave it out (pacman, dnf without the
+    /// versionlock plugin).
+    Nightgrid,
+    /// Packages can't be held one by one (image-based systems, no manager):
+    /// hold the whole host instead.
+    None,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -57,6 +80,32 @@ pub struct UpdatesReport {
     pub reboot_reasons: Vec<String>,
     /// Something the user should know (stale package lists, ...).
     pub note: Option<String>,
+    /// Packages held on the host (some aren't in `updates`: dnf hides
+    /// locked ones from its list).
+    pub held: Vec<String>,
+    pub hold_support: HoldSupport,
+}
+
+impl UpdatesReport {
+    /// Marks the rows named in `nightgrid_holds` (held in Nightgrid) or held
+    /// on the host as held, and lists them in `held`.
+    pub fn apply_holds(&mut self, nightgrid_holds: &[String]) {
+        for u in &mut self.updates {
+            if self.held.contains(&u.name) || nightgrid_holds.contains(&u.name) {
+                u.held = true;
+            }
+        }
+        for n in nightgrid_holds {
+            if !self.held.contains(n) {
+                self.held.push(n.clone());
+            }
+        }
+    }
+
+    /// Updates that aren't held.
+    pub fn pending(&self) -> usize {
+        self.updates.iter().filter(|u| !u.held).count()
+    }
 }
 
 /// One round trip: which manager, what's upgradable and whether a reboot is
@@ -70,10 +119,12 @@ pub fn check_command() -> String {
            else echo '@os-missing'; fi; \
          elif command -v apt-get >/dev/null 2>&1; then echo '@mgr apt'; \
            s=$(stat -c %Y /var/cache/apt/pkgcache.bin 2>/dev/null || stat -c %Y /var/lib/apt/lists 2>/dev/null || echo 0); echo \"@age $(( $(date +%s) - s ))\"; \
-           LANG=C apt list --upgradable 2>/dev/null; \
+           LANG=C apt list --upgradable 2>/dev/null; apt-mark showhold 2>/dev/null | sed 's/^/@held /'; \
          elif command -v dnf >/dev/null 2>&1; then echo '@mgr dnf'; LANG=C dnf -q check-update 2>/dev/null; \
+           if dnf versionlock --help >/dev/null 2>&1; then echo '@vl'; LANG=C dnf -q versionlock list 2>/dev/null | sed 's/^/@lock /'; fi; \
          elif command -v pacman >/dev/null 2>&1; then echo '@mgr pacman'; \
            if command -v checkupdates >/dev/null 2>&1; then checkupdates 2>/dev/null; else echo '@stale'; pacman -Qu 2>/dev/null; fi; \
+           sed -n 's/^[[:space:]]*IgnorePkg[[:space:]]*=//p' /etc/pacman.conf 2>/dev/null | tr ' \t' '\n\n' | sed '/^$/d;s/^/@held /'; \
          else echo '@mgr none'; fi; \
          echo {SECTION}; \
          if [ -f /var/run/reboot-required ]; then echo '@flag'; cat /var/run/reboot-required.pkgs 2>/dev/null; fi; \
@@ -92,7 +143,7 @@ fn parse_apt(text: &str) -> Vec<PackageUpdate> {
             let (name, repo) = it.next()?.split_once('/')?;
             let available = it.next()?.to_owned();
             let current = l.split("[upgradable from:").nth(1).map(|s| s.trim().trim_end_matches(']').trim().to_owned());
-            Some(PackageUpdate { name: name.to_owned(), current, available, repo: Some(repo.to_owned()) })
+            Some(PackageUpdate { name: name.to_owned(), current, available, repo: Some(repo.to_owned()), held: false })
         })
         .collect()
 }
@@ -124,6 +175,7 @@ fn parse_dnf(text: &str) -> Vec<PackageUpdate> {
                     current: None,
                     available: toks[1].to_owned(),
                     repo: Some(toks[2].to_owned()),
+                    held: false,
                 });
             }
             _ => {}
@@ -133,16 +185,17 @@ fn parse_dnf(text: &str) -> Vec<PackageUpdate> {
 }
 
 fn parse_pacman(text: &str) -> Vec<PackageUpdate> {
-    // linux 6.11.5.arch1-1 -> 6.11.6.arch1-1   (pacman -Qu may append [ignored])
+    // linux 6.11.5.arch1-1 -> 6.11.6.arch1-1   (pacman -Qu appends [ignored] for IgnorePkg)
     text.lines()
         .filter_map(|l| {
             let t: Vec<&str> = l.split_whitespace().collect();
-            if t.len() >= 4 && t[2] == "->" && !l.contains("[ignored]") {
+            if t.len() >= 4 && t[2] == "->" {
                 Some(PackageUpdate {
                     name: t[0].into(),
                     current: Some(t[1].into()),
                     available: t[3].into(),
                     repo: None,
+                    held: l.contains("[ignored]"),
                 })
             } else {
                 None
@@ -187,7 +240,13 @@ fn parse_ostree(list: &str) -> (Vec<PackageUpdate>, bool, Option<String>) {
         let repo = booted
             .and_then(|d| d["container-image-reference"].as_str().or_else(|| d["origin"].as_str()))
             .map(|r| r.rsplit("//").next().unwrap_or(r).to_owned());
-        updates.push(PackageUpdate { name: "system image".into(), current: booted.and_then(version), available, repo });
+        updates.push(PackageUpdate {
+            name: "system image".into(),
+            current: booted.and_then(version),
+            available,
+            repo,
+            held: false,
+        });
     } else if !check.iter().any(|l| l.contains("No updates available") || l.contains("No upgrade available")) {
         let why = check.iter().rev().find(|l| l.starts_with("error") || l.contains("rror:")).or(check.last());
         note = Some(match why {
@@ -244,6 +303,24 @@ pub fn parse_check(out: &str) -> UpdatesReport {
         None => Some("No supported package manager (apt, dnf, pacman) found.".into()),
         _ => None,
     };
+    let held: Vec<String> = list
+        .lines()
+        .filter_map(|l| l.strip_prefix("@held ").map(str::trim).map(str::to_owned))
+        .chain(list.lines().filter_map(|l| l.strip_prefix("@lock ")).filter_map(versionlock_name))
+        .filter(|n| valid_package(n))
+        .fold(Vec::new(), |mut v, n| {
+            if !v.contains(&n) {
+                v.push(n);
+            }
+            v
+        });
+    let hold_support = match manager {
+        Some(Manager::Apt) => HoldSupport::Host,
+        Some(Manager::Dnf) if list.lines().any(|l| l == "@vl") => HoldSupport::Host,
+        Some(Manager::Dnf) | Some(Manager::Pacman) => HoldSupport::Nightgrid,
+        Some(Manager::WindowsUpdate) => HoldSupport::Host,
+        Some(Manager::Ostree) | None => HoldSupport::None,
+    };
     let mut reasons = Vec::new();
     if staged {
         reasons.push("a new system image is staged".to_owned());
@@ -266,7 +343,55 @@ pub fn parse_check(out: &str) -> UpdatesReport {
             _ => {}
         }
     }
-    UpdatesReport { manager, updates, reboot_required: !reasons.is_empty(), reboot_reasons: reasons, note }
+    let mut report = UpdatesReport {
+        manager,
+        updates,
+        reboot_required: !reasons.is_empty(),
+        reboot_reasons: reasons,
+        note,
+        held,
+        hold_support,
+    };
+    report.apply_holds(&[]);
+    report
+}
+
+/// The package name in one `dnf versionlock list` line: dnf4 prints
+/// `name-[epoch:]version-release.*` (`!` first for an exclude), dnf5 prints
+/// `Package name: name` blocks.
+fn versionlock_name(line: &str) -> Option<String> {
+    let l = line.trim();
+    if let Some(n) = l.strip_prefix("Package name:") {
+        return Some(n.trim().to_owned());
+    }
+    if l.is_empty() || l.starts_with('#') || l.contains(' ') || l.contains('=') {
+        return None;
+    }
+    let l = l.trim_start_matches('!').trim_end_matches(".*");
+    // Drop "-version-release" (the last two dash-separated parts).
+    let mut parts = l.rsplitn(3, '-');
+    let (_rel, _ver, name) = (parts.next()?, parts.next()?, parts.next()?);
+    Some(name.to_owned())
+}
+
+/// The root command that holds (or releases) packages on the host, where
+/// the package manager can. Names are checked and quoted.
+pub fn hold_command(manager: Manager, names: &[String], hold: bool) -> SystemResult<String> {
+    if names.is_empty() {
+        return Err(SystemError::other("no package named"));
+    }
+    if let Some(bad) = names.iter().find(|n| !valid_package(n)) {
+        return Err(SystemError::other(format!("{bad:?} isn't a package name")));
+    }
+    let list: Vec<String> = names.iter().map(|n| shell_quote(n)).collect();
+    let list = list.join(" ");
+    Ok(match manager {
+        Manager::Apt => format!("LANG=C apt-mark {} {list} 2>&1", if hold { "hold" } else { "unhold" }),
+        Manager::Dnf => format!("LANG=C dnf -q versionlock {} {list} 2>&1", if hold { "add" } else { "delete" }),
+        m => {
+            return Err(SystemError::other(format!("{} can't hold single packages on the host", m.label())));
+        }
+    })
 }
 
 pub async fn check(conn: &Connection) -> SystemResult<UpdatesReport> {
@@ -288,14 +413,29 @@ pub enum UpgradeOp {
 /// The root command for `op` (runs non-interactively; answers default to
 /// keeping existing config files).
 pub fn upgrade_command(manager: Manager, op: UpgradeOp) -> SystemResult<String> {
+    upgrade_command_excluding(manager, op, &[])
+}
+
+/// [`upgrade_command`] leaving out packages Nightgrid holds (dnf `-x`,
+/// pacman `--ignore`). apt and Windows hold on the host instead, so their
+/// upgrades skip held packages by themselves.
+pub fn upgrade_command_excluding(manager: Manager, op: UpgradeOp, exclude: &[String]) -> SystemResult<String> {
     const APT_OPTS: &str = "-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold";
+    let exclude: Vec<&String> = exclude.iter().filter(|n| valid_package(n)).collect();
+    let dnf_x: String = exclude.iter().map(|n| format!(" -x {}", shell_quote(n))).collect();
+    let pacman_ignore = if exclude.is_empty() {
+        String::new()
+    } else {
+        let names: Vec<&str> = exclude.iter().map(|n| n.as_str()).collect();
+        format!(" --ignore {}", shell_quote(&names.join(",")))
+    };
     let cmd = match (manager, op) {
         (Manager::Apt, UpgradeOp::Refresh) => "LANG=C apt-get update 2>&1".to_owned(),
         (Manager::Apt, UpgradeOp::Upgrade) => format!(
             "export DEBIAN_FRONTEND=noninteractive LANG=C; apt-get update 2>&1 && apt-get -y {APT_OPTS} --with-new-pkgs upgrade 2>&1"
         ),
-        (Manager::Dnf, UpgradeOp::Upgrade) => "LANG=C dnf -y upgrade --refresh 2>&1".to_owned(),
-        (Manager::Pacman, UpgradeOp::Upgrade) => "LANG=C pacman -Syu --noconfirm 2>&1".to_owned(),
+        (Manager::Dnf, UpgradeOp::Upgrade) => format!("LANG=C dnf -y upgrade --refresh{dnf_x} 2>&1"),
+        (Manager::Pacman, UpgradeOp::Upgrade) => format!("LANG=C pacman -Syu --noconfirm{pacman_ignore} 2>&1"),
         (Manager::Ostree, UpgradeOp::Upgrade) => "LANG=C rpm-ostree upgrade 2>&1".to_owned(),
         (Manager::WindowsUpdate, UpgradeOp::Upgrade) => {
             return Err(SystemError::other("Windows Update runs through PowerShell (win::updates), not a shell command"))
@@ -338,7 +478,8 @@ mod tests {
                 name: "openssl".into(),
                 current: Some("3.0.2-0ubuntu1.17".into()),
                 available: "3.0.2-0ubuntu1.18".into(),
-                repo: Some("jammy-security,jammy-updates".into())
+                repo: Some("jammy-security,jammy-updates".into()),
+                held: false,
             }
         );
         assert!(r.reboot_required);
@@ -374,7 +515,10 @@ mod tests {
     #[test]
     fn pacman() {
         let r = report("@mgr pacman\nlinux 6.11.5.arch1-1 -> 6.11.6.arch1-1\nfoo 1-1 -> 2-1 [ignored]\n", "");
-        assert_eq!(r.updates.len(), 1);
+        assert_eq!(r.updates.len(), 2);
+        assert!(r.updates[1].held && !r.updates[0].held);
+        assert_eq!(r.pending(), 1);
+        assert_eq!(r.hold_support, HoldSupport::Nightgrid);
         assert_eq!(r.updates[0].current.as_deref(), Some("6.11.5.arch1-1"));
         assert_eq!(r.note, None);
         let r = report("@mgr pacman\n@stale\n", "");
@@ -409,6 +553,7 @@ mod tests {
                 current: Some("41.20241101.0".into()),
                 available: "41.20241110.0".into(),
                 repo: Some("ghcr.io/example/os:stable".into()),
+                held: false,
             }]
         );
         assert!(!r.reboot_required);
@@ -422,6 +567,67 @@ mod tests {
         let r = report("@mgr ostree\n@os error: Authorization required\n@json {}\n", "");
         assert_eq!(r.note.as_deref(), Some("Couldn't check for a new image: error: Authorization required"));
         assert_eq!(upgrade_command(Manager::Ostree, UpgradeOp::Upgrade).unwrap(), "LANG=C rpm-ostree upgrade 2>&1");
+    }
+
+    #[test]
+    fn holds() {
+        // apt: held packages are still listed by apt, and marked.
+        let r = report(
+            "@mgr apt\n@age 60\nListing...\n\
+             bash/jammy-updates 5.1-6ubuntu1.1 amd64 [upgradable from: 5.1-6ubuntu1]\n\
+             docker-ce/jammy 5:27.3.1-1 amd64 [upgradable from: 5:27.2.0-1]\n\
+             @held docker-ce\n@held containerd.io\n",
+            "",
+        );
+        assert_eq!(r.held, ["docker-ce", "containerd.io"]);
+        assert!(r.updates[1].held && !r.updates[0].held);
+        assert_eq!(r.pending(), 1);
+        assert_eq!(r.hold_support, HoldSupport::Host);
+        // dnf4 and dnf5 versionlock lists.
+        let r = report(
+            "@mgr dnf\nvim-minimal.x86_64   2:9.1.785-1.fc40   updates\n@vl\n\
+             @lock kernel-0:6.11.5-200.fc40.*\n@lock !podman-5:5.2.0-1.fc40.*\n\
+             @lock # Added by 'versionlock add' command on 2024-11-10\n@lock Package name: mesa-dri-drivers\n@lock evr = 24.2.5-1.fc41\n",
+            "",
+        );
+        assert_eq!(r.held, ["kernel", "podman", "mesa-dri-drivers"]);
+        assert_eq!(r.hold_support, HoldSupport::Host);
+        let r = report("@mgr dnf\n", "");
+        assert_eq!(r.hold_support, HoldSupport::Nightgrid);
+        // pacman IgnorePkg, then a Nightgrid hold on top.
+        let mut r = report("@mgr pacman\nlinux 1-1 -> 2-1\nmesa 1-1 -> 2-1\n@held linux\n", "");
+        assert!(r.updates[0].held);
+        r.apply_holds(&["mesa".to_owned()]);
+        assert!(r.updates[1].held);
+        assert_eq!(r.held, ["linux", "mesa"]);
+        assert_eq!(r.pending(), 0);
+        assert_eq!(report("@mgr ostree\n@os-missing\n", "").hold_support, HoldSupport::None);
+        // Commands.
+        let names = vec!["docker-ce".to_owned(), "containerd.io".to_owned()];
+        assert_eq!(
+            hold_command(Manager::Apt, &names, true).unwrap(),
+            "LANG=C apt-mark hold 'docker-ce' 'containerd.io' 2>&1"
+        );
+        assert_eq!(
+            hold_command(Manager::Dnf, &names[..1], false).unwrap(),
+            "LANG=C dnf -q versionlock delete 'docker-ce' 2>&1"
+        );
+        assert!(hold_command(Manager::Pacman, &names, true).is_err());
+        assert!(hold_command(Manager::Apt, &["x; reboot".to_owned()], true).is_err());
+        assert!(hold_command(Manager::Apt, &[], true).is_err());
+        assert_eq!(
+            upgrade_command_excluding(Manager::Dnf, UpgradeOp::Upgrade, &names).unwrap(),
+            "LANG=C dnf -y upgrade --refresh -x 'docker-ce' -x 'containerd.io' 2>&1"
+        );
+        assert_eq!(
+            upgrade_command_excluding(Manager::Pacman, UpgradeOp::Upgrade, &names).unwrap(),
+            "LANG=C pacman -Syu --noconfirm --ignore 'docker-ce,containerd.io' 2>&1"
+        );
+        // Bad names never reach the command line.
+        assert_eq!(
+            upgrade_command_excluding(Manager::Dnf, UpgradeOp::Upgrade, &["-y; reboot".to_owned()]).unwrap(),
+            "LANG=C dnf -y upgrade --refresh 2>&1"
+        );
     }
 
     #[test]

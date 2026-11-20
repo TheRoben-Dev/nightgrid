@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+- **Hold updates back.** Keep anything you don't want touched out of updates, and silence its warnings. Nothing is held by default, held things are marked HELD, and **Fleet → UPDATES → HOLDS** lists everything held with **Release**.
+  - **Hosts**: **Hold…** on a host in Fleet → UPDATES, for 1 day, 1 week, 30 days or until released, with a note. A held host isn't counted as pending (Fleet badge, Overview widget, DRIFT) and can't be picked for **Upgrade selected…**.
+  - **Packages**: **Hold** / **Release** on any package in Fleet → UPDATES or System → UPDATES. On apt, dnf with versionlock and Windows the hold is set on the host (`apt-mark hold`, `dnf versionlock`, hiding the update in Windows Update), so unattended upgrades and other tools respect it too; holds made outside Nightgrid (including pacman's `IgnorePkg`) show as held. On pacman and dnf without versionlock, Nightgrid's upgrades leave held packages out. Held packages aren't counted and the upgrade confirmation names them.
+  - **Container images and stacks**: **Hold** an image, or **Hold stack**, in a stack's **Updates** dialog (or next to an image in **Check images**). Pull and Update then skip its services, so they stay on the image they run; checks still say when a newer version exists, without counting it.
+
 ### Fixed
 - **Enter confirms type-to-confirm dialogs.** After typing the name (host, group, VM, key or folder), pressing Enter, including keypad Enter, now runs the red button in every type-to-confirm dialog: Upgrade hosts, power and group power, Docker, VMs and Proxmox actions, firewall changes, SSH key removal and rotation, file delete and a changed host key. Enter does nothing until the name matches, and it waits while an input method (IME) is still composing.
 

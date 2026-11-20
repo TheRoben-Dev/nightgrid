@@ -3,6 +3,7 @@
  * journal, pending updates and disks. sudo "needs" a password once per
  * action; any password works except "wrong". Used by `pnpm dev` and tests.
  */
+import { applyMockHolds } from "./mockHolds";
 import type {
   DisksReport_Serialize as DisksReport,
   MountForecast_Serialize as MountForecast,
@@ -349,30 +350,34 @@ export const mockSystem = {
   },
   async updates(hostId: number): Promise<UpdatesReport> {
     await new Promise((r) => setTimeout(r, 400 + (hostId % 3) * 300));
-    if (hostId % 4 === 2) return { manager: "dnf", updates: [], rebootRequired: false, rebootReasons: [], note: null };
+    if (hostId % 4 === 2) return applyMockHolds(hostId, { manager: "dnf", updates: [], rebootRequired: false, rebootReasons: [], note: null, held: [], holdSupport: "host" });
     if (hostId % 4 === 3)
-      return {
+      return applyMockHolds(hostId, {
         manager: "dnf",
         updates: [
-          { name: "kernel", current: null, available: "6.11.6-200.fc40", repo: "updates" },
-          { name: "podman", current: null, available: "5:5.2.5-1.fc40", repo: "updates" },
+          { name: "kernel", current: null, available: "6.11.6-200.fc40", repo: "updates", held: false },
+          { name: "podman", current: null, available: "5:5.2.5-1.fc40", repo: "updates", held: false },
         ],
         rebootRequired: false,
         rebootReasons: [],
         note: null,
-      };
-    return {
+        held: [],
+        holdSupport: "nightgrid",
+      });
+    return applyMockHolds(hostId, {
       manager: "apt",
       updates: [
-        { name: "openssl", current: "3.0.2-0ubuntu1.17", available: "3.0.2-0ubuntu1.18", repo: "jammy-security" },
-        { name: "linux-image-generic", current: "6.8.0.48.48", available: "6.8.0.49.49", repo: "jammy-updates" },
-        { name: "docker-ce", current: "5:27.3.0-1", available: "5:27.3.1-1", repo: "jammy" },
-        { name: "tzdata", current: "2024a-0ubuntu0.22.04", available: "2024b-0ubuntu0.22.04", repo: "jammy-updates" },
+        { name: "openssl", current: "3.0.2-0ubuntu1.17", available: "3.0.2-0ubuntu1.18", repo: "jammy-security", held: false },
+        { name: "linux-image-generic", current: "6.8.0.48.48", available: "6.8.0.49.49", repo: "jammy-updates", held: false },
+        { name: "docker-ce", current: "5:27.3.0-1", available: "5:27.3.1-1", repo: "jammy", held: false },
+        { name: "tzdata", current: "2024a-0ubuntu0.22.04", available: "2024b-0ubuntu0.22.04", repo: "jammy-updates", held: false },
       ],
       rebootRequired: true,
       rebootReasons: ["updated: linux-image-6.8.0-48-generic"],
       note: null,
-    };
+      held: [],
+      holdSupport: "host",
+    });
   },
   async upgradeRun(_hostId: number, _m: Manager, op: UpgradeOp, sudo: SudoInput | null, on: (e: RunEvent) => void): Promise<number> {
     checkSudo(sudo);

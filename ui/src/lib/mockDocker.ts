@@ -3,6 +3,7 @@
  * compose stack, ticking stats and logs. Used by `pnpm dev`, tests and
  * screenshots; never talks to a real daemon.
  */
+import { mockImageHeld } from "./mockHolds";
 import type {
   Action,
   ActionResult_Serialize as ActionResult,
@@ -413,10 +414,11 @@ export const mockDocker = {
             latest: { version: "1.5.0", revision: "e5f6a7b8", created: "2026-11-10T08:30:00Z" },
             source: src,
             notes: `${src}/compare/a1b2c3d4...e5f6a7b8`,
+            held: mockImageHeld(hostId, stack.name, image),
           };
         if (i % 3 === 1)
-          return { image, services: [service], status: "current", error: null, current: { version: "2.0.1", revision: null, created: "2026-10-20T00:00:00Z" }, latest: null, source: src, notes: `${src}/releases` };
-        return { image, services: [service], status: "needsLogin", error: null, current: { version: null, revision: null, created: null }, latest: null, source: null, notes: null };
+          return { image, services: [service], status: "current", error: null, current: { version: "2.0.1", revision: null, created: "2026-10-20T00:00:00Z" }, latest: null, source: src, notes: `${src}/releases`, held: mockImageHeld(hostId, stack.name, image) };
+        return { image, services: [service], status: "needsLogin", error: null, current: { version: null, revision: null, created: null }, latest: null, source: null, notes: null, held: mockImageHeld(hostId, stack.name, image) };
       }),
       700,
     );

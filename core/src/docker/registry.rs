@@ -106,6 +106,9 @@ pub struct ImageUpdate {
     pub source: Option<String>,
     /// Release notes or a commit comparison (https), when it can be worked out.
     pub notes: Option<String>,
+    /// Held in Nightgrid (D-195): still checked, but not counted and not
+    /// pulled by Pull / Update.
+    pub held: bool,
 }
 
 /// The local side of one image, read from `docker image inspect`.
@@ -422,6 +425,7 @@ pub async fn check(local: &LocalImage) -> ImageUpdate {
         latest: None,
         source: source.clone(),
         notes: notes_url(source.as_deref(), None, None),
+        held: false,
     };
     let Some(r) = ImageRef::parse(&local.image) else {
         out.error = Some("not a registry image reference".into());
