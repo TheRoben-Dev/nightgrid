@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [Unreleased]
+## [1.20.0] - 2026-11-20
 
 ### Added
 - **Synology with 2-step verification on.** The Synology DSM card no longer needs an account without 2-step: enter one current code in the integration's settings and DSM trusts Nightgrid from then on. The device token stays in the OS keychain (not in profile exports, so another computer asks once too), **Forget** removes it, and a card whose token DSM dropped shows **Enter 2-step code**. A regular (non-administrator) account works too: the card shows what DSM shares with it and names what needs an administrator instead of failing.
