@@ -32,6 +32,9 @@ pub const LINK_PORT: u16 = 7419;
 pub const COLLECT_PORT: u16 = 7420;
 /// Members need this node version (`hub.member` 1).
 pub const MEMBER_MIN_VERSION: &str = "0.26.0";
+/// The hub's `[collect] listen` takes a list (so it can answer LAN-only
+/// members' pings next to the tailnet address) from this version.
+pub const LISTEN_LIST_MIN_VERSION: &str = "0.28.0";
 /// The link's default `[peers] networks` (and the collector's).
 pub const TAILNET_NETWORKS: &[&str] = &["100.64.0.0/10", "fd7a:115c:a1e0::/48"];
 
@@ -249,6 +252,8 @@ pub struct HubOverview {
     pub hub_id: String,
     pub fingerprint: Option<String>,
     pub listening: Option<String>,
+    /// Every address the collector answers on (0.28.0+; empty before).
+    pub listen_all: Vec<String>,
     /// `ok`, `off` (never ran: `allow collect`) or `denied` (stopped).
     pub collector: String,
     pub store_bytes: f64,
@@ -468,6 +473,32 @@ pub fn set_list(doc: &mut DocumentMut, section: &str, key: &str, list: &[String]
         a.push(s.as_str());
     }
     table(doc, section)[key] = value(a);
+}
+
+/// The hub's `[collect] listen` entries: one string (before 0.28.0) or a
+/// list; `tailnet` when unset.
+pub fn get_listen(doc: &DocumentMut) -> Vec<String> {
+    match doc.get("collect").and_then(|s| s.get("listen")) {
+        Some(i) if i.as_str().is_some() => vec![i.as_str().unwrap_or_default().to_owned()],
+        Some(i) => {
+            i.as_array().map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect()).unwrap_or_default()
+        }
+        None => vec!["tailnet".into()],
+    }
+}
+
+/// Adds `addr` (`ip:port`) to the hub's `[collect] listen`, keeping what
+/// is there, so the collector also answers pings on it. `true` when the
+/// file changed.
+pub fn add_listen(doc: &mut DocumentMut, addr: &str) -> bool {
+    let mut l = get_listen(doc);
+    if l.iter().any(|e| e == addr) {
+        return false;
+    }
+    l.retain(|e| !e.is_empty());
+    l.push(addr.to_owned());
+    set_list(doc, "collect", "listen", &l);
+    true
 }
 
 /// Adds `cidr` to `[section] networks` unless an entry already covers it.
@@ -833,5 +864,28 @@ mod tests {
         assert_eq!((l.len(), l[0].fingerprint.as_str()), (1, "2"));
         assert_eq!(peer_name("  "), "host");
         assert_eq!(asset_name("v0.26.0", "aarch64"), "nightgrid-hub-v0.26.0-aarch64-linux");
+    }
+
+    #[test]
+    fn collector_listens_on_lan_too() {
+        // Unset: tailnet, and adding a LAN address keeps it.
+        let mut d = parse_config("[collect]\ninterval_secs = 60\n").unwrap();
+        assert_eq!(get_listen(&d), ["tailnet"]);
+        assert!(add_listen(&mut d, "192.168.0.10:7420"));
+        assert_eq!(get_listen(&d), ["tailnet", "192.168.0.10:7420"]);
+        assert!(!add_listen(&mut d, "192.168.0.10:7420"), "already there");
+        // One string (the 0.26 shape) becomes a list.
+        let mut d = parse_config("# mine\n[collect]\nlisten = \"tailnet\"\n").unwrap();
+        assert!(add_listen(&mut d, "192.168.0.10:7420"));
+        let out = d.to_string();
+        assert!(out.contains("listen = [\"tailnet\", \"192.168.0.10:7420\"]"), "{out}");
+        assert!(out.contains("# mine"), "{out}");
+        // An empty entry is dropped, others kept.
+        let mut d = parse_config("[collect]\nlisten = [\"\", \"lan\"]\n").unwrap();
+        assert!(add_listen(&mut d, "10.0.0.2:7420"));
+        assert_eq!(get_listen(&d), ["lan", "10.0.0.2:7420"]);
+        assert!(at_least("0.32.0", LISTEN_LIST_MIN_VERSION) && !at_least("0.26.0", LISTEN_LIST_MIN_VERSION));
+        let o: HubOverview = serde_json::from_str("{\"hubId\":\"h\",\"listening\":\"100.64.0.2:7420\"}").unwrap();
+        assert!(o.listen_all.is_empty());
     }
 }

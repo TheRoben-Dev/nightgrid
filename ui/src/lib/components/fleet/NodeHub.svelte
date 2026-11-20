@@ -5,7 +5,7 @@
    * removing it. Every root step goes through the sudo flow, per host.
    */
   import { api, errorText, type HubReport, type NodeSetup, type NodeView } from "../../api";
-  import { bytesText, MEMBER_TEXT, memberTone, roleOf, spanText } from "../../node";
+  import { bytesText, MEMBER_TEXT, memberTone, newer, roleOf, spanText } from "../../node";
   import { hosts } from "../../stores/hosts.svelte";
   import { system } from "../../stores/system.svelte";
   import Modal from "../Modal.svelte";
@@ -25,8 +25,19 @@
   const hubSetup = $derived(Object.values(setups).find((s) => s.hub));
   const hub = $derived(hubSetup?.hub?.overview ? { hostId: hubSetup.hostId, hubId: hubSetup.hub.overview.hubId } : null);
   const servers = $derived(views.filter((v) => v.state === "ready" && !isClient(v.hostId)));
-  /** Hosts whose node can be a hub or a member (Node 0.26+). */
-  const capable = $derived(servers.filter((v) => v.caps.includes("hub.member")));
+  /** Hosts whose node can be a hub or a member (Node 0.26+): servers first, then client devices that already run the node. */
+  const capable = $derived(
+    views
+      .filter((v) => v.state === "ready" && v.caps.includes("hub.member"))
+      .sort((a, b) => Number(isClient(a.hostId)) - Number(isClient(b.hostId)) || nameOf(a.hostId).localeCompare(nameOf(b.hostId))),
+  );
+  /** Why "Make a hub" can't be pressed, said on the card (not only in a tooltip). */
+  const cantMake = $derived.by(() => {
+    if (loading || capable.length) return null;
+    const old = views.filter((v) => v.state === "ready" && !v.caps.includes("hub.member"));
+    if (old.length) return `A hub needs Nightgrid Node 0.26 or newer: press Update next to ${old.map((v) => nameOf(v.hostId)).join(", ")} below first.`;
+    return "No host has Nightgrid Node running and connected yet: install it on the server that should be the hub (below), then come back here.";
+  });
   const candidates = $derived(capable.filter((v) => roleOf(v, setups[v.hostId], hub) !== "member" && v.hostId !== hub?.hostId));
   const memberHosts = $derived(views.filter((v) => roleOf(v, setups[v.hostId], hub) === "member").map((v) => v.hostId));
 
@@ -47,7 +58,7 @@
 
   /** The best first hub: a server that is up the most is unknowable here, so prefer one already linked. */
   function suggest(): number | null {
-    const linked = capable.find((v) => setups[v.hostId]?.link?.access === "ok");
+    const linked = capable.find((v) => !isClient(v.hostId) && setups[v.hostId]?.link?.access === "ok");
     return (linked ?? capable[0])?.hostId ?? null;
   }
 
@@ -80,6 +91,7 @@
   /** Joins each host to the hub on `hubHost`, then lets the hub reach the ones it can't yet. */
   async function join(hubHost: number, ids: number[]): Promise<boolean> {
     const nets: string[] = [];
+    const listen: string[] = [];
     let ok = true;
     for (const id of ids) {
       say(`${nameOf(id)}: joining…`);
@@ -88,15 +100,16 @@
         for (const s of r.steps) say(`${nameOf(id)}: ${s}`, "ok");
         for (const w of r.warnings) say(`${nameOf(id)}: ${w}`, "warn");
         nets.push(...r.hubNetworks);
+        listen.push(...r.hubListen.filter((a) => !listen.includes(a)));
       } catch (e) {
         ok = false;
         say(`${nameOf(id)}: ${errorText(e)}`, "err");
       }
     }
-    if (nets.length) {
-      say(`${nameOf(hubHost)}: letting the collector reach ${nets.join(", ")}…`);
+    if (nets.length || listen.length) {
+      say(`${nameOf(hubHost)}: letting the collector reach ${[...nets, ...listen].join(", ")}…`);
       try {
-        const r = await system.withSudo("let the hub reach its members", (sudo) => api.hubAllowNetworks(hubHost, nets, sudo), nameOf(hubHost));
+        const r = await system.withSudo("let the hub reach its members", (sudo) => api.hubAllowNetworks(hubHost, nets, listen, sudo), nameOf(hubHost));
         for (const s of r.steps) say(`${nameOf(hubHost)}: ${s}`, r.ok ? "ok" : "err");
         for (const w of r.warnings) say(`${nameOf(hubHost)}: ${w}`, "warn");
         if (r.failure) say(r.failure, "err");
@@ -170,6 +183,34 @@
     }
   }
 
+  /** The node next to the hub is newer than the hub: they come from the same release and should match. */
+  const hubBehind = $derived.by(() => {
+    if (!hubSetup?.hub?.probe.version) return null;
+    const node = views.find((v) => v.hostId === hubSetup.hostId)?.version;
+    return node && newer(node, hubSetup.hub.probe.version) ? node : null;
+  });
+
+  async function updateHub() {
+    if (!hubSetup) return;
+    const id = hubSetup.hostId;
+    busy = true;
+    log = { title: `UPDATE HUB · ${nameOf(id).toUpperCase()}`, lines: [], done: false };
+    try {
+      say(`Updating the hub on ${nameOf(id)} (its config and store stay)…`);
+      const r = await system.withSudo("update the Nightgrid hub", (sudo) => api.hubInstall(id, false, sudo), nameOf(id));
+      if (r) {
+        report(nameOf(id), r.report);
+        say(`The hub is on ${r.report.version || "the new version"}.`, "ok");
+      }
+    } catch (e) {
+      say(errorText(e), "err");
+    } finally {
+      busy = false;
+      if (log) log.done = true;
+      await onchange([id]);
+    }
+  }
+
   const ago = (t: number | null | undefined) => (t ? `${spanText(Date.now() / 1000 - t)} ago` : "never");
   const hostOfMember = (nodeId: string) => Object.values(setups).find((s) => s.nodeId === nodeId)?.hostId;
 </script>
@@ -181,8 +222,10 @@
     <div class="row">
       <h3 class="hd">HUB · {nameOf(hubSetup.hostId).toUpperCase()}</h3>
       <span class="small {o?.collector === 'ok' ? 'ok-text' : 'warn-text'}">● collector {o?.collector ?? h.probe.collect ?? "unknown"}</span>
-      {#if o}<span class="muted small">{o.members.length} member{o.members.length === 1 ? "" : "s"} · {bytesText(o.storeBytes)} stored · Node {h.probe.version}</span>{/if}
+      {#if o}<span class="muted small">{o.members.length} member{o.members.length === 1 ? "" : "s"} · {bytesText(o.storeBytes)} stored · Hub {h.probe.version || "unknown"}</span>{/if}
+      {#if hubBehind}<span class="warn-text small" title="The hub is a separate program and isn't updated with the node">node is on {hubBehind}</span>{/if}
       <span class="grow"></span>
+      {#if hubBehind}<button type="button" class="btn tiny primary" disabled={busy} onclick={updateHub}>Update hub</button>{/if}
       <button type="button" class="btn tiny" disabled={busy || !candidates.length} title={candidates.length ? "" : "Every server with Node 0.26+ is already a member"} onclick={() => (add = { picked: candidates.map((v) => v.hostId) })}>Add members…</button>
       <button type="button" class="btn tiny ghost" onclick={() => onopen(hubSetup.hostId, "config", "hub")}>Config</button>
       <button type="button" class="btn tiny ghost" onclick={() => onopen(hubSetup.hostId, "logs", "hub")}>Logs</button>
@@ -217,8 +260,9 @@
       <p class="muted small grow">
         {#if loading}Looking for a hub…{:else}No hub yet. A hub is one always-on server per network that watches the others while Nightgrid is closed: it pulls their history read-only and notices a host going offline. Each node keeps working on its own if the hub is down.{/if}
       </p>
-      <button type="button" class="btn tiny" disabled={busy || loading || !capable.length} title={capable.length ? "" : "Needs a server running Nightgrid Node 0.26 or newer"} onclick={() => (make = { hostId: suggest(), fromFile: false })}>Make a hub…</button>
+      <button type="button" class="btn tiny" disabled={busy || loading || !capable.length} title={cantMake ?? ""} onclick={() => (make = { hostId: suggest(), fromFile: false })}>Make a hub…</button>
     </div>
+    {#if cantMake}<p class="warn-text small">{cantMake}</p>{/if}
   {/if}
 </section>
 
@@ -226,9 +270,11 @@
   {#if make}
     <label class="small field">Hub host
       <select bind:value={make.hostId}>
-        {#each capable as v (v.hostId)}<option value={v.hostId}>{nameOf(v.hostId)}</option>{/each}
+        {#each capable as v (v.hostId)}<option value={v.hostId}>{nameOf(v.hostId)}{isClient(v.hostId) ? " (marked as a client device)" : ""}</option>{/each}
       </select>
     </label>
+    {#if make.hostId != null && isClient(make.hostId)}<p class="warn-text small">{nameOf(make.hostId)} is marked as a client device (Hosts → edit → role). A hub should be always on; that's fine if this one is.</p>{/if}
+    <p class="muted small">No Tailscale on this network? That works: hosts without a tailnet address use their LAN address for the link and the hub.</p>
     <p class="muted small">Pick the server that is always on (ideally on the UPS). Other servers report to it; ones only it can reach on its LAN are set up to use their LAN address.</p>
     <ol class="small steps">
       <li>Download the hub from the same Node release (checked against SHA256SUMS) and install it as root: its own account and sandboxed services.</li>

@@ -1649,8 +1649,12 @@ export const api = {
     T() ? commands.hubJoin(memberId, hubHost, sudo) : mockHub.join(memberId, hubHost),
   hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<HubJoinResult> =>
     T() ? commands.hubLeave(memberId, hubHost, sudo) : mockHub.leave(memberId),
-  hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null): Promise<ConfigSaveReport> =>
-    T() ? commands.hubAllowNetworks(hubHost, networks, sudo) : mockHub.allowNetworks(networks),
+  hubAllowNetworks: (hubHost: number, networks: string[], listen: string[], sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.hubAllowNetworks(hubHost, networks, listen, sudo) : mockHub.allowNetworks(networks, listen),
+  nodeLinkEnable: (hostId: number, sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.nodeLinkEnable(hostId, sudo) : mockHub.linkEnable(hostId),
+  hubRepairLink: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.hubRepairLink(memberId, hubHost, sudo) : mockHub.repairLink(memberId),
   powerOverview: (days: number, utcOffsetMins: number): Promise<PowerOverview> => (T() ? commands.powerOverview(days, utcOffsetMins) : mockPower.overview(days)),
   powerProfileSet: (hostId: number, idleW: number, maxW: number): Promise<null> => (T() ? commands.powerProfileSet(hostId, idleW, maxW) : mockPower.set(hostId, idleW, maxW)),
   powerProfileClear: (hostId: number): Promise<null> => (T() ? commands.powerProfileClear(hostId) : mockPower.clear(hostId)),
