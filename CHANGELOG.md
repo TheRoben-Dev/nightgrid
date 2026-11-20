@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [Unreleased]
+## [1.18.0] - 2026-11-20
 
 ### Added
 - **Run Docker as a separate user.** A host can now have a **Docker user**: Nightgrid keeps logging in over SSH as your normal user and runs every Docker action on that host (containers, logs, shells, stacks, compose, routes) as that account through `sudo -u`. Handy for a dedicated docker user with its own UID and GID, as on many Synology NAS setups. Set it in the host's settings or with **Use a separate Docker user instead** on the NO ACCESS TO DOCKER card. Only the name is saved (it's in the profile export); no second login or password.
