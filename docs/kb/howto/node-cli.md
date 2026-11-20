@@ -13,6 +13,8 @@ Everything [Nightgrid Node](kb:basics/nightgrid-node) records is available from 
 
 - [ ] `nightgrid-node` with no command, in a terminal, opens a menu. Move with the arrow keys or `j`/`k`, pick with a number key or Enter, leave with `q`. It uses the app's NIGHTGRID colours and glyphs.
 - [ ] Piped output, `NO_COLOR` or `NIGHTGRID_PLAIN=1` gives a plain numbered list instead, which suits scripts and screen readers.
+- [ ] On a hub, `nightgrid-hub` on its own opens the hub's menu, and `sudo nightgrid-hub allow` (or `deny`) with no name opens a menu for the collector.
+- [ ] As root, `sudo nightgrid-node allow` (or `deny`) and `sudo nightgrid-node serve` with no name open menus too: every grant and whether it's on, and what the link serves (`ping`, `ups`, `sync`). See [Choose what Nightgrid Node may do](kb:howto/node-grants).
 
 - [ ] `nightgrid-node status` (or `--json`): version, node id, history coverage per tier, memory and database size, and the state of every grant.
 - [ ] `nightgrid-node query <method> ['<json params>']`: one request, the answer as JSON. Pipe it to `jq` to read it comfortably.
