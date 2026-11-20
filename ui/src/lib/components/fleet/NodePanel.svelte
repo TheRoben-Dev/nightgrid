@@ -81,7 +81,7 @@
     busy = `join-${id}`;
     try {
       const r = await system.withSudo("join the Nightgrid hub", (sudo) => api.hubJoin(id, h.hostId, sudo), nameOf(id));
-      if (r.hubNetworks.length) await system.withSudo("let the hub reach its members", (sudo) => api.hubAllowNetworks(h.hostId, r.hubNetworks, sudo), nameOf(h.hostId));
+      if (r.hubNetworks.length || r.hubListen.length) await system.withSudo("let the hub reach its members", (sudo) => api.hubAllowNetworks(h.hostId, r.hubNetworks, r.hubListen, sudo), nameOf(h.hostId));
       notice = { text: `${nameOf(id)} now reports to the hub on ${nameOf(h.hostId)}.${r.warnings.length ? ` ${r.warnings.join(" ")}` : ""}`, tone: "ok" };
     } catch (e) {
       notice = { text: `${nameOf(id)}: ${errorText(e)}`, tone: "err" };
@@ -269,6 +269,7 @@
             setup={setups[v.hostId]}
             role={roleFor(v)}
             hubName={hubInfo ? nameOf(hubInfo.hostId) : null}
+            hubHost={hubInfo?.hostId ?? null}
             {tab}
             bind:part
             onjoin={() => joinOne(v.hostId)}

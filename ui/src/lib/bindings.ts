@@ -805,10 +805,27 @@ export const commands = {
 	 */
 	hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<HubJoinResult>("hub_leave", { memberId, hubHost, sudo }, options),
 	/**
-	 *  Lets the hub's collector reach these addresses (`[collect] networks`),
-	 *  then runs `allow collect` again. `sudo` is for the hub host.
+	 *  Lets the hub's collector reach these addresses (`[collect] networks`)
+	 *  and answer pings on `listen` (`[collect] listen`, hub 0.28.0+), then
+	 *  runs `allow collect` again. `sudo` is for the hub host.
 	 */
-	hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_allow_networks", { hubHost, networks, sudo }, options),
+	hubAllowNetworks: (hubHost: number, networks: string[], listen: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_allow_networks", { hubHost, networks, listen, sudo }, options),
+	/**
+	 *  Fixes a member's failing link to its hub (Fleet → NODE → member →
+	 *  LINKED): updates the hub when it's older than the node next to it (or
+	 *  too old to listen on more than one address), then makes its collector
+	 *  answer on the address the member pings and lets it reach the member.
+	 *  Pulls never needed this, so the hub can look fine while the member's
+	 *  link says "connection refused". `sudo` is for the hub host.
+	 */
+	hubRepairLink: (memberId: number, hubHost: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_repair_link", { memberId, hubHost, sudo }, options),
+	/**
+	 *  Turns on `host_id`'s node-to-node link (`allow peers`) and, when the
+	 *  host has no tailnet address, makes it listen on its LAN address
+	 *  (`[peers] listen = "lan"`, Node 0.28.0+), so a network without
+	 *  Tailscale can still have a hub. `sudo` is for that host.
+	 */
+	nodeLinkEnable: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("node_link_enable", { hostId, sudo }, options),
 	/**
 	 *  Members of the hub on `hub_host` as the hub sees them (for the Fleet
 	 *  list's role column).
@@ -5032,6 +5049,12 @@ export type HubJoinResult = {
 	 *  reach this member: pass them to `hub_allow_networks` on the hub host.
 	 */
 	hubNetworks: string[],
+	/**
+	 *  Addresses the hub's collector must also answer on (`[collect]
+	 *  listen`) so a LAN-only member's pings reach it: pass them to
+	 *  `hub_allow_networks` too.
+	 */
+	hubListen: string[],
 };
 
 /**  A member in `fleet.overview`. */
@@ -5071,6 +5094,8 @@ export type HubOverview_Deserialize = {
 	hubId?: string,
 	fingerprint?: string | null,
 	listening?: string | null,
+	/**  Every address the collector answers on (0.28.0+; empty before). */
+	listenAll?: string[],
 	/**  `ok`, `off` (never ran: `allow collect`) or `denied` (stopped). */
 	collector?: string,
 	storeBytes?: number | null,
@@ -5082,6 +5107,8 @@ export type HubOverview_Serialize = {
 	hubId: string,
 	fingerprint: string | null,
 	listening: string | null,
+	/**  Every address the collector answers on (0.28.0+; empty before). */
+	listenAll: string[],
 	/**  `ok`, `off` (never ran: `allow collect`) or `denied` (stopped). */
 	collector: string,
 	storeBytes: number | null,
