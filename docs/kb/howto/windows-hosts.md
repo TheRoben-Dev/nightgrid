@@ -1,13 +1,13 @@
 # Add a Windows Server host
 
-Manage a Windows Server (or a Windows 10/11 PC) from Nightgrid over its built-in OpenSSH server: monitoring, Docker, services, the Event Log, Windows Update, the firewall and more, with nothing installed on the host. This article also says what Nightgrid can't do on Windows yet, and why.
+Manage a Windows Server (or a Windows 10/11 PC) from Nightgrid over its built-in OpenSSH server, with nothing installed on it: monitoring, Docker, Windows services, event logs, Windows Update, the firewall and more. This article also says what doesn't work on Windows yet, and why.
 
 ## What you end up with
 
 - A Windows host that logs in with your SSH key, or your Windows password when no key is set up yet
-- A terminal on it in cmd or PowerShell, and its disks in the [Files](view:files) view
-- Overview numbers, System tabs and Fleet checks for it, read through Windows PowerShell
-- Knowing which views can't run on it, so a note in place of a panel isn't a surprise
+- A terminal in cmd or PowerShell, its files in [Files](view:files), and live numbers on the [Overview](view:overview)
+- [System](view:system) tabs that manage Windows services, event logs, scheduled tasks, Windows Update, disks and Windows Defender Firewall
+- Knowing which views don't work on Windows, and why
 
 ## Before you start
 
@@ -52,7 +52,7 @@ icacls.exe C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /gra
 ```
 
 - [ ] Standard (non-admin) account: the key goes in `C:\Users\<user>\.ssh\authorized_keys` instead, like on Linux.
-- [ ] Or let Nightgrid do it: log in once with the password, then **Settings → Connections → SSH keys** pushes the key to the right file with the right permissions.
+- [ ] Or let Nightgrid do it: save the host with the Windows password first (Part 3), then **Settings → Connections → SSH keys → CHECK HOSTS** and **+** on its row. Nightgrid writes the key to the right file for the account, with the permissions sshd requires.
 
 ## Part 3 · Save the host
 
@@ -66,27 +66,50 @@ icacls.exe C:\ProgramData\ssh\administrators_authorized_keys /inheritance:r /gra
 - [ ] A terminal opens at a `C:\Users\<user>>` or `PS C:\Users\<user>>` prompt.
 - [ ] Reconnecting doesn't ask for a password (the key works).
 
-## What works and what doesn't
+## What works the same as on Linux
 
-Nightgrid learns that a host runs Windows the first time it connects and runs everything through Windows PowerShell 5.1, which every supported Windows has. A view or tab that can't run on the host shows a note saying why, instead of an error.
+Nightgrid learns that a host runs Windows the first time it connects and remembers it. Commands run through Windows PowerShell 5.1, which every supported Windows has.
 
-- **Terminal, Files, Tunnels**: work. The terminal is a plain cmd or PowerShell session (no key-hint strip or `nano` hook, which are Linux shell code). File paths start with the drive letter, like `/C:/Users/<user>`.
-- **Overview and history**: CPU, memory, disks, network, uptime, NVIDIA GPUs and temperatures where the firmware reports them, from performance counters. There is no load average on Windows.
-- **Docker**: containers, images, logs and stats through `docker.exe`; Compose stacks start, update and stop through PowerShell. Container shells start `sh`, so they work in Linux containers only.
-- **System**: services (UNITS), the Event Log (JOURNAL), Task Scheduler (SCHEDULES), disk health and Storage Spaces (DISKS), Windows Update (UPDATES), Windows Defender Firewall with the same automatic rollback as on Linux (FIREWALL), and security checks (SECURITY).
-- **Fleet**: log search over the event logs, the access audit from the OpenSSH log, backups from scheduled tasks or folders, and speed tests if `iperf3.exe` is on the host (put it on the PATH or in `C:\iperf3`; Nightgrid installs nothing).
-- **Reboot, shut down, Wake-on-LAN**: work. Suspend only where Windows supports sleep, which most servers and VMs don't.
-- **Not yet on Windows**: config drift, the cron and timer editor, power schedules, Hyper-V VMs, certificate expiry on the host, DRIFT's host checks, backup test restores, and the Compose deploy wizard, stacks from git and the .env vault.
-- **Can't work on Windows**: Proxmox, Nightgrid Node, UPS through NUT, blueprints and starters, which are Linux-only.
-- For Windows guests on Proxmox, the screen and RDP are in [Open VM screens and RDP](kb:howto/vm-desktops).
+- **Terminal**: the host's own shell (cmd or PowerShell, whichever sshd is set to).
+- **Files**: browse and edit over SFTP. Paths look like `/C:/Users/<user>`.
+- **Power**: reboot and shut down use Windows' own `shutdown`; Wake-on-LAN works as for any host, also as a relay. Suspend asks Windows to sleep, which Windows Server and most VMs refuse; Nightgrid says so when they do.
+- **SSH keys**: push and remove keys from Settings, as in Part 2.
+- **Network tools** from this host: ping, path (`tracert`), DNS, ports, HTTP and certificates, neighbours and connections, all with Windows' own tools.
+- **System → SECURITY**: Defender, firewall profiles, SSH password logins, Remote Desktop and NLA, SMBv1, update age, UAC, the Guest account, databases open to the network and who is an administrator. Some checks need an administrator account to read.
 
-### Windows Update and the firewall
+## What works with differences
 
-Windows Update refuses to install over an SSH login, so Nightgrid starts the install as a one-off task that runs as SYSTEM (under `\Nightgrid\` in Task Scheduler) and streams its log back. A firewall change exports the old rules first and arms a SYSTEM task that imports them back when the countdown ends, unless you press **Keep** after a fresh login worked. Both need an administrator account.
+- **Overview and monitoring**: CPU, memory, page file, disks, network, uptime and NVIDIA GPUs from Windows' performance counters. There's no load average, and temperatures show only where the firmware reports them (most servers and VMs don't).
+- **Docker**: containers, images, logs, stats and events through `docker.exe` on the host (Docker Engine or Docker Desktop). Container shells start `sh`, so they work in Linux containers only. Compose stacks show from their containers, and up, pull, restart, update and down run through PowerShell.
+- **System → UNITS**: Windows services, with start, stop, restart and automatic or disabled startup. Changing one needs an administrator account (Windows has no sudo).
+- **System → JOURNAL**: the System and Application event logs (tick **Security log** for the Security log, administrators only). The unit filter matches an event source such as `Service Control Manager`.
+- **System → SCHEDULES**: your Task Scheduler tasks (not the ones under `\Microsoft\`) with triggers and last results; run, enable or disable them. Creating tasks from Nightgrid isn't there yet.
+- **System → UPDATES**: checks Windows Update and installs everything it offers. Windows won't install updates for an SSH login, so Nightgrid runs the install as a one-off SYSTEM task (under `\Nightgrid\` in Task Scheduler) and streams its progress. Needs an administrator account; picking single updates isn't there yet.
+- **System → FIREWALL**: Windows Defender Firewall profiles, the inbound default and your own inbound rules, with the same automatic rollback as on Linux: the old rules are exported first, and a SYSTEM task puts them back when the countdown ends unless you press **Keep** after a new login worked (see [Change a firewall safely](kb:howto/firewall)). Needs an administrator account.
+- **System → DISKS**: disk health from Windows' Storage module and Storage Spaces pools. Temperature, wear and error counts show only for administrator accounts.
+- **Fleet → LOGS** searches the event logs; **ACCESS** reads logins from the OpenSSH event log; **BACKUPS** watches Task Scheduler tasks (Windows Server Backup included) and folders such as `D:\Backups`; **SPEED** needs `iperf3.exe` on the PATH or in `C:\iperf3`, because Windows has none and Nightgrid installs nothing.
+- **Network scans** from a Windows host use its interfaces, routes, a ping sweep, the neighbour table, reverse DNS and Tailscale peers; mDNS, NetBIOS, SSDP and UPnP aren't read.
+- **Tunnels**: TCP forwards work; forwards to Unix sockets don't.
+- **Automation and command tiles** run in the host's shell, so write them for cmd or PowerShell.
+- **DRIFT** reads PowerShell's history (cmd keeps none).
+
+## Not on Windows yet
+
+- Config drift (System → CONFIG), the cron and timer editor, power schedules, Hyper-V VMs and desktops, certificate expiry on the host, DRIFT's checks on the host, backup test restores, and the deploy wizard, stacks from git and the `.env` vault (put compose files on the host yourself and run them from **STACKS**).
+
+## Can't work on Windows
+
+- **Proxmox** and **Nightgrid Node**: both are Linux only. Add the Proxmox node itself as a host.
+- **UPS through NUT**: NUT doesn't run as a service on Windows. Watch the UPS from a Linux host NUT can reach.
+- **Blueprints and starters**: they write Linux compose stacks, systemd timers and firewall rules.
+- **Quest checks**, and the terminal's key hints and `nano` hook, which are Linux shell code.
+
+Where a view or tab can't run on the selected Windows host, it says why in place instead of showing an error. For Windows guests on Proxmox, the screen and RDP are in [Open VM screens and RDP](kb:howto/vm-desktops).
 
 ## Limits and gotchas
 
-- **Permission denied (publickey)** for an admin account: the key is in `~\.ssh\authorized_keys` instead of `administrators_authorized_keys`, or that file's permissions let other users read it. Run the `icacls` line again.
+- **Permission denied (publickey)** for an admin account: the key is in `~\.ssh\authorized_keys` instead of `administrators_authorized_keys`, or that file's permissions let other users read it. Run the `icacls` line again, or push the key from Settings as in Part 2.
+- Most changes (services, updates, firewall, other users' event logs) need an administrator account: Windows has no sudo, so log in as one.
 - `C:\ProgramData` is hidden in Explorer; type the path in the address bar.
 - Logs are in Event Viewer → Applications and Services Logs → OpenSSH → Operational.
 - The Windows password asked at login isn't saved unless you tick **Remember secret in OS keychain**.
