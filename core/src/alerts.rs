@@ -143,13 +143,20 @@ pub struct Alert {
     /// (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
     #[serde(default)]
     pub caused_by: Option<u32>,
+    /// The acknowledgement or mute that silences it (D-198,
+    /// [`crate::silence`]). Filled in for the snapshot only.
+    #[serde(default)]
+    pub silenced: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Change {
     Fired(Alert),
-    /// Severity or detail changed while active (e.g. disk 91 % → 97 %).
+    /// Detail changed while active (e.g. disk 91 % → 93 %), or the
+    /// severity went down.
     Updated(Alert),
+    /// The severity went up while active (e.g. disk 95 % → 98 %, critical).
+    Worse(Alert),
     Resolved(Alert),
 }
 
@@ -197,10 +204,11 @@ impl Tracker {
             if let Some(a) = self.active.get_mut(&c.key) {
                 self.clearing.remove(&c.key);
                 if a.severity != c.severity || a.detail != c.detail || a.title != c.title {
+                    let worse = c.severity > a.severity;
                     a.severity = c.severity;
                     a.detail = c.detail;
                     a.title = c.title;
-                    changes.push(Change::Updated(a.clone()));
+                    changes.push(if worse { Change::Worse(a.clone()) } else { Change::Updated(a.clone()) });
                 }
                 continue;
             }
@@ -219,6 +227,7 @@ impl Tracker {
                     since: first,
                     resolved: None,
                     caused_by: None,
+                    silenced: None,
                 };
                 self.active.insert(c.key, alert.clone());
                 changes.push(Change::Fired(alert));
@@ -439,9 +448,12 @@ pub fn host_offline(host: HostId, name: &str, message: Option<&str>) -> Conditio
 }
 
 /// Mounts at or above `threshold` percent used (critical from 98 %).
-pub fn disk_full(host: HostId, name: &str, mounts: &[MountUsage], threshold: u8) -> Vec<Condition> {
+/// `skip_system` leaves out read-only and by-design-full mounts
+/// ([`crate::silence::system_mount`]: WSL, Docker Desktop, snaps, images).
+pub fn disk_full(host: HostId, name: &str, mounts: &[MountUsage], threshold: u8, skip_system: bool) -> Vec<Condition> {
     mounts
         .iter()
+        .filter(|m| !(skip_system && crate::silence::system_mount(&m.mount, &m.fstype, m.read_only)))
         .filter_map(|m| {
             let size = m.used + m.avail;
             if size == 0 {
@@ -746,7 +758,10 @@ mod tests {
         c.severity = Severity::Critical;
         c.detail = "certificate expires tomorrow".into();
         let ch = t.report(&all("svc"), vec![c.clone(), cond("svc:2", AlertKind::CertExpiring, None)], 10);
-        assert!(ch.iter().any(|x| matches!(x, Change::Updated(a) if a.severity == Severity::Critical)));
+        assert!(ch.iter().any(|x| matches!(x, Change::Worse(a) if a.severity == Severity::Critical)));
+        c.detail = "certificate expires today".into();
+        let ch = t.report(&all("svc"), vec![c.clone(), cond("svc:2", AlertKind::CertExpiring, None)], 20);
+        assert!(matches!(&ch[..], [Change::Updated(_)]), "same severity: only updated");
         let act = t.active();
         assert_eq!(act[0].key, "svc:1", "critical first");
         t.forget_host(1);
@@ -774,14 +789,22 @@ mod tests {
             total: used + avail,
             used,
             avail,
+            read_only: false,
         };
         let gb = 1024 * 1024 * 1024;
-        let c = disk_full(3, "server01", &[m("/", 95 * gb, 5 * gb), m("/srv", 50, 50), m("/big", 99 * gb, gb)], 90);
+        let c =
+            disk_full(3, "server01", &[m("/", 95 * gb, 5 * gb), m("/srv", 50, 50), m("/big", 99 * gb, gb)], 90, true);
         assert_eq!(c.len(), 2);
         assert_eq!(c[0].key, "disk:3:/");
         assert_eq!(c[0].detail, "/ is 95% full (5.0 GB free)");
         assert_eq!(c[0].severity, Severity::Warn);
         assert_eq!(c[1].severity, Severity::Critical);
+        // WSL's and Docker Desktop's own mounts are always full by design.
+        let wsl =
+            MountUsage { fstype: "iso9660".into(), read_only: true, ..m("/mnt/wsl/docker-desktop/cli-tools", gb, 0) };
+        let cd = MountUsage { fstype: "ext4".into(), ..m("/mnt/wsl/docker-desktop-bind-mounts/x", gb, 0) };
+        assert!(disk_full(3, "hs01", &[wsl.clone(), cd.clone()], 90, true).is_empty());
+        assert_eq!(disk_full(3, "hs01", &[wsl, cd], 90, false).len(), 2, "unless the setting is off");
     }
 
     #[test]
@@ -943,6 +966,7 @@ mod tests {
             since: 0,
             resolved: None,
             caused_by: None,
+            silenced: None,
         };
         assert_eq!(headline(&a), "HOST OFFLINE · server01");
 
@@ -973,6 +997,7 @@ mod tests {
             since,
             resolved,
             caused_by: None,
+            silenced: None,
         };
         let fired = t.import(vec![a("disk:1:/srv", 10, Some(20)), a("disk:1:/data", 30, None)]);
         assert_eq!(fired.len(), 1);

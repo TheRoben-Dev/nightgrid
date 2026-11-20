@@ -48,7 +48,7 @@ describe("notes", () => {
 
 describe("runbooks", () => {
   const base = { runbook: true, alertKinds: [] as Alert["kind"][], hostId: null as number | null, serviceId: null as number | null };
-  const alert = (key: string, kind: Alert["kind"], hostId: number | null): Alert => ({ id: 1, key, kind, severity: "warn", title: "t", detail: "d", hostId, since: 0, resolved: null, causedBy: null });
+  const alert = (key: string, kind: Alert["kind"], hostId: number | null): Alert => ({ id: 1, key, kind, severity: "warn", title: "t", detail: "d", hostId, since: 0, resolved: null, causedBy: null, silenced: null });
   it("matches by kind, host and service, and never when unscoped", () => {
     const full = alert("disk:3:/", "diskFull", 3);
     expect(runbookMatches({ ...base, alertKinds: ["diskFull"] }, full)).toBe(true);

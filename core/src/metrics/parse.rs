@@ -295,6 +295,7 @@ pub fn join_mounts(mounts: &[&str], df: &HashMap<String, (String, u64, u64, u64)
             total: *total,
             used: *used,
             avail: *avail,
+            read_only: f.get(3).is_some_and(|o| o.split(',').any(|x| x == "ro")),
         });
     }
     out

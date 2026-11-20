@@ -44,9 +44,9 @@ export function mockSample(id: number, t: number): Sample {
     swapTotal: 4 * GiB,
     swapUsed: 0.4 * GiB,
     mounts: [
-      { device: "/dev/nvme0n1p2", mount: "/", fstype: "ext4", total: 480 * GiB, used: 131 * GiB, avail: 325 * GiB },
-      { device: "/dev/sda1", mount: "/mnt/media", fstype: "xfs", total: 7450 * GiB, used: 6630 * GiB, avail: 820 * GiB },
-      { device: "/dev/nvme0n1p1", mount: "/boot/efi", fstype: "vfat", total: 0.5 * GiB, used: 0.01 * GiB, avail: 0.49 * GiB },
+      { device: "/dev/nvme0n1p2", mount: "/", fstype: "ext4", total: 480 * GiB, used: 131 * GiB, avail: 325 * GiB, readOnly: false },
+      { device: "/dev/sda1", mount: "/mnt/media", fstype: "xfs", total: 7450 * GiB, used: 6630 * GiB, avail: 820 * GiB, readOnly: false },
+      { device: "/dev/nvme0n1p1", mount: "/boot/efi", fstype: "vfat", total: 0.5 * GiB, used: 0.01 * GiB, avail: 0.49 * GiB, readOnly: false },
     ],
     net: [
       { name: "eth0", rx, tx: rx / 6 },

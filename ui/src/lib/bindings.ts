@@ -329,7 +329,7 @@ export const commands = {
 	 *  The host's timeline for the last `days` days (1–90): recorded events
 	 *  always; the host's own history and Docker's when it answers.
 	 */
-	timelineGet: (hostId: number, days: number, options?: InvokeOptions) => __TAURI_INVOKE<Timeline>("timeline_get", { hostId, days }, options),
+	timelineGet: (hostId: number, days: number, options?: InvokeOptions) => __TAURI_INVOKE<Timeline_Serialize>("timeline_get", { hostId, days }, options),
 	/**  Forgets what Nightgrid recorded for the host (the host's own logs stay). */
 	timelineClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("timeline_clear", { hostId }, options),
 	journalQuery: (query: ChangeQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ChangeEntry_Serialize[]>("journal_query", { query }, options),
@@ -677,6 +677,22 @@ export const commands = {
 	/**  Re-evaluates now (after alert settings change). */
 	alertsRefresh: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_refresh", undefined, options),
 	alertsClearHistory: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_clear_history", undefined, options),
+	/**
+	 *  Acknowledges an active alert (D-198): no badge or notifications while it
+	 *  stays as it is. It ends when the alert gets worse, and otherwise when it
+	 *  clears, after a while, or never, as chosen.
+	 */
+	alertsAck: (key: string, how: AckFor, options?: InvokeOptions) => __TAURI_INVOKE<Silence_Serialize>("alerts_ack", { key, how }, options),
+	/**
+	 *  Mutes alerts like this one (D-198): this alert, its kind on its host, its
+	 *  host, or its kind everywhere; for `secs` seconds or (`None`) for good.
+	 */
+	alertsMute: (key: string, scope: MuteScope, secs: number | null, options?: InvokeOptions) => __TAURI_INVOKE<Silence_Serialize>("alerts_mute", { key, scope, secs }, options),
+	/**
+	 *  Ends an acknowledgement or mute now. Its alerts count again, without a
+	 *  new notification.
+	 */
+	alertsUnsilence: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_unsilence", { id }, options),
 	/**  What depends on what (M10s). */
 	alertsDepsList: (options?: InvokeOptions) => __TAURI_INVOKE<Dependency[]>("alerts_deps_list", undefined, options),
 	/**  Adds "`child` depends on `parent`" (refuses loops). */
@@ -1179,6 +1195,15 @@ export type AccessReport_Serialize = {
 	findings: Finding[],
 };
 
+/**  How long an acknowledgement lasts. */
+export type AckFor = 
+/**  Until the alert clears (or gets worse). */
+{ type: "clear" } | 
+/**  For this many seconds (or until it gets worse), even if it clears and comes back. */
+{ type: "for"; secs: number } | 
+/**  For good, unless it gets worse. */
+{ type: "always" };
+
 export type Action = { kind: "start" } | { kind: "stop" } | { kind: "restart" } | { kind: "kill" } | { kind: "pause" } | { kind: "unpause" } | { kind: "remove"; force: boolean };
 
 export type ActionResult = ActionResult_Serialize | ActionResult_Deserialize;
@@ -1236,6 +1261,11 @@ export type AlertSettings_Deserialize = {
 	diskFull?: boolean,
 	/**  Percent used that counts as full, 50–99. */
 	diskPercent?: number,
+	/**
+	 *  No DISK FULL for read-only and by-design-full system mounts (WSL and
+	 *  Docker Desktop mounts, snaps, CD/DVD and other images) (D-198).
+	 */
+	diskSkipSystem?: boolean,
 	serviceDown?: boolean,
 	certExpiring?: boolean,
 	/**  Alert when a certificate expires within this many days, 1–90. */
@@ -1310,6 +1340,11 @@ export type AlertSettings_Serialize = {
 	diskFull: boolean,
 	/**  Percent used that counts as full, 50–99. */
 	diskPercent: number,
+	/**
+	 *  No DISK FULL for read-only and by-design-full system mounts (WSL and
+	 *  Docker Desktop mounts, snaps, CD/DVD and other images) (D-198).
+	 */
+	diskSkipSystem: boolean,
 	serviceDown: boolean,
 	certExpiring: boolean,
 	/**  Alert when a certificate expires within this many days, 1–90. */
@@ -1396,6 +1431,11 @@ export type Alert_Deserialize = {
 	 *  (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
 	 */
 	causedBy?: number | null,
+	/**
+	 *  The acknowledgement or mute that silences it (D-198,
+	 *  [`crate::silence`]). Filled in for the snapshot only.
+	 */
+	silenced?: number | null,
 };
 
 export type Alert_Serialize = {
@@ -1415,6 +1455,11 @@ export type Alert_Serialize = {
 	 *  (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
 	 */
 	causedBy: number | null,
+	/**
+	 *  The acknowledgement or mute that silences it (D-198,
+	 *  [`crate::silence`]). Filled in for the snapshot only.
+	 */
+	silenced: number | null,
 };
 
 export type AlertsSnapshot = AlertsSnapshot_Serialize | AlertsSnapshot_Deserialize;
@@ -1431,6 +1476,11 @@ export type AlertsSnapshot_Deserialize = {
 	logNotes: LogNote_Deserialize[],
 	/**  Log events left out by a mute or as 404 noise, per source, since the app started. */
 	logQuiet: LogQuiet[],
+	/**
+	 *  Acknowledged alerts and mutes, newest first (D-198). Active alerts
+	 *  they cover carry the silence's id in `silenced`.
+	 */
+	silences: Silence_Deserialize[],
 };
 
 export type AlertsSnapshot_Serialize = {
@@ -1445,6 +1495,11 @@ export type AlertsSnapshot_Serialize = {
 	logNotes: LogNote_Serialize[],
 	/**  Log events left out by a mute or as 404 noise, per source, since the app started. */
 	logQuiet: LogQuiet[],
+	/**
+	 *  Acknowledged alerts and mutes, newest first (D-198). Active alerts
+	 *  they cover carry the silence's id in `silenced`.
+	 */
+	silences: Silence_Serialize[],
 };
 
 export type AmpAction = "start" | "stop" | "restart";
@@ -4546,7 +4601,9 @@ export type HostCapacity_Serialize = {
 	disks: CapDisk_Serialize[],
 };
 
-export type HostEvent = {
+export type HostEvent = HostEvent_Serialize | HostEvent_Deserialize;
+
+export type HostEvent_Deserialize = {
 	/**  Unix seconds. */
 	at: number,
 	kind: EventKind,
@@ -4554,6 +4611,20 @@ export type HostEvent = {
 	title: string,
 	detail: string,
 	origin: Origin,
+	/**  Recorded while the alert was acknowledged or muted (D-198). */
+	silenced?: SilenceMode | null,
+};
+
+export type HostEvent_Serialize = {
+	/**  Unix seconds. */
+	at: number,
+	kind: EventKind,
+	level: Level,
+	title: string,
+	detail: string,
+	origin: Origin,
+	/**  Recorded while the alert was acknowledged or muted (D-198). */
+	silenced: SilenceMode | null,
 };
 
 /**  Shell history for DRIFT: the newest lines plus older ones that match the question. */
@@ -6289,13 +6360,30 @@ export type MountForecast_Serialize = {
 };
 
 /**  Usage of one mounted filesystem. */
-export type MountUsage = {
+export type MountUsage = MountUsage_Serialize | MountUsage_Deserialize;
+
+/**  Usage of one mounted filesystem. */
+export type MountUsage_Deserialize = {
 	device: string,
 	mount: string,
 	fstype: string,
 	total: number,
 	used: number,
 	avail: number,
+	/**  Mounted read-only (`ro` in /proc/mounts). */
+	readOnly?: boolean,
+};
+
+/**  Usage of one mounted filesystem. */
+export type MountUsage_Serialize = {
+	device: string,
+	mount: string,
+	fstype: string,
+	total: number,
+	used: number,
+	avail: number,
+	/**  Mounted read-only (`ro` in /proc/mounts). */
+	readOnly: boolean,
 };
 
 export type MountView = MountView_Serialize | MountView_Deserialize;
@@ -6315,6 +6403,17 @@ export type MountView_Serialize = {
 	rw: boolean,
 	name: string | null,
 };
+
+/**  What a mute covers. */
+export type MuteScope = 
+/**  This one alert (one mount, container, service…). */
+{ type: "alert" } | 
+/**  This kind of alert on this alert's host. */
+{ type: "kindOnHost" } | 
+/**  Every alert on this alert's host. */
+{ type: "host" } | 
+/**  This kind of alert on every host. */
+{ type: "kind" };
 
 export type NetDevice = NetDevice_Serialize | NetDevice_Deserialize;
 
@@ -8877,7 +8976,7 @@ export type Sample_Deserialize = {
 	memUsed: number,
 	swapTotal: number,
 	swapUsed: number,
-	mounts: MountUsage[],
+	mounts: MountUsage_Deserialize[],
 	/**  Per interface (loopback left out). */
 	net: Rate[],
 	/**  Sum over physical-looking interfaces (no veth/docker/bridges). */
@@ -8910,7 +9009,7 @@ export type Sample_Serialize = {
 	memUsed: number,
 	swapTotal: number,
 	swapUsed: number,
-	mounts: MountUsage[],
+	mounts: MountUsage_Serialize[],
 	/**  Per interface (loopback left out). */
 	net: Rate[],
 	/**  Sum over physical-looking interfaces (no veth/docker/bridges). */
@@ -9341,6 +9440,50 @@ export type SideInfo = {
 	manager: string,
 	files: number,
 	packages: number,
+};
+
+export type Silence = Silence_Serialize | Silence_Deserialize;
+
+export type SilenceMode = "ack" | "mute";
+
+export type Silence_Deserialize = {
+	id: number,
+	mode: SilenceMode,
+	/**  One alert (`disk:3:/srv`). Acknowledgements always have one. */
+	key?: string | null,
+	/**  Mutes without a key: this kind of alert (on `host_id`, or everywhere). */
+	kind?: AlertKind | null,
+	/**  Mutes without a key: this host (every kind, or `kind` only). */
+	hostId?: number | null,
+	/**  What it silences, in words, for the list: `DISK FULL · nas01 · /volume1`. */
+	label: string,
+	/**  Acknowledgements: the severity acknowledged. Worse lifts it. */
+	severity?: Severity | null,
+	/**  Ends at this time (unix seconds); `None` = no time limit. */
+	until?: number | null,
+	/**  Acknowledgements: also ends when the alert clears. */
+	untilClear: boolean,
+	created: number,
+};
+
+export type Silence_Serialize = {
+	id: number,
+	mode: SilenceMode,
+	/**  One alert (`disk:3:/srv`). Acknowledgements always have one. */
+	key: string | null,
+	/**  Mutes without a key: this kind of alert (on `host_id`, or everywhere). */
+	kind: AlertKind | null,
+	/**  Mutes without a key: this host (every kind, or `kind` only). */
+	hostId: number | null,
+	/**  What it silences, in words, for the list: `DISK FULL · nas01 · /volume1`. */
+	label: string,
+	/**  Acknowledgements: the severity acknowledged. Worse lifts it. */
+	severity: Severity | null,
+	/**  Ends at this time (unix seconds); `None` = no time limit. */
+	until: number | null,
+	/**  Acknowledgements: also ends when the alert clears. */
+	untilClear: boolean,
+	created: number,
 };
 
 export type SlaIncident = {
@@ -10290,8 +10433,18 @@ export type TextFile_Serialize = {
 	stat: Entry_Serialize,
 };
 
-export type Timeline = {
-	events: HostEvent[],
+export type Timeline = Timeline_Serialize | Timeline_Deserialize;
+
+export type Timeline_Deserialize = {
+	events: HostEvent_Deserialize[],
+	/**  What couldn't be read (journal permissions, Docker, an offline host). */
+	notes: string[],
+	/**  Unix seconds the timeline starts at. */
+	since: number,
+};
+
+export type Timeline_Serialize = {
+	events: HostEvent_Serialize[],
 	/**  What couldn't be read (journal permissions, Docker, an offline host). */
 	notes: string[],
 	/**  Unix seconds the timeline starts at. */

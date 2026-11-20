@@ -69,6 +69,9 @@ pub struct MountUsage {
     pub used: u64,
     #[cfg_attr(feature = "specta", specta(type = u32))]
     pub avail: u64,
+    /// Mounted read-only (`ro` in /proc/mounts).
+    #[serde(default)]
+    pub read_only: bool,
 }
 
 /// One temperature sensor.

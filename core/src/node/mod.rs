@@ -217,6 +217,7 @@ pub fn app_alert(a: &NodeAlert, host: HostId) -> Option<Alert> {
         since: a.since,
         resolved: a.resolved,
         caused_by: None,
+        silenced: None,
     })
 }
 

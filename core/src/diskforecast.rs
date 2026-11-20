@@ -208,6 +208,7 @@ mod tests {
             total: used + avail,
             used,
             avail,
+            read_only: false,
         }
     }
 

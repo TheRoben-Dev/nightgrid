@@ -63,6 +63,7 @@ pub mod rotation;
 pub mod secrets;
 pub mod services;
 pub mod settings;
+pub mod silence;
 pub mod sla;
 pub mod ssh;
 pub mod stack_dirs;

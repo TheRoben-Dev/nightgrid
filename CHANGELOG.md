@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Added
+- **Acknowledge alerts.** **✓ Ack** on an alert keeps it in the list but takes it off the badge and tray and stops every notification for it (desktop, inbox, ntfy, webhooks). Pick **Until it clears**, a time (1 hour to 30 days, or custom) or **Permanently**. Whatever you pick, it comes back if it gets worse, such as a disk crossing from WARN into CRITICAL.
+- **Mute alerts.** **Mute…** silences this alert, every alert of its kind on its host, everything on its host, or its kind on every host, for a time or forever. **ACKNOWLEDGED & MUTED** in the Alerts panel lists them with the time left and an **Undo**. Silenced alerts stay on the host's timeline, tagged **ACKNOWLEDGED** or **MUTED**, and aren't counted as problems.
+- **An alert that gets worse notifies again** (WARN to CRITICAL), and a timed acknowledgement or mute that runs out while its alert is still active notifies once.
+
+### Changed
+- **DISK FULL skips system mounts** by default (Settings → Alerts → **Skip system mounts**): read-only mounts and ones full by design, such as WSL's and Docker Desktop's `/mnt/wsl/…` (for example `/mnt/wsl/docker-desktop/cli-tools`), snaps and CD/DVD images.
+
 ## [1.18.0] - 2026-11-20
 
 ### Added
