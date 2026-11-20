@@ -213,7 +213,7 @@
           <button
             type="button"
             class="btn ghost tiny"
-            data-guide="alert-mute-rule"
+            data-guide="alert-ack"
             aria-expanded={menu?.id === a.id && menu.what === "mute"}
             title="Silence this alert, its kind or its host for a while or for good"
             onclick={() => openMenu(a, "mute")}>Mute…</button
@@ -301,7 +301,7 @@
       <span class="label">ACKNOWLEDGED & MUTED</span>
       <span class="muted small sublead">no badge, sound or notifications; still on the timeline</span>
     </div>
-    <ul class="list past" aria-label="Acknowledged and muted" data-guide="alert-silences">
+    <ul class="list past" aria-label="Acknowledged and muted">
       {#each alerts.silences as s (s.id)}
         <li class="row hushed {alerts.covered(s)[0]?.severity ?? ''}">
           <span class="bar" aria-hidden="true"></span>
