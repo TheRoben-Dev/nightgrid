@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Added
+- **Windows: pick PowerShell, Command Prompt or a WSL distro for the local shell.** On Windows the terminal's **+ NEW** menu lists each shell on this computer: PowerShell 7 (when installed), Windows PowerShell, Command Prompt and every installed WSL distro. WSL shells start through `wsl.exe` in the distro's Linux home (`~`), not in the Windows folder. **Settings → Terminal → Local shell** picks what `Ctrl+Shift+T` and **Local shell** open. Shown only when WSL is installed; macOS and Linux are unchanged.
+
 ## [1.16.1] - 2026-11-20
 
 ### Fixed

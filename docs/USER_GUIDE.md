@@ -29,6 +29,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 - Click a host to go to its terminal (a new one opens if it has none; Alt-click or Cmd-click always opens a new one), or press `Mod+2`. Use `Ctrl+Shift+T` for a local shell.
 - **+ NEW** in the tab bar opens this computer or any saved host, as a new tab or split next to the focused pane. Type to filter, arrows and Enter to pick.
+- **Windows:** "this computer" is one row per shell: PowerShell, Command Prompt and each installed WSL distro (type `wsl` to filter). A WSL shell starts in that distro's Linux home. **Settings → Terminal → Local shell** sets what `Ctrl+Shift+T` opens.
 - Panes and tabs:
   - Split right with `Ctrl+Shift+D` and split down with `Ctrl+Shift+S`.
   - Close a pane with `Ctrl+Shift+W`.

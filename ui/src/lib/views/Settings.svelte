@@ -17,6 +17,7 @@
   import SoundPanel from "../components/settings/SoundPanel.svelte";
   import { SETTINGS_TABS } from "../settingsTabs";
   import { ui } from "../stores/ui.svelte";
+  import { terms } from "../stores/terms.svelte";
   import { scramble } from "../scramble";
   import { updates } from "../stores/updates.svelte";
   import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
@@ -35,6 +36,11 @@
     info: AppInfo | null;
   }
   let { info }: Props = $props();
+
+  // Windows: the shells "Local shell" can open (PowerShell, cmd, WSL distros).
+  $effect(() => {
+    if (ui.settingsTab === "terminal") void terms.loadLocalShells();
+  });
 
   let diagBusy = $state(false);
   let diagNote = $state<string | null>(null);
@@ -288,6 +294,16 @@
       format={(v) => (v >= 1000 ? `${v / 1000}k` : String(v))}
       onchange={(v) => settings.update({ termScrollback: v })}
     />
+    {#if terms.localShells.length}
+      <label class="field">
+        <span>Local shell</span>
+        <select class="input" value={settings.value.termLocalShell} onchange={(e) => settings.update({ termLocalShell: e.currentTarget.value })}>
+          <option value="">Default ({terms.localShells[0]?.name})</option>
+          {#each terms.localShells as sh (sh.id)}<option value={sh.id}>{sh.wsl ? `${sh.name} (WSL)` : sh.name}</option>{/each}
+        </select>
+        <span class="field-hint">What "Local shell" and its shortcut open. The terminal's + menu lists them all, so any one is a click away. WSL shells start in the distro's Linux home.</span>
+      </label>
+    {/if}
     <div class="toggles">
       <Toggle
         label="Solid background"
