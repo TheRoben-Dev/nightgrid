@@ -317,7 +317,13 @@ export const mockDocker = {
       let i = backlog;
       logStreams.set(
         sid,
-        setInterval(() => on({ kind: "lines", lines: [fakeLine(name, i++)] }), 700),
+        (() => {
+          // Browser preview knob for busy containers: localStorage "mock.logRate" = lines per second.
+          const rate = Number(globalThis.localStorage?.getItem("mock.logRate")) || 0;
+          if (rate <= 0) return setInterval(() => on({ kind: "lines", lines: [fakeLine(name, i++)] }), 700);
+          const per = Math.max(1, Math.round(rate / 20));
+          return setInterval(() => on({ kind: "lines", lines: Array.from({ length: per }, () => fakeLine(name, i++)) }), 50);
+        })(),
       );
     } else {
       setTimeout(() => on({ kind: "end", error: null }), 100);

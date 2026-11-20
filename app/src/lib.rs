@@ -380,6 +380,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         hub_cmd::hub_join,
         hub_cmd::hub_leave,
         hub_cmd::hub_allow_networks,
+        hub_cmd::hub_repair_link,
+        hub_cmd::node_link_enable,
         hub_cmd::hub_members,
         powercost_cmd::power_profile_set,
         powercost_cmd::power_profile_clear,

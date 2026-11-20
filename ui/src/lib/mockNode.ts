@@ -119,6 +119,11 @@ function nodeId(hostId: number) {
   return `${hostId.toString(16).padStart(4, "0")}5f0c2a91d3e4b6a7c8d9e0f1a2b3c4`.slice(0, 32);
 }
 
+/** Mock members with an odd id are LAN-only (no tailnet), so the hub's collector must also listen on its LAN address. */
+const lanOnly = (id: number) => id % 2 === 1;
+const hubListen = new Set<string>();
+const linked = new Set<number>();
+
 export const mockHub = {
   async setup(hostId: number): Promise<NodeSetup> {
     const v = (await all()).find((x) => x.hostId === hostId);
@@ -130,12 +135,18 @@ export const mockHub = {
       nodeId: ready ? nodeId(hostId) : null,
       link: ready
         ? {
-            access: members.has(hostId) || hubHost === hostId ? "ok" : "off",
+            access: members.has(hostId) || hubHost === hostId || linked.has(hostId) ? "ok" : "off",
             fingerprint: "9f".repeat(32),
             listening: `100.64.0.${hostId}:7419`,
             serve: members.has(hostId) ? ["ping", "sync"] : ["ping"],
-            peers: members.has(hostId) ? [{ id: hubId, name: "hub", address: "100.64.0.1:7420", fingerprint: "ab".repeat(32) }] : [],
-            readings: members.has(hostId) ? [{ id: hubId, at: now - 30, ok: true, rttMs: 3, version: "0.26.0", hostname: "hub", error: null }] : [],
+            peers: members.has(hostId) ? [{ id: hubId, name: "hub", address: lanOnly(hostId) ? "192.168.0.1:7420" : "100.64.0.1:7420", fingerprint: "ab".repeat(32) }] : [],
+            readings: members.has(hostId)
+              ? [
+                  lanOnly(hostId) && !hubListen.has("192.168.0.1:7420")
+                    ? { id: hubId, at: now - 30, ok: false, rttMs: null, version: null, hostname: null, error: "connection refused (is the link on there?)" }
+                    : { id: hubId, at: now - 30, ok: true, rttMs: 3, version: "0.26.0", hostname: "hub", error: null },
+                ]
+              : [],
             hubId: members.has(hostId) ? hubId : null,
             canJoin: true,
           }
@@ -148,6 +159,7 @@ export const mockHub = {
                 hubId,
                 fingerprint: "ab".repeat(32),
                 listening: "100.64.0.1:7420",
+                listenAll: ["100.64.0.1:7420", ...hubListen],
                 collector: "ok",
                 storeBytes: 9_437_184,
                 members: [...members].map((m) => ({ id: nodeId(m), name: `host ${m}`, state: "ok", lastContact: now - 40, version: "0.26.0", hostname: `host${m}`, alerts: 0, error: null })),
@@ -187,13 +199,22 @@ export const mockHub = {
   },
   async join(memberId: number, hub: number): Promise<HubJoinResult> {
     members.add(memberId);
-    return { steps: ["turned on the node-to-node link", `paired with the hub on host ${hub}`, "added to the hub's members"], warnings: [], hubNetworks: memberId % 2 ? [`192.168.0.${memberId}/32`] : [] };
+    return { steps: ["turned on the node-to-node link", `paired with the hub on host ${hub}`, "added to the hub's members"], warnings: [], hubNetworks: lanOnly(memberId) ? [`192.168.0.${memberId}/32`] : [], hubListen: lanOnly(memberId) ? ["192.168.0.1:7420"] : [] };
   },
   async leave(memberId: number): Promise<HubJoinResult> {
     members.delete(memberId);
-    return { steps: ["removed from the hub's members", "unpaired from the hub"], warnings: [], hubNetworks: [] };
+    return { steps: ["removed from the hub's members", "unpaired from the hub"], warnings: [], hubNetworks: [], hubListen: [] };
   },
-  async allowNetworks(networks: string[]): Promise<ConfigSaveReport> {
-    return { ok: true, steps: [`the collector may reach ${networks.join(", ")}`, "ran allow collect again for its networks"], warnings: [], failure: null };
+  async allowNetworks(networks: string[], listen: string[]): Promise<ConfigSaveReport> {
+    for (const l of listen) hubListen.add(l);
+    return { ok: true, steps: [...listen.map((l) => `the collector now also answers on ${l}`), `the collector may reach ${networks.join(", ")}`, "ran allow collect again for its networks"], warnings: [], failure: null };
+  },
+  async linkEnable(hostId: number): Promise<ConfigSaveReport> {
+    linked.add(hostId);
+    return { ok: true, steps: ["turned on the node-to-node link (allow peers)", `the link is on, listening on 100.64.0.${hostId}:7419`], warnings: [], failure: null };
+  },
+  async repairLink(memberId: number): Promise<ConfigSaveReport> {
+    hubListen.add("192.168.0.1:7420");
+    return { ok: true, steps: ["updated the hub from 0.26.0 to 0.32.0", "the collector now also answers on 192.168.0.1:7420", `the collector may reach 192.168.0.${memberId}/32`], warnings: [], failure: null };
   },
 };

@@ -14,13 +14,15 @@
     setup: NodeSetup | undefined;
     role: NodeRole;
     hubName: string | null;
+    /** The hub's host, to fix a member's link to it. */
+    hubHost?: number | null;
     tab: "status" | "link" | "config" | "logs";
     part: NodePart;
     onjoin: () => void;
     onleave: () => void;
     onchange: () => Promise<void> | void;
   }
-  let { hostId, name, setup, role, hubName, tab, part = $bindable(), onjoin, onleave, onchange }: Props = $props();
+  let { hostId, name, setup, role, hubName, hubHost = null, tab, part = $bindable(), onjoin, onleave, onchange }: Props = $props();
 
   let text = $state("");
   let original = $state("");
@@ -86,6 +88,40 @@
   });
 
   const link = $derived(setup?.link);
+  let repaired = $state<ConfigSaveReport | null>(null);
+  let linkOn = $state<ConfigSaveReport | null>(null);
+
+  /** Turns the link on as root; without a tailnet address it listens on the LAN. */
+  async function enableLink() {
+    busy = true;
+    error = null;
+    linkOn = null;
+    try {
+      linkOn = await system.withSudo("turn on the node-to-node link", (sudo) => api.nodeLinkEnable(hostId, sudo), name);
+      await onchange();
+    } catch (e) {
+      error = errorText(e);
+    } finally {
+      busy = false;
+    }
+  }
+
+  /** A member can't reach its hub: Nightgrid fixes it on the hub host (update the hub, listen where the member pings). */
+  async function repair() {
+    if (hubHost == null) return;
+    const h = hubHost;
+    busy = true;
+    error = null;
+    repaired = null;
+    try {
+      repaired = await system.withSudo(`let ${name} reach the hub`, (sudo) => api.hubRepairLink(hostId, h, sudo), hubName ?? undefined);
+      await onchange();
+    } catch (e) {
+      error = errorText(e);
+    } finally {
+      busy = false;
+    }
+  }
   const peerName = (id: string) => link?.peers.find((p) => p.id === id)?.name ?? id.slice(0, 8);
 </script>
 
@@ -135,13 +171,35 @@
   {#if link}
     <h4 class="sub">NODE-TO-NODE LINK</h4>
     <div class="kv"><span>State</span><span class={link.access === "ok" ? "ok-text" : "muted"}>{link.access === "off" ? "off (not allowed by root yet)" : link.access}</span></div>
-    <div class="kv"><span>Listens on</span><span class="data">{link.listening ?? "nowhere (no tailnet address; set [peers] listen)"}</span></div>
+    <div class="kv"><span>Listens on</span><span class="data">{link.listening ?? (link.access === "ok" ? "nowhere (no tailnet address)" : "nowhere yet")}</span></div>
     <div class="kv"><span>Serves peers</span><span class="data">{link.serve.join(", ") || "nothing"}</span></div>
+    {#if link.access !== "ok" || !link.listening}
+      <p class="muted small">
+        {#if link.access !== "ok"}The link is off until root allows it (<code>sudo nightgrid-node allow peers</code>).{:else}The link has no tailnet address to listen on.{/if}
+        Making a hub or joining one turns it on for you{#if !link.listening}; without Tailscale it uses this host's LAN address (<code>[peers] listen = "lan"</code>){/if}. Or do it now:
+      </p>
+      <div class="row"><button type="button" class="btn tiny" disabled={busy} onclick={enableLink}>{busy ? "Turning on…" : "Turn on the link"}</button></div>
+    {/if}
+    {#if linkOn}
+      {#each linkOn.steps as s, i (i)}<p class="small {linkOn.ok ? 'ok-text' : 'muted'}">{s}</p>{/each}
+      {#each linkOn.warnings as w, i (i)}<p class="warn-text small">{w}</p>{/each}
+      {#if linkOn.failure}<pre class="error-text small fail">{linkOn.failure}</pre>{/if}
+    {/if}
     {#if link.readings.length}
       <h4 class="sub">LINKED</h4>
       {#each link.readings as r (r.id)}
         <div class="kv"><span>{peerName(r.id)}</span><span class={r.ok ? "ok-text" : "warn-text"} title={r.error ?? ""}>{r.ok ? `reachable${r.rttMs != null ? ` · ${r.rttMs} ms` : ""}` : (r.error ?? "unreachable")}</span></div>
+        {#if !r.ok && r.id === link.hubId && hubHost != null}
+          <p class="muted small">The hub still pulls this host (it connects out), but this node can't reach the hub back for its pings. Usually the hub is older than its node, or its collector doesn't answer on the address this host uses.</p>
+          <div class="row"><button type="button" class="btn tiny primary" disabled={busy} onclick={repair}>{busy ? "Fixing…" : `Fix on ${hubName ?? "the hub"}`}</button></div>
+        {/if}
       {/each}
+      {#if repaired}
+        {#each repaired.steps as s, i (i)}<p class="small {repaired.ok ? 'ok-text' : 'muted'}">{s}</p>{/each}
+        {#each repaired.warnings as w, i (i)}<p class="warn-text small">{w}</p>{/each}
+        {#if repaired.failure}<pre class="error-text small fail">{repaired.failure}</pre>{/if}
+        {#if repaired.ok}<p class="muted small">The link checks again within a minute (or press Check again).</p>{/if}
+      {/if}
     {/if}
   {/if}
 {:else if tab === "config"}
