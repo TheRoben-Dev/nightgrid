@@ -11,7 +11,8 @@
 //! tunnel" uses.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use nightgrid_core::hosts::HostId;
@@ -19,6 +20,7 @@ use nightgrid_core::http;
 use nightgrid_core::webui::{parse_url, WebUrl};
 use serde::Serialize;
 use specta::Type;
+use tauri::webview::PageLoadEvent;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_opener::OpenerExt as _;
 
@@ -47,6 +49,11 @@ pub struct WebUiOpen {
 
 const DIRECT_TIMEOUT: Duration = Duration::from_millis(1500);
 const PROBE_TIMEOUT: Duration = Duration::from_secs(8);
+/// How long a window may stay on its empty first document before it says the
+/// page didn't load. WKWebView reports nothing when a load fails before the
+/// page commits (a blocked address, a refused connection), so a window that
+/// never committed is the only sign, and without this it stays black.
+const LOAD_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Dials `host:port` with the OS network only: the window's web engine can't
 /// use Nightgrid's built-in tailnet, so that path doesn't count here.
@@ -121,6 +128,9 @@ fn open_window(app: &AppHandle, url: &str, title: &str) -> CmdResult<()> {
     };
     let parsed: tauri::Url = url.parse().map_err(|_| CommandError::msg("That address can't be opened."))?;
     let opener = app.clone();
+    // Set once the first page commits; until then the window is blank.
+    let committed = Arc::new(AtomicBool::new(false));
+    let seen = committed.clone();
     let title = title.trim();
     let title = if title.is_empty() { url.to_owned() } else { title.chars().take(80).collect() };
     let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::External(parsed))
@@ -137,6 +147,11 @@ fn open_window(app: &AppHandle, url: &str, title: &str) -> CmdResult<()> {
             }
             tauri::webview::NewWindowResponse::Deny
         })
+        .on_page_load(move |_, p| {
+            if matches!(p.event(), PageLoadEvent::Started | PageLoadEvent::Finished) && p.url().scheme() != "about" {
+                seen.store(true, Ordering::SeqCst);
+            }
+        })
         .build()
         .map_err(|e| CommandError::msg(format!("Couldn't open a window: {e}")))?;
     hub.open.lock().expect("poisoned").insert(url.to_owned(), label.clone());
@@ -147,5 +162,72 @@ fn open_window(app: &AppHandle, url: &str, title: &str) -> CmdResult<()> {
             app.state::<WebWindows>().open.lock().expect("poisoned").remove(&key);
         }
     });
+    let script = load_failed_script(url);
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(LOAD_TIMEOUT).await;
+        if !committed.load(Ordering::SeqCst) {
+            // The window may have been closed meanwhile; eval then fails quietly.
+            let _ = window.eval(&script);
+        }
+    });
     Ok(())
+}
+
+/// Script that turns the window's empty first document into an error page:
+/// what was being loaded, Try again, and Open in browser (a `_blank` link, so
+/// `on_new_window` hands it to the system browser). The DOM is built with
+/// `textContent`, so nothing in the URL is ever parsed as HTML, and changing
+/// the empty document doesn't cancel a load that is still going.
+fn load_failed_script(url: &str) -> String {
+    let u = serde_json::to_string(url).unwrap_or_else(|_| "\"\"".into());
+    let plain_http = url.starts_with("http://");
+    let why = if cfg!(target_os = "macos") && plain_http {
+        "Nothing came back within 15 seconds. The service answered Nightgrid's check, so the window's web engine \
+         refused or lost the page: on macOS this happens to plain http addresses when the app isn't allowed to load them, \
+         and to pages that redirect somewhere this computer can't reach."
+    } else {
+        "Nothing came back within 15 seconds. The service answered Nightgrid's check, so the page itself didn't load: \
+         it may redirect somewhere this computer can't reach, or still be starting."
+    };
+    let why = serde_json::to_string(why).unwrap_or_default();
+    format!(
+        r##"(function(){{
+if (document.getElementById("ng-load-failed")) return;
+var url = {u};
+var d = document;
+d.documentElement.innerHTML = "";
+var st = d.createElement("style");
+st.textContent = "html,body{{margin:0;height:100%;background:#07080b;color:#c9d1d9;font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}}"
+ + "#ng-load-failed{{max-width:620px;margin:12vh auto 0;padding:0 24px}}"
+ + "h1{{font-size:13px;letter-spacing:.14em;color:#ff4d8d;margin:0 0 14px}}"
+ + "code{{display:block;word-break:break-all;color:#5ce1e6;margin:10px 0 16px}}"
+ + "p{{color:#8b949e;margin:0 0 18px}}"
+ + "a,button{{display:inline-block;font:inherit;font-size:12px;letter-spacing:.08em;padding:7px 14px;margin-right:10px;border:1px solid #2a3140;background:#10131a;color:#c9d1d9;text-decoration:none;cursor:pointer}}"
+ + "a:hover,button:hover{{border-color:#5ce1e6;color:#5ce1e6}}";
+d.head.appendChild(st);
+var box = d.createElement("div"); box.id = "ng-load-failed";
+var h = d.createElement("h1"); h.textContent = "PAGE DIDN'T LOAD";
+var c = d.createElement("code"); c.textContent = url;
+var p = d.createElement("p"); p.textContent = {why};
+var retry = d.createElement("button"); retry.type = "button"; retry.textContent = "TRY AGAIN";
+retry.onclick = function(){{ retry.textContent = "LOADING…"; location.href = url; setTimeout(function(){{ retry.textContent = "TRY AGAIN"; }}, 15000); }};
+var ext = d.createElement("a"); ext.href = url; ext.target = "_blank"; ext.rel = "noopener"; ext.textContent = "OPEN IN BROWSER";
+box.appendChild(h); box.appendChild(c); box.appendChild(p); box.appendChild(retry); box.appendChild(ext);
+d.body.appendChild(box);
+d.title = "Didn't load";
+}})();"##
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::load_failed_script;
+
+    #[test]
+    fn load_failed_script_keeps_the_url_out_of_html() {
+        let s = load_failed_script("http://x/\"</script><img src=a onerror=alert(1)>");
+        assert!(s.contains(r#"var url = "http://x/\"</script><img src=a onerror=alert(1)>";"#));
+        assert!(!s.contains("innerHTML = url") && s.contains("c.textContent = url"));
+        assert!(s.contains("OPEN IN BROWSER") && s.contains("target = \"_blank\""));
+    }
 }

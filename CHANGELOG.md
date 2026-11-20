@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 - **macOS stops asking for keychain access after every update.** Releases are now signed with one stable certificate instead of a new ad-hoc signature each time, so macOS keeps recognising the updated app and remembers "Always Allow" for saved passwords and tokens. The first update with the new signature asks one last time per saved secret; choose **Always Allow** and later updates stay quiet. No Apple developer account or notarization is involved, and opening a freshly downloaded build still needs the quarantine step in the README.
+- **Web UI windows no longer stay black on macOS.** macOS (14 and later) refused plain http pages on LAN and tailnet addresses inside Nightgrid's web windows without saying so. Web windows may now load them; the app's own connections are unchanged.
+- **A web window that can't load its page says so** after 15 seconds instead of staying black, with the address, **Try again** and **Open in browser**.
 
 ## [1.16.0] - 2026-11-20
 
