@@ -134,6 +134,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         docker_cmd::docker_logs_stop,
         docker_cmd::docker_forget,
         docker_cmd::docker_fix_access,
+        docker_cmd::docker_set_user,
         docker_cmd::docker_stacks,
         docker_cmd::docker_compose_run,
         docker_cmd::docker_compose_cancel,

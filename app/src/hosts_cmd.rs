@@ -194,6 +194,7 @@ pub fn ssh_config_import(state: State<'_, AppState>, aliases: Vec<String>) -> Cm
                 sleep_window: h.sleep_window.clone(),
                 role: h.role.clone(),
                 alert_offline: h.alert_offline,
+                docker_user: h.docker_user.clone(),
             };
             store.update_host(h.id, &input)?;
             updated += 1;

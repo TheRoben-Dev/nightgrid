@@ -170,8 +170,9 @@ pub fn compose_shell(stack: &Stack, args: &str, route: &Route) -> String {
     let docker = route.docker_cli();
     // Through sudo, docker-compose needs its absolute path too.
     let legacy = match route {
-        Route::Sudo(_) => "\"sudo -n $(command -v docker-compose)\"",
-        _ => "docker-compose",
+        Route::Sudo(_) => "\"sudo -n $(command -v docker-compose)\"".to_owned(),
+        Route::AsUser { user, .. } => format!("\"sudo -n -u {user} $(command -v docker-compose)\""),
+        _ => "docker-compose".to_owned(),
     };
     let files: String = stack.files.iter().map(|f| format!(" -f {}", shell_quote(f))).collect();
     format!(
@@ -593,6 +594,10 @@ mod tests {
         let sudo = compose_command(&s, ComposeOp::Up, &Route::Sudo("/usr/local/bin/docker".into()));
         assert!(sudo.contains("if sudo -n /usr/local/bin/docker compose version"), "{sudo}");
         assert!(sudo.contains("dc=\"sudo -n /usr/local/bin/docker compose\""), "{sudo}");
+        let as_user = Route::AsUser { user: "dockeruser".into(), bin: "/usr/local/bin/docker".into() };
+        let au = compose_command(&s, ComposeOp::Up, &as_user);
+        assert!(au.contains("dc=\"sudo -n -u dockeruser /usr/local/bin/docker compose\""), "{au}");
+        assert!(au.contains("dc=\"sudo -n -u dockeruser $(command -v docker-compose)\""), "{au}");
         let bad = Stack { name: "x;reboot".into(), ..s.clone() };
         assert!(check_stack(&bad).is_err());
         let rel = Stack { dir: "media".into(), ..s };

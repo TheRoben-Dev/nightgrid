@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use crate::files::path::shell_quote;
 use crate::hosts::HostId;
 use crate::ssh::client::Connection;
-pub use transport::{Route, PATH_FIX};
+pub use transport::{valid_docker_user, Route, PATH_FIX};
 
 /// Compose labels set by `docker compose` on every container it creates.
 pub const LABEL_PROJECT: &str = "com.docker.compose.project";
@@ -65,6 +65,20 @@ pub enum DockerError {
         steps: Vec<String>,
         /// The group change needs a new SSH login to apply.
         relogin: bool,
+    },
+    /// The host has a Docker user set, and the SSH login may not run
+    /// docker as that user without a password.
+    #[error(
+        "{login} can't run docker as {user} without a password: add the sudoers rule, or clear the host's Docker user"
+    )]
+    DockerUserSudo {
+        /// The SSH login.
+        login: String,
+        /// The host's Docker user.
+        user: String,
+        synology: bool,
+        /// Root commands that add the rule (see [`sudoers_step`]).
+        steps: Vec<String>,
     },
     #[error("no such container: {id}")]
     NotFound { id: String },
@@ -117,6 +131,118 @@ if [ "$st" = denied ]; then
   ls -l "$s" 2>/dev/null | awk '{print "sockgroup " $4}'
   [ -n "$d" ] && sudo -n "$d" version >/dev/null 2>&1 && echo sudo
 fi"#;
+
+/// Probe for a host with a Docker user (`__USER__` is replaced by a
+/// [`valid_docker_user`] name). Prints `nouser`, or the login, the docker
+/// CLI, `dsm|linux`, the docker group state for that user, the socket's
+/// group, the docker-compose path, and how `sudo -u` went (`rc N` + output).
+const USER_PROBE: &str = r#"PATH="$PATH:/usr/local/bin:/usr/local/sbin"; export PATH
+u=__USER__
+id -u "$u" >/dev/null 2>&1 || { echo nouser; exit 0; }
+id -un
+d=$(command -v docker 2>/dev/null); if [ -n "$d" ]; then echo "cli $d"; else echo nocli; fi
+if [ -f /etc.defaults/synoinfo.conf ] || [ -x /usr/syno/sbin/synogroup ]; then echo dsm; else echo linux; fi
+if id -Gn "$u" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then echo "group member"
+elif grep -q '^docker:' /etc/group 2>/dev/null; then echo group; else echo nogroup; fi
+for c in /var/run/docker.sock /run/docker.sock; do
+  [ -S "$c" ] && { echo "sock $c"; ls -lL "$c" 2>/dev/null | awk '{print "sockgroup " $4}'; break; }
+done
+c=$(command -v docker-compose 2>/dev/null); [ -n "$c" ] && echo "compose $c"
+if [ -n "$d" ]; then
+  o=$(sudo -n -u "$u" "$d" version --format '{{.Server.Version}}' 2>&1 </dev/null); echo "rc $?"
+  printf '%s\n' "$o" | head -n 5 | sed 's/^/out /'
+fi"#;
+
+/// What [`USER_PROBE`] found.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct UserProbe {
+    no_user: bool,
+    login: String,
+    cli_path: Option<String>,
+    synology: bool,
+    group_exists: bool,
+    in_group: bool,
+    socket: String,
+    socket_group: String,
+    compose_path: Option<String>,
+    rc: Option<i32>,
+    out: String,
+}
+
+fn parse_user_probe(out: &str) -> UserProbe {
+    let mut p = UserProbe::default();
+    let mut lines = out.lines().map(str::trim_end);
+    match lines.next().map(str::trim) {
+        Some("nouser") | None => {
+            p.no_user = true;
+            return p;
+        }
+        Some(l) => p.login = l.to_owned(),
+    }
+    let mut out_lines = Vec::new();
+    for l in lines {
+        if let Some(o) = l.strip_prefix("out ") {
+            out_lines.push(o.trim());
+            continue;
+        }
+        let l = l.trim();
+        match l {
+            "dsm" => p.synology = true,
+            "group" => p.group_exists = true,
+            "group member" => (p.group_exists, p.in_group) = (true, true),
+            _ => {
+                if let Some(v) = l.strip_prefix("cli ") {
+                    p.cli_path = Some(v.trim().to_owned()).filter(|v| !v.is_empty());
+                } else if let Some(v) = l.strip_prefix("sock ") {
+                    p.socket = v.trim().to_owned();
+                } else if let Some(v) = l.strip_prefix("sockgroup ") {
+                    p.socket_group = v.trim().to_owned();
+                } else if let Some(v) = l.strip_prefix("compose ") {
+                    p.compose_path = Some(v.trim().to_owned()).filter(|v| transport::safe_bin(v));
+                } else if let Some(v) = l.strip_prefix("rc ") {
+                    p.rc = v.trim().parse().ok();
+                }
+            }
+        }
+    }
+    p.out = out_lines.join("\n");
+    p
+}
+
+/// Prefix and file of the sudoers rule [`sudoers_step`] writes.
+const SUDOERS_DIR: &str = "/etc/sudoers.d/nightgrid-docker-";
+const SUDOERS_HEAD: &str = "sh -c 'umask 337; echo \"";
+
+/// sudoers ignores files whose names contain a dot.
+fn sudoers_file(user: &str) -> String {
+    let safe: String =
+        user.chars().map(|c| if c.is_ascii_alphanumeric() || c == '_' || c == '-' { c } else { '_' }).collect();
+    format!("{SUDOERS_DIR}{safe}")
+}
+
+/// Root command that lets `login` run the docker CLI (and docker-compose)
+/// as `user` without a password: one rule in its own sudoers.d file, mode
+/// 0440. Runnable as `sudo <step>` by hand; Nightgrid also checks it with
+/// `visudo` (see [`access_fix_script`]).
+pub fn sudoers_step(login: &str, user: &str, bins: &[String]) -> String {
+    format!("{SUDOERS_HEAD}{login} ALL=({user}) NOPASSWD: {}\" > {}'", bins.join(", "), sudoers_file(user))
+}
+
+/// The (login, user, bins) of a step [`sudoers_step`] made, if it is one.
+fn parse_sudoers_step(step: &str) -> Option<(String, String, Vec<String>)> {
+    let rest = step.strip_prefix(SUDOERS_HEAD)?;
+    let (rule, _) = rest.split_once('"')?;
+    let (login, rest) = rule.split_once(" ALL=(")?;
+    let (user, bins) = rest.split_once(") NOPASSWD: ")?;
+    let bins: Vec<String> = bins.split(", ").map(str::to_owned).collect();
+    let ok = valid_docker_user(login)
+        && valid_docker_user(user)
+        && !bins.is_empty()
+        && bins.len() <= 2
+        && bins.iter().all(|b| transport::safe_bin(b))
+        && sudoers_step(login, user, &bins) == step;
+    ok.then(|| (login.to_owned(), user.to_owned(), bins))
+}
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct Probe {
@@ -203,6 +329,46 @@ fn access_steps(p: &Probe) -> Vec<String> {
     steps
 }
 
+/// Why `sudo -u <user> docker` failed, as the error the card explains.
+fn user_failure(p: &UserProbe, user: &str, bin: String) -> DockerError {
+    let low = p.out.to_lowercase();
+    let sudo_refused =
+        ["password is required", "terminal is required", "not allowed", "may not run", "not in the sudoers"]
+            .iter()
+            .any(|m| low.contains(m));
+    if sudo_refused {
+        let mut bins = vec![bin];
+        bins.extend(p.compose_path.clone());
+        let steps = if valid_docker_user(&p.login) { vec![sudoers_step(&p.login, user, &bins)] } else { Vec::new() };
+        return DockerError::DockerUserSudo {
+            login: p.login.clone(),
+            user: user.to_owned(),
+            synology: p.synology,
+            steps,
+        };
+    }
+    if low.contains("permission denied") && !p.socket.is_empty() {
+        // The Docker user can't open the socket: same fix as for a login,
+        // for that user. sudo starts it with fresh groups, so no relogin.
+        let probe = Probe {
+            status: "denied".into(),
+            socket: p.socket.clone(),
+            user: user.to_owned(),
+            cli: true,
+            cli_path: None,
+            synology: p.synology,
+            group_exists: p.group_exists,
+            in_group: p.in_group,
+            session_group: true,
+            socket_group: p.socket_group.clone(),
+            sudo: false,
+        };
+        return permission_denied(&probe);
+    }
+    let why = if p.out.is_empty() { "no output".to_owned() } else { p.out.clone() };
+    DockerError::other(format!("docker as {user} failed: {why}"))
+}
+
 fn permission_denied(p: &Probe) -> DockerError {
     DockerError::PermissionDenied {
         socket: p.socket.clone(),
@@ -215,7 +381,8 @@ fn permission_denied(p: &Probe) -> DockerError {
 }
 
 /// The steps from a permission error as one root script (`set -e`: stops
-/// at the first failure).
+/// at the first failure). A sudoers rule is only written where sudo reads
+/// `/etc/sudoers.d`, and is removed again if `visudo` rejects it.
 pub fn access_fix_script(steps: &[String]) -> String {
     // sudo may hand over the login user's thin non-interactive PATH, which
     // lacks DSM's synogroup (/usr/syno/sbin) and sometimes the sbin tools.
@@ -223,8 +390,23 @@ pub fn access_fix_script(steps: &[String]) -> String {
         "set -e\nPATH=\"$PATH:/usr/syno/sbin:/usr/syno/bin:/usr/local/sbin:/usr/sbin:/sbin\"; export PATH\n",
     );
     for step in steps {
+        let rule = parse_sudoers_step(step);
+        if rule.is_some() {
+            s.push_str(
+                "grep -Eq '^[#@]includedir[[:space:]]+/etc/sudoers\\.d' /etc/sudoers || \
+                 { echo \"this host's /etc/sudoers doesn't read /etc/sudoers.d; add the rule with visudo instead\" >&2; exit 1; }\n\
+                 mkdir -p /etc/sudoers.d\n",
+            );
+        }
         s.push_str(step);
         s.push('\n');
+        if let Some((_, user, _)) = rule {
+            let f = sudoers_file(&user);
+            s.push_str(&format!(
+                "if command -v visudo >/dev/null 2>&1 && ! visudo -cf {f} >/dev/null; then rm -f {f}; \
+                 echo 'sudo rejected the rule, nothing was changed' >&2; exit 1; fi\n"
+            ));
+        }
     }
     s
 }
@@ -240,7 +422,7 @@ pub fn valid_access_step(step: &str) -> bool {
         ["groupadd", "docker"] => true,
         ["usermod", "-aG", "docker", u] | ["synogroup", "--add" | "--memberadd", "docker", u] => name_ok(u),
         ["chown", "root:docker", p] => *p == "/var/run/docker.sock" || *p == "/run/docker.sock",
-        _ => false,
+        _ => parse_sudoers_step(step).is_some(),
     }
 }
 
@@ -260,12 +442,19 @@ pub struct DockerHost {
     docker: Docker,
     pub route: Route,
     pub conn: Arc<Connection>,
+    /// The host's Docker user setting this engine was opened with.
+    pub docker_user: Option<String>,
 }
 
 impl DockerHost {
     /// Finds the daemon and picks a route: socket forwarding first, then
-    /// `docker system dial-stdio` if sshd refuses forwarding.
-    pub async fn connect(conn: Arc<Connection>) -> DockerResult<Self> {
+    /// `docker system dial-stdio` if sshd refuses forwarding. With a Docker
+    /// user (`docker_user`, POSIX hosts), docker always runs as that user
+    /// through `sudo -n -u`.
+    pub async fn connect(conn: Arc<Connection>, docker_user: Option<&str>) -> DockerResult<Self> {
+        if let Some(u) = docker_user.filter(|_| !conn.is_windows()) {
+            return Self::connect_as(conn, u).await;
+        }
         // Windows: the engine listens on a named pipe; only the CLI can reach it.
         if conn.is_windows() {
             let o = crate::win::run(&conn, "if (Get-Command docker -ErrorAction SilentlyContinue) { 'cli' }")
@@ -310,11 +499,40 @@ impl DockerHost {
         }
     }
 
+    /// Docker as the host's Docker user: `sudo -n -u <user> docker …` over
+    /// the login's connection. When that doesn't work, says why: no such
+    /// user, no sudoers rule (with the step that adds it), or the user
+    /// itself can't open the socket (the usual NO ACCESS steps, for it).
+    async fn connect_as(conn: Arc<Connection>, user: &str) -> DockerResult<Self> {
+        if !valid_docker_user(user) {
+            return Err(DockerError::other(format!("{user:?} isn't a valid Docker user name")));
+        }
+        let script = USER_PROBE.replace("__USER__", user);
+        let (_, out, _) = conn.exec(&script).await.map_err(DockerError::other)?;
+        let p = parse_user_probe(&String::from_utf8_lossy(&out));
+        if p.no_user {
+            return Err(DockerError::other(format!(
+                "there's no user {user} on this host: fix the host's Docker user in its settings"
+            )));
+        }
+        let Some(bin) = p.cli_path.clone().filter(|b| transport::safe_bin(b)) else {
+            return Err(DockerError::NotInstalled);
+        };
+        // The login itself: no sudo needed (or wanted).
+        if p.login == user {
+            return Box::pin(Self::connect(conn, None)).await;
+        }
+        if p.rc == Some(0) {
+            return Self::with_route(conn, Route::AsUser { user: user.to_owned(), bin }).await;
+        }
+        Err(user_failure(&p, user, bin))
+    }
+
     /// Connects over a fixed route and checks the daemon answers.
     pub async fn with_route(conn: Arc<Connection>, route: Route) -> DockerResult<Self> {
         let docker = transport::client(conn.clone(), route.clone(), API_TIMEOUT).map_err(DockerError::other)?;
         docker.ping().await.map_err(|e| DockerError::from_bollard(e, None))?;
-        Ok(Self { docker, route, conn })
+        Ok(Self { docker, route, conn, docker_user: None })
     }
 
     pub fn is_closed(&self) -> bool {
@@ -981,13 +1199,20 @@ impl DockerCache {
         Self::default()
     }
 
-    pub async fn get(&self, id: HostId, conn: Arc<Connection>) -> DockerResult<Arc<DockerHost>> {
+    /// The host's engine over `conn`, as `docker_user` when set (see
+    /// [`DockerHost::connect`]). Reconnects when the user setting changed.
+    pub async fn get(
+        &self,
+        id: HostId,
+        conn: Arc<Connection>,
+        docker_user: Option<&str>,
+    ) -> DockerResult<Arc<DockerHost>> {
         let cached = |s: &Self| {
             s.hosts
                 .lock()
                 .expect("poisoned")
                 .get(&id)
-                .filter(|d| Arc::ptr_eq(&d.conn, &conn) && !d.is_closed())
+                .filter(|d| Arc::ptr_eq(&d.conn, &conn) && !d.is_closed() && d.docker_user.as_deref() == docker_user)
                 .cloned()
         };
         if let Some(d) = cached(self) {
@@ -997,7 +1222,9 @@ impl DockerCache {
         if let Some(d) = cached(self) {
             return Ok(d);
         }
-        let d = Arc::new(DockerHost::connect(conn).await?);
+        let mut d = DockerHost::connect(conn, docker_user).await?;
+        d.docker_user = docker_user.map(str::to_owned);
+        let d = Arc::new(d);
         self.hosts.lock().expect("poisoned").insert(id, d.clone());
         Ok(d)
     }
@@ -1213,6 +1440,67 @@ mod tests {
             DockerError::PermissionDenied { synology, relogin, .. } => assert!(synology && !relogin),
             e => panic!("{e:?}"),
         }
+    }
+
+    #[test]
+    fn docker_user_sudoers_rule() {
+        let p = parse_user_probe(
+            "Pontuzz\ncli /usr/local/bin/docker\ndsm\ngroup member\nsock /var/run/docker.sock\nsockgroup docker\n\
+             compose /usr/local/bin/docker-compose\nrc 1\nout sudo: a password is required\n",
+        );
+        assert_eq!(p.login, "Pontuzz");
+        assert!(p.synology && p.in_group && !p.no_user);
+        assert_eq!(p.rc, Some(1));
+        match user_failure(&p, "dockeruser", "/usr/local/bin/docker".into()) {
+            DockerError::DockerUserSudo { login, user, synology, steps } => {
+                assert_eq!((login.as_str(), user.as_str(), synology), ("Pontuzz", "dockeruser", true));
+                assert_eq!(
+                    steps,
+                    [
+                        r#"sh -c 'umask 337; echo "Pontuzz ALL=(dockeruser) NOPASSWD: /usr/local/bin/docker, /usr/local/bin/docker-compose" > /etc/sudoers.d/nightgrid-docker-dockeruser'"#
+                    ]
+                );
+                assert!(valid_access_step(&steps[0]));
+                let s = access_fix_script(&steps);
+                assert!(s.contains("includedir"), "{s}");
+                assert!(s.contains("visudo -cf /etc/sudoers.d/nightgrid-docker-dockeruser"), "{s}");
+            }
+            e => panic!("{e:?}"),
+        }
+        // A dot in the user name: sudoers skips such files, so the file name drops it.
+        let step = sudoers_step("sam", "svc.docker", &["/usr/bin/docker".into()]);
+        assert!(step.ends_with("/etc/sudoers.d/nightgrid-docker-svc_docker'"), "{step}");
+        assert!(valid_access_step(&step));
+        // Anything not exactly what sudoers_step makes is refused.
+        for bad in [
+            r#"sh -c 'umask 337; echo "sam ALL=(root) NOPASSWD: ALL" > /etc/sudoers.d/nightgrid-docker-root'"#,
+            r#"sh -c 'umask 337; echo "sam ALL=(x) NOPASSWD: /bin/sh" > /etc/sudoers.d/nightgrid-docker-y'"#,
+            r#"sh -c 'umask 337; echo "sam ALL=(x) NOPASSWD: /usr/bin/docker" > /etc/sudoers.d/nightgrid-docker-x'; reboot"#,
+            r#"sh -c 'umask 337; echo "%admin ALL=(x) NOPASSWD: /usr/bin/docker" > /etc/sudoers.d/nightgrid-docker-x'"#,
+            r#"sh -c 'umask 337; echo "sam ALL=(x) NOPASSWD: /usr/bin/docker, /a, /b" > /etc/sudoers.d/nightgrid-docker-x'"#,
+        ] {
+            assert!(!valid_access_step(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn docker_user_without_socket_access_gets_group_steps() {
+        let p = parse_user_probe(
+            "admin\ncli /usr/local/bin/docker\ndsm\nnogroup\nsock /var/run/docker.sock\nsockgroup root\nrc 1\n\
+             out permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock\n",
+        );
+        match user_failure(&p, "dockeruser", "/usr/local/bin/docker".into()) {
+            DockerError::PermissionDenied { user, steps, relogin, .. } => {
+                assert_eq!(user, "dockeruser");
+                assert_eq!(steps, ["synogroup --add docker dockeruser", "chown root:docker /var/run/docker.sock"]);
+                assert!(!relogin);
+            }
+            e => panic!("{e:?}"),
+        }
+        assert!(parse_user_probe("nouser\n").no_user);
+        let other =
+            parse_user_probe("sam\ncli /usr/bin/docker\nlinux\ngroup\nrc 1\nout Cannot connect to the Docker daemon\n");
+        assert!(matches!(user_failure(&other, "svc", "/usr/bin/docker".into()), DockerError::Other { .. }));
     }
 
     #[test]

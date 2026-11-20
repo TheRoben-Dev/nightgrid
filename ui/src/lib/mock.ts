@@ -65,6 +65,7 @@ const toHost = (id: number, i: HostInput): Host => ({
   driftHistory: i.driftHistory,
   driftLookups: i.driftLookups ?? false,
   alertOffline: i.alertOffline ?? false,
+  dockerUser: i.dockerUser?.trim() || null,
   driftPaths: i.driftPaths ?? null,
   macAddress: i.macAddress?.trim() || null,
   wakeRelayId: i.wakeRelayId,
@@ -122,6 +123,11 @@ export const mockBackend = {
     save();
     return h;
   },
+  async hostSetDockerUser(id: number, user: string | null): Promise<null> {
+    db.hosts = db.hosts.map((x) => (x.id === id ? { ...x, dockerUser: user?.trim() || null } : x));
+    save();
+    return null;
+  },
   async hostDelete(id: number): Promise<null> {
     db.hosts = db.hosts.filter((h) => h.id !== id);
     save();
@@ -174,6 +180,7 @@ export const mockBackend = {
             tailnetAddress: null,
             driftHistory: false,
             alertOffline: false,
+            dockerUser: null,
             driftLookups: false,
             driftPaths: null,
             macAddress: null,
