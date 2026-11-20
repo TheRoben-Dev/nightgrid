@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	Merged into the app bundle's Info.plist by the Tauri bundler.
+	Web UI windows (D-147, D-193) show homelab pages, most of them plain http on
+	LAN or tailnet addresses. Without these keys App Transport Security makes
+	WKWebView refuse them (macOS 14+ no longer exempts IP addresses), and the
+	window stays black. Only web content is exempted: the app's own requests
+	go through Rust, and the main window loads only bundled files.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>
