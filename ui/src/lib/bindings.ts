@@ -122,6 +122,11 @@ export const commands = {
 	 */
 	dockerFixAccess: (hostId: number, steps: string[], relogin: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_fix_access", { hostId, steps, relogin, sudo }, options),
 	/**
+	 *  Sets or clears the host's Docker user (the NO ACCESS card's "Use another
+	 *  user"), then drops the cached engine so the next call uses it.
+	 */
+	dockerSetUser: (hostId: number, user: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_set_user", { hostId, user }, options),
+	/**
 	 *  Compose stacks on the host: from container labels plus the host's stack
 	 *  folders.
 	 */
@@ -3433,7 +3438,18 @@ socketGroup: string;
  */
 steps: string[]; 
 /**  The group change needs a new SSH login to apply. */
-relogin: boolean } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
+relogin: boolean } | 
+/**
+ *  The host has a Docker user set, and the SSH login may not run
+ *  docker as that user without a password.
+ */
+{ kind: "dockerUserSudo"; 
+/**  The SSH login. */
+login: string; 
+/**  The host's Docker user. */
+user: string; synology: boolean; 
+/**  Root commands that add the rule (see [`sudoers_step`]). */
+steps: string[] } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
 
 /**  One finding of `nightgrid-node doctor --json`. */
 export type DoctorFinding = DoctorFinding_Serialize | DoctorFinding_Deserialize;
@@ -4597,6 +4613,8 @@ export type HostInput_Deserialize = {
 	role?: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline?: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser?: string | null,
 };
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
@@ -4634,6 +4652,8 @@ export type HostInput_Serialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser: string | null,
 };
 
 /**  A host key as shown to the user. */
@@ -4775,6 +4795,8 @@ export type Host_Deserialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser?: string | null,
 	/**
 	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
 	 *  Not user-edited (not in [`HostInput`]).
@@ -4819,6 +4841,8 @@ export type Host_Serialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser: string | null,
 	/**
 	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
 	 *  Not user-edited (not in [`HostInput`]).

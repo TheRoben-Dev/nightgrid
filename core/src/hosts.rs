@@ -80,6 +80,8 @@ pub struct Host {
     pub role: String,
     /// A client raises offline alerts only when this is on (servers always do).
     pub alert_offline: bool,
+    /// Run docker as this account (`sudo -n -u`) instead of the SSH login.
+    pub docker_user: Option<String>,
     /// OS family learned on connect: "" (not yet), "posix" or "windows".
     /// Not user-edited (not in [`HostInput`]).
     #[serde(default)]
@@ -141,6 +143,8 @@ pub struct HostInput {
     pub role: String,
     /// A client raises offline alerts only when this is on (servers always do).
     pub alert_offline: bool,
+    /// Run docker as this account (`sudo -n -u`) instead of the SSH login.
+    pub docker_user: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -271,6 +275,13 @@ impl HostInput {
             Some(w) => Some(crate::power::SleepWindow::parse(&w)?.to_string()),
             None => None,
         };
+        h.docker_user = blank_to_none(&h.docker_user);
+        if let Some(u) = h.docker_user.as_deref().filter(|u| !crate::docker::valid_docker_user(u)) {
+            return Err(Error::Invalid {
+                field: "dockerUser",
+                reason: format!("\"{u}\" isn't a user name (letters, digits, . _ -)"),
+            });
+        }
         valid_color(&h.color)?;
         if h.auth_method == AuthMethod::Key && h.identity_file.is_none() {
             return Err(Error::Invalid { field: "identityFile", reason: "required for key authentication".into() });
@@ -284,7 +295,7 @@ impl HostInput {
 }
 
 const HOST_COLS: &str = "id, name, hostname, port, username, group_id, color, icon, favorite, notes, \
-     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths, alert_offline, os";
+     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history, mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths, alert_offline, os, docker_user";
 
 fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
     Ok(Host {
@@ -314,6 +325,7 @@ fn host_from_row(r: &Row<'_>) -> rusqlite::Result<Host> {
         drift_paths: r.get(22)?,
         alert_offline: r.get(23)?,
         os: r.get(24)?,
+        docker_user: r.get(25)?,
     })
 }
 
@@ -381,8 +393,8 @@ impl Store {
             tx.execute(
                 "INSERT INTO hosts (name, hostname, port, username, group_id, color, icon, favorite, notes,
                     auth_method, identity_file, proxy_jump, remember_secret, ssh_alias, tailnet_address, drift_history,
-                    mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths, alert_offline)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+                    mac_address, wake_relay_id, sleep_window, role, drift_lookups, drift_paths, alert_offline, docker_user)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
                 params![
                     h.name,
                     h.hostname,
@@ -406,7 +418,8 @@ impl Store {
                     h.role,
                     h.drift_lookups,
                     h.drift_paths,
-                    h.alert_offline
+                    h.alert_offline,
+                    h.docker_user
                 ],
             )?;
             let id = tx.last_insert_rowid() as HostId;
@@ -424,7 +437,7 @@ impl Store {
                     icon = ?8, favorite = ?9, notes = ?10, auth_method = ?11, identity_file = ?12,
                     proxy_jump = ?13, remember_secret = ?14, ssh_alias = ?15,
                     tailnet_address = ?16, drift_history = ?17, mac_address = ?18,
-                    wake_relay_id = ?19, sleep_window = ?20, role = ?21, drift_lookups = ?22, drift_paths = ?23, alert_offline = ?24, updated_at = unixepoch()
+                    wake_relay_id = ?19, sleep_window = ?20, role = ?21, drift_lookups = ?22, drift_paths = ?23, alert_offline = ?24, docker_user = ?25, updated_at = unixepoch()
                  WHERE id = ?1",
                 params![
                     id,
@@ -450,7 +463,8 @@ impl Store {
                     h.role,
                     h.drift_lookups,
                     h.drift_paths,
-                    h.alert_offline
+                    h.alert_offline,
+                    h.docker_user
                 ],
             )?;
             if n > 0 {
@@ -462,6 +476,25 @@ impl Store {
             return Err(Error::NotFound("host"));
         }
         self.get_host(id)?.ok_or(Error::NotFound("host"))
+    }
+
+    /// Sets only the host's Docker user (the NO ACCESS card's shortcut).
+    pub fn set_host_docker_user(&mut self, id: HostId, user: Option<&str>) -> Result<()> {
+        let user = user.map(str::trim).filter(|u| !u.is_empty());
+        if let Some(u) = user.filter(|u| !crate::docker::valid_docker_user(u)) {
+            return Err(Error::Invalid {
+                field: "dockerUser",
+                reason: format!("\"{u}\" isn't a user name (letters, digits, . _ -)"),
+            });
+        }
+        let n = self.conn().execute(
+            "UPDATE hosts SET docker_user = ?2, updated_at = unixepoch() WHERE id = ?1",
+            rusqlite::params![id, user],
+        )?;
+        if n == 0 {
+            return Err(Error::NotFound("host"));
+        }
+        Ok(())
     }
 
     /// Records the host's OS family. Returns whether it changed.

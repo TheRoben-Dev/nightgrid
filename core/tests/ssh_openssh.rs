@@ -348,7 +348,7 @@ async fn openssh_docker_over_ssh() {
     let (code, _, err) = conn.exec(&run).await.unwrap();
     assert_eq!(code, 0, "docker run: {}", String::from_utf8_lossy(&err));
 
-    let d = DockerHost::connect(conn.clone()).await.expect("docker connect");
+    let d = DockerHost::connect(conn.clone(), None).await.expect("docker connect");
     assert!(matches!(d.route, Route::Socket(_)), "{:?}", d.route);
     let info = d.info().await.unwrap();
     assert!(!info.version.is_empty());
@@ -391,7 +391,7 @@ async fn openssh_docker_over_ssh() {
     // Same daemon via `docker system dial-stdio` when sshd refuses forwarding.
     let s2 = start_sshd_with("ssh_host_ed25519_key", None, None, "AllowStreamLocalForwarding no\n");
     let conn2 = Arc::new(connect_trusting(&key_target(&s2), &[], &opts(s2.dir.path())).await);
-    let d2 = DockerHost::connect(conn2).await.expect("dial-stdio fallback");
+    let d2 = DockerHost::connect(conn2, None).await.expect("dial-stdio fallback");
     assert!(matches!(d2.route, Route::DialStdio(_)), "{:?}", d2.route);
     assert!(d2.containers().await.unwrap().iter().any(|c| c.name == name));
 
@@ -439,7 +439,7 @@ async fn openssh_compose_stacks() {
     let root_s = root.path().to_str().unwrap().to_owned();
     let project = project_from_dir(dir.to_str().unwrap());
 
-    let d = DockerHost::connect(conn.clone()).await.expect("docker connect");
+    let d = DockerHost::connect(conn.clone(), None).await.expect("docker connect");
     let find = |list: Vec<nightgrid_core::docker::compose::Stack>| list.into_iter().find(|st| st.name == project);
     let stack = find(d.stacks(std::slice::from_ref(&root_s)).await.unwrap()).expect("stack found in folder");
     assert!(stack.in_folder);
