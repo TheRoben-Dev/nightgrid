@@ -13,6 +13,7 @@ import {
 } from "../api";
 import { hosts } from "./hosts.svelte";
 import { nav } from "./nav.svelte";
+import { system } from "./system.svelte";
 
 export interface ContainerGroup {
   /** Compose project name, or "" for containers outside compose. */
@@ -45,6 +46,8 @@ class DockerStore {
   error = $state<string | null>(null);
   /** Docker-level problem with a fix the user can apply (docker group etc.). */
   problem = $state<DockerError | null>(null);
+  /** The NO ACCESS fix is running. */
+  fixing = $state(false);
   /** SSH prompt to answer before connecting (host key, password). */
   prompt = $state<ConnectError | null>(null);
   filter = $state("");
@@ -183,6 +186,27 @@ class DockerStore {
     this.error = null;
     if (this.hostId !== null) await api.dockerForget(this.hostId);
     await this.refresh();
+  }
+
+  /**
+   * Runs the NO ACCESS card's steps as root on the host (asks for the sudo
+   * password), then reconnects and retries.
+   */
+  async fixAccess() {
+    const p = this.problem;
+    const id = this.hostId;
+    if (!p || p.kind !== "permissionDenied" || id === null || this.fixing) return;
+    const name = hosts.hosts.find((h) => h.id === id)?.name;
+    this.fixing = true;
+    try {
+      await system.withSudo(`give ${p.user} access to Docker`, (sudo) => api.dockerFixAccess(id, p.steps, p.relogin, sudo), name);
+      this.notice = { text: `${p.user} can use Docker on ${name ?? "the host"} now.`, tone: "ok" };
+      await this.retry();
+    } catch (e) {
+      if (errorText(e) !== "Cancelled.") this.notice = { text: `Couldn't fix Docker access: ${errorText(e)}`, tone: "err" };
+    } finally {
+      this.fixing = false;
+    }
   }
 
   toggle(id: string) {

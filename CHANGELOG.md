@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Added: Docker on Synology NAS
+- **NO ACCESS TO DOCKER knows Synology DSM.** DSM has no `usermod`, so the old hint failed with "command not found". On a Synology the card now shows the DSM way: `sudo synogroup --add docker <you>` (or `--memberadd` if the group exists) plus `sudo chown root:docker /var/run/docker.sock`, because Container Manager creates the socket owned by root. Plain Linux hosts get `usermod -aG docker` (and `groupadd docker` if the group is missing). Steps that are already done are left out.
+- **Fix it for me**: one button runs those steps as root on the host (it asks for the sudo password like System does), then reconnects so the new group applies. If you're already in the group and only the SSH login is older, the card says so and offers **Reconnect**.
+- **Passwordless sudo works as a fallback**: when your user can't open the socket but may run docker through sudo without a password, Nightgrid talks to Docker through `sudo docker system dial-stdio` instead of showing the card.
+
+### Fixed
+- Docker on hosts that keep the `docker` binary in `/usr/local/bin` (Synology DSM, some NAS systems): non-interactive SSH sessions don't have it on `PATH`, so Docker views, stacks, container shells and DRIFT lookups couldn't find it. Nightgrid now adds `/usr/local/bin` itself.
+
 ## [1.14.1] - 2026-11-20
 
 ### Fixed

@@ -8,6 +8,7 @@
   import StacksPanel from "../components/docker/StacksPanel.svelte";
   import Modal from "../components/Modal.svelte";
   import Resizer from "../components/Resizer.svelte";
+  import SudoPrompt from "../components/system/SudoPrompt.svelte";
   import AuthPrompt from "../components/terminal/AuthPrompt.svelte";
   import HostKeyPrompt from "../components/terminal/HostKeyPrompt.svelte";
   import { formatSize } from "../files/util";
@@ -203,21 +204,45 @@
       {:else if docker.problem}
         <div class="empty">
           {#if docker.problem.kind === "permissionDenied"}
+            {@const p = docker.problem}
             <p class="label warn">NO ACCESS TO DOCKER</p>
-            <p>
-              <strong>{docker.problem.user}</strong> can't use <code>{docker.problem.socket}</code> on {hostName}.
-              Add the user to the <code>docker</code> group on the server, then retry:
-            </p>
-            <pre class="cmd">sudo usermod -aG docker {docker.problem.user}</pre>
+            {#if p.steps.length}
+              <p>
+                <strong>{p.user}</strong> can't use <code>{p.socket}</code> on {hostName}.
+                {#if p.synology}
+                  This is a Synology NAS: DSM has no <code>usermod</code>, groups go through <code>synogroup</code>, and
+                  Container Manager creates the socket owned by <code>root</code>{p.socketGroup && p.socketGroup !== "root" ? ` (now ${p.socketGroup})` : ""}.
+                {:else}
+                  Add the user to the <code>docker</code> group on the server.
+                {/if}
+                Nightgrid can run this for you (it asks for the sudo password), or run it yourself and press Retry:
+              </p>
+              <pre class="cmd">{p.steps.map((s) => `sudo ${s}`).join("\n")}</pre>
+            {:else}
+              <p>
+                <strong>{p.user}</strong> is in the <code>docker</code> group on {hostName}, but this SSH login started before
+                that. Reconnect to pick it up.
+              </p>
+            {/if}
             <p class="muted">
-              Group changes apply to new logins, so close this host's terminals first (Nightgrid reconnects on retry).
-              Being in the docker group is root-equivalent on that host.
+              {#if p.relogin}Group changes apply to new logins, so this reconnects to {hostName} and closes its open terminals.{/if}
+              {#if p.synology}
+                If Container Manager restarts (an update, a reboot) and hands the socket back to root, this card comes back and the
+                fix is one click again.
+              {/if}
+              The docker group is root-equivalent on that host (the same access Portainer gets by mounting the socket).
             </p>
+            <div class="fix-row">
+              <button type="button" class="btn primary" disabled={docker.fixing} onclick={() => docker.fixAccess()}>
+                {docker.fixing ? "Fixing…" : p.steps.length ? "Fix it for me" : "Reconnect"}
+              </button>
+              <button type="button" class="btn ghost" disabled={docker.fixing} onclick={() => docker.retry()}>Retry</button>
+            </div>
           {:else}
             <p class="label warn">DOCKER NOT FOUND</p>
             <p class="muted">No Docker socket and no <code>docker</code> command on {hostName}.</p>
+            <button type="button" class="btn primary" onclick={() => docker.retry()}>Retry</button>
           {/if}
-          <button type="button" class="btn primary" onclick={() => docker.retry()}>Retry</button>
         </div>
       {:else if docker.error}
         <div class="empty">
@@ -339,6 +364,8 @@
     {/if}
   </div>
 </div>
+
+<SudoPrompt />
 
 <Modal
   open={!!pending}
@@ -711,6 +738,10 @@
   }
   code {
     color: var(--cyan);
+  }
+  .fix-row {
+    display: flex;
+    gap: 8px;
   }
   .pad {
     padding: 14px;

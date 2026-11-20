@@ -8,7 +8,7 @@ Fix: `sudo systemctl status docker` and `journalctl -u docker -n 50`. Check `doc
 
 ### permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock
 Means: Your user may not use the Docker socket.
-Fix: Use sudo, or `sudo usermod -aG docker $USER` and log in again. The docker group is root-equivalent; rootless Docker or Podman avoids that.
+Fix: Use sudo, or `sudo usermod -aG docker $USER` and log in again. On Synology DSM (no usermod): `sudo synogroup --add docker $USER` and `sudo chown root:docker /var/run/docker.sock`. The docker group is root-equivalent; rootless Docker or Podman avoids that.
 
 ### Got permission denied while trying to connect to the Docker daemon socket
 Means: Same as above, older wording.
