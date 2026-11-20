@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [Unreleased]
+## [1.21.0] - 2026-11-20
 
 ### Added
 - **What's growing.** Every mount in Fleet → DISKS has **What's growing**: the biggest folders and files on that filesystem, what grew since the last scan, and files changed today. VM disk images (`.vhdx`, `.qcow2`, `.vmdk`, `.vdi`, Hyper-V checkpoints…) are flagged with what to do, since their growth is inside the VM and they don't shrink by themselves; Docker and the journal get hints too. Click a folder to look inside, **Read as root** for folders the login can't open. Works on Linux, macOS and Windows hosts, installs nothing, and the previous scan stays on the host (`~/.nightgrid/growth`), not on this computer.
