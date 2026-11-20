@@ -1153,6 +1153,68 @@ pub fn disk_forecasts(
     Ok(list)
 }
 
+/// "What's growing" under a mount or folder (D-200): biggest folders and
+/// files, change since the last scan (kept on the host) and VM images.
+/// `elevate` reads as root (folders this login can't enter).
+#[tauri::command]
+#[specta::specta]
+pub async fn disk_growth(
+    app: AppHandle,
+    host_id: HostId,
+    path: String,
+    elevate: bool,
+    sudo: Option<SudoInput>,
+) -> SysResult<nightgrid_core::system::growth::GrowthReport> {
+    let conn = connect_posix(&app, host_id, "fleet.growth").await?;
+    let auth =
+        if elevate && !conn.is_windows() { resolve_sudo(&app, host_id, &conn, sudo).await? } else { SudoAuth::User };
+    let scan = async {
+        if conn.is_windows() {
+            return nightgrid_core::win::growth::scan(&conn, &path).await;
+        }
+        nightgrid_core::system::growth::scan(&conn, &auth, &path).await
+    };
+    match tokio::time::timeout(std::time::Duration::from_secs(300), scan).await {
+        Ok(r) => Ok(r?),
+        Err(_) => Err(nightgrid_core::system::SystemError::other(
+            "still counting after 5 minutes: pick a folder further down",
+        )
+        .into()),
+    }
+}
+
+/// Storage links: which hosts' disks are stored on which drive (D-200).
+#[tauri::command]
+#[specta::specta]
+pub fn storage_links(state: State<'_, AppState>) -> CmdResult<Vec<nightgrid_core::storagelink::StorageLink>> {
+    Ok(state.store().storage_links()?)
+}
+
+/// Adds "`host_id`'s disks are stored on `owner_host_id`'s `owner_mount`".
+#[tauri::command]
+#[specta::specta]
+pub fn storage_link_add(
+    state: State<'_, AppState>,
+    host_id: HostId,
+    owner_host_id: HostId,
+    owner_mount: String,
+) -> CmdResult<nightgrid_core::storagelink::StorageLink> {
+    let l = state.store().storage_link_add(host_id, owner_host_id, &owner_mount)?;
+    state.alerts.wake();
+    Ok(l)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn storage_link_delete(
+    state: State<'_, AppState>,
+    id: nightgrid_core::storagelink::StorageLinkId,
+) -> CmdResult<()> {
+    state.store().storage_link_delete(id)?;
+    state.alerts.wake();
+    Ok(())
+}
+
 /// VMs and containers on a libvirt or Proxmox host. `elevate` reads as root
 /// (when this login may not use virsh / qm / pct).
 #[tauri::command]

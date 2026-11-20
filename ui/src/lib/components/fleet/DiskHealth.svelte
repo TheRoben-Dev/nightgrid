@@ -10,6 +10,8 @@
   import { system } from "../../stores/system.svelte";
   import { ui } from "../../stores/ui.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
+  import SudoPrompt from "../system/SudoPrompt.svelte";
+  import GrowthPanel from "./GrowthPanel.svelte";
 
   $effect(() => {
     if (hosts.hosts.length) fleet.ensureDisks();
@@ -26,6 +28,10 @@
   const counts = $derived({ bad: rows.filter((r) => r.tone === "bad").length, warn: rows.filter((r) => r.tone === "warn").length });
   const W = 120;
   const H = 22;
+
+  /** The mount whose What's growing panel is open (`hostId|mount`). */
+  let growthOpen = $state<string | null>(null);
+  const toggleGrowth = (hostId: number, mount: string) => (growthOpen = growthOpen === `${hostId}|${mount}` ? null : `${hostId}|${mount}`);
 
   async function openSmart(id: number) {
     system.select(id);
@@ -116,8 +122,12 @@
             <tbody>
               {#each d.forecasts as f (f.mount)}
                 {@const tone = fillTone(f, within)}
-                <tr>
-                  <td class="mount">{f.mount}</td>
+                <tr class:elsewhere={!f.counted}>
+                  <td class="mount">
+                    {f.mount}
+                    {#if f.label}<span class="kind-chip k-{f.kind}" title={f.device}>{f.label}</span>{/if}
+                    {#if f.also.length}<span class="muted small also" title="Same storage, forecast once">+ {f.also.join(", ")}</span>{/if}
+                  </td>
                   <td class="use">
                     <span class="meter"><span class="fill t-{tone}" style="width:{usedPct(f)}%"></span></span>
                     <span class="small muted">{size(f.used)} / {size(f.size)}</span>
@@ -129,7 +139,26 @@
                     {/if}
                   </td>
                   <td class="eta small t-{tone}">{fillText(f)}</td>
+                  <td class="act">
+                    <button
+                      type="button"
+                      class="btn ghost tiny"
+                      data-guide="fleet-disks-whats-growing"
+                      aria-expanded={growthOpen === `${r.host.id}|${f.mount}`}
+                      onclick={() => toggleGrowth(r.host.id, f.mount)}>What's growing</button
+                    >
+                  </td>
                 </tr>
+                {#if f.note}
+                  <tr class="note-row"><td colspan="6" class="note muted small">{f.note}</td></tr>
+                {/if}
+                {#if growthOpen === `${r.host.id}|${f.mount}`}
+                  <tr class="panel-row">
+                    <td colspan="6">
+                      <GrowthPanel hostId={r.host.id} mount={f.mount} forecast={f} onopen={(h, m) => (growthOpen = `${h}|${m}`)} />
+                    </td>
+                  </tr>
+                {/if}
               {/each}
             </tbody>
           </table>
@@ -143,6 +172,8 @@
     {/each}
   </div>
 </div>
+
+<SudoPrompt />
 
 <style>
   .disks {
@@ -361,5 +392,37 @@
   }
   .pad {
     margin: 6px 0 0;
+  }
+  .kind-chip {
+    margin-left: 6px;
+    font-family: var(--font-ui, inherit);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.06em;
+    padding: 0 4px;
+    border: 1px solid currentColor;
+    color: var(--cyan);
+    white-space: nowrap;
+  }
+  .kind-chip.k-passthrough {
+    color: var(--warn);
+  }
+  .kind-chip.k-pool {
+    color: var(--mint);
+  }
+  .also {
+    margin-left: 6px;
+  }
+  tr.elsewhere td:not(.act) {
+    opacity: 0.6;
+  }
+  .note-row td.note {
+    padding: 0 0 4px 12px;
+  }
+  .act {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .panel-row td {
+    padding: 0;
   }
 </style>

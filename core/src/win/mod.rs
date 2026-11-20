@@ -17,6 +17,7 @@ pub mod backups;
 pub mod disks;
 pub mod events;
 pub mod firewall;
+pub mod growth;
 pub mod keys;
 pub mod metrics;
 pub mod netperf;

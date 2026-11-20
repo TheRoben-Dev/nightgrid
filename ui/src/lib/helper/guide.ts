@@ -151,6 +151,8 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "fleet-tab-disks", view: "fleet", what: "Fleet DISKS tab: ZFS/RAID/btrfs pools, SMART and a 'full in X days' forecast for every host" },
   { id: "fleet-disks", view: "fleet", what: "disk health per host: pools with degraded devices, SMART problems, and each mount's growth and days until full" },
   { id: "fleet-disks-check", view: "fleet", what: "re-read pools and SMART on every host" },
+  { id: "fleet-disks-whats-growing", view: "fleet", what: "per mount: scan which folders, files and VM disk images are biggest and grew since the last scan" },
+  { id: "fleet-disks-growth", view: "fleet", what: "what's growing on a mount, and which VMs' disks are stored on that drive (links fold their alerts under its DISK FULL)" },
   { id: "fleet-tab-backups", view: "fleet", what: "Fleet BACKUPS tab: every host's restic, borg, rsync and rclone jobs, with test restores" },
   { id: "fleet-tab-ups", view: "fleet", what: "Fleet UPS tab: UPSes read with NUT (upsc), on-battery alerts and an optional group shutdown with a countdown" },
   { id: "fleet-tab-speed", view: "fleet", what: "Fleet SPEED tab: network tests between your hosts (iperf3 both ways, ping), with history" },
