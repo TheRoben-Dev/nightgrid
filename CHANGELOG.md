@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [Unreleased]
+## [1.15.0] - 2026-11-20
 
 ### Added: Docker on Synology NAS
 - **NO ACCESS TO DOCKER knows Synology DSM.** DSM has no `usermod`, so the old hint failed with "command not found". On a Synology the card now shows the DSM way: `sudo synogroup --add docker <you>` (or `--memberadd` if the group exists) plus `sudo chown root:docker /var/run/docker.sock`, because Container Manager creates the socket owned by root. Plain Linux hosts get `usermod -aG docker` (and `groupadd docker` if the group is missing). Steps that are already done are left out.
