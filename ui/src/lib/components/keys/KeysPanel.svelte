@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../../confirm";
+  import { enterConfirms, typedMatches } from "../../confirm";
   /** Settings → SSH KEYS (M10k): your keys, which hosts accept them, new keys and rotation. */
   import { onMount } from "svelte";
   import type { AuthorizedKey, Host, SshKey } from "../../api";
@@ -295,12 +295,12 @@
     {/if}
     <label class="field">
       <span>Type <strong class="verbatim">{confirmRemove.host.name}</strong> to confirm</span>
-      <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
+      <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" />
     </label>
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (confirmRemove = null)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={!typedMatches(typed, confirmRemove?.host.name)} onclick={doRemove}>Remove from {confirmRemove?.host.name}</button>
+    <button type="button" class="btn danger" data-confirm disabled={!typedMatches(typed, confirmRemove?.host.name)} onclick={doRemove}>Remove from {confirmRemove?.host.name}</button>
   {/snippet}
 </Modal>
 
@@ -316,13 +316,13 @@
     {#if removeOld}
       <label class="field">
         <span>Type <strong class="verbatim">{keyLabel(fromKey)}</strong> to confirm</span>
-        <input class="input" bind:value={rotTyped} autocomplete="off" spellcheck="false" />
+        <input class="input" use:enterConfirms bind:value={rotTyped} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (confirmRotate = false)}>Cancel</button>
-    <button type="button" class={removeOld ? "btn danger" : "btn primary"} disabled={removeOld && (!fromKey || !typedMatches(rotTyped, keyLabel(fromKey)))} onclick={doRotate}
+    <button type="button" class={removeOld ? "btn danger" : "btn primary"} data-confirm disabled={removeOld && (!fromKey || !typedMatches(rotTyped, keyLabel(fromKey)))} onclick={doRotate}
       >Rotate on {rotNames.length} host{rotNames.length === 1 ? "" : "s"}</button
     >
   {/snippet}
