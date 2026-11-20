@@ -8,7 +8,7 @@
   import { SvelteSet } from "svelte/reactivity";
   import type { HostEvent } from "../../api";
   import { system } from "../../stores/system.svelte";
-  import { byDay, clock, dayLabel, FILTERS, filterEvents, KIND_LABEL, RANGES, tally, timelineText, type FilterId } from "../../timeline";
+  import { byDay, clock, dayLabel, FILTERS, filterEvents, KIND_LABEL, RANGES, SILENCED_LABEL, silencedCount, tally, timelineText, type FilterId } from "../../timeline";
   import ExplainButton from "../helper/ExplainButton.svelte";
   import Modal from "../Modal.svelte";
 
@@ -21,6 +21,7 @@
   const shown = $derived(t ? filterEvents(t.events, on, query, problems) : []);
   const days = $derived(byDay(shown));
   const counts = $derived(tally(t?.events ?? []));
+  const quieted = $derived(silencedCount(t?.events ?? []));
 
   function toggle(id: FilterId) {
     if (on.has(id)) on.delete(id);
@@ -45,7 +46,7 @@
       <span class="counts">
         <span class="mint">{t.events.length}</span> EVENTS{#if counts.critical}<span class="bad">&nbsp;· {counts.critical} CRITICAL</span>{/if}{#if counts.warn}<span
             class="warn">&nbsp;· {counts.warn} WARN</span
-          >{/if}
+          >{/if}{#if quieted}<span class="muted" title="Alerts recorded while acknowledged or muted">&nbsp;· {quieted} SILENCED</span>{/if}
       </span>
     {/if}
     <span class="spacer"></span>
@@ -86,11 +87,11 @@
           <h3 class="label day">// {dayLabel(d.day)}</h3>
           <ol class="list">
             {#each d.events as e, i (`${e.at}|${e.title}|${i}`)}
-              <li class="ev {e.level}" title={title(e)}>
+              <li class="ev {e.level}" class:silenced={!!e.silenced} title={e.silenced ? `${title(e)} · ${SILENCED_LABEL[e.silenced].toLowerCase()} when it happened` : title(e)}>
                 <time datetime={new Date(e.at * 1000).toISOString()}>{clock(e.at)}</time>
                 <span class="kind">{KIND_LABEL[e.kind]}</span>
                 <span class="what">
-                  <span class="t">{e.title}</span>
+                  <span class="t">{e.title}{#if e.silenced}<span class="tag">{SILENCED_LABEL[e.silenced]}</span>{/if}</span>
                   {#if e.detail}<span class="muted small">{e.detail}</span>{/if}
                 </span>
                 <span class="src" aria-label={title(e)}>{e.origin === "nightgrid" ? "NG" : "HOST"}</span>
@@ -220,6 +221,19 @@
   }
   .ev.ok {
     border-left-color: var(--mint);
+  }
+  .ev.silenced {
+    border-left-style: dashed;
+    opacity: 0.6;
+  }
+  .tag {
+    margin-left: 8px;
+    padding: 0 4px;
+    border: 1px solid var(--line);
+    color: var(--text-1);
+    font-family: var(--font-display);
+    font-size: var(--fs-xs);
+    letter-spacing: var(--tracking-label);
   }
   time {
     color: var(--text-1);

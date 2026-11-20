@@ -2,7 +2,7 @@
  * Browser-only stand-in for alerts: a couple of sample alerts so the panel
  * and status strip can be developed and screenshotted without Tauri.
  */
-import type { LogEventView_Serialize as LogEventView, Alert_Serialize as Alert, Dependency, Node, AlertsSnapshot_Serialize as AlertsSnapshot, TestResult_Serialize as TestResult, WebhookInfo_Serialize as WebhookInfo } from "./bindings";
+import type { AckFor, MuteScope, Silence_Serialize as Silence, LogEventView_Serialize as LogEventView, Alert_Serialize as Alert, Dependency, Node, AlertsSnapshot_Serialize as AlertsSnapshot, TestResult_Serialize as TestResult, WebhookInfo_Serialize as WebhookInfo } from "./bindings";
 import { mockUps, mockUpsCountdown } from "./mockUps";
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -10,11 +10,28 @@ let listener: ((s: AlertsSnapshot) => void) | null = null;
 let webhook: string | null = null;
 
 const active: Alert[] = [
-  { id: 2, key: "disk:1:/", kind: "diskFull", severity: "warn", title: "server01", detail: "/ is 93% full (6.8 GB free)", hostId: 1, since: now() - 1800, resolved: null, causedBy: null },
-  { id: 4, key: "host:2", kind: "hostOffline", severity: "critical", title: "server02", detail: "unreachable: connection timed out", hostId: 2, since: now() - 300, resolved: null, causedBy: null },
-  { id: 3, key: "docker:2:worker", kind: "containerDown", severity: "critical", title: "worker on server02", detail: "exited with code 137 (killed, maybe out of memory)", hostId: 2, since: now() - 240, resolved: null, causedBy: null },
-  { id: 5, key: "svc:3", kind: "serviceDown", severity: "critical", title: "Photos", detail: "connection refused", hostId: null, since: now() - 200, resolved: null, causedBy: null },
+  { id: 2, key: "disk:1:/", kind: "diskFull", severity: "warn", title: "server01", detail: "/ is 93% full (6.8 GB free)", hostId: 1, since: now() - 1800, resolved: null, causedBy: null, silenced: null },
+  { id: 4, key: "host:2", kind: "hostOffline", severity: "critical", title: "server02", detail: "unreachable: connection timed out", hostId: 2, since: now() - 300, resolved: null, causedBy: null, silenced: null },
+  { id: 3, key: "docker:2:worker", kind: "containerDown", severity: "critical", title: "worker on server02", detail: "exited with code 137 (killed, maybe out of memory)", hostId: 2, since: now() - 240, resolved: null, causedBy: null, silenced: null },
+  { id: 6, key: "disk:1:/volume1", kind: "diskFull", severity: "warn", title: "server01", detail: "/volume1 is 94% full (220 GB free)", hostId: 1, since: now() - 86400 * 3, resolved: null, causedBy: null, silenced: null },
+  { id: 5, key: "svc:3", kind: "serviceDown", severity: "critical", title: "Photos", detail: "connection refused", hostId: null, since: now() - 200, resolved: null, causedBy: null, silenced: null },
 ];
+let silences: Silence[] = [
+  { id: 1, mode: "ack", key: "disk:1:/volume1", kind: "diskFull", hostId: 1, label: "DISK FULL · server01 · /volume1", severity: "warn", until: null, untilClear: false, created: now() - 86400 },
+];
+let nextSilence = 2;
+const KINDS: Record<string, string> = { diskFull: "DISK FULL", hostOffline: "HOST OFFLINE", containerDown: "CONTAINER DOWN", serviceDown: "SERVICE DOWN" };
+
+/** A rough stand-in for `silence::matches` in Rust. */
+function covers(s: Silence, a: Alert, t: number): boolean {
+  if (s.until != null && s.until <= t) return false;
+  if (s.mode === "ack") return s.key === a.key && (s.severity == null || s.severity === a.severity || a.severity === "warn");
+  if (s.key != null) return s.key === a.key;
+  return (s.kind == null || s.kind === a.kind) && (s.hostId == null || s.hostId === a.hostId);
+}
+const silenced = (list: Alert[]): Alert[] =>
+  list.map((a) => ({ ...a, silenced: [...silences].sort((x, y) => Number(x.mode === "ack") - Number(y.mode === "ack")).find((s) => covers(s, a, now()))?.id ?? null }));
+
 let deps: Dependency[] = [{ id: 1, child: { kind: "service", id: 3 }, parent: { kind: "host", id: 2 } }];
 let nextDep = 2;
 
@@ -30,7 +47,7 @@ function fold(list: Alert[]): Alert[] {
   });
 }
 let history: Alert[] = [
-  { id: 1, key: "host:2", kind: "hostOffline", severity: "critical", title: "server02", detail: "unreachable: connection refused", hostId: 2, since: now() - 7200, resolved: now() - 6900, causedBy: null },
+  { id: 1, key: "host:2", kind: "hostOffline", severity: "critical", title: "server02", detail: "unreachable: connection refused", hostId: 2, since: now() - 7200, resolved: now() - 6900, causedBy: null, silenced: null },
 ];
 
 let notes: AlertsSnapshot["logNotes"] = [
@@ -51,13 +68,14 @@ const quietCounts: AlertsSnapshot["logQuiet"] = [
 ];
 
 const snapshot = (): AlertsSnapshot => ({
-  active: fold(active),
+  active: silenced(fold(active)),
   history: [...history],
   quiet: false,
   enabled: true,
   upsCountdown: mockUpsCountdown(),
   logNotes: [...notes],
   logQuiet: quietCounts,
+  silences: [...silences],
 });
 
 /** A rough stand-in for the Rust rules: continuation lines join, levels and 404s decide. */
@@ -83,6 +101,48 @@ function classify(text: string): LogEventView[] {
 
 export const mockAlerts = {
   classify,
+  async ack(key: string, how: AckFor): Promise<Silence> {
+    const a = active.find((x) => x.key === key);
+    if (!a) throw new Error("that alert isn't active any more");
+    const s: Silence = {
+      id: nextSilence++,
+      mode: "ack",
+      key,
+      kind: a.kind,
+      hostId: a.hostId,
+      label: `${KINDS[a.kind] ?? a.kind} · ${a.title}`,
+      severity: a.severity,
+      until: how.type === "for" ? now() + how.secs : null,
+      untilClear: how.type === "clear",
+      created: now(),
+    };
+    silences = [s, ...silences.filter((x) => !(x.mode === "ack" && x.key === key))];
+    listener?.(snapshot());
+    return s;
+  },
+  async mute(key: string, scope: MuteScope, secs: number | null): Promise<Silence> {
+    const a = [...active, ...history].find((x) => x.key === key);
+    if (!a) throw new Error("that alert isn't active any more");
+    const label = KINDS[a.kind] ?? a.kind;
+    const host = `server0${a.hostId ?? ""}`;
+    const base = { id: nextSilence++, mode: "mute" as const, severity: null, until: secs == null ? null : now() + secs, untilClear: false, created: now() };
+    const s: Silence =
+      scope.type === "alert"
+        ? { ...base, key, kind: a.kind, hostId: a.hostId, label: `${label} · ${a.title}` }
+        : scope.type === "kindOnHost"
+          ? { ...base, key: null, kind: a.kind, hostId: a.hostId, label: `${label} · every alert of this kind on ${host}` }
+          : scope.type === "host"
+            ? { ...base, key: null, kind: null, hostId: a.hostId, label: `Every alert on ${host}` }
+            : { ...base, key: null, kind: a.kind, hostId: null, label: `${label} · on every host` };
+    silences = [s, ...silences];
+    listener?.(snapshot());
+    return s;
+  },
+  async unsilence(id: number): Promise<null> {
+    silences = silences.filter((s) => s.id !== id);
+    listener?.(snapshot());
+    return null;
+  },
   dropNote(source: string, fingerprint: string) {
     notes = notes.filter((n) => !(n.source === source && n.fingerprint === fingerprint));
     listener?.(snapshot());

@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+- **Acknowledge alerts.** **✓ Ack** on an alert keeps it in the list but takes it off the badge and tray and stops every notification for it (desktop, inbox, ntfy, webhooks). Pick **Until it clears**, a time (1 hour to 30 days, or custom) or **Permanently**. Whatever you pick, it comes back if it gets worse, such as a disk crossing from WARN into CRITICAL.
+- **Mute alerts.** **Mute…** silences this alert, every alert of its kind on its host, everything on its host, or its kind on every host, for a time or forever. **ACKNOWLEDGED & MUTED** in the Alerts panel lists them with the time left and an **Undo**. Silenced alerts stay on the host's timeline, tagged **ACKNOWLEDGED** or **MUTED**, and aren't counted as problems.
+- **An alert that gets worse notifies again** (WARN to CRITICAL), and a timed acknowledgement or mute that runs out while its alert is still active notifies once.
+
+### Changed
+- **DISK FULL skips system mounts** by default (Settings → Alerts → **Skip system mounts**): read-only mounts and ones full by design, such as WSL's and Docker Desktop's `/mnt/wsl/…` (for example `/mnt/wsl/docker-desktop/cli-tools`), snaps and CD/DVD images.
+
 ### Fixed
 - **Enter confirms type-to-confirm dialogs.** After typing the name (host, group, VM, key or folder), pressing Enter, including keypad Enter, now runs the red button in every type-to-confirm dialog: Upgrade hosts, power and group power, Docker, VMs and Proxmox actions, firewall changes, SSH key removal and rotation, file delete and a changed host key. Enter does nothing until the name matches, and it waits while an input method (IME) is still composing.
 

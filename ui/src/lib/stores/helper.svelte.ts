@@ -538,7 +538,7 @@ class HelperStore {
     const disks = diskRows(hosts.hosts, fleet.disks, settings.value.alerts.forecastDays).filter((r) => r.tone === "bad" || r.tone === "warn");
     return {
       now,
-      active: (snap?.active ?? []).map((a) => ({ title: a.title, detail: a.detail, since: a.since, host: name(a.hostId), severity: a.severity })),
+      active: (snap?.active ?? []).filter((a) => a.silenced == null).map((a) => ({ title: a.title, detail: a.detail, since: a.since, host: name(a.hostId), severity: a.severity })),
       resolved: (snap?.history ?? []).filter((a) => a.resolved != null).map((a) => ({ title: a.title, since: a.since, resolved: a.resolved ?? a.since, host: name(a.hostId) })),
       hostsTotal: hosts.hosts.length,
       offline,

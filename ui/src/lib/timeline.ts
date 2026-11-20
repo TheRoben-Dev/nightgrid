@@ -40,7 +40,7 @@ export function filterEvents(events: HostEvent[], on: ReadonlySet<FilterId>, que
   return events.filter(
     (e) =>
       kinds.has(e.kind) &&
-      (!problemsOnly || e.level === "warn" || e.level === "critical") &&
+      (!problemsOnly || ((e.level === "warn" || e.level === "critical") && !e.silenced)) &&
       (!q || `${e.title} ${e.detail}`.toLowerCase().includes(q)),
   );
 }
@@ -81,19 +81,27 @@ export function dayLabel(day: string, now = new Date()): string {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }).replace(",", "").toUpperCase();
 }
 
-/** Problems (warn/critical) and counts by level, for the header. */
+/**
+ * Problems (warn/critical) and counts by level, for the header. Alerts that
+ * were acknowledged or muted (D-196) aren't counted as problems.
+ */
 export function tally(events: HostEvent[]): Record<Level, number> {
   const t: Record<Level, number> = { info: 0, ok: 0, warn: 0, critical: 0 };
-  for (const e of events) t[e.level]++;
+  for (const e of events) if (!e.silenced) t[e.level]++;
   return t;
 }
+
+/** Alerts recorded while acknowledged or muted. */
+export const silencedCount = (events: HostEvent[]): number => events.filter((e) => e.silenced).length;
+
+export const SILENCED_LABEL = { ack: "ACKNOWLEDGED", mute: "MUTED" } as const;
 
 /** Plain text for DRIFT, oldest first, capped to the newest `max` lines. */
 export function timelineText(events: HostEvent[], max = 150): string {
   const picked = events.slice(0, max).reverse();
   const lines = picked.map((e) => {
     const lvl = e.level === "critical" ? " [critical]" : e.level === "warn" ? " [warn]" : e.level === "ok" ? " [ok]" : "";
-    const who = e.origin === "nightgrid" ? "" : " (host log)";
+    const who = (e.origin === "nightgrid" ? "" : " (host log)") + (e.silenced === "ack" ? " (acknowledged)" : e.silenced === "mute" ? " (muted)" : "");
     return `${dayKey(e.at)} ${clock(e.at)} ${KIND_LABEL[e.kind].toLowerCase()}: ${e.title}${lvl}${e.detail ? ` — ${e.detail}` : ""}${who}`;
   });
   if (events.length > max) lines.unshift(`(only the newest ${max} of ${events.length} entries)`);

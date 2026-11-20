@@ -21,6 +21,7 @@ use nightgrid_core::logwatch::{self, Detector, NoteWhy, RawLine, SourceCtx};
 use nightgrid_core::secrets::{Secret, SecretRef, SecretStore};
 use nightgrid_core::services::check::now_unix;
 use nightgrid_core::settings::AppSettings;
+use nightgrid_core::silence::{self, AckFor, MuteScope, Silence, SilenceId, SilenceMode};
 use nightgrid_core::system::smart;
 use serde::Serialize;
 use specta::Type;
@@ -65,6 +66,9 @@ pub struct AlertsSnapshot {
     pub log_notes: Vec<LogNote>,
     /// Log events left out by a mute or as 404 noise, per source, since the app started.
     pub log_quiet: Vec<LogQuiet>,
+    /// Acknowledged alerts and mutes, newest first (D-196). Active alerts
+    /// they cover carry the silence's id in `silenced`.
+    pub silences: Vec<Silence>,
 }
 
 /// A new log error that didn't alert: seen once, or right after a restart.
@@ -121,6 +125,10 @@ pub struct AlertsHub {
     silent: Mutex<HashSet<u32>>,
     /// Copy of the UPS countdown for the snapshot.
     ups_countdown: Mutex<Option<crate::ups_cmd::UpsCountdown>>,
+    /// Acknowledgements and mutes, as last read from the database.
+    silences: Mutex<Vec<Silence>>,
+    /// When the loop started (unix seconds).
+    started: Mutex<i64>,
 }
 
 impl AlertsHub {
@@ -139,20 +147,30 @@ impl AlertsHub {
         self.tracker.lock().expect("poisoned").history()
     }
 
-    /// Active alerts and critical ones, not counting those folded under a cause.
+    /// Active alerts and critical ones, not counting those folded under a
+    /// cause, acknowledged or muted.
     pub fn active_count(&self) -> (usize, usize) {
         let t = self.tracker.lock().expect("poisoned");
         let folding = self.folding.lock().expect("poisoned");
-        let act: Vec<Alert> = t.active().into_iter().filter(|a| !folding.caused_by.contains_key(&a.id)).collect();
+        let silences = self.silences.lock().expect("poisoned");
+        let now = now_unix();
+        let act: Vec<Alert> = t
+            .active()
+            .into_iter()
+            .filter(|a| !folding.caused_by.contains_key(&a.id) && silence::covering(&silences, a, now).is_none())
+            .collect();
         (act.len(), act.iter().filter(|a| a.severity == Severity::Critical).count())
     }
 
     fn snapshot(&self, settings: &AppSettings) -> AlertsSnapshot {
         let t = self.tracker.lock().expect("poisoned");
         let folding = self.folding.lock().expect("poisoned");
+        let silences = self.silences.lock().expect("poisoned").clone();
+        let now = now_unix();
         let mut active = t.active();
         for a in &mut active {
             a.caused_by = folding.caused_by.get(&a.id).copied();
+            a.silenced = silence::covering(&silences, a, now).map(|s| s.id);
         }
         AlertsSnapshot {
             active,
@@ -168,6 +186,7 @@ impl AlertsHub {
                 .iter()
                 .map(|((h, src), (m, nf))| LogQuiet { host_id: *h, source: src.clone(), muted: *m, not_found: *nf })
                 .collect(),
+            silences,
         }
     }
 
@@ -275,6 +294,8 @@ pub fn start(app: &AppHandle) {
     *task = Some(tauri::async_runtime::spawn(async move {
         // Let the UI subscribe and the first metrics/check results arrive.
         tokio::time::sleep(Duration::from_secs(5)).await;
+        *app.state::<AppState>().alerts.started.lock().expect("poisoned") = now_unix();
+        reload_silences(&app);
         let mut last_docker = 0i64;
         let mut last_quiet = None;
         loop {
@@ -283,13 +304,23 @@ pub fn start(app: &AppHandle) {
             let now = now_unix();
             let changes = evaluate(&app, &cfg, now, &mut last_docker).await;
             crate::chores::tick(&app, &cfg, now);
-            crate::timeline_cmd::record_alerts(&app, &changes);
-            let quiet = is_quiet(&cfg);
             let hub = app.state::<AppState>().alerts.clone();
+            // Acknowledgements and mutes as they were this round: an alert
+            // acknowledged until it clears resolves quietly.
+            let silences = hub.silences.lock().expect("poisoned").clone();
+            crate::timeline_cmd::record_alerts(&app, &changes, &silences, now);
+            let (reminders, silences_changed) = end_silences(&app, &changes, &silences, now);
+            let quiet = is_quiet(&cfg);
             let refolded = refold(&app, &cfg);
             let released = hub.release_held(now);
-            if !changes.is_empty() || !released.is_empty() || refolded || last_quiet != Some(quiet) {
-                deliver(&app, &cfg, &changes, released, quiet, now);
+            if !changes.is_empty()
+                || !released.is_empty()
+                || !reminders.is_empty()
+                || silences_changed
+                || refolded
+                || last_quiet != Some(quiet)
+            {
+                deliver(&app, &cfg, &changes, released, reminders, &silences, quiet, now);
                 hub.push(&cfg);
                 last_quiet = Some(quiet);
             }
@@ -349,7 +380,13 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
                 sampled.insert(*id);
                 if rules.disk_full {
                     if let Some(m) = state.metrics.mounts(*id) {
-                        disks.extend(alerts::disk_full(*id, &name(*id), &m, rules.disk_percent));
+                        disks.extend(alerts::disk_full(
+                            *id,
+                            &name(*id),
+                            &m,
+                            rules.disk_percent,
+                            rules.disk_skip_system,
+                        ));
                     }
                 }
             }
@@ -787,16 +824,101 @@ async fn read_log_lines(
     Some(out)
 }
 
-fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], released: Vec<Alert>, quiet: bool, now: i64) {
+/// Acknowledgements and mutes that end this round: by time, because the
+/// alert got worse, or (acknowledged until it clears) because it cleared.
+/// Returns the still-active alerts whose silence ran out, to announce again,
+/// and whether anything changed.
+fn end_silences(app: &AppHandle, changes: &[Change], list: &[Silence], now: i64) -> (Vec<(Alert, String)>, bool) {
+    if list.is_empty() {
+        return (Vec::new(), false);
+    }
+    let state = app.state::<AppState>();
+    let hub = state.alerts.clone();
+    let (active, known) = {
+        let t = hub.tracker.lock().expect("poisoned");
+        let active = t.active();
+        let known: HashSet<String> =
+            active.iter().map(|a| a.key.clone()).chain(t.pending().into_iter().map(|c| c.key)).collect();
+        (active, known)
+    };
+    let resolved: Vec<Alert> =
+        changes.iter().filter_map(|c| if let Change::Resolved(a) = c { Some(a.clone()) } else { None }).collect();
+    let settled = now - *hub.started.lock().expect("poisoned") >= silence::STALE_AFTER;
+    let plan = silence::cleanup(list, &active, &resolved, &|k: &str| known.contains(k), settled, now);
+    if plan.delete.is_empty() {
+        return (Vec::new(), false);
+    }
+    if let Err(e) = state.store().silences_delete(&plan.delete) {
+        tracing::warn!("couldn't end acknowledgements or mutes: {e}");
+        return (Vec::new(), false);
+    }
+    let left: Vec<Silence> = list.iter().filter(|s| !plan.delete.contains(&s.id)).cloned().collect();
+    let mut reminders = Vec::new();
+    for s in list.iter().filter(|s| plan.ended.contains(&s.id)) {
+        let open = Silence { until: None, ..s.clone() };
+        for a in active.iter().filter(|a| open.matches(a, now) && silence::covering(&left, a, now).is_none()) {
+            if !reminders.iter().any(|(r, _): &(Alert, String)| r.id == a.id) {
+                let what = if s.mode == SilenceMode::Ack { "acknowledgement" } else { "mute" };
+                reminders.push((a.clone(), format!(" (still active: the {what} ended)")));
+            }
+        }
+    }
+    *hub.silences.lock().expect("poisoned") = left;
+    (reminders, true)
+}
+
+/// Reads the acknowledgements and mutes again (after a change).
+fn reload_silences(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let read = state.store().silences();
+    match read {
+        Ok(list) => *state.alerts.silences.lock().expect("poisoned") = list,
+        Err(e) => tracing::warn!("couldn't read acknowledgements and mutes: {e}"),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn deliver(
+    app: &AppHandle,
+    cfg: &AppSettings,
+    changes: &[Change],
+    released: Vec<Alert>,
+    reminders: Vec<(Alert, String)>,
+    silences: &[Silence],
+    quiet: bool,
+    now: i64,
+) {
     let hub = app.state::<AppState>().alerts.clone();
     let folding = hub.folding.lock().expect("poisoned").clone();
+    let hushed = |a: &Alert| silence::covering(silences, a, now).is_some();
     // Alerts explained by an outage upstream stay quiet; those whose cause
-    // may still fire wait a little (M10s).
-    let mut fired: Vec<Alert> = released;
+    // may still fire wait a little (M10s). Acknowledged and muted ones send
+    // nothing at all (D-196).
+    let mut fired: Vec<Alert> = released.into_iter().filter(|a| !hushed(a)).collect();
+    let mut notes: HashMap<u32, String> = HashMap::new();
+    for (a, why) in reminders {
+        if !fired.iter().any(|f| f.id == a.id) {
+            hub.silent.lock().expect("poisoned").remove(&a.id);
+            notes.insert(a.id, why);
+            fired.push(a);
+        }
+    }
     let mut folded_under: HashMap<u32, usize> = HashMap::new();
     for c in changes {
+        if let Change::Worse(a) = c {
+            if hushed(a) || folding.caused_by.contains_key(&a.id) || fired.iter().any(|f| f.id == a.id) {
+                continue;
+            }
+            hub.held.lock().expect("poisoned").remove(&a.id);
+            hub.silent.lock().expect("poisoned").remove(&a.id);
+            notes.insert(a.id, " (got worse)".into());
+            fired.push(a.clone());
+            continue;
+        }
         if let Change::Fired(a) = c {
-            if let Some(cause) = folding.caused_by.get(&a.id) {
+            if hushed(a) {
+                hub.silent.lock().expect("poisoned").insert(a.id);
+            } else if let Some(cause) = folding.caused_by.get(&a.id) {
                 hub.silent.lock().expect("poisoned").insert(a.id);
                 *folded_under.entry(*cause).or_default() += 1;
             } else if folding.waiting.contains(&a.id) {
@@ -810,7 +932,7 @@ fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], released: Vec
     for c in changes {
         if let Change::Resolved(a) = c {
             hub.held.lock().expect("poisoned").remove(&a.id);
-            if !hub.silent.lock().expect("poisoned").remove(&a.id) {
+            if !hub.silent.lock().expect("poisoned").remove(&a.id) && !hushed(a) {
                 resolved.push(a.clone());
             }
         }
@@ -818,9 +940,12 @@ fn deliver(app: &AppHandle, cfg: &AppSettings, changes: &[Change], released: Vec
     if fired.is_empty() && resolved.is_empty() {
         return;
     }
-    let explains = |a: &Alert| match folded_under.get(&a.id) {
-        Some(n) => format!(" (and {n} alert{} it explains)", if *n == 1 { "" } else { "s" }),
-        None => String::new(),
+    let explains = |a: &Alert| {
+        let mut s = notes.get(&a.id).cloned().unwrap_or_default();
+        if let Some(n) = folded_under.get(&a.id) {
+            s.push_str(&format!(" (and {n} alert{} it explains)", if *n == 1 { "" } else { "s" }));
+        }
+        s
     };
     // The inbox keeps every round, quiet hours or not (1.1).
     let with_why: Vec<(Alert, String)> = fired.iter().map(|a| (a.clone(), explains(a))).collect();
@@ -879,7 +1004,28 @@ pub(crate) fn import_from_node(app: &AppHandle, host_name: &str, list: Vec<Alert
         return;
     }
     let hub = app.state::<AppState>().alerts.clone();
+    // The node doesn't know about system mounts (D-196): leave them out here.
+    let list: Vec<Alert> = list
+        .into_iter()
+        .filter(|a| {
+            !(cfg.alerts.disk_skip_system
+                && a.kind == alerts::AlertKind::DiskFull
+                && a.key.splitn(3, ':').nth(2).is_some_and(|m| silence::system_mount(m, "", false)))
+        })
+        .collect();
     let fired = hub.tracker.lock().expect("poisoned").import(list);
+    let now = now_unix();
+    let silences = hub.silences.lock().expect("poisoned").clone();
+    let fired: Vec<Alert> = fired
+        .into_iter()
+        .filter(|a| {
+            let hushed = silence::covering(&silences, a, now).is_some();
+            if hushed {
+                hub.silent.lock().expect("poisoned").insert(a.id);
+            }
+            !hushed
+        })
+        .collect();
     hub.push(&cfg);
     let with_why: Vec<(Alert, String)> = fired.iter().map(|a| (a.clone(), String::new())).collect();
     crate::notify_cmd::from_alerts(app, &cfg, &with_why, &[], is_quiet(&cfg));
@@ -1078,6 +1224,70 @@ pub fn alerts_log_mute(
     Ok(s)
 }
 
+/// The active (or recently resolved) alert with this key.
+fn alert_by_key(state: &AppState, key: &str) -> CmdResult<Alert> {
+    let t = state.alerts.tracker.lock().expect("poisoned");
+    t.active()
+        .into_iter()
+        .chain(t.history())
+        .find(|a| a.key == key)
+        .ok_or_else(|| CommandError::msg("that alert isn't active any more"))
+}
+
+fn silences_changed(app: &AppHandle) {
+    reload_silences(app);
+    let state = app.state::<AppState>();
+    state.alerts.push(&settings(app));
+    crate::tray::refresh(app);
+}
+
+/// Acknowledges an active alert (D-196): no badge or notifications while it
+/// stays as it is. It ends when the alert gets worse, and otherwise when it
+/// clears, after a while, or never, as chosen.
+#[tauri::command]
+#[specta::specta]
+pub fn alerts_ack(app: AppHandle, state: State<'_, AppState>, key: String, how: AckFor) -> CmdResult<Silence> {
+    let a = alert_by_key(&state, &key)?;
+    if a.resolved.is_some() {
+        return Err(CommandError::msg("that alert has already cleared"));
+    }
+    let s = state.store().silence_add(&silence::ack_for(&a, how, now_unix())?)?;
+    silences_changed(&app);
+    Ok(s)
+}
+
+/// Mutes alerts like this one (D-196): this alert, its kind on its host, its
+/// host, or its kind everywhere; for `secs` seconds or (`None`) for good.
+#[tauri::command]
+#[specta::specta]
+pub fn alerts_mute(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    key: String,
+    scope: MuteScope,
+    secs: Option<u32>,
+) -> CmdResult<Silence> {
+    let a = alert_by_key(&state, &key)?;
+    let host_name = match a.host_id {
+        Some(h) => state.store().list_hosts()?.into_iter().find(|x| x.id == h).map(|x| x.name),
+        None => None,
+    }
+    .unwrap_or_else(|| a.title.clone());
+    let s = state.store().silence_add(&silence::mute_for(&a, &scope, secs.map(i64::from), &host_name, now_unix())?)?;
+    silences_changed(&app);
+    Ok(s)
+}
+
+/// Ends an acknowledgement or mute now. Its alerts count again, without a
+/// new notification.
+#[tauri::command]
+#[specta::specta]
+pub fn alerts_unsilence(app: AppHandle, state: State<'_, AppState>, id: SilenceId) -> CmdResult<()> {
+    state.store().silences_delete(&[id])?;
+    silences_changed(&app);
+    Ok(())
+}
+
 #[derive(Debug, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WebhookInfo {
@@ -1157,6 +1367,7 @@ pub async fn alerts_test(app: AppHandle) -> CmdResult<TestResult> {
             since: now_unix(),
             resolved: None,
             caused_by: None,
+            silenced: None,
         };
         match alerts::webhook_request(&cfg.alerts.webhook, &url, &a) {
             Some(req) => Some(match nightgrid_core::http::send(req).await {

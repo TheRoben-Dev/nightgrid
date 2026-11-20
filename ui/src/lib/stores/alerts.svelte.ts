@@ -1,5 +1,5 @@
 import { sound } from "./sound.svelte";
-import { api, type Alert, type AlertKind, type AlertsSnapshot } from "../api";
+import { api, type AckFor, type Alert, type AlertKind, type AlertsSnapshot, type MuteScope, type Silence } from "../api";
 import { docker } from "./docker.svelte";
 import { fleet } from "./fleet.svelte";
 import { metrics } from "./metrics.svelte";
@@ -98,6 +98,55 @@ export function fromHhmm(s: string): number | null {
   return h < 24 && min < 60 ? h * 60 + min : null;
 }
 
+/** Active alerts nobody acknowledged or muted (D-196): these badge and notify. */
+export const loud = (active: Alert[]): Alert[] => active.filter((a) => a.silenced == null);
+
+/** Durations offered for acknowledging and muting, in seconds. */
+export const DURATIONS = [
+  { secs: 3600, label: "1 hour" },
+  { secs: 8 * 3600, label: "8 hours" },
+  { secs: 86400, label: "1 day" },
+  { secs: 7 * 86400, label: "1 week" },
+  { secs: 30 * 86400, label: "30 days" },
+] as const;
+
+/** Custom duration units, in seconds. */
+export const UNITS = [
+  { secs: 60, label: "minutes" },
+  { secs: 3600, label: "hours" },
+  { secs: 86400, label: "days" },
+  { secs: 7 * 86400, label: "weeks" },
+] as const;
+
+/** A custom duration in seconds, or null when out of range (a minute to a year). */
+export function customSecs(n: number, unit: number): number | null {
+  const s = Math.round(n * unit);
+  return Number.isFinite(s) && s >= 60 && s <= 366 * 86400 ? s : null;
+}
+
+/** "until it clears", "for 3h 20m more", "for good" (and "unless it gets worse" for acknowledgements). */
+export function silenceWhen(s: Silence, now = Math.floor(Date.now() / 1000)): string {
+  const worse = s.mode === "ack" ? ", unless it gets worse" : "";
+  if (s.until != null) return `${ago(now, s.until)} left${worse}`;
+  if (s.mode === "ack" && s.untilClear) return `until it clears${worse}`;
+  return `for good${worse}`;
+}
+
+/** What a mute covers, in words, for the scope picker. */
+export function scopeLabel(scope: MuteScope["type"], a: Alert, hostName: string | null): string {
+  const kind = KIND_LABEL[a.kind];
+  switch (scope) {
+    case "alert":
+      return "This alert only";
+    case "kindOnHost":
+      return `Every ${kind} on ${hostName ?? "this host"}`;
+    case "host":
+      return `Everything on ${hostName ?? "this host"}`;
+    case "kind":
+      return `Every ${kind} on every host`;
+  }
+}
+
 /**
  * Active alerts with those explained by an outage upstream (M10s) listed
  * under their cause. An alert whose cause isn't in the list stays on top.
@@ -117,17 +166,18 @@ export function alertCue(prev: AlertsSnapshot | null, next: AlertsSnapshot): "al
   if (!prev) return null;
   const before = prev.active.map((a) => a.id);
   const now = next.active.map((a) => a.id);
-  const fresh = next.active.filter((a) => !before.includes(a.id) && a.causedBy == null);
+  const fresh = next.active.filter((a) => !before.includes(a.id) && a.causedBy == null && a.silenced == null);
   if (fresh.some((a) => a.severity === "critical")) return "alertCritical";
   if (fresh.length) return "alertWarn";
-  if (prev.active.some((a) => !now.includes(a.id) && a.causedBy == null)) return "alertClear";
+  if (prev.active.some((a) => !now.includes(a.id) && a.causedBy == null && a.silenced == null)) return "alertClear";
   return null;
 }
 
 export type Tone = "ok" | "warn" | "bad";
 export function tone(s: AlertsSnapshot | null): Tone {
-  if (!s?.active.length) return "ok";
-  return s.active.some((a) => a.severity === "critical") ? "bad" : "warn";
+  const act = loud(s?.active ?? []);
+  if (!act.length) return "ok";
+  return act.some((a) => a.severity === "critical") ? "bad" : "warn";
 }
 
 class AlertsStore {
@@ -139,9 +189,31 @@ class AlertsStore {
     return this.snap?.active ?? [];
   }
 
-  /** Active alerts without those folded under a cause. */
+  /** Active alerts without those folded under a cause, acknowledged or muted. */
   get roots(): Alert[] {
-    return groupByCause(this.active).map((g) => g.alert);
+    return groupByCause(loud(this.active)).map((g) => g.alert);
+  }
+
+  /** Acknowledgements and mutes, newest first (D-196). */
+  get silences(): Silence[] {
+    return this.snap?.silences ?? [];
+  }
+
+  /** Active alerts a silence covers. */
+  covered(s: Silence): Alert[] {
+    return this.active.filter((a) => a.silenced === s.id);
+  }
+
+  async ack(a: Alert, how: AckFor) {
+    await api.alertsAck(a.key, how);
+  }
+
+  async mute(a: Alert, scope: MuteScope, secs: number | null) {
+    await api.alertsMute(a.key, scope, secs);
+  }
+
+  async unsilence(id: number) {
+    await api.alertsUnsilence(id);
   }
 
   get history(): Alert[] {
@@ -241,7 +313,7 @@ class AlertsStore {
   }
 
   /** "Mute this pattern": it stops alerting and being noted (still counted). */
-  async mute(hostId: number, source: string, fingerprint: string) {
+  async mutePattern(hostId: number, source: string, fingerprint: string) {
     const s = await api.alertsLogMute(hostId, source, fingerprint);
     settings.value = s;
   }

@@ -5,6 +5,7 @@ use nightgrid_core::alerts::{Alert, Change, Severity};
 use nightgrid_core::docker::DockerError;
 use nightgrid_core::hosts::HostId;
 use nightgrid_core::services::check::now_unix;
+use nightgrid_core::silence::Silence;
 use nightgrid_core::system::SystemError;
 use nightgrid_core::timeline::{self, EventKind, HostEvent, Level};
 use serde::Serialize;
@@ -28,11 +29,12 @@ pub(crate) fn record(app: &AppHandle, host: HostId, kind: EventKind, level: Leve
 }
 
 /// Alerts that fired or cleared on a host go on that host's timeline.
-pub(crate) fn record_alerts(app: &AppHandle, changes: &[Change]) {
+pub(crate) fn record_alerts(app: &AppHandle, changes: &[Change], silences: &[Silence], now: i64) {
     for c in changes {
-        let (a, fired): (&Alert, bool) = match c {
-            Change::Fired(a) => (a, true),
-            Change::Resolved(a) => (a, false),
+        let (a, fired, worse): (&Alert, bool, bool) = match c {
+            Change::Fired(a) => (a, true, false),
+            Change::Worse(a) => (a, true, true),
+            Change::Resolved(a) => (a, false, false),
             Change::Updated(_) => continue,
         };
         let Some(host) = a.host_id else { continue };
@@ -42,14 +44,24 @@ pub(crate) fn record_alerts(app: &AppHandle, changes: &[Change]) {
             (EventKind::Recovered, Level::Ok)
         };
         let title = format!("{}: {}", a.kind.label(), a.title);
-        let detail = if fired {
+        let detail = if worse {
+            format!("got worse: {}", a.detail)
+        } else if fired {
             a.detail.clone()
         } else {
             format!("cleared after {}", timeline::span(a.resolved.unwrap_or(a.since) - a.since))
         };
         let state = app.state::<AppState>();
-        let at = if fired { a.since } else { a.resolved.unwrap_or_else(now_unix) };
-        let r = state.store().event_add(host, at, kind, level, &title, &detail);
+        let at = if worse {
+            now
+        } else if fired {
+            a.since
+        } else {
+            a.resolved.unwrap_or_else(now_unix)
+        };
+        // Acknowledged or muted alerts stay on the timeline, marked (D-196).
+        let marked = nightgrid_core::silence::covering(silences, a, now).map(|s| s.mode);
+        let r = state.store().event_add_marked(host, at, kind, level, &title, &detail, marked);
         if let Err(e) = r {
             tracing::warn!(host = %host, "couldn't record an alert on the timeline: {e}");
         }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { HostEvent } from "./api";
-import { byDay, dayKey, dayLabel, filterEvents, tally, timelineText, type FilterId } from "./timeline";
+import { byDay, dayKey, dayLabel, filterEvents, silencedCount, tally, timelineText, type FilterId } from "./timeline";
 
 const at = (y: number, m: number, d: number, h = 12, min = 0) => Math.floor(new Date(y, m - 1, d, h, min).getTime() / 1000);
 const ev = (t: number, kind: HostEvent["kind"], level: HostEvent["level"], title: string, detail = "", origin: HostEvent["origin"] = "host"): HostEvent => ({
@@ -10,6 +10,7 @@ const ev = (t: number, kind: HostEvent["kind"], level: HostEvent["level"], title
   title,
   detail,
   origin,
+  silenced: null,
 });
 
 const events: HostEvent[] = [
@@ -47,5 +48,17 @@ describe("timeline", () => {
     expect(lines[0]).toBe("2026-11-14 07:00 boot: Booted (host log)");
     expect(lines[3]).toBe("2026-11-15 21:05 alert: HOST OFFLINE: nas [critical] — no answer");
     expect(timelineText(events, 2).split("\n")[0]).toBe("(only the newest 2 of 4 entries)");
+  });
+
+  it("marks acknowledged and muted alerts and leaves them out of the problems", () => {
+    const acked = { ...ev(at(2026, 11, 16, 9), "alert", "warn", "DISK FULL: nas", "/volume1 is 94% full", "nightgrid"), silenced: "ack" as const };
+    const loud = ev(at(2026, 11, 16, 10), "alert", "critical", "HOST OFFLINE: nas", "no answer", "nightgrid");
+    const all = [loud, acked];
+    expect(tally(all)).toEqual({ info: 0, ok: 0, warn: 0, critical: 1 });
+    expect(silencedCount(all)).toBe(1);
+    const alerts = new Set<FilterId>(["alerts"]);
+    expect(filterEvents(all, alerts, "", true)).toEqual([loud]);
+    expect(filterEvents(all, alerts)).toEqual(all);
+    expect(timelineText(all)).toContain("DISK FULL: nas [warn] — /volume1 is 94% full (acknowledged)");
   });
 });

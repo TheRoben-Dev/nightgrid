@@ -3,7 +3,8 @@
   import Modal from "../Modal.svelte";
   import { scramble } from "../../scramble";
   import { api, errorText, type Alert, type LogNote } from "../../api";
-  import { ago, alerts, groupByCause, isLogAlert, KIND_LABEL, logFingerprint, logSource, targetLabel } from "../../stores/alerts.svelte";
+  import { ago, alerts, customSecs, DURATIONS, groupByCause, isLogAlert, KIND_LABEL, logFingerprint, logSource, loud, scopeLabel, silenceWhen, targetLabel, UNITS } from "../../stores/alerts.svelte";
+  import type { AckFor, MuteScope, Silence } from "../../api";
   import { factsFrom, logTriage, type ContainerFacts } from "../../helper/logTriage";
   import { triageCheck } from "../../helper/skills";
   import { helper } from "../../stores/helper.svelte";
@@ -104,7 +105,7 @@
   async function mute(hostId: number, source: string, fp: string) {
     muteError = null;
     try {
-      await alerts.mute(hostId, source, fp);
+      await alerts.mutePattern(hostId, source, fp);
     } catch (e) {
       muteError = errorText(e);
     }
@@ -117,19 +118,60 @@
     return () => clearInterval(t);
   });
   const snap = $derived(alerts.snap);
-  const groups = $derived(groupByCause(alerts.active));
+  const loudActive = $derived(loud(alerts.active));
+  const groups = $derived(groupByCause(loudActive));
+  const hushedCount = $derived(alerts.active.length - loudActive.length);
   let openFold = $state<number | null>(null);
+
+  // Acknowledge and mute (D-196).
+  let menu = $state<{ id: number; what: "ack" | "mute" } | null>(null);
+  let scope = $state<MuteScope["type"]>("alert");
+  let customN = $state(2);
+  let customUnit = $state<number>(3600);
+  let silenceError = $state<string | null>(null);
+  const hostName = (a: Alert) => hosts.hosts.find((h) => h.id === a.hostId)?.name ?? null;
+  const custom = $derived(customSecs(customN, customUnit));
+
+  function openMenu(a: Alert, what: "ack" | "mute") {
+    silenceError = null;
+    if (menu?.id === a.id && menu.what === what) {
+      menu = null;
+      return;
+    }
+    menu = { id: a.id, what };
+    scope = "alert";
+  }
+
+  async function run(f: () => Promise<void>) {
+    silenceError = null;
+    try {
+      await f();
+      menu = null;
+    } catch (e) {
+      silenceError = errorText(e);
+    }
+  }
+  const ack = (a: Alert, how: AckFor) => run(() => alerts.ack(a, how));
+  const muteAs = (a: Alert, secs: number | null) => run(() => alerts.mute(a, { type: scope } as MuteScope, secs));
+  function coverText(s: Silence): string {
+    const hit = alerts.covered(s);
+    if (hit.length === 1 && s.key) return hit[0].detail;
+    if (hit.length) return `covers ${hit.length} active alert${hit.length === 1 ? "" : "s"}`;
+    return "nothing active right now";
+  }
+  const SCOPES: MuteScope["type"][] = ["alert", "kindOnHost", "host", "kind"];
 </script>
 
 <Modal open={alerts.open} title="ALERTS" width={680} onclose={() => (alerts.open = false)}>
   <div class="head">
-    <span class="count {alerts.tone}">{alerts.active.length ? `${groups.length} ACTIVE` : "ALL CLEAR"}</span>
-    {#if alerts.active.length > groups.length}<span class="muted">+{alerts.active.length - groups.length} folded under their cause</span>{/if}
+    <span class="count {alerts.tone}">{loudActive.length ? `${groups.length} ACTIVE` : "ALL CLEAR"}</span>
+    {#if loudActive.length > groups.length}<span class="muted">+{loudActive.length - groups.length} folded under their cause</span>{/if}
+    {#if hushedCount}<span class="muted">{hushedCount} acknowledged or muted</span>{/if}
     {#if snap && !snap.enabled}<span class="muted">Alerts are turned off.</span>{/if}
     {#if snap?.quiet}<span class="quiet">QUIET HOURS · notifications held</span>{/if}
   </div>
 
-  {#if alerts.active.length}
+  {#if loudActive.length}
     <ul class="list" aria-label="Active alerts">
       {#each groups as { alert: a, folded } (a.key)}
         {@const rb = runbooks(a)}
@@ -160,7 +202,64 @@
           {#if logFingerprint(a) && a.hostId != null}
             <button type="button" class="btn ghost tiny" data-guide="alert-mute" title="Never alert on this pattern from {logSource(a)} again (it's still counted)" onclick={() => void mute(a.hostId ?? 0, logSource(a) ?? "", logFingerprint(a) ?? "")}>Mute pattern</button>
           {/if}
+          <button
+            type="button"
+            class="btn ghost tiny"
+            data-guide="alert-ack"
+            aria-expanded={menu?.id === a.id && menu.what === "ack"}
+            title="I know about this: no badge or notifications until it gets worse"
+            onclick={() => openMenu(a, "ack")}>✓ Ack</button
+          >
+          <button
+            type="button"
+            class="btn ghost tiny"
+            data-guide="alert-mute-rule"
+            aria-expanded={menu?.id === a.id && menu.what === "mute"}
+            title="Silence this alert, its kind or its host for a while or for good"
+            onclick={() => openMenu(a, "mute")}>Mute…</button
+          >
           <button type="button" class="btn ghost tiny" onclick={() => alerts.go(a)}>{targetLabel(a)}</button>
+          {#if menu?.id === a.id}
+            <div class="fold silence" role="group" aria-label={menu.what === "ack" ? "Acknowledge for how long" : "Mute what, and for how long"}>
+              {#if menu.what === "ack"}
+                <span class="muted small">Acknowledge: stays in the list, without a badge or notifications. It comes back if it gets worse ({a.severity === "warn" ? "WARN → CRITICAL" : "it's already critical, so only when it clears"}).</span>
+                <div class="opts">
+                  <button type="button" class="btn tiny" onclick={() => void ack(a, { type: "clear" })}>Until it clears</button>
+                  {#each DURATIONS as d (d.secs)}<button type="button" class="btn ghost tiny" onclick={() => void ack(a, { type: "for", secs: d.secs })}>{d.label}</button>{/each}
+                  <button type="button" class="btn ghost tiny" title="Only a worse state brings it back, even after it clears and returns" onclick={() => void ack(a, { type: "always" })}>Permanently</button>
+                </div>
+              {:else}
+                <span class="muted small">Mute: no badge or notifications, whatever the severity, until you undo it or the time runs out.</span>
+                <div class="opts">
+                  {#each SCOPES as s (s)}
+                    <label class="scope"
+                      ><input type="radio" name="mute-scope-{a.id}" value={s} bind:group={scope} disabled={(s === "kindOnHost" || s === "host") && a.hostId == null} />
+                      {scopeLabel(s, a, hostName(a))}</label
+                    >
+                  {/each}
+                </div>
+                <div class="opts">
+                  {#each DURATIONS as d (d.secs)}<button type="button" class="btn ghost tiny" onclick={() => void muteAs(a, d.secs)}>{d.label}</button>{/each}
+                  <button type="button" class="btn tiny" onclick={() => void muteAs(a, null)}>Forever</button>
+                </div>
+              {/if}
+              <div class="opts">
+                <span class="muted small">Custom:</span>
+                <input class="input num" type="number" min="1" max="999" bind:value={customN} aria-label="How many" />
+                <select class="input" bind:value={customUnit} aria-label="Unit">
+                  {#each UNITS as u (u.secs)}<option value={u.secs}>{u.label}</option>{/each}
+                </select>
+                <button
+                  type="button"
+                  class="btn ghost tiny"
+                  disabled={custom == null}
+                  title={custom == null ? "Between a minute and a year" : ""}
+                  onclick={() => custom != null && void (menu?.what === "ack" ? ack(a, { type: "for", secs: custom }) : muteAs(a, custom))}
+                  >{menu.what === "ack" ? "Acknowledge" : "Mute"}</button
+                >
+              </div>
+            </div>
+          {/if}
           {#if pick === a.id && rb.length > 1}
             <div class="fold">
               {#each rb as n (n.id)}<button type="button" class="link" onclick={() => openNote(n.id)}>▤ {n.title}</button>{/each}
@@ -195,6 +294,26 @@
   {/if}
 
   {#if muteError}<p class="err" role="alert">{muteError}</p>{/if}
+  {#if silenceError}<p class="err" role="alert">{silenceError}</p>{/if}
+
+  {#if alerts.silences.length}
+    <div class="sub">
+      <span class="label">ACKNOWLEDGED & MUTED</span>
+      <span class="muted small sublead">no badge, sound or notifications; still on the timeline</span>
+    </div>
+    <ul class="list past" aria-label="Acknowledged and muted" data-guide="alert-silences">
+      {#each alerts.silences as s (s.id)}
+        <li class="row hushed {alerts.covered(s)[0]?.severity ?? ''}">
+          <span class="bar" aria-hidden="true"></span>
+          <div class="txt">
+            <span class="kind">{s.mode === "ack" ? "ACK" : "MUTED"} · {s.label}</span>
+            <span class="detail">{silenceWhen(s, now)} · {coverText(s)}</span>
+          </div>
+          <button type="button" class="btn ghost tiny" title={s.mode === "ack" ? "Count and notify this alert again" : "Remove this mute"} onclick={() => void run(() => alerts.unsilence(s.id))}>Undo</button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
 
   {#if alerts.notes.length}
     <div class="sub">
@@ -269,6 +388,33 @@
   .err {
     color: var(--danger);
     font-size: var(--fs-sm);
+  }
+  .silence {
+    gap: 6px;
+    padding: 6px 0 2px;
+  }
+  .opts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .scope {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    font-size: var(--fs-xs);
+    margin-right: 8px;
+  }
+  .num {
+    width: 64px;
+  }
+  .row.hushed {
+    background: transparent;
+    opacity: 0.75;
+  }
+  .row.hushed .bar {
+    opacity: 0.5;
   }
   .row.note .bar {
     background: var(--cyan);
@@ -363,7 +509,7 @@
   .row {
     --tone: var(--text-1);
     display: grid;
-    grid-template-columns: 2px 1fr repeat(4, auto);
+    grid-template-columns: 2px 1fr repeat(7, auto);
     gap: 10px;
     align-items: center;
     padding: 6px 8px 6px 0;

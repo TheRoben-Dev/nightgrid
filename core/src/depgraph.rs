@@ -246,6 +246,7 @@ mod tests {
             since: 0,
             resolved: None,
             caused_by: None,
+            silenced: None,
         }
     }
 

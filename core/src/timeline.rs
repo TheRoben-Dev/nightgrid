@@ -140,11 +140,13 @@ pub struct HostEvent {
     pub title: String,
     pub detail: String,
     pub origin: Origin,
+    /// Recorded while the alert was acknowledged or muted (D-196).
+    pub silenced: Option<crate::silence::SilenceMode>,
 }
 
 impl HostEvent {
     pub fn new(at: i64, kind: EventKind, level: Level, title: impl Into<String>, detail: impl Into<String>) -> Self {
-        Self { at, kind, level, title: title.into(), detail: detail.into(), origin: Origin::Host }
+        Self { at, kind, level, title: title.into(), detail: detail.into(), origin: Origin::Host, silenced: None }
     }
 }
 
@@ -173,10 +175,25 @@ impl Store {
         title: &str,
         detail: &str,
     ) -> Result<()> {
+        self.event_add_marked(host, at, kind, level, title, detail, None)
+    }
+
+    /// [`Store::event_add`] for an alert that was acknowledged or muted.
+    #[allow(clippy::too_many_arguments)]
+    pub fn event_add_marked(
+        &self,
+        host: HostId,
+        at: i64,
+        kind: EventKind,
+        level: Level,
+        title: &str,
+        detail: &str,
+        silenced: Option<crate::silence::SilenceMode>,
+    ) -> Result<()> {
         let c = self.conn();
         c.execute(
-            "INSERT INTO host_events (host_id, at, kind, level, title, detail) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![host, at, kind.as_str(), level.as_str(), tidy(title, 200), tidy(detail, 600)],
+            "INSERT INTO host_events (host_id, at, kind, level, title, detail, silenced) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![host, at, kind.as_str(), level.as_str(), tidy(title, 200), tidy(detail, 600), silenced.map(|m| m.as_str())],
         )?;
         c.execute(
             "DELETE FROM host_events WHERE host_id = ?1 AND (at < ?2 OR id NOT IN
@@ -189,17 +206,32 @@ impl Store {
     /// Recorded events for `host` at or after `since`, newest first.
     pub fn events_for(&self, host: HostId, since: i64) -> Result<Vec<HostEvent>> {
         let mut st = self.conn().prepare(
-            "SELECT at, kind, level, title, detail FROM host_events
+            "SELECT at, kind, level, title, detail, silenced FROM host_events
              WHERE host_id = ?1 AND at >= ?2 ORDER BY at DESC, id DESC LIMIT ?3",
         )?;
         let rows = st.query_map(params![host, since, LIST_MAX as i64], |r| {
-            Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get(3)?, r.get(4)?))
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get::<_, Option<String>>(5)?,
+            ))
         })?;
         let mut out = Vec::new();
         for row in rows {
-            let (at, kind, level, title, detail) = row?;
+            let (at, kind, level, title, detail, silenced) = row?;
             let Some(kind) = EventKind::parse(&kind) else { continue };
-            out.push(HostEvent { at, kind, level: Level::parse(&level), title, detail, origin: Origin::Nightgrid });
+            out.push(HostEvent {
+                at,
+                kind,
+                level: Level::parse(&level),
+                title,
+                detail,
+                origin: Origin::Nightgrid,
+                silenced: silenced.as_deref().and_then(crate::silence::SilenceMode::parse),
+            });
         }
         Ok(out)
     }
