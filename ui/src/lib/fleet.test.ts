@@ -104,7 +104,28 @@ describe("fleet updates", () => {
 });
 
 describe("fleet disks", () => {
-  const f = (o: Partial<MountForecast>): MountForecast => ({ mount: "/", size: 100e9, used: 50e9, at: 0, perDay: null, daysLeft: null, spanDays: 0, daily: [], ...o });
+  const f = (o: Partial<MountForecast>): MountForecast => ({
+    mount: "/",
+    size: 100e9,
+    used: 50e9,
+    at: 0,
+    perDay: null,
+    daysLeft: null,
+    spanDays: 0,
+    daily: [],
+    device: "/dev/sda1",
+    fstype: "ext4",
+    kind: "local",
+    label: "",
+    also: [],
+    owner: null,
+    mountedOn: [],
+    stores: [],
+    storedOn: null,
+    counted: true,
+    note: null,
+    ...o,
+  });
 
   it("words the forecast", () => {
     expect(fillText(f({}))).toBe("learning (needs a day of history)");
@@ -119,6 +140,10 @@ describe("fleet disks", () => {
     expect(fillTone(f({ perDay: 1e9, daysLeft: 9 }), 14)).toBe("warn");
     expect(fillTone(f({ perDay: 1e9, daysLeft: 40 }), 14)).toBe("ok");
     expect(usedPct(f({}))).toBe(50);
+    // A share counted on the NAS is neutral here, and says where it's counted.
+    const share = f({ kind: "network", counted: false, perDay: 9e9, daysLeft: 1, owner: { hostId: 2, host: "nas", mount: "/volume1" } });
+    expect(fillText(share)).toBe("counted on nas");
+    expect(fillTone(share, 14)).toBe("ok");
   });
 
   it("draws a sparkline and ranks hosts", () => {
@@ -143,5 +168,7 @@ describe("fleet disks", () => {
     ]);
     expect(diskTone(undefined, 14)).toBe("unknown");
     expect(disksText(rows)).toContain("c:\n  - /: 50.0 GB of 100 GB (50%), +1.0 GB/day, full in about 9 days");
+    const wsl = diskRows([host(4, "w")], { 4: d({ forecasts: [f({ mount: "/mnt/h", kind: "passthrough", label: "Windows drive H:", note: "The disk belongs to Windows." })] }) }, 14);
+    expect(disksText(wsl)).toContain("/mnt/h (Windows drive H:): 50.0 GB of 100 GB (50%), trend unknown, learning (needs a day of history). The disk belongs to Windows.");
   });
 });

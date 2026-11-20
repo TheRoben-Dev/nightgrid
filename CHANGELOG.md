@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Added
+- **What's growing.** Every mount in Fleet → DISKS has **What's growing**: the biggest folders and files on that filesystem, what grew since the last scan, and files changed today. VM disk images (`.vhdx`, `.qcow2`, `.vmdk`, `.vdi`, Hyper-V checkpoints…) are flagged with what to do, since their growth is inside the VM and they don't shrink by themselves; Docker and the journal get hints too. Click a folder to look inside, **Read as root** for folders the login can't open. Works on Linux, macOS and Windows hosts, installs nothing, and the previous scan stays on the host (`~/.nightgrid/growth`), not on this computer.
+- **Storage links: "disks stored on".** On a drive's What's growing panel, link the VMs whose disk images live there (a VM image named after a saved host is suggested). It's not a "depends on": a linked VM's alerts fold under that drive's critical DISK FULL and under its hypervisor going offline, while a share mounted from a NAS never makes a host depend on it. Links are in the profile export.
+
+### Changed
+- **Disk forecasts understand shares and nested storage.** Fleet → DISKS tells a host's own disks from NFS/SMB/SSHFS shares, Windows drives passed into WSL, VM shared folders and ZFS/APFS datasets, with a chip on each. A share from a saved host (say `/mnt/plex` from the NAS) is counted once, on the NAS, and shown on the client as **counted on nas** with no FILLING UP or DISK FULL alert; the same share mounted on several hosts with no owner saved counts on the first. Datasets of one pool are forecast together (their free space is shared), and the same storage mounted twice on one host shows once. WSL's `/mnt/c`-style drives say the disk belongs to Windows, and SMART no longer reads as missing inside WSL or a VM guest. DRIFT's disk explanations get all of this.
+
 ## [1.20.0] - 2026-11-20
 
 ### Added

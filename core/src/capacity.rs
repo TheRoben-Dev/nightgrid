@@ -79,9 +79,9 @@ fn round1(x: Option<f32>) -> Option<f32> {
 }
 
 /// Mounts worth planning around: real filesystems of 1 GB or more, not boot
-/// partitions.
+/// partitions, and not shares whose space is counted on another host.
 pub fn worth(f: &MountForecast) -> bool {
-    f.size >= GB && !f.mount.starts_with("/boot") && !f.mount.starts_with("/snap/")
+    f.counted && f.size >= GB && !f.mount.starts_with("/boot") && !f.mount.starts_with("/snap/")
 }
 
 pub fn summarize(host_id: HostId, spec: Option<HostSpec>, points: &[Point], disks: &[MountForecast]) -> HostCapacity {
