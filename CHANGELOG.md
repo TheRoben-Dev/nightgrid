@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Fixed
+- **Windows hosts:** the JOURNAL note now names the **Security log** checkbox, matching the label in the view.
+
 ## [1.16.0] - 2026-11-20
 
 Windows Server hosts get close to everything Nightgrid does on Linux, using only what Windows ships with. Every view says plainly what can't run on a Windows host and why.
