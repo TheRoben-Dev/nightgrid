@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Fixed
+- **Enter confirms type-to-confirm dialogs.** After typing the name (host, group, VM, key or folder), pressing Enter, including keypad Enter, now runs the red button in every type-to-confirm dialog: Upgrade hosts, power and group power, Docker, VMs and Proxmox actions, firewall changes, SSH key removal and rotation, file delete and a changed host key. Enter does nothing until the name matches, and it waits while an input method (IME) is still composing.
+
 ## [1.16.1] - 2026-11-20
 
 ### Fixed

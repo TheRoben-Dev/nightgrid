@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../confirm";
+  import { enterConfirms, typedMatches } from "../confirm";
   import { scramble } from "../scramble";
   import { api, errorText, type Entry } from "../api";
   import Modal from "../components/Modal.svelte";
@@ -192,14 +192,14 @@
     {#if delNeedsTyping}
       <label class="field">
         <span>Type <strong class="verbatim">{del.pane.label}</strong> to confirm</span>
-        <input class="input" bind:value={delTyped} autocomplete="off" spellcheck="false" />
+        <input class="input" use:enterConfirms bind:value={delTyped} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
     {#if dlgError}<p class="error-text" role="alert" use:scramble={dlgError}></p>{/if}
   {/if}
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (del = null)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={busy || !delOk} onclick={doDelete}>
+    <button type="button" class="btn danger" data-confirm disabled={busy || !delOk} onclick={doDelete}>
       Delete {del?.entries.length === 1 ? del.entries[0].name : `${del?.entries.length ?? 0} items`}
     </button>
   {/snippet}
