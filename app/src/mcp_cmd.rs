@@ -443,9 +443,10 @@ async fn run_tool(app: &AppHandle, name: &str, args: &Value, client: &str) -> Re
         "disk_forecast" => {
             let store = state.store();
             let mut rows = Vec::new();
+            let fleet = store.fleet_disk_forecasts(now)?;
             for h in store.list_hosts()? {
-                for f in store.disk_forecasts(h.id, now)? {
-                    let mut v = serde_json::to_value(&f)?;
+                for f in fleet.get(&h.id).into_iter().flatten() {
+                    let mut v = serde_json::to_value(f)?;
                     v["host"] = json!(h.name);
                     rows.push(v);
                 }
