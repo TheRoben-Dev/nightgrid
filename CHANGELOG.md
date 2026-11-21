@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them and gives every release a codename (`scripts/codenames.mjs`), shown in the heading, the GitHub release title and the app.
 
+## [1.23.1] "Binary Diode" - 2026-11-21
+
+### Changed
+- Small fixes and upkeep behind the scenes.
+
 ## [1.23.0] "Silent Ember" - 2026-11-21
 
 ### Added
