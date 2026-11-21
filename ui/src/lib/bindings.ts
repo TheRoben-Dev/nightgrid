@@ -42,7 +42,12 @@ export const commands = {
 	knownHostsImportSystem: (options?: InvokeOptions) => __TAURI_INVOKE<number>("known_hosts_import_system", undefined, options),
 	/**  TCP-connect check to each host's SSH port (no ICMP, no auth). */
 	hostsPing: (ids: number[], options?: InvokeOptions) => __TAURI_INVOKE<HostPing_Serialize[]>("hosts_ping", { ids }, options),
-	termOpenLocal: (cols: number, rows: number, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("term_open_local", { cols, rows, onEvent }, options),
+	termOpenLocal: (cols: number, rows: number, shell: string | null, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<number>("term_open_local", { cols, rows, shell, onEvent }, options),
+	/**
+	 *  Shells "This computer" can open: PowerShell, cmd and WSL distros on
+	 *  Windows; empty on macOS/Linux, which keep their one login shell.
+	 */
+	termLocalShells: (options?: InvokeOptions) => __TAURI_INVOKE<LocalShell[]>("term_local_shells", undefined, options),
 	termOpenSsh: (hostId: number, cols: number, rows: number, editToken: string | null, edit: boolean, hints: boolean, onEvent: Channel<TermMessage_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<TermOpen>("term_open_ssh", { hostId, cols, rows, editToken, edit, hints, onEvent }, options),
 	/**
 	 *  What servers are saying to hosts that are logging in right now (a
@@ -1738,6 +1743,11 @@ export type AppSettings_Deserialize = {
 	 *  backdrop show through.
 	 */
 	termSolidBg?: boolean,
+	/**
+	 *  Windows: the shell "local shell" opens (an id from `localshell::list`,
+	 *  such as `wsl:Ubuntu`). Empty = PowerShell. Ignored on macOS/Linux.
+	 */
+	termLocalShell?: string,
 	/**  Built-in Tailscale client (M10j): off until the user turns it on. */
 	tailnetEnabled?: boolean,
 	/**  Use subnet routes other tailnet nodes advertise. */
@@ -1884,6 +1894,11 @@ export type AppSettings_Serialize = {
 	 *  backdrop show through.
 	 */
 	termSolidBg: boolean,
+	/**
+	 *  Windows: the shell "local shell" opens (an id from `localshell::list`,
+	 *  such as `wsl:Ubuntu`). Empty = PowerShell. Ignored on macOS/Linux.
+	 */
+	termLocalShell: string,
 	/**  Built-in Tailscale client (M10j): off until the user turns it on. */
 	tailnetEnabled: boolean,
 	/**  Use subnet routes other tailnet nodes advertise. */
@@ -6038,6 +6053,17 @@ export type LldpNeighbour_Serialize = {
 	/**  The neighbour's port ("gi1/0/5", "Port 5"). */
 	port: string | null,
 	descr: string | null,
+};
+
+/**  One shell the terminal's "+" menu can open on this computer. */
+export type LocalShell = {
+	/**  `pwsh`, `powershell`, `cmd` or `wsl:<distro>`. */
+	id: string,
+	/**  "PowerShell 7", "Ubuntu-24.04" … */
+	name: string,
+	/**  Short note shown beside it ("pwsh.exe", "WSL"). */
+	detail: string,
+	wsl: boolean,
 };
 
 /**  What the log channel carries. */

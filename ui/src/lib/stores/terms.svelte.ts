@@ -1,6 +1,7 @@
 import { leaf, leaves, neighbour, removeLeaf, setRatio, splitLeaf, type Dir, type LayoutNode } from "../term/layout";
 import { TermSession, type Origin } from "../term/session.svelte";
-import type { VmKind } from "../api";
+import { api, type LocalShell, type VmKind } from "../api";
+import { settings } from "./settings.svelte";
 import { hosts } from "./hosts.svelte";
 import { ui } from "./ui.svelte";
 
@@ -11,8 +12,14 @@ export interface TermTab {
   active: number;
 }
 
+/** What a local pane runs: a picked Windows shell, or the default. */
+export type ShellPick = { id: string; name: string };
+
 class TermsStore {
   tabs = $state<TermTab[]>([]);
+  /** Windows: PowerShell, cmd and WSL distros "This computer" can open. Empty elsewhere. */
+  localShells = $state<LocalShell[]>([]);
+  private shellsLoaded: Promise<void> | null = null;
   activeTab = $state<number | null>(null);
   private sessions = new Map<number, TermSession>();
   private nextId = 1;
@@ -60,8 +67,30 @@ class TermsStore {
     return pane;
   }
 
-  private originFor(hostId: number | null): Origin {
-    if (hostId === null) return { kind: "local" };
+  /** Loads (once) the shells this computer offers; `fresh` asks again (a distro was added). */
+  loadLocalShells(fresh = false): Promise<void> {
+    if (!this.shellsLoaded || fresh) {
+      this.shellsLoaded = api
+        .termLocalShells()
+        .then((l) => void (this.localShells = l))
+        .catch(() => void (this.localShells = []));
+    }
+    return this.shellsLoaded;
+  }
+
+  /** The shell a plain "local shell" opens: the Settings choice, if this computer has one. */
+  private defaultShell(): ShellPick | undefined {
+    const id = settings.value.termLocalShell;
+    if (!id) return undefined;
+    const known = this.localShells.find((s) => s.id === id);
+    return { id, name: known?.name ?? id.replace(/^wsl:/, "") };
+  }
+
+  private originFor(hostId: number | null, shell?: ShellPick): Origin {
+    if (hostId === null) {
+      const pick = shell ?? this.defaultShell();
+      return pick ? { kind: "local", shell: { id: pick.id, name: pick.name } } : { kind: "local" };
+    }
     return {
       kind: "ssh",
       hostId,
@@ -77,8 +106,9 @@ class TermsStore {
     ui.go("terminal");
   }
 
-  openLocal() {
-    this.openTab({ kind: "local" });
+  /** A shell on this computer: `shell` if picked, else the default from Settings. */
+  openLocal(shell?: ShellPick) {
+    this.openTab(this.originFor(null, shell));
   }
 
   openHost(hostId: number) {
@@ -144,12 +174,13 @@ class TermsStore {
   /**
    * Splits the focused pane. `target` picks the new pane's shell (null: this
    * computer, a number: that host); left out, the same kind of session.
+   * `shell` picks the local shell when `target` is null.
    */
-  split(dir: Dir, target?: number | null) {
+  split(dir: Dir, target?: number | null, shell?: ShellPick) {
     const tab = this.current;
-    if (!tab) return target ? this.openHost(target) : this.openLocal();
+    if (!tab) return target ? this.openHost(target) : this.openLocal(shell);
     const src = this.sessions.get(tab.active);
-    const origin = target === undefined ? (src?.origin ?? { kind: "local" as const }) : this.originFor(target);
+    const origin = target === undefined ? (src?.origin ?? this.originFor(null)) : this.originFor(target, shell);
     const pane = this.newSession(origin);
     this.update(tab.id, {
       root: splitLeaf(tab.root, tab.active, pane, dir),

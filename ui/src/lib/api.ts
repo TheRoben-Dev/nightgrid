@@ -207,6 +207,7 @@ import {
   type SshConfigCandidate_Serialize as SshConfigCandidate,
   type TermMessage_Serialize as TermMessage,
   type TermOpen,
+  type LocalShell,
   type TermState,
   type Bookmark_Serialize as Bookmark,
   type ConflictPolicy,
@@ -696,6 +697,7 @@ export type {
   SshConfigCandidate,
   TermMessage,
   TermOpen,
+  LocalShell,
   TermState,
   Bookmark,
   ConflictPolicy,
@@ -949,6 +951,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   termEditInApp: false,
   termKeyHints: true,
   termSolidBg: false,
+  termLocalShell: "",
   tailnetEnabled: false,
   tailnetAcceptRoutes: true,
   tailnetHostname: "nightgrid",
@@ -1069,7 +1072,7 @@ function channel(listener: TermListener) {
   const ch = new Channel<TermMessage>();
   ch.onmessage = listener;
   // The generated signature names the deserialize-side type; they are identical.
-  return ch as unknown as Parameters<typeof commands.termOpenLocal>[2];
+  return ch as unknown as Parameters<typeof commands.termOpenLocal>[3];
 }
 
 const T = inTauri;
@@ -1110,8 +1113,11 @@ export const api = {
   knownHostsImportSystem: (): Promise<number> => (T() ? commands.knownHostsImportSystem() : Promise.resolve(0)),
   hostsPing: (ids: number[]): Promise<HostPing[]> => (T() ? commands.hostsPing(ids) : mockBackend.hostsPing(ids)),
 
-  termOpenLocal: (cols: number, rows: number, on: TermListener): Promise<number> =>
-    T() ? commands.termOpenLocal(cols, rows, channel(on)) : mockBackend.termOpenLocal(on),
+  /** `shell`: an id from `termLocalShells` (Windows only; null = the default shell). */
+  termOpenLocal: (cols: number, rows: number, shell: string | null, on: TermListener): Promise<number> =>
+    T() ? commands.termOpenLocal(cols, rows, shell, channel(on)) : mockBackend.termOpenLocal(on),
+  /** Windows: PowerShell, cmd and WSL distros. Empty on macOS/Linux and in the browser preview. */
+  termLocalShells: (): Promise<LocalShell[]> => (T() ? commands.termLocalShells() : Promise.resolve([])),
   termOpenSsh: (hostId: number, cols: number, rows: number, token: string | null, edit: boolean, hints: boolean, on: TermListener): Promise<TermOpen> =>
     T() ? commands.termOpenSsh(hostId, cols, rows, token, edit, hints, channel(on)) : mockBackend.termOpenSsh(hostId, on),
   /** Login notices (a Tailscale SSH approval link) for hosts still connecting. */

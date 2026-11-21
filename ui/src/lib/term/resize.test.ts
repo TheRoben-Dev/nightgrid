@@ -20,7 +20,7 @@ describe("terminal size reaches the backend", () => {
     vi.useFakeTimers();
     const s = new TermSession(1, { kind: "local" });
     const opening = s.start();
-    expect(termOpenLocal).toHaveBeenCalledWith(80, 24, expect.anything());
+    expect(termOpenLocal).toHaveBeenCalledWith(80, 24, null, expect.anything());
     s.term.resize(57, 30); // the pane got narrower before the shell answered
     vi.advanceTimersByTime(100);
     expect(termResize).not.toHaveBeenCalled();

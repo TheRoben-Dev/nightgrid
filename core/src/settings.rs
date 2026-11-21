@@ -65,6 +65,9 @@ pub struct AppSettings {
     /// Paint terminals on a solid background instead of letting the app's
     /// backdrop show through.
     pub term_solid_bg: bool,
+    /// Windows: the shell "local shell" opens (an id from `localshell::list`,
+    /// such as `wsl:Ubuntu`). Empty = PowerShell. Ignored on macOS/Linux.
+    pub term_local_shell: String,
     /// Built-in Tailscale client (M10j): off until the user turns it on.
     pub tailnet_enabled: bool,
     /// Use subnet routes other tailnet nodes advertise.
@@ -436,6 +439,7 @@ impl Default for AppSettings {
             term_edit_in_app: false,
             term_key_hints: true,
             term_solid_bg: false,
+            term_local_shell: String::new(),
             tailnet_enabled: false,
             tailnet_accept_routes: true,
             tailnet_hostname: "nightgrid".into(),
