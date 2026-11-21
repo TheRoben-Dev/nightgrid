@@ -8,6 +8,7 @@ use std::sync::Arc;
 use base64::Engine;
 use nightgrid_core::edit_hook;
 use nightgrid_core::hosts::HostId;
+use nightgrid_core::localshell;
 use nightgrid_core::secrets::{Secret, SecretKind, SecretRef, SecretStore};
 use nightgrid_core::ssh::client::{self, ConnectError};
 use nightgrid_core::ssh::resolve::resolve;
@@ -59,12 +60,25 @@ pub fn term_open_local(
     state: State<'_, AppState>,
     cols: u16,
     rows: u16,
+    shell: Option<String>,
     on_event: Channel<TermMessage>,
 ) -> CmdResult<TermId> {
-    let handle = term::spawn_local(None, None, cols, rows, sink_for(on_event))?;
+    // `shell`: an id from `term_local_shells` (the UI passes the Settings
+    // choice when none was picked). Ids only mean something on Windows;
+    // unknown or empty ones open the OS default shell.
+    let program = shell.as_deref().and_then(|id| localshell::program_for(id, None));
+    let handle = term::spawn_local(program, None, cols, rows, sink_for(on_event))?;
     let id = state.next_term_id();
     state.terms.lock().expect("poisoned").insert(id, handle);
     Ok(id)
+}
+
+/// Shells "This computer" can open: PowerShell, cmd and WSL distros on
+/// Windows; empty on macOS/Linux, which keep their one login shell.
+#[tauri::command]
+#[specta::specta]
+pub async fn term_local_shells() -> CmdResult<Vec<localshell::LocalShell>> {
+    Ok(tauri::async_runtime::spawn_blocking(localshell::list).await.unwrap_or_default())
 }
 
 /// Result of opening an SSH terminal. `needsUser` carries the prompt the UI

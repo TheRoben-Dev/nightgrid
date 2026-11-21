@@ -244,7 +244,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   { id: "terminal-history", view: "terminal", what: "search the shell history of the host in the focused terminal (turn on in Settings → Terminal)" },
   { id: "settings-theme", view: "settings", what: "theme picker" },
   { id: "settings-display", view: "settings", what: "display settings: effects, UI scale, handheld layout, controller" },
-  { id: "settings-terminal", view: "settings", what: "terminal settings: font, scrollback, edit files in Nightgrid" },
+  { id: "settings-terminal", view: "settings", what: "terminal settings: font, scrollback, local shell (Windows: PowerShell, cmd or WSL), edit files in Nightgrid" },
   { id: "settings-monitoring", view: "settings", what: "monitoring settings: sample interval, history" },
   { id: "settings-services", view: "settings", what: "service check settings" },
   { id: "settings-alerts", view: "settings", what: "alert rules (offline, disk, containers, certificates)" },

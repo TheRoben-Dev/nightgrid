@@ -20,7 +20,8 @@ import { xtermTheme } from "./theme";
 export type PaneState = TermState | "idle" | "prompt" | "failed" | "exited";
 
 export type Origin =
-  | { kind: "local" }
+  /** `shell`: a Windows shell picked from `termLocalShells` (PowerShell, cmd, a WSL distro). */
+  | { kind: "local"; shell?: { id: string; name: string } }
   /** `container` set: a shell inside that container (`docker exec -it`). */
   | {
       kind: "ssh";
@@ -155,7 +156,7 @@ export class TermSession {
   }
 
   get title(): string {
-    if (this.origin.kind === "local") return "local";
+    if (this.origin.kind === "local") return this.origin.shell?.name ?? "local";
     const sub = this.origin.container?.name ?? this.origin.vm?.name;
     return sub ? `${this.origin.name} ▸ ${sub}` : this.origin.name;
   }
@@ -342,7 +343,7 @@ export class TermSession {
     const { cols, rows } = this.term;
     try {
       if (this.origin.kind === "local") {
-        this.backendId = await api.termOpenLocal(cols, rows, this.listener(gen));
+        this.backendId = await api.termOpenLocal(cols, rows, this.origin.shell?.id ?? null, this.listener(gen));
         this.sentSize = { cols, rows };
         this.syncSize();
         this.watchForeground();

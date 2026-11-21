@@ -1,13 +1,16 @@
 <script lang="ts">
   /**
    * The terminal tab bar's "+" menu: this computer or any saved host, opened
-   * as a new tab or split next to the focused pane. Type to filter; arrows and
+   * as a new tab or split next to the focused pane. On Windows "this
+   * computer" is one row per shell: PowerShell, cmd and each WSL distro. Type to filter; arrows and
    * Enter pick; Esc closes.
    */
   import { onMount } from "svelte";
   import HostIcon from "../HostIcon.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { terms } from "../../stores/terms.svelte";
+  import { settings } from "../../stores/settings.svelte";
+  import type { LocalShell } from "../../api";
 
   interface Props {
     /** The button it opened from. */
@@ -29,12 +32,24 @@
     name: string;
     sub: string;
     host?: (typeof hosts.hosts)[number];
+    shell?: LocalShell;
   }
+
+  const localItems = $derived.by((): Item[] => {
+    if (!terms.localShells.length) return [{ id: null, name: "This computer", sub: "local shell" }];
+    const def = settings.value.termLocalShell;
+    return terms.localShells.map((s) => ({
+      id: null,
+      name: s.name,
+      sub: `${s.wsl ? "WSL" : s.detail} · this computer${s.id === def || (!def && s.id === terms.localShells[0]?.id) ? " · default" : ""}`,
+      shell: s,
+    }));
+  });
 
   const items = $derived.by((): Item[] => {
     const q = query.trim().toLowerCase();
     const all: Item[] = [
-      { id: null, name: "This computer", sub: "local shell" },
+      ...localItems,
       ...hosts.hosts
         .slice()
         .sort((a, b) => Number(b.favorite) - Number(a.favorite) || a.name.localeCompare(b.name))
@@ -42,7 +57,11 @@
     ];
     if (!q) return all;
     return all.filter(
-      (i) => i.name.toLowerCase().includes(q) || i.sub.toLowerCase().includes(q) || i.host?.tags.some((t) => t.toLowerCase().includes(q)),
+      (i) =>
+        i.name.toLowerCase().includes(q) ||
+        i.sub.toLowerCase().includes(q) ||
+        (i.id === null && "local this computer".includes(q)) ||
+        i.host?.tags.some((t) => t.toLowerCase().includes(q)),
     );
   });
 
@@ -52,10 +71,11 @@
   });
 
   function pick(i: Item) {
+    const shell = i.shell ? { id: i.shell.id, name: i.shell.name } : undefined;
     if (where === "tab") {
-      if (i.id === null) terms.openLocal();
+      if (i.id === null) terms.openLocal(shell);
       else terms.openHost(i.id);
-    } else terms.split(where, i.id);
+    } else terms.split(where, i.id, shell);
     onclose();
     queueMicrotask(() => terms.currentSession?.focus());
   }
@@ -78,6 +98,8 @@
 
   onMount(() => {
     input?.focus();
+    // Ask again each time: a WSL distro may have been installed meanwhile.
+    void terms.loadLocalShells(true);
     const away = (e: PointerEvent) => {
       const t = e.target as Node;
       if (box && !box.contains(t) && !(t instanceof Element && t.closest("[data-newterm]"))) onclose();
@@ -101,7 +123,7 @@
   </div>
   <input bind:this={input} class="input" placeholder="host, address or #tag…" aria-label="Filter hosts" bind:value={query} onkeydown={key} />
   <ul role="listbox" aria-label="Where to open a shell">
-    {#each items as it, i (it.id ?? "local")}
+    {#each items as it, i (it.id ?? `local:${it.shell?.id ?? ""}`)}
       <li>
         <button type="button" role="option" aria-selected={i === index} class:sel={i === index} onmouseenter={() => (index = i)} onclick={() => pick(it)}>
           {#if it.host}
@@ -109,7 +131,7 @@
             <HostIcon art={it.host.icon} color={it.host.color} />
           {:else}
             <span class="stripe"></span>
-            <span class="local" aria-hidden="true">&gt;_</span>
+            <span class="local" aria-hidden="true">{it.shell?.wsl ? "λ" : it.shell?.id === "cmd" ? "C:" : ">_"}</span>
           {/if}
           <span class="n">{it.name}</span>
           <span class="s muted">{it.sub}</span>
