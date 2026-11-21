@@ -2,6 +2,9 @@ import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { execFileSync } from "node:child_process";
 import { freezeSafe } from "./ui/tools/freezeSafe.ts";
+import { hostModules } from "./ui/tools/hostModules.ts";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 /**
  * The bundled Library's content version (D-174): the time of the newest
@@ -17,13 +20,26 @@ function kbVersion(): number {
   }
 }
 
+/** Commit time of the build (what a component pack must be newer than). */
+function uiBuilt(): number {
+  try {
+    return Number(execFileSync("git", ["log", "-1", "--format=%ct"], { encoding: "utf8" }).trim()) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+const uiSrc = fileURLToPath(new URL("./ui/src", import.meta.url));
+const svelteVersion = (JSON.parse(readFileSync(new URL("./node_modules/svelte/package.json", import.meta.url), "utf8")) as { version: string }).version;
+const built = uiBuilt();
+
 const host = process.env.TAURI_DEV_HOST;
 
 // https://v2.tauri.app/start/frontend/vite/
 export default defineConfig({
   root: "ui",
-  plugins: [freezeSafe(), svelte()],
-  define: { __KB_VERSION__: JSON.stringify(kbVersion()) },
+  plugins: [freezeSafe(), svelte(), hostModules({ uiSrc, built, svelte: svelteVersion })],
+  define: { __KB_VERSION__: JSON.stringify(kbVersion()), __UI_BUILT__: JSON.stringify(built) },
   clearScreen: false,
   server: {
     port: 1420,

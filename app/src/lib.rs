@@ -13,6 +13,7 @@ mod catalog_cmd;
 mod chores;
 mod cmdwidget_cmd;
 mod commands;
+mod compack_cmd;
 mod confdiff_cmd;
 mod desktop_cmd;
 mod docker_cmd;
@@ -522,6 +523,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         broadcast_cmd::broadcast_check,
         kbpack_cmd::kb_pack_status,
         kbpack_cmd::kb_pack_check,
+        compack_cmd::component_packs,
+        compack_cmd::component_packs_check,
+        compack_cmd::component_pack_remove,
         kbpack_cmd::kb_pack_load,
         kbpack_cmd::kb_pack_remove,
         uipatch_cmd::ui_patch_status,
@@ -560,8 +564,10 @@ pub fn run() {
     // Interface patches (D-185): chosen before the window loads anything.
     let mut context = tauri::generate_context!();
     let patches = std::sync::Arc::new(uipatch_cmd::UiPatches::load(&context.config().identifier));
+    // Component packs (D-207): served next to the interface, whichever it is.
+    let component_packs = std::sync::Arc::new(compack_cmd::ComponentPacks::load(&context.config().identifier));
     let bundled = context.set_assets(Box::new(uipatch_cmd::NoAssets));
-    context.set_assets(Box::new(uipatch_cmd::UiAssets::new(bundled, patches.clone())));
+    context.set_assets(Box::new(uipatch_cmd::UiAssets::new(bundled, patches.clone(), component_packs.clone())));
     let patches_setup = patches.clone();
 
     tauri::Builder::default()
@@ -574,6 +580,7 @@ pub fn run() {
         .manage(kbpack_cmd::KbPacks::default())
         .manage(broadcast_cmd::Broadcasts::default())
         .manage(patches)
+        .manage(component_packs)
         .manage(helper_cmd::Helper::default())
         .manage(desktop_cmd::Desktops::default())
         .manage(webui_cmd::WebWindows::default())

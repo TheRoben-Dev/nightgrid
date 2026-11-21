@@ -33,6 +33,7 @@
   import { library } from "./lib/stores/library.svelte";
   import { CATALOG, VIEW_HELP } from "./lib/kb/catalog";
   import { kbContent } from "./lib/stores/kbcontent.svelte";
+  import { componentPatches } from "./lib/stores/componentPatches.svelte";
   import Overview from "./lib/views/Overview.svelte";
   import Placeholder from "./lib/views/Placeholder.svelte";
   import LazyView from "./lib/components/LazyView.svelte";
@@ -101,6 +102,7 @@
       alerts.start();
       updates.startLaunchCheck();
       void kbContent.start();
+      void componentPatches.start();
       void uiPatch.start();
       void broadcasts.start();
       mcp.start();
