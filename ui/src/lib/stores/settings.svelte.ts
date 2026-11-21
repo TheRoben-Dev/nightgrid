@@ -1,6 +1,7 @@
 import { metrics } from "./metrics.svelte";
 import { api, DEFAULT_SETTINGS, type AppSettings } from "../api";
 import { applyPreset, featureOn, toggleFeature, type PresetId } from "../features";
+import { componentById, installedFor, setInstalled } from "../storeCatalog";
 import { applyTheme, isThemeId, THEMES, type ThemeId } from "../theme/themes";
 
 export const UI_SCALE_STEPS = [90, 100, 110, 120, 130, 140, 150] as const;
@@ -57,9 +58,23 @@ class SettingsStore {
     }
   }
 
-  /** Whether a feature (Settings → Features) is on. */
+  /** Whether a feature (Settings → Features) is on: its component is installed and it isn't turned off. */
   on(id: string): boolean {
-    return featureOn(this.value.disabledFeatures ?? [], id);
+    return installedFor(this.value.installedComponents, id) && featureOn(this.value.disabledFeatures ?? [], id);
+  }
+
+  /** Whether a store component (Settings → STORE) is installed. */
+  installed(id: string): boolean {
+    const list = this.value.installedComponents;
+    return list == null || list.includes(id);
+  }
+
+  /** Installing also turns its features back on; removing keeps their data. */
+  setInstalled(id: string, on: boolean) {
+    const installedComponents = setInstalled(this.value.installedComponents, id, on);
+    let disabledFeatures = this.value.disabledFeatures ?? [];
+    if (on) for (const f of componentById(id)?.features ?? []) disabledFeatures = toggleFeature(disabledFeatures, f, true);
+    return this.update({ installedComponents, disabledFeatures });
   }
 
   setFeature(id: string, on: boolean) {

@@ -15,6 +15,7 @@
   import SegmentSlider from "../components/SegmentSlider.svelte";
   import Toggle from "../components/Toggle.svelte";
   import FeaturesPanel from "../components/settings/FeaturesPanel.svelte";
+  import StorePanel from "../components/settings/StorePanel.svelte";
   import SoundPanel from "../components/settings/SoundPanel.svelte";
   import { SETTINGS_TABS } from "../settingsTabs";
   import { ui } from "../stores/ui.svelte";
@@ -474,6 +475,8 @@
   <BackupPanel />
   <StatusPagePanel />
 </div>
+{:else if ui.settingsTab === "store"}
+  <StorePanel />
 {:else}
   <FeaturesPanel />
 {/if}

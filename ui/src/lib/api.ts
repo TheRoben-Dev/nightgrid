@@ -1037,6 +1037,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dashboardPresets: [],
   tourOffered: false,
   disabledFeatures: [],
+  installedComponents: null,
   profileReminderSnooze: null,
   statusPage: { enabled: false, bind: "lan", port: 8787 },
   sync: { enabled: false, port: 47920, deviceName: "" },

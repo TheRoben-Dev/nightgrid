@@ -11,7 +11,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 - **Back and forward**: the mouse side buttons, `Cmd+[` / `Cmd+]` on macOS, `Alt+Left` / `Alt+Right` on Windows and Linux, the **‹ ›** buttons at the top left, or a two-finger sideways swipe on a trackpad. Every view, row tab (One host / Fleet), tab inside a view (Fleet → DISKS, Docker → STACKS, Settings tabs…), host pick and Library article is a step, so an accidental click is one button away from undone. The keys are left alone while you type in a field or editor, and in a terminal on Windows and Linux (shells use `Alt+Left` / `Alt+Right` to move by word); the mouse buttons work everywhere. Areas that scroll sideways keep the swipe; **Settings → Appearance → Swipe to go back** turns it off.
 - **Command palette** `Mod+K` (also `Ctrl+Shift+K` inside a terminal): jump to any host, view, snippet, playbook or action by typing.
 - **DRIFT helper** `Mod+J`: ask a question in the side panel (see below).
-- **Settings → Terminal → Keybindings** lists every shortcut. Settings is split into tabs: General, Appearance, Terminal, Monitoring, Alerts, Connections, DRIFT, Data and Features.
+- **Settings → Terminal → Keybindings** lists every shortcut. Settings is split into tabs: General, Appearance, Sound, Terminal, Monitoring, Alerts, Connections, DRIFT, Data, Store and Features.
 
 ## Hosts
 
@@ -415,9 +415,17 @@ When a view or tab can't run on the selected Windows host, it shows why instead 
 
 Each view remembers the host you last picked in it. A view you haven't used yet starts on the host you picked last anywhere, or else the first server. In the host editor, tick **Client, not a server** for laptops, desktops and handhelds you also manage: views never open on them by themselves. A client is expected to come and go, so when it stops answering it shows as **away**, not offline: no offline alert, and it doesn't count as down in uptime, SLA reports or the status page. Tick **Alert when it goes offline** under it if you do want to know.
 
+## Feature store
+
+Settings → **STORE** is where the optional parts of Nightgrid live. The core app is the everyday essentials: hosts, Overview, Terminal, Files, Docker, Services, System, Fleet (updates, disks, backups and uptime), Tunnels, Network tools, alerts, Knowledge and the Library. Everything else is a component, grouped on shelves: **Virtualization** (Proxmox, VM desktops), **Monitoring** (UPS, log search, expiry watch, power & cost, capacity planner, incident replay, Nightgrid Node), **Operations** (automation, journal, blueprints, service catalog, restore drills), **Network** (network map, speed tests), **Security** (security score and secrets, access audit) and **Extras** (DRIFT, UI sounds).
+
+**Install** turns a component on at once, no restart. A component that isn't installed is hidden from the sidebar, the command palette, shortcuts, Overview widgets and DRIFT, its code is never loaded and its background checks don't run. **Remove** keeps everything it stored (history, settings, notes), so installing it again brings it all back. Opening something that isn't installed lands here with **Install and open**.
+
+Updating from a version before the store installs every component you had a feature switched on for; anything you had turned off in Features stays out. A fresh install starts with the core only. What's installed travels in profile exports.
+
 ## Features: simple or everything
 
-Settings → **FEATURES** lists every view and the checks inside them, each with an on/off switch. **Simple** keeps terminal, files, Docker, services and System. **Standard** leaves out Proxmox, VM screens, UPS, log search, access audit and speed tests. **Everything** turns it all on. A feature that's off is hidden from the sidebar, the command palette, shortcuts and DRIFT. Its code isn't loaded, and its background checks stop (for example no SMART scans with Fleet → Disks off, and no auto-start tunnels with Tunnels off). Nothing is deleted: turn it back on and it's all there, with no restart. A shortcut to a feature that's off opens this tab with **Turn on and open**.
+Settings → **FEATURES** lists every installed view and the checks inside them, each with an on/off switch (components that aren't installed are in the **STORE**). **Simple** keeps terminal, files, Docker, services and System. **Standard** leaves out Proxmox, VM screens, UPS, log search, access audit and speed tests. **Everything** turns it all on. A feature that's off is hidden from the sidebar, the command palette, shortcuts and DRIFT. Its code isn't loaded, and its background checks stop (for example no SMART scans with Fleet → Disks off, and no auto-start tunnels with Tunnels off). Nothing is deleted: turn it back on and it's all there, with no restart. A shortcut to a feature that's off opens this tab with **Turn on and open**.
 
 ## Look and feel
 
