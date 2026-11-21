@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
-## [Unreleased]
+## [1.22.0] - 2026-11-21
 
 ### Added
 - **Transmissions from the developer.** When something needs fixing on your end (a provider changed something, a setting needs a nudge, a known issue has a workaround), a notice can now reach every installed Nightgrid without an app update. It opens as an **INCOMING TRANSMISSION**: the channel tunes in, the signal locks and the message decodes, with its own sound, the steps to take and a button to the right article, view or page. **Understood** hides it for good, **Later** until the next start. Notices are signed with the release key and checked on this computer, so nobody else can send one; they can be aimed at a system, a range of versions or a feature, and expire by themselves. Settings → Updates has the switch, **Check now** and **Show all**.
