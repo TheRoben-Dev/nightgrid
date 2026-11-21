@@ -5,6 +5,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [1.23.0] "Silent Ember" - 2026-11-21
 
 ### Added
+- **Ignore a container's health check.** For a container that is "running but unhealthy" by design, tick **Ignore health check** in its Docker panel: unhealthy stops raising CONTAINER DOWN and stops counting as a problem (log watch, DRIFT), while exits, crashes and restart loops still alert. The row shows a **HEALTH IGNORED** chip; click it to watch the check again. Kept per host and compose service (or container name), so it survives the container being recreated, and included in the profile export.
 - **Every release has a codename.** Releases now carry a two-word name on top of their version, like the one this release got, shown in the update prompt, in **Settings → Updates** next to the installed version, on GitHub and in the changelog. Every earlier release got one too.
 - **What's new after an update.** The first start after an update shows **SYSTEM UPGRADED** with the codename decoding in and that release's notes; skipped a few versions? Each one since your last gets a tab. **Release log →** and **Got it** close it, and it shows once per version.
 - **Release log.** **Settings → General → RELEASE LOG** lists every Nightgrid release with its codename, date and notes, newest first: search by version, codename or anything in the notes, expand one to read it, or **Show What's new** again. The notes are built into the app, so it all works offline.

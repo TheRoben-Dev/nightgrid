@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { healthIgnores } from "../../stores/healthIgnores.svelte";
   import { onMount } from "svelte";
   import Modal from "../Modal.svelte";
   import { scramble } from "../../scramble";
@@ -88,7 +89,9 @@
     let container: ContainerFacts | null = null;
     if (kind === "container" && name && o.hostId != null) {
       try {
-        container = factsFrom(name, await api.dockerInspect(o.hostId, name), null);
+        const d = await api.dockerInspect(o.hostId, name);
+        if (!healthIgnores.loaded) await healthIgnores.load();
+        container = factsFrom(name, d, null, healthIgnores.ignoredDetail(o.hostId, d));
       } catch (e) {
         container = factsFrom(name, null, errorText(e));
       }

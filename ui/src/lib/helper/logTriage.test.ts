@@ -33,6 +33,10 @@ describe("log triage", () => {
     const err: LogEventView[] = [{ head: "ERROR db down", lines: 1, level: "error", notFound: false, harmless: null }];
     expect(verdictOf(err, { ...healthy, state: "restarting" })).toBe("problem");
     expect(verdictOf(err, { ...healthy, health: "unhealthy" })).toBe("problem");
+    // An ignored healthcheck (D-201) doesn't make it a problem.
+    const ignored = factsFrom("convertx", { state: "running", health: "unhealthy", startedAt: null, restartCount: 0, exitCode: 0 } as ContainerDetail, null, true);
+    expect(ignored.health).toBe("unhealthy (check ignored)");
+    expect(verdictOf(err, ignored)).toBe("unclear");
     expect(verdictOf([{ ...err[0], level: "fatal" }], healthy)).toBe("problem");
     expect(verdictOf(err, healthy)).toBe("unclear");
     expect(verdictOf([err[0], err[0], err[0]], healthy)).toBe("problem");

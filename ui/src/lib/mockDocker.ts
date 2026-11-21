@@ -11,6 +11,8 @@ import type {
   ContainerStats,
   ContainerView_Serialize as ContainerView,
   EngineInfo,
+  HealthIgnore,
+  HealthIgnoreInput_Deserialize as HealthIgnoreInput,
   LogEvent_Serialize as LogEvent,
   LogLine_Serialize as LogLine,
   LogQuery_Deserialize as LogQuery,
@@ -92,6 +94,7 @@ function seed(): Fake[] {
       state,
       status: state === "running" ? `Up 3 hours${health ? ` (${health})` : ""}` : "Exited (0) 2 days ago",
       health,
+      healthIgnored: false,
       created: now() - 86400 * 4,
       ports: ports.map(([p, pub]) => ({ ip: pub ? "0.0.0.0" : null, private: p, public: pub, proto: "tcp" })),
       project,
@@ -109,7 +112,7 @@ function seed(): Fake[] {
       "TZ=Europe/Stockholm",
       "PLEX_CLAIM=claim-mock-not-a-real-token",
     ]),
-    c("convertx", "ghcr.io/c4illin/convertx:latest", "running", "media", "convertx", [[3000, 3100]]),
+    c("convertx", "ghcr.io/c4illin/convertx:latest", "running", "media", "convertx", [[3000, 3100]], "unhealthy"),
     c("media-sonarr-1", "lscr.io/linuxserver/sonarr:latest", "exited", "media", "sonarr", [[8989, null]]),
     c("homepage", "ghcr.io/gethomepage/homepage:latest", "running", "dash", "homepage", [[3000, 3000]], "healthy"),
     c("amp", "mitchtalmadge/amp-dockerized:latest", "running", null, null, [[8080, 8080]], "starting", [
@@ -179,6 +182,14 @@ function stacksOf(hostId: number): Stack[] {
 }
 
 
+/** Ignored healthchecks (D-201), keyed like the backend. */
+let healthIgnores: HealthIgnore[] = [];
+let ignoreSeq = 0;
+function ignoreMatches(i: HealthIgnore, hostId: number, c: { name: string; project: string | null; service: string | null }): boolean {
+  if (i.hostId !== hostId) return false;
+  return i.project ? c.project === i.project && c.service === i.service : !!i.name && i.name === c.name;
+}
+
 export const mockDocker = {
   info: (hostId: number): Promise<EngineInfo> =>
     delay({ version: "27.5.1", apiVersion: "1.47", os: "linux/amd64", route: `socket /var/run/docker.sock over SSH (mock ${hostId})` }),
@@ -186,7 +197,31 @@ export const mockDocker = {
   containers: (hostId: number): Promise<ContainerView[]> => {
     const denied = deniedError(hostId);
     if (denied) return Promise.reject(denied);
-    return delay(list(hostId).map((c) => ({ ...c.view })));
+    return delay(list(hostId).map((c) => ({ ...c.view, healthIgnored: healthIgnores.some((i) => ignoreMatches(i, hostId, c.view)) })));
+  },
+
+  healthIgnores: (): Promise<HealthIgnore[]> => delay(healthIgnores.map((i) => ({ ...i }))),
+
+  setHealthIgnored: (input: HealthIgnoreInput, ignored: boolean): Promise<HealthIgnore | null> => {
+    const project = input.project?.trim() ?? "";
+    const service = input.service?.trim() ?? "";
+    const key = project && service ? { project, service, name: "" } : { project: "", service: "", name: input.name.replace(/^\//, "") };
+    const probe = { name: input.name.replace(/^\//, ""), project: project || null, service: service || null };
+    if (!ignored) {
+      healthIgnores = healthIgnores.filter((i) => !ignoreMatches(i, input.hostId, probe));
+      return delay(null);
+    }
+    let row = healthIgnores.find((i) => i.hostId === input.hostId && i.project === key.project && i.service === key.service && i.name === key.name);
+    if (!row) {
+      row = { id: ++ignoreSeq, hostId: input.hostId, ...key, createdAt: now() };
+      healthIgnores.push(row);
+    }
+    return delay({ ...row });
+  },
+
+  deleteHealthIgnore: (id: number): Promise<null> => {
+    healthIgnores = healthIgnores.filter((i) => i.id !== id);
+    return delay(null);
   },
 
   fixAccess: (hostId: number): Promise<null> => {
