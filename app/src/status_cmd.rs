@@ -76,12 +76,12 @@ fn route_addr(probe: Ipv4Addr, port: u16) -> Option<Ipv4Addr> {
     }
 }
 
-fn lan_addr() -> Option<Ipv4Addr> {
+pub(crate) fn lan_addr() -> Option<Ipv4Addr> {
     // TEST-NET-1: never routed anywhere, but picks the default interface.
     route_addr(Ipv4Addr::new(192, 0, 2, 1), 9).filter(|v| !is_tailscale(*v))
 }
 
-fn tailscale_addr() -> Option<Ipv4Addr> {
+pub(crate) fn tailscale_addr() -> Option<Ipv4Addr> {
     // Tailscale's MagicDNS address only routes over the tailnet interface.
     route_addr(Ipv4Addr::new(100, 100, 100, 100), 53).filter(|v| is_tailscale(*v))
 }

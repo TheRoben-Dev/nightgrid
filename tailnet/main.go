@@ -52,8 +52,10 @@ type config struct {
 }
 
 type command struct {
-	Cmd string `json:"cmd"`
-	On  bool   `json:"on"`
+	Cmd  string `json:"cmd"`
+	On   bool   `json:"on"`
+	Port int    `json:"port"`
+	To   string `json:"to"`
 }
 
 var (
@@ -218,6 +220,15 @@ func main() {
 		}
 	}()
 
+	// Profile sync (D-203): tailnet connections to one port go to the app's
+	// listener on loopback, so paired devices on the built-in tailnet reach it.
+	var fwd net.Listener
+	defer func() {
+		if fwd != nil {
+			fwd.Close()
+		}
+	}()
+
 	for in.Scan() {
 		var c command
 		if err := json.Unmarshal(in.Bytes(), &c); err != nil {
@@ -240,6 +251,20 @@ func main() {
 			changed()
 		case "status":
 			changed()
+		case "forward":
+			if fwd != nil {
+				fwd.Close()
+				fwd = nil
+			}
+			if c.Port > 0 && c.Port < 65536 && isLoopback(c.To) {
+				l, err := srv.Listen("tcp", fmt.Sprintf(":%d", c.Port))
+				if err != nil {
+					fail("sync listener: %v", err)
+					break
+				}
+				fwd = l
+				go forward(l, c.To)
+			}
 		case "quit":
 			return
 		default:
@@ -307,4 +332,36 @@ func toPeer(p *ipnstate.PeerStatus) peer {
 		name = p.HostName
 	}
 	return peer{Name: name, DNSName: strings.TrimSuffix(p.DNSName, "."), IPs: ips, OS: p.OS, Online: p.Online, Routes: routes}
+}
+
+// isLoopback accepts only 127.0.0.1:port / [::1]:port targets.
+func isLoopback(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// forward copies each tailnet connection to the app's listener.
+func forward(l net.Listener, to string) {
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			return
+		}
+		go func(c net.Conn) {
+			defer c.Close()
+			d, err := net.DialTimeout("tcp", to, 5*time.Second)
+			if err != nil {
+				return
+			}
+			defer d.Close()
+			done := make(chan struct{}, 2)
+			go func() { _, _ = io.Copy(d, c); done <- struct{}{} }()
+			go func() { _, _ = io.Copy(c, d); done <- struct{}{} }()
+			<-done
+		}(c)
+	}
 }

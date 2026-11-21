@@ -42,6 +42,7 @@ Export everything Nightgrid knows (hosts, groups, snippets, services, dashboards
 
 ## Related
 
+- [Sync Nightgrid between your devices](kb:howto/device-sync)
 - [Monitor backups and test restores](kb:howto/backups)
 - [Syncthing](kb:apps/syncthing)
 - [Set up and rotate SSH keys](kb:howto/ssh-keys)

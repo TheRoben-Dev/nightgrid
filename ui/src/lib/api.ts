@@ -390,6 +390,15 @@ import {
   type Seen,
   type StatusPageInfo_Serialize as StatusPageInfo,
   type StatusPageSettings_Serialize as StatusPageSettings,
+  type SyncInfo_Serialize as SyncInfo,
+  type SyncPeer_Serialize as SyncPeer,
+  type SyncSettings_Serialize as SyncSettings,
+  type SyncMode,
+  type SecretCategory,
+  type SyncPushed,
+  type SyncRun,
+  type PairingCode,
+  type Merged,
   type McpSettings_Serialize as McpSettings,
   type McpStatus_Serialize as McpStatus,
   type McpCall,
@@ -485,6 +494,7 @@ import { mockKeys } from "./mockKeys";
 import { mockHelper } from "./mockHelper";
 import { mockLookups } from "./mockLookups";
 import { mockBackup } from "./mockBackup";
+import { mockSync } from "./mockSync";
 import { mockIntegrations } from "./mockIntegrations";
 import { mockBackend } from "./mock";
 import { mockDocker } from "./mockDocker";
@@ -871,6 +881,15 @@ export type {
   StatusPageInfo,
   StatusPageSettings,
   McpSettings,
+  SyncInfo,
+  SyncPeer,
+  SyncSettings,
+  SyncMode,
+  SecretCategory,
+  SyncPushed,
+  SyncRun,
+  PairingCode,
+  Merged,
   McpStatus,
   McpCall,
   McpAsk,
@@ -1012,6 +1031,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   disabledFeatures: [],
   profileReminderSnooze: null,
   statusPage: { enabled: false, bind: "lan", port: 8787 },
+  sync: { enabled: false, port: 47920, deviceName: "" },
   mcp: { enabled: false, port: 47821, allowWrites: false },
   power: { pricePerKwh: 0, currency: "" },
   notify: { native: true, ntfy: false, ntfyLevel: "warn", ntfyOk: true, muted: [] },
@@ -1412,6 +1432,19 @@ export const api = {
   statusPageGet: (): Promise<StatusPageInfo> => (T() ? commands.statusPageGet() : mockOps.statusGet()),
   statusPageSet: (s: StatusPageSettings): Promise<StatusPageInfo> => (T() ? commands.statusPageSet(s) : mockOps.statusSet(s)),
   statusPageNewToken: (): Promise<StatusPageInfo> => (T() ? commands.statusPageNewToken() : mockOps.statusNewToken()),
+  syncInfo: (): Promise<SyncInfo> => (T() ? commands.syncInfo() : mockSync.info()),
+  syncConfigure: (s: SyncSettings): Promise<SyncInfo> => (T() ? commands.syncConfigure(s) : mockSync.configure(s)),
+  syncPairStart: (acceptChanges: boolean): Promise<SyncInfo> => (T() ? commands.syncPairStart(acceptChanges) : mockSync.pairStart(acceptChanges)),
+  syncPairCancel: (): Promise<SyncInfo> => (T() ? commands.syncPairCancel() : mockSync.pairCancel()),
+  syncPairJoin: (addr: string, code: string, acceptChanges: boolean): Promise<SyncPeer> =>
+    T() ? commands.syncPairJoin(addr, code, acceptChanges) : mockSync.pairJoin(addr, code, acceptChanges),
+  syncPeerSet: (id: string, name: string, mode: SyncMode, secrets: SecretCategory[], acceptChanges: boolean): Promise<SyncPeer> =>
+    T() ? commands.syncPeerSet(id, name, mode, secrets, acceptChanges) : mockSync.peerSet(id, name, mode, secrets, acceptChanges),
+  syncUnpair: (id: string): Promise<null> => (T() ? commands.syncUnpair(id) : mockSync.unpair(id)),
+  syncCheck: (id: string): Promise<SyncPeer> => (T() ? commands.syncCheck(id) : mockSync.check(id)),
+  syncPush: (id: string, mode: ImportMode): Promise<SyncPushed> => (T() ? commands.syncPush(id, mode) : mockSync.push(id, mode)),
+  syncPull: (id: string, mode: ImportMode): Promise<BackupImported> => (T() ? commands.syncPull(id, mode) : mockSync.pull(id, mode)),
+  syncNow: (id: string): Promise<SyncRun> => (T() ? commands.syncNow(id) : mockSync.now(id)),
   mcpStatus: (): Promise<McpStatus> => (T() ? commands.mcpStatus() : mockMcp.status()),
   mcpSet: (s: McpSettings): Promise<McpStatus> => (T() ? commands.mcpSet(s) : mockMcp.set(s)),
   mcpNewToken: (): Promise<McpStatus> => (T() ? commands.mcpNewToken() : mockMcp.newToken()),

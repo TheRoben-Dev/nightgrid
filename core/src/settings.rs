@@ -124,6 +124,8 @@ pub struct AppSettings {
     pub power: PowerSettings,
     /// The MCP server (M12g). Machine-specific, like the status page.
     pub mcp: McpSettings,
+    /// Profile sync between devices (D-205). Machine-specific.
+    pub sync: crate::sync::SyncSettings,
     /// Where notices go besides the inbox (1.1). The ntfy URL and token
     /// live in the keychain.
     pub notify: crate::notify::NotifySettings,
@@ -466,6 +468,7 @@ impl Default for AppSettings {
             sound: SoundSettings::default(),
             power: PowerSettings::default(),
             mcp: McpSettings::default(),
+            sync: crate::sync::SyncSettings::default(),
             net_watch: NetWatchSettings::default(),
             handheld: false,
             controller_nav: true,

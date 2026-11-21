@@ -355,6 +355,20 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 - **Sync folder**: pick a Syncthing, cloud-drive or git folder, and export and import use `nightgrid-backup.age` there in one click. The passphrase is never stored, so keep it somewhere safe. Without it the file can't be opened.
 - **Profiles**: an export is your profile. It imports on macOS, Windows and Linux (**Export profile…** / **Import profile…** in the command palette). A reminder card appears when your last export from this computer is older than a week; change the interval or turn it off under **Remind me to export**.
 
+## Sync between your devices
+
+**Settings → Sync** keeps Nightgrid the same on your computers and handhelds. The apps talk to each other directly over your LAN or tailnet (the built-in Tailscale works too); there is no server or account in between.
+
+- **Pair once.** On one device turn on **Let paired devices reach this one** and press **Show a code**. On the other press **Join a device…**, enter the first one's address (its LAN address, tailnet name or 100.x address, shown under **Reach it at**) and the code. A code is valid for 5 minutes and three tries. **It can change this device's profile** decides whether the new device may push or send changes here; you can change it later.
+- **Pick how each device syncs** under **Paired devices**:
+  - **Manual**: **Push to…** sends this profile there, **Pull from…** takes theirs. **Merge** adds what's new; **Replace** makes the receiving side a copy (type `replace` to confirm). The side that received a profile restarts to load it.
+  - **Two-way**: changes on either device go to the other within seconds, item by item. A host edited on one and a dashboard on the other both survive; when the same item was edited on both, the later edit wins. Deletions travel too. A device that was offline catches up when it's back.
+  - **Send only** / **Receive only**: automatic, one direction.
+  - Automatic sync needs the same Nightgrid version on both devices. If both already have a setup, push or pull once in Manual first, so they start the same.
+- **Secrets** (SSH passwords and key passphrases, integration tokens, .env vault keys) only travel when you tick their group for that device, on both devices.
+- **Stays on each device**: its name, window scale, handheld and controller options, tray, built-in Tailscale, phone status page, MCP server, sync folder and the DRIFT model. SSH key files in `~/.ssh` aren't copied.
+- **Unpair…** forgets a device and asks it to forget this one. Nothing is deleted from either profile.
+
 ## Phone status page and snapshots
 
 - **Settings → Status page · Snapshot → Serve the phone status page** (off by default) shows a read-only page with your hosts, alerts and service checks at a secret link while Nightgrid runs. Pick where it listens: this computer's **LAN address**, **Tailscale only**, or **every interface** (avoid that one on a machine with a public address). **Copy** the link, open it on your phone and add it to the home screen; it refreshes every 30 seconds. **New link** makes the old one stop working.
