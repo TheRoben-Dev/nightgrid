@@ -129,6 +129,12 @@ const TABLES: &[Table] = &[
         ],
     },
     Table {
+        name: "storage_links",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Skip), ("owner_host_id", "hosts", Missing::Skip)],
+        keys: &[&["host_id", "owner_host_id", "owner_mount"]],
+    },
+    Table {
         name: "ups_watches",
         id: true,
         fks: &[("host_id", "hosts", Missing::Skip), ("group_id", "host_groups", Missing::Null)],

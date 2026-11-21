@@ -7,6 +7,28 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 - **Ignore a container's health check.** For a container that is "running but unhealthy" by design, tick **Ignore health check** in its Docker panel: unhealthy stops raising CONTAINER DOWN and stops counting as a problem (log watch, DRIFT), while exits, crashes and restart loops still alert. The row shows a **HEALTH IGNORED** chip; click it to watch the check again. Kept per host and compose service (or container name), so it survives the container being recreated, and included in the profile export.
 
+## [1.21.1] - 2026-11-21
+
+### Fixed
+- **Keys reach `sudo` programs in SSH terminals again.** With key hints or "edit in Nightgrid" on, a program run with `sudo` that switches terminal modes (menus, `[y/N]` prompts, like `sudo nightgrid-node fix`) could stop receiving keys: no letters, no Enter, not even Ctrl+C, while the cursor kept blinking. The session hook now hands the shell the terminal's own device instead of `/dev/tty`, which `sudo` didn't recognise as the user's terminal.
+- **Busy logs no longer flicker.** A container's log restarted every time the Docker list refreshed, so it cleared and reloaded every few seconds; it now keeps streaming. Bursts of output no longer paint a frame of empty rows while following the end, and when you scroll up to read, the lines you're reading stay put even as the oldest drop off.
+- **System → Journal keeps up with fast hosts.** New entries are drawn once per frame instead of on every batch, and only new rows are added, so a chatty journal scrolls smoothly instead of stalling.
+
+## [1.21.0] - 2026-11-20
+
+### Added
+- **What's growing.** Every mount in Fleet → DISKS has **What's growing**: the biggest folders and files on that filesystem, what grew since the last scan, and files changed today. VM disk images (`.vhdx`, `.qcow2`, `.vmdk`, `.vdi`, Hyper-V checkpoints…) are flagged with what to do, since their growth is inside the VM and they don't shrink by themselves; Docker and the journal get hints too. Click a folder to look inside, **Read as root** for folders the login can't open. Works on Linux, macOS and Windows hosts, installs nothing, and the previous scan stays on the host (`~/.nightgrid/growth`), not on this computer.
+- **Storage links: "disks stored on".** On a drive's What's growing panel, link the VMs whose disk images live there (a VM image named after a saved host is suggested). It's not a "depends on": a linked VM's alerts fold under that drive's critical DISK FULL and under its hypervisor going offline, while a share mounted from a NAS never makes a host depend on it. Links are in the profile export.
+
+### Changed
+- **Disk forecasts understand shares and nested storage.** Fleet → DISKS tells a host's own disks from NFS/SMB/SSHFS shares, Windows drives passed into WSL, VM shared folders and ZFS/APFS datasets, with a chip on each. A share from a saved host (say `/mnt/plex` from the NAS) is counted once, on the NAS, and shown on the client as **counted on nas** with no FILLING UP or DISK FULL alert; the same share mounted on several hosts with no owner saved counts on the first. Datasets of one pool are forecast together (their free space is shared), and the same storage mounted twice on one host shows once. WSL's `/mnt/c`-style drives say the disk belongs to Windows, and SMART no longer reads as missing inside WSL or a VM guest. DRIFT's disk explanations get all of this.
+
+### Fixed
+- **Hub member says "connection refused" for its hub.** A member that is only on the LAN pings its hub on the hub host's LAN address, but the hub's collector only listened on Tailscale, so the link failed while pulls (which go the other way) worked. Joining a hub now also makes the collector answer on that LAN address, and a member whose hub link fails gets **Fix on <hub>** under LINKED: it updates the hub if needed and adds the address in one go.
+- **The hub's version.** The hub card said "Node 0.26.0" while showing the hub program's own version; it now says **Hub 0.26.0**, and when the node next to it is newer (the hub isn't updated with the node) it says so and offers **Update hub** (config and history stay).
+- **"Make a hub…" greyed out with no reason.** The card now says why (no host with Node 0.26+ connected, or which hosts to update), and a host marked as a client device that already runs the node can be picked as the hub too.
+- **Link card says what to do.** When the node-to-node link is off or has no tailnet address, **Turn on the link** runs `allow peers` as root and, on a network without Tailscale, makes the link listen on the host's LAN address (`[peers] listen = "lan"`, Node 0.28+). Hubs work on LAN-only networks.
+
 ## [1.20.0] - 2026-11-20
 
 ### Added

@@ -229,12 +229,16 @@ fn refold(app: &AppHandle, cfg: &AppSettings) -> bool {
     let state = app.state::<AppState>();
     let hub = state.alerts.clone();
     let next = if cfg.alerts.enabled && cfg.alerts.fold_dependent {
-        let (deps, services) = {
+        let (deps, services, links) = {
             let store = state.store();
-            (store.deps_list().unwrap_or_default(), store.list_services().unwrap_or_default())
+            (
+                store.deps_list().unwrap_or_default(),
+                store.list_services().unwrap_or_default(),
+                store.storage_links().unwrap_or_default(),
+            )
         };
         let on_host: HashMap<_, _> = services.iter().filter_map(|s| s.host_id.map(|h| (s.id, h))).collect();
-        let graph = Graph::new(&deps, &on_host);
+        let graph = Graph::new(&deps, &on_host).with_storage(&links);
         let t = hub.tracker.lock().expect("poisoned");
         depgraph::fold(&t.active(), &t.pending(), &graph)
     } else {
@@ -364,6 +368,15 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     }
     let name = |id: HostId| hosts.get(&id).cloned().unwrap_or_else(|| format!("host {id}"));
 
+    // Disk forecasts for the whole fleet: shares and passed-in drives are
+    // counted (and alerted) once, on the host that owns the disk (D-200).
+    let fleet_disks = if rules.disk_full || rules.disk_forecast {
+        state.store().fleet_disk_forecasts(now).unwrap_or_default()
+    } else {
+        Default::default()
+    };
+    let elsewhere = nightgrid_core::diskforecast::counted_elsewhere(&fleet_disks);
+
     // Host offline and disk usage, from the metrics pollers.
     let mut offline = Vec::new();
     let mut disks = Vec::new();
@@ -379,7 +392,8 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
             PollState::Ok => {
                 sampled.insert(*id);
                 if rules.disk_full {
-                    if let Some(m) = state.metrics.mounts(*id) {
+                    if let Some(mut m) = state.metrics.mounts(*id) {
+                        m.retain(|u| !elsewhere.contains(&(*id, u.mount.clone())));
                         disks.extend(alerts::disk_full(
                             *id,
                             &name(*id),
@@ -530,15 +544,11 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
     {
         let mut conds = Vec::new();
         if rules.disk_forecast {
-            for id in hosts.keys() {
-                let list = state.store().disk_forecasts(*id, now).unwrap_or_default();
-                conds.extend(nightgrid_core::diskforecast::conditions(
-                    *id,
-                    &name(*id),
-                    &list,
-                    rules.forecast_days,
-                    now,
-                ));
+            for (id, list) in &fleet_disks {
+                if !hosts.contains_key(id) {
+                    continue;
+                }
+                conds.extend(nightgrid_core::diskforecast::conditions(*id, &name(*id), list, rules.forecast_days, now));
             }
         }
         changes.extend(hub.tracker.lock().expect("poisoned").report(

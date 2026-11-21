@@ -7,6 +7,8 @@ import { applyMockHolds } from "./mockHolds";
 import type {
   DisksReport_Serialize as DisksReport,
   MountForecast_Serialize as MountForecast,
+  GrowthReport_Serialize as GrowthReport,
+  StorageLink,
   PoolsReport_Serialize as PoolsReport,
   JournalEntry_Serialize as JournalEntry,
   JournalEvent_Serialize as JournalEvent,
@@ -82,12 +84,36 @@ let nextRun = 1;
 const GB = 1_000_000_000;
 
 /** A mount that grew `perDay` GB a day for three weeks. */
-function forecastOf(mount: string, size: number, used: number, perDay: number): MountForecast {
+function forecastOf(mount: string, size: number, used: number, perDay: number, o: Partial<MountForecast> = {}): MountForecast {
   const now = Math.floor(Date.now() / 1000);
   const daily = Array.from({ length: 21 }, (_, i) => ({ ts: now - (20 - i) * 86_400, used: Math.max(0, used - (20 - i) * perDay * GB + ((i * 7919) % 5) * 0.2 * GB) }));
   const rate = perDay * GB;
-  return { mount, size, used, at: now, perDay: rate, daysLeft: rate > size * 0.0001 ? (size - used) / rate : null, spanDays: 14, daily };
+  return {
+    mount,
+    size,
+    used,
+    at: now,
+    perDay: rate,
+    daysLeft: rate > size * 0.0001 ? (size - used) / rate : null,
+    spanDays: 14,
+    daily,
+    device: "/dev/sda1",
+    fstype: "ext4",
+    kind: "local",
+    label: "",
+    also: [],
+    owner: null,
+    mountedOn: [],
+    stores: [],
+    storedOn: null,
+    counted: true,
+    note: null,
+    ...o,
+  };
 }
+
+let links: StorageLink[] = [];
+const scans = new Map<string, number>();
 
 export const mockSystem = {
   async pools(hostId: number): Promise<PoolsReport> {
@@ -156,9 +182,81 @@ export const mockSystem = {
   },
   async forecasts(hostId: number): Promise<MountForecast[]> {
     if (hostId % 3 === 2) return [];
+    const stores = links.filter((l) => l.ownerHostId === hostId).map((l) => `host ${l.hostId}`);
     return hostId % 3 === 1
-      ? [forecastOf("/", 250 * GB, 61 * GB, 0.05), forecastOf("/srv", 4000 * GB, 3710 * GB, 31)]
-      : [forecastOf("/", 120 * GB, 98 * GB, 1.6), forecastOf("/var/lib/docker", 500 * GB, 210 * GB, 0)];
+      ? [
+          forecastOf("/", 250 * GB, 61 * GB, 0.05),
+          forecastOf("/srv", 4000 * GB, 3710 * GB, 31, { mountedOn: ["media"], note: "Also mounted on media over the network: growth from there lands here." }),
+          forecastOf("/mnt/h", 2000 * GB, 1210 * GB, 5.9, {
+            device: "H:\\134",
+            fstype: "9p",
+            kind: "passthrough",
+            label: "Windows drive H:",
+            stores,
+            note: "A Windows drive mounted into WSL. The disk belongs to Windows, so SMART isn't read here, and anything on Windows that saves to H: (VM disk images are a common one) grows it.",
+          }),
+        ]
+      : [
+          forecastOf("/", 120 * GB, 98 * GB, 1.6),
+          forecastOf("/var/lib/docker", 500 * GB, 210 * GB, 0),
+          forecastOf("/mnt/plex", 4000 * GB, 3710 * GB, 31, {
+            device: "nas:/volume1/plex",
+            fstype: "nfs4",
+            kind: "network",
+            label: "NFS · nas",
+            counted: false,
+            owner: { hostId: 1, host: "nas", mount: "/srv" },
+            note: "Shared from nas (/srv): its growth is counted there, not here.",
+          }),
+        ];
+  },
+  async growth(_hostId: number, path: string): Promise<GrowthReport> {
+    await new Promise((r) => setTimeout(r, 400));
+    const now = Math.floor(Date.now() / 1000);
+    const n = (scans.get(path) ?? 0) + 1;
+    scans.set(path, n);
+    const e = (p: string, size: number, dir: boolean, delta: number | null, o: Partial<GrowthReport["entries"][number]> = {}) => ({
+      path: p,
+      size: size * GB,
+      dir,
+      recent: false,
+      delta: n > 1 && delta != null ? delta * GB : null,
+      vmImage: false,
+      hint: null,
+      ...o,
+    });
+    return {
+      root: path,
+      at: now,
+      prevAt: n > 1 ? now - 86_400 : null,
+      total: 1210 * GB,
+      totalDelta: n > 1 ? 6 * GB : null,
+      denied: 3,
+      missing: false,
+      entries: [
+        e("VMs", 820, true, 5.8),
+        e("VMs/web01.vhdx", 410, false, 5.6, {
+          vmImage: true,
+          recent: true,
+          hint: "A VM disk: the growth is inside that VM. Add the VM as a host and run What's growing there to find the files.",
+        }),
+        e("VMs/dc01.vhdx", 380, false, 0.2, { vmImage: true }),
+        e("Media", 300, true, 0),
+        e("Backups", 80, true, 0.1),
+      ],
+    };
+  },
+  async links(): Promise<StorageLink[]> {
+    return links.map((l) => ({ ...l }));
+  },
+  async linkAdd(hostId: number, ownerHostId: number, ownerMount: string): Promise<StorageLink> {
+    const l = { id: links.length + 1, hostId, ownerHostId, ownerMount };
+    links = [...links, l];
+    return l;
+  },
+  async linkDelete(id: number): Promise<null> {
+    links = links.filter((l) => l.id !== id);
+    return null;
   },
   async info(_hostId: number): Promise<SystemInfo> {
     return { sudo: "password", remembered };
@@ -334,10 +432,15 @@ export const mockSystem = {
       let i = n;
       streams.set(
         id,
-        setInterval(() => {
-          const e = entry(Date.now(), i++, unit);
-          if (e.priority <= maxPrio) on({ kind: "entries", entries: [e] });
-        }, 1500),
+        (() => {
+          // Browser preview knob for busy hosts: localStorage "mock.logRate" = lines per second.
+          const rate = Number(globalThis.localStorage?.getItem("mock.logRate")) || 0;
+          const per = rate > 0 ? Math.max(1, Math.round(rate / 20)) : 1;
+          return setInterval(() => {
+            const entries = Array.from({ length: per }, () => entry(Date.now(), i++, unit)).filter((e) => e.priority <= maxPrio);
+            if (entries.length) on({ kind: "entries", entries });
+          }, rate > 0 ? 50 : 1500);
+        })(),
       );
     }
     return id;

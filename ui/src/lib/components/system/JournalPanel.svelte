@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { tick } from "svelte";
   import { PRIORITIES, prioLabel, prioTone, system } from "../../stores/system.svelte";
   import ExplainButton from "../helper/ExplainButton.svelte";
   import { hosts } from "../../stores/hosts.svelte";
@@ -16,11 +15,27 @@
   let box: HTMLDivElement | undefined = $state();
   let pinned = $state(true);
 
-  // Stay at the bottom while following, unless the user scrolled up.
+  // Reading older lines while new ones arrive: remember the top visible row
+  // before the update and put it back after, so the cap dropping old rows
+  // doesn't drag the view (WebKit has no native scroll anchoring).
+  let anchor: { el: Element; top: number } | null = null;
+  $effect.pre(() => {
+    void rows;
+    anchor = null;
+    if (pinned || !box) return;
+    const r = box.getBoundingClientRect();
+    const el = document.elementFromPoint(r.left + 20, r.top + 6)?.closest(".line");
+    if (el && box.contains(el)) anchor = { el, top: el.getBoundingClientRect().top };
+  });
+
+  // Stay at the bottom while following, unless the user scrolled up. Effects
+  // run after the DOM update and before paint, so this lands in the same frame.
   $effect(() => {
-    void rows.length;
-    if (!pinned || !box) return;
-    void tick().then(() => box && (box.scrollTop = box.scrollHeight));
+    void rows;
+    if (!box) return;
+    if (pinned) box.scrollTop = box.scrollHeight;
+    else if (anchor?.el.isConnected) box.scrollTop += anchor.el.getBoundingClientRect().top - anchor.top;
+    anchor = null;
   });
 
   function onScroll() {
@@ -130,7 +145,8 @@
     {:else if !rows.length}
       <p class="muted pad">{system.journal.length ? "No lines match." : "No entries."}</p>
     {/if}
-    {#each rows as e, i (i)}
+    <!-- Keyed by entry: when the cap drops old lines, their rows leave instead of every row being rewritten. -->
+    {#each rows as e (e)}
       <div class="line {prioTone(e.priority)}">
         <span class="ts">{time(e.ts)}</span>
         <span class="prio">{prioLabel(e.priority)}</span>
@@ -214,6 +230,7 @@
     color: var(--cyan);
   }
   .log {
+    overflow-anchor: none;
     flex: 1;
     min-height: 0;
     overflow: auto;

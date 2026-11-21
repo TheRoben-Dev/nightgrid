@@ -290,6 +290,11 @@ import {
   type PoolKind,
   type PoolDevice_Serialize as PoolDevice,
   type MountForecast_Serialize as MountForecast,
+  type MountKind,
+  type MountOwner,
+  type GrowthReport_Serialize as GrowthReport,
+  type GrowthEntry_Serialize as GrowthEntry,
+  type StorageLink,
   type UsagePoint,
   type Disk_Serialize as Disk,
   type Health,
@@ -763,6 +768,11 @@ export type {
   PoolKind,
   PoolDevice,
   MountForecast,
+  MountKind,
+  MountOwner,
+  GrowthReport,
+  GrowthEntry,
+  StorageLink,
   UsagePoint,
   Disk,
   Health,
@@ -1338,6 +1348,12 @@ export const api = {
     T() ? commands.keysVerify(hostId, file, passphrase) : mockKeys.verify(),
   systemPools: (hostId: number): Promise<PoolsReport> => (T() ? commands.systemPools(hostId) : mockSystem.pools(hostId)),
   diskForecasts: (hostId: number): Promise<MountForecast[]> => (T() ? commands.diskForecasts(hostId) : mockSystem.forecasts(hostId)),
+  diskGrowth: (hostId: number, path: string, elevate: boolean, sudo: SudoInput | null): Promise<GrowthReport> =>
+    T() ? commands.diskGrowth(hostId, path, elevate, sudo) : mockSystem.growth(hostId, path),
+  storageLinks: (): Promise<StorageLink[]> => (T() ? commands.storageLinks() : mockSystem.links()),
+  storageLinkAdd: (hostId: number, ownerHostId: number, ownerMount: string): Promise<StorageLink> =>
+    T() ? commands.storageLinkAdd(hostId, ownerHostId, ownerMount) : mockSystem.linkAdd(hostId, ownerHostId, ownerMount),
+  storageLinkDelete: (id: number): Promise<null> => (T() ? commands.storageLinkDelete(id) : mockSystem.linkDelete(id)),
   systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
     T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
   systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null): Promise<VmReport> =>
@@ -1641,8 +1657,12 @@ export const api = {
     T() ? commands.hubJoin(memberId, hubHost, sudo) : mockHub.join(memberId, hubHost),
   hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<HubJoinResult> =>
     T() ? commands.hubLeave(memberId, hubHost, sudo) : mockHub.leave(memberId),
-  hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null): Promise<ConfigSaveReport> =>
-    T() ? commands.hubAllowNetworks(hubHost, networks, sudo) : mockHub.allowNetworks(networks),
+  hubAllowNetworks: (hubHost: number, networks: string[], listen: string[], sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.hubAllowNetworks(hubHost, networks, listen, sudo) : mockHub.allowNetworks(networks, listen),
+  nodeLinkEnable: (hostId: number, sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.nodeLinkEnable(hostId, sudo) : mockHub.linkEnable(hostId),
+  hubRepairLink: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.hubRepairLink(memberId, hubHost, sudo) : mockHub.repairLink(memberId),
   powerOverview: (days: number, utcOffsetMins: number): Promise<PowerOverview> => (T() ? commands.powerOverview(days, utcOffsetMins) : mockPower.overview(days)),
   powerProfileSet: (hostId: number, idleW: number, maxW: number): Promise<null> => (T() ? commands.powerProfileSet(hostId, idleW, maxW) : mockPower.set(hostId, idleW, maxW)),
   powerProfileClear: (hostId: number): Promise<null> => (T() ? commands.powerProfileClear(hostId) : mockPower.clear(hostId)),

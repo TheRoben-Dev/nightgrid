@@ -444,6 +444,17 @@ export const commands = {
 	 *  while the host was monitored (local only, no connection).
 	 */
 	diskForecasts: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<MountForecast_Serialize[]>("disk_forecasts", { hostId }, options),
+	/**
+	 *  "What's growing" under a mount or folder (D-200): biggest folders and
+	 *  files, change since the last scan (kept on the host) and VM images.
+	 *  `elevate` reads as root (folders this login can't enter).
+	 */
+	diskGrowth: (hostId: number, path: string, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<GrowthReport_Serialize>("disk_growth", { hostId, path, elevate, sudo }, options),
+	/**  Storage links: which hosts' disks are stored on which drive (D-200). */
+	storageLinks: (options?: InvokeOptions) => __TAURI_INVOKE<StorageLink[]>("storage_links", undefined, options),
+	/**  Adds "`host_id`'s disks are stored on `owner_host_id`'s `owner_mount`". */
+	storageLinkAdd: (hostId: number, ownerHostId: number, ownerMount: string, options?: InvokeOptions) => __TAURI_INVOKE<StorageLink>("storage_link_add", { hostId, ownerHostId, ownerMount }, options),
+	storageLinkDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("storage_link_delete", { id }, options),
 	integrationsList: (options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize[]>("integrations_list", undefined, options),
 	integrationCreate: (input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize>("integration_create", { input, secret }, options),
 	integrationUpdate: (id: number, input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize>("integration_update", { id, input, secret }, options),
@@ -804,10 +815,27 @@ export const commands = {
 	 */
 	hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<HubJoinResult>("hub_leave", { memberId, hubHost, sudo }, options),
 	/**
-	 *  Lets the hub's collector reach these addresses (`[collect] networks`),
-	 *  then runs `allow collect` again. `sudo` is for the hub host.
+	 *  Lets the hub's collector reach these addresses (`[collect] networks`)
+	 *  and answer pings on `listen` (`[collect] listen`, hub 0.28.0+), then
+	 *  runs `allow collect` again. `sudo` is for the hub host.
 	 */
-	hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_allow_networks", { hubHost, networks, sudo }, options),
+	hubAllowNetworks: (hubHost: number, networks: string[], listen: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_allow_networks", { hubHost, networks, listen, sudo }, options),
+	/**
+	 *  Fixes a member's failing link to its hub (Fleet → NODE → member →
+	 *  LINKED): updates the hub when it's older than the node next to it (or
+	 *  too old to listen on more than one address), then makes its collector
+	 *  answer on the address the member pings and lets it reach the member.
+	 *  Pulls never needed this, so the hub can look fine while the member's
+	 *  link says "connection refused". `sudo` is for the hub host.
+	 */
+	hubRepairLink: (memberId: number, hubHost: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_repair_link", { memberId, hubHost, sudo }, options),
+	/**
+	 *  Turns on `host_id`'s node-to-node link (`allow peers`) and, when the
+	 *  host has no tailnet address, makes it listen on its LAN address
+	 *  (`[peers] listen = "lan"`, Node 0.28.0+), so a network without
+	 *  Tailscale can still have a hub. `sudo` is for that host.
+	 */
+	nodeLinkEnable: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("node_link_enable", { hostId, sudo }, options),
 	/**
 	 *  Members of the hub on `hub_host` as the hub sees them (for the Fleet
 	 *  list's role column).
@@ -4341,6 +4369,80 @@ export type Group_Serialize = {
 	sortOrder: number,
 };
 
+export type GrowthEntry = GrowthEntry_Serialize | GrowthEntry_Deserialize;
+
+export type GrowthEntry_Deserialize = {
+	/**  Path under the scanned folder, `/`-separated (`vms/win11.vhdx`). */
+	path: string,
+	size: number,
+	dir: boolean,
+	/**  A file modified within the last day. */
+	recent: boolean,
+	/**
+	 *  Change since the previous scan, bytes; `None` when it wasn't listed
+	 *  then (or there was no previous scan).
+	 */
+	delta?: number | null,
+	/**  A VM disk image or VM bundle: the growth is inside that VM. */
+	vmImage: boolean,
+	/**  What usually makes this grow and what to do, for well-known paths. */
+	hint?: string | null,
+};
+
+export type GrowthEntry_Serialize = {
+	/**  Path under the scanned folder, `/`-separated (`vms/win11.vhdx`). */
+	path: string,
+	size: number,
+	dir: boolean,
+	/**  A file modified within the last day. */
+	recent: boolean,
+	/**
+	 *  Change since the previous scan, bytes; `None` when it wasn't listed
+	 *  then (or there was no previous scan).
+	 */
+	delta: number | null,
+	/**  A VM disk image or VM bundle: the growth is inside that VM. */
+	vmImage: boolean,
+	/**  What usually makes this grow and what to do, for well-known paths. */
+	hint: string | null,
+};
+
+export type GrowthReport = GrowthReport_Serialize | GrowthReport_Deserialize;
+
+export type GrowthReport_Deserialize = {
+	/**  The folder scanned, as given. */
+	root: string,
+	at: number,
+	/**  When the previous scan of this folder ran, if one was saved. */
+	prevAt?: number | null,
+	/**  Everything under the folder on its filesystem, bytes. */
+	total: number,
+	totalDelta?: number | null,
+	/**  Biggest first; the folder itself left out. */
+	entries: GrowthEntry_Deserialize[],
+	/**  Folders or files that couldn't be read (permissions). */
+	denied: number,
+	/**  The folder doesn't exist or can't be entered. */
+	missing: boolean,
+};
+
+export type GrowthReport_Serialize = {
+	/**  The folder scanned, as given. */
+	root: string,
+	at: number,
+	/**  When the previous scan of this folder ran, if one was saved. */
+	prevAt: number | null,
+	/**  Everything under the folder on its filesystem, bytes. */
+	total: number,
+	totalDelta: number | null,
+	/**  Biggest first; the folder itself left out. */
+	entries: GrowthEntry_Serialize[],
+	/**  Folders or files that couldn't be read (permissions). */
+	denied: number,
+	/**  The folder doesn't exist or can't be entered. */
+	missing: boolean,
+};
+
 /**  The guest's addresses, for RDP. */
 export type GuestAddrs = GuestAddrs_Serialize | GuestAddrs_Deserialize;
 
@@ -4998,6 +5100,12 @@ export type HubJoinResult = {
 	 *  reach this member: pass them to `hub_allow_networks` on the hub host.
 	 */
 	hubNetworks: string[],
+	/**
+	 *  Addresses the hub's collector must also answer on (`[collect]
+	 *  listen`) so a LAN-only member's pings reach it: pass them to
+	 *  `hub_allow_networks` too.
+	 */
+	hubListen: string[],
 };
 
 /**  A member in `fleet.overview`. */
@@ -5037,6 +5145,8 @@ export type HubOverview_Deserialize = {
 	hubId?: string,
 	fingerprint?: string | null,
 	listening?: string | null,
+	/**  Every address the collector answers on (0.28.0+; empty before). */
+	listenAll?: string[],
 	/**  `ok`, `off` (never ran: `allow collect`) or `denied` (stopped). */
 	collector?: string,
 	storeBytes?: number | null,
@@ -5048,6 +5158,8 @@ export type HubOverview_Serialize = {
 	hubId: string,
 	fingerprint: string | null,
 	listening: string | null,
+	/**  Every address the collector answers on (0.28.0+; empty before). */
+	listenAll: string[],
 	/**  `ok`, `off` (never ran: `allow collect`) or `denied` (stopped). */
 	collector: string,
 	storeBytes: number | null,
@@ -6404,6 +6516,41 @@ export type MountForecast_Deserialize = {
 	spanDays: number | null,
 	/**  The last sample of each day, oldest first, for a sparkline. */
 	daily: UsagePoint[],
+	/**
+	 *  `/proc/mounts` device (`/dev/sda1`, `nas:/volume1/plex`); empty for
+	 *  history recorded before D-200.
+	 */
+	device: string,
+	fstype: string,
+	kind: MountKind,
+	/**
+	 *  Chip words ("NFS · nas", "Windows drive H:", "ZFS tank"); empty for
+	 *  a plain local disk.
+	 */
+	label: string,
+	/**
+	 *  Other mounts of the same storage on this host, forecast as one
+	 *  (datasets of one pool, the same share mounted twice).
+	 */
+	also: string[],
+	/**  The host whose disk this really is, when it's another saved host. */
+	owner?: MountOwner | null,
+	/**  Other hosts that mount this storage over the network. */
+	mountedOn: string[],
+	/**  Hosts whose disks are stored here (storage links: VM disk images). */
+	stores: string[],
+	/**
+	 *  Where this host's own disks are stored, when linked (a VM's image on
+	 *  its hypervisor's drive).
+	 */
+	storedOn?: MountOwner | null,
+	/**
+	 *  False when the growth is counted on another host: no FILLING UP or
+	 *  DISK FULL alert here, and the row is shown as a reference.
+	 */
+	counted: boolean,
+	/**  One sentence on what this mount is and where its growth is counted. */
+	note?: string | null,
 };
 
 export type MountForecast_Serialize = {
@@ -6424,6 +6571,65 @@ export type MountForecast_Serialize = {
 	spanDays: number | null,
 	/**  The last sample of each day, oldest first, for a sparkline. */
 	daily: UsagePoint[],
+	/**
+	 *  `/proc/mounts` device (`/dev/sda1`, `nas:/volume1/plex`); empty for
+	 *  history recorded before D-200.
+	 */
+	device: string,
+	fstype: string,
+	kind: MountKind,
+	/**
+	 *  Chip words ("NFS · nas", "Windows drive H:", "ZFS tank"); empty for
+	 *  a plain local disk.
+	 */
+	label: string,
+	/**
+	 *  Other mounts of the same storage on this host, forecast as one
+	 *  (datasets of one pool, the same share mounted twice).
+	 */
+	also: string[],
+	/**  The host whose disk this really is, when it's another saved host. */
+	owner: MountOwner | null,
+	/**  Other hosts that mount this storage over the network. */
+	mountedOn: string[],
+	/**  Hosts whose disks are stored here (storage links: VM disk images). */
+	stores: string[],
+	/**
+	 *  Where this host's own disks are stored, when linked (a VM's image on
+	 *  its hypervisor's drive).
+	 */
+	storedOn: MountOwner | null,
+	/**
+	 *  False when the growth is counted on another host: no FILLING UP or
+	 *  DISK FULL alert here, and the row is shown as a reference.
+	 */
+	counted: boolean,
+	/**  One sentence on what this mount is and where its growth is counted. */
+	note: string | null,
+};
+
+export type MountKind = 
+/**  A filesystem on this host's own disks. */
+"local" | 
+/**  A share served by another machine over the network. */
+"network" | 
+/**
+ *  A drive or folder of the machine this host runs on (WSL, a VM's
+ *  shared folder): its disks and SMART belong to that machine.
+ */
+"passthrough" | 
+/**
+ *  A dataset or volume sharing its free space with others in one pool
+ *  (ZFS pool, APFS container), forecast as the pool.
+ */
+"pool";
+
+/**  Who owns the disk behind a mount that isn't this host's own. */
+export type MountOwner = {
+	hostId: number,
+	host: string,
+	/**  The owner's mount that holds it. */
+	mount: string,
 };
 
 /**  Usage of one mounted filesystem. */
@@ -10267,6 +10473,15 @@ mode: number | null } |
 { type: "waitPort"; host: string; port: number; timeoutSecs: number } | { type: "docker"; action: DockerAction; 
 /**  Container name/id, or image for pull. */
 target: string };
+
+export type StorageLink = {
+	id: number,
+	/**  The host (usually a VM) whose disks are stored there. */
+	hostId: number,
+	ownerHostId: number,
+	/**  The owner's mount or drive holding them (`/mnt/h`, `H:\`). */
+	ownerMount: string,
+};
 
 /**  The sudo password typed into the prompt. Never logged. */
 export type SudoInput = {

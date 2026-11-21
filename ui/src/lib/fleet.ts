@@ -200,6 +200,7 @@ export function rateText(perDay: number | null): string {
 
 /** "full in about 12 days", "not growing", "learning…". */
 export function fillText(f: MountForecast): string {
+  if (f.counted === false) return f.owner ? `counted on ${f.owner.host}` : "counted elsewhere";
   if (f.perDay == null) return (f.spanDays ?? 0) < 1 ? "learning (needs a day of history)" : "not enough history";
   if (f.daysLeft == null) return "not growing";
   const d = f.daysLeft;
@@ -209,9 +210,19 @@ export function fillText(f: MountForecast): string {
 }
 
 export function fillTone(f: MountForecast, within: number): RowTone {
+  // Counted (and alerted) on the host that owns the disk.
+  if (f.counted === false) return "ok";
   if (f.daysLeft == null) return f.perDay == null ? "unknown" : "ok";
   if (f.daysLeft < 3) return "bad";
   return f.daysLeft < within ? "warn" : "ok";
+}
+
+/** Hosts whose disks (VM images) live on another host's drive. */
+export const KIND_WORD: Record<MountForecast["kind"], string> = { local: "", network: "SHARE", passthrough: "PASSED IN", pool: "POOL" };
+
+/** WSL or a VM guest whose disks all belong to the machine it runs on. */
+export function isGuest(forecasts: MountForecast[]): boolean {
+  return forecasts.some((f) => f.kind === "passthrough");
 }
 
 /** Percent used, 0–100. */
@@ -283,7 +294,12 @@ export function disksText(rows: { host: Host; state: HostDisks | undefined }[]):
     }
     if (d.smart) for (const k of d.smart.disks) lines.push(`  - disk ${k.name} ${k.model ?? ""}: SMART ${k.health}${k.issues.length ? `; ${k.issues.join("; ")}` : ""}`);
     else if (d.smartNote) lines.push(`  - SMART not read: ${d.smartNote}`);
-    for (const f of d.forecasts) lines.push(`  - ${f.mount}: ${size(f.used)} of ${size(f.size)} (${usedPct(f).toFixed(0)}%), ${rateText(f.perDay) || "trend unknown"}, ${fillText(f)}`);
+    for (const f of d.forecasts) {
+      const what = [f.label, f.also?.length ? `also mounted at ${f.also.join(", ")}` : ""].filter(Boolean).join("; ");
+      lines.push(
+        `  - ${f.mount}${what ? ` (${what})` : ""}: ${size(f.used)} of ${size(f.size)} (${usedPct(f).toFixed(0)}%), ${rateText(f.perDay) || "trend unknown"}, ${fillText(f)}${f.note ? `. ${f.note}` : ""}`,
+      );
+    }
   }
   return lines.join("\n");
 }

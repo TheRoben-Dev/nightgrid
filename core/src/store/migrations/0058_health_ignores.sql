@@ -1,4 +1,4 @@
--- 0057: containers whose healthcheck is ignored (D-201). A container that is
+-- 0058: containers whose healthcheck is ignored (D-201). A container that is
 -- "running but unhealthy" by design no longer counts as down: no CONTAINER
 -- DOWN alert, no red/amber status, no "unhealthy" in DRIFT's context or the
 -- log watch. Crashes, exits and restart loops still alert. Keyed by host

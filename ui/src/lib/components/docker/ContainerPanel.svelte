@@ -22,10 +22,15 @@
   /** Env keys whose values are shown (masked by default, security rule 6). */
   let revealed = $state<string[]>([]);
 
+  // `container` is replaced on every Docker list refresh: deriveds keep the
+  // effects below to real changes of id/state instead of every poll.
+  const containerId = $derived(container.id);
+  const containerState = $derived(container.state);
+
   // Reload inspect data when the container or its state changes.
   $effect(() => {
-    const id = container.id;
-    void container.state;
+    const id = containerId;
+    void containerState;
     let live = true;
     error = null;
     api
@@ -43,7 +48,7 @@
 
   // Hide revealed values again when switching containers.
   $effect(() => {
-    void container.id;
+    void containerId;
     revealed = [];
     detail = null;
   });
@@ -109,7 +114,7 @@
   </div>
   <div class="body">
     {#if tab === "logs"}
-      <ContainerLogs {hostId} containerId={container.id} name={container.name} running={isUp(container)} />
+      <ContainerLogs {hostId} {containerId} name={container.name} running={isUp(container)} />
     {:else if error}
       <p class="error-text pad">{error}</p>
     {:else if !detail}

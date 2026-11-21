@@ -140,10 +140,15 @@ for o in /tmp/nightgrid-edit.*; do
   [ -d "$o" ] && [ -O "$o" ] && find "$o" -maxdepth 0 -mmin +1440 -exec rm -rf {} + 2>/dev/null
 done </dev/null
 sh_=${SHELL:-/bin/sh}
+# The shell's stdin is the terminal's own device (/dev/pts/N), not /dev/tty:
+# sudo (use_pty) doesn't recognise /dev/tty as the user's terminal and stops
+# passing keys to the command once it changes terminal modes.
+t_=$(tty <&2 2>/dev/null) || t_=
+case $t_ in /dev/?*) [ -r "$t_" ] || t_=/dev/tty ;; *) t_=/dev/tty ;; esac
 d=$(mktemp -d /tmp/nightgrid-edit.XXXXXX 2>/dev/null </dev/null)
 if [ -z "$d" ]; then
   echo "nightgrid: could not create a temp folder; the session hook is off for this session." >/dev/tty
-  exec "$sh_" -l </dev/tty
+  exec "$sh_" -l <"$t_"
 fi
 NIGHTGRID_TOKEN=@TOKEN@
 export NIGHTGRID_TOKEN
@@ -155,7 +160,7 @@ for f in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do
   [ -f "$f" ] && { . "$f"; break; }
 done
 @BASH@NIGHTGRID_EOF
-  "$sh_" --rcfile "$d/rc" -i </dev/tty
+  "$sh_" --rcfile "$d/rc" -i <"$t_"
   ;;
 zsh)
   for f in .zshenv .zprofile .zshrc .zlogin; do
@@ -164,13 +169,13 @@ zsh)
   cat >>"$d/.zshrc" <<'NIGHTGRID_EOF'
 @ZSH@NIGHTGRID_EOF
   echo 'ZDOTDIR=$HOME' >>"$d/.zlogin"
-  ZDOTDIR=$d "$sh_" -l </dev/tty
+  ZDOTDIR=$d "$sh_" -l <"$t_"
   ;;
 fish)
-  "$sh_" -l -C '@FISH@' </dev/tty
+  "$sh_" -l -C '@FISH@' <"$t_"
   ;;
 *)
-  "$sh_" -l </dev/tty
+  "$sh_" -l <"$t_"
   ;;
 esac
 rc=$?
@@ -271,6 +276,19 @@ mod tests {
         let edit = script(TOKEN, HookOptions { edit: true, hints: false });
         assert!(!edit.contains("__ng_pre") && edit.contains("NIGHTGRID_EDIT=$d/edit"));
         assert!(!HookOptions::default().any());
+    }
+
+    /// The shell must get the terminal's real device as stdin: with
+    /// `</dev/tty`, `sudo` (use_pty) stopped passing keys to programs that
+    /// switch terminal modes, like `sudo nightgrid-node fix`.
+    #[test]
+    fn shell_reads_the_real_terminal_device() {
+        let s = script(TOKEN, HookOptions { edit: true, hints: true });
+        assert!(s.contains("t_=$(tty <&2"));
+        for line in s.lines().filter(|l| l.contains("\"$sh_\"")) {
+            assert!(!line.contains("</dev/tty"), "{line}");
+            assert!(line.contains("<\"$t_\""), "{line}");
+        }
     }
 
     #[test]
