@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them and gives every release a codename (`scripts/codenames.mjs`), shown in the heading, the GitHub release title and the app.
 
-## [Unreleased]
+## [1.23.0] "Silent Ember" - 2026-11-21
 
 ### Added
 - **Every release has a codename.** Releases now carry a two-word name on top of their version, like the one this release got, shown in the update prompt, in **Settings → Updates** next to the installed version, on GitHub and in the changelog. Every earlier release got one too.
