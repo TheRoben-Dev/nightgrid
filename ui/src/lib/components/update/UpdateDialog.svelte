@@ -1,25 +1,29 @@
 <script lang="ts">
   import { updates } from "../../stores/updates.svelte";
   import Modal from "../Modal.svelte";
+  import { splitUpdateNotes } from "../../releases";
 
   const u = $derived(updates.prompt);
   const pct = $derived(updates.progress == null ? null : Math.round(updates.progress * 100));
   const date = $derived(u?.date ? new Date(u.date).toLocaleDateString() : null);
+  // The manifest's notes start with "Codename: …" (D-204).
+  const split = $derived(splitUpdateNotes(u?.notes));
 </script>
 
 <Modal
   open={!!u}
-  title={u ? `UPDATE AVAILABLE :: v${u.version}` : "UPDATE"}
+  title={u ? `UPDATE AVAILABLE :: v${u.version}${split.codename ? ` ${split.codename.toUpperCase()}` : ""}` : "UPDATE"}
   width={620}
   onclose={() => !updates.installing && updates.later()}
 >
   {#if u}
     <p class="lead">
-      Nightgrid <strong class="data">v{u.version}</strong> is out{date ? ` (${date})` : ""}. You're on v{u.current}.
+      Nightgrid <strong class="data">v{u.version}</strong>{#if split.codename}
+        <strong class="codename">“{split.codename}”</strong>{/if} is out{date ? ` (${date})` : ""}. You're on v{u.current}.
     </p>
-    {#if u.notes}
+    {#if split.notes}
       <!-- Release notes are shown as plain text, never rendered as HTML. -->
-      <pre class="notes">{u.notes}</pre>
+      <pre class="notes">{split.notes}</pre>
     {/if}
     {#if updates.phase !== "idle"}
       <div class="progress" role="status">
@@ -46,6 +50,10 @@
   }
   .data {
     color: var(--cyan);
+  }
+  .codename {
+    color: var(--magenta);
+    letter-spacing: 0.04em;
   }
   .notes {
     margin: 0;

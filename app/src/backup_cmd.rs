@@ -228,6 +228,7 @@ pub async fn backup_import(app: AppHandle, passphrase: String, mode: ImportMode)
             let mut s = AppSettings::load(&store)?;
             s.backup_folder = before.backup_folder;
             s.last_profile_export = before.last_profile_export;
+            s.last_seen_version = before.last_seen_version;
             s.profile_reminder_snooze = before.profile_reminder_snooze;
             s.status_page = before.status_page;
             s.mcp = before.mcp;

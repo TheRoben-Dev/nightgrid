@@ -7,6 +7,7 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import process from "node:process";
+import { notesFor, releasesIn } from "./codenames.mjs";
 
 const [dist, tag, out] = process.argv.slice(2);
 if (!dist || !tag || !out) {
@@ -46,16 +47,14 @@ if (!Object.keys(platforms).length) {
   process.exit(0);
 }
 
-// Release notes: this version's CHANGELOG section, as plain text.
+// Release notes: this version's CHANGELOG section, as plain text, led by
+// its codename (D-204) so the update prompt can show it.
 let notes = `Nightgrid ${version}`;
 try {
   const log = readFileSync("CHANGELOG.md", "utf8");
-  const start = log.indexOf(`## [${version}]`);
-  if (start >= 0) {
-    const rest = log.slice(start);
-    const next = rest.indexOf("\n## [", 1);
-    notes = (next > 0 ? rest.slice(0, next) : rest).split("\n").slice(1).join("\n").trim() || notes;
-  }
+  const body = notesFor(log, version);
+  const name = releasesIn(log).find((r) => r.version === version)?.codename;
+  notes = `${name ? `Codename: ${name}\n\n` : ""}${body || notes}`;
 } catch {
   /* no changelog: keep the default line */
 }

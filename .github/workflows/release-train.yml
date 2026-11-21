@@ -7,7 +7,9 @@ name: Release train
 # the CHANGELOG's Unreleased notes have "### Added", else patch), commits
 # and tags it on main and starts the CI release run for that tag. Fixes
 # merged close together (or while a release builds) leave as one release.
-# PRs never bump versions, so versions can't collide.
+# PRs never bump versions, so versions can't collide. Each release also gets
+# a codename (D-204, scripts/codenames.mjs) in its CHANGELOG heading, the
+# GitHub release title and the app.
 #
 # Interface-only fixes ship sooner as signed UI patches (ui-patch.yml);
 # Library-only changes as content packs (kb-content.yml).
@@ -86,16 +88,18 @@ jobs:
           echo "$out"
           echo "release=$(echo "$out" | jq -r .release)" >> "$GITHUB_OUTPUT"
           echo "tag=$(echo "$out" | jq -r '.tag // empty')" >> "$GITHUB_OUTPUT"
+          echo "codename=$(echo "$out" | jq -r '.codename // empty')" >> "$GITHUB_OUTPUT"
 
       - name: Commit and tag the version
         if: steps.v.outputs.release == 'true'
         env:
           TAG: ${{ steps.v.outputs.tag }}
+          CODENAME: ${{ steps.v.outputs.codename }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet; then
-            git commit -qam "release: $TAG"
+            git commit -qam "release: $TAG \"$CODENAME\""
           fi
           git tag "$TAG"
           # Pushes made with this token start no workflows, so no loop.
