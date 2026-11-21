@@ -87,7 +87,7 @@
       </div>
     {:else}
       <div class="msg">
-        <h2><span use:scramble={b.title}></span></h2>
+        <h2 aria-label={b.title}><span use:scramble={b.title}></span></h2>
         <div class="body">
           <Markdown src={b.body} steps onview={view} onarticle={article} />
         </div>
