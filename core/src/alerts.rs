@@ -571,7 +571,8 @@ impl ContainerWatch {
             match c.state.as_str() {
                 "running" => {
                     self.seen_running.insert(key);
-                    if c.health.as_deref() == Some("unhealthy") {
+                    // An ignored healthcheck (D-201) counts as none.
+                    if c.effective_health() == Some("unhealthy") {
                         out.push(cond(Severity::Warn, "running but unhealthy".into()));
                     }
                 }
@@ -842,6 +843,7 @@ mod tests {
             state: state.into(),
             status: status.into(),
             health: health.map(Into::into),
+            health_ignored: false,
             created: 0,
             ports: vec![],
             project: None,
@@ -907,6 +909,18 @@ mod tests {
         assert_eq!(c[0].kind, AlertKind::ContainerDown);
         let c = w.conditions(1, "lumen", &[ctr("convertx", "running", "Up 1 minute (unhealthy)", Some("unhealthy"))]);
         assert_eq!(c[0].detail, "running but unhealthy");
+        // With its healthcheck ignored (D-201), unhealthy is quiet, but a crash still alerts.
+        let ignored = |state: &str, status: &str, health| ContainerView {
+            health_ignored: true,
+            ..ctr("convertx", state, status, health)
+        };
+        assert!(w
+            .conditions(1, "lumen", &[ignored("running", "Up 1 minute (unhealthy)", Some("unhealthy"))])
+            .is_empty());
+        let c = w.conditions(1, "lumen", &[ignored("exited", "Exited (1) 5 seconds ago", None)]);
+        assert_eq!((c.len(), c[0].severity), (1, Severity::Critical));
+        let c = w.conditions(1, "lumen", &[ignored("restarting", "Restarting (1) 2 seconds ago", None)]);
+        assert_eq!(c[0].detail, "restarting (crash loop?)");
         // And repeated errors from a crash-looping container alert immediately too.
         let looping = SourceCtx { restarting: true, ..Default::default() };
         let f = d.observe("container/convertx", &raw(&["ERROR cannot open /data/db.sqlite"]), &looping, &rules, 1200);

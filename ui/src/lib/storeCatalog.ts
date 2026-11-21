@@ -1,4 +1,4 @@
-// The feature store (D-205): optional components installed from
+// The feature store (D-206): optional components installed from
 // Settings → STORE. The core app keeps the standard homelab essentials;
 // everything below is a component. Not installed = hidden, never loaded, no
 // background work, data kept. The backend has the same list

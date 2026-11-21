@@ -131,6 +131,16 @@ export const commands = {
 	 *  user"), then drops the cached engine so the next call uses it.
 	 */
 	dockerSetUser: (hostId: number, user: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_set_user", { hostId, user }, options),
+	/**  Every container whose healthcheck is ignored, on every host (D-201). */
+	dockerHealthIgnores: (options?: InvokeOptions) => __TAURI_INVOKE<HealthIgnore[]>("docker_health_ignores", undefined, options),
+	/**
+	 *  Ignores a container's healthcheck, or stops ignoring it (D-201). Keyed
+	 *  by compose project/service when given, else by container name, so it
+	 *  survives the container being recreated.
+	 */
+	dockerSetHealthIgnored: (input: HealthIgnoreInput_Deserialize, ignored: boolean, options?: InvokeOptions) => __TAURI_INVOKE<HealthIgnore | null>("docker_set_health_ignored", { input, ignored }, options),
+	/**  Stops ignoring one healthcheck by its id (the Alerts settings list). */
+	dockerHealthIgnoreDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_health_ignore_delete", { id }, options),
 	/**
 	 *  Compose stacks on the host: from container labels plus the host's stack
 	 *  folders.
@@ -1145,6 +1155,32 @@ export const commands = {
 	statusPageNewToken: (options?: InvokeOptions) => __TAURI_INVOKE<StatusPageInfo_Serialize>("status_page_new_token", undefined, options),
 	/**  Writes a static HTML snapshot of the dashboard. `None` when cancelled. */
 	dashboardExport: (withAddresses: boolean, options?: InvokeOptions) => __TAURI_INVOKE<string | null>("dashboard_export", { withAddresses }, options),
+	syncInfo: (options?: InvokeOptions) => __TAURI_INVOKE<SyncInfo_Serialize>("sync_info", undefined, options),
+	/**  Turns the listener on or off, and sets the port and this device's name. */
+	syncConfigure: (settings: SyncSettings_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<SyncInfo_Serialize>("sync_configure", { settings }, options),
+	/**  Shows a one-time code another device can pair with (needs the listener). */
+	syncPairStart: (acceptChanges: boolean, options?: InvokeOptions) => __TAURI_INVOKE<SyncInfo_Serialize>("sync_pair_start", { acceptChanges }, options),
+	syncPairCancel: (options?: InvokeOptions) => __TAURI_INVOKE<SyncInfo_Serialize>("sync_pair_cancel", undefined, options),
+	/**
+	 *  Pairs with a device that shows a code. `addr` is its address, with or
+	 *  without the port.
+	 */
+	syncPairJoin: (addr: string, code: string, acceptChanges: boolean, options?: InvokeOptions) => __TAURI_INVOKE<SyncPeer_Serialize>("sync_pair_join", { addr, code, acceptChanges }, options),
+	/**  Changes how this device syncs with a paired one. */
+	syncPeerSet: (id: string, name: string, mode: SyncMode, secrets: SecretCategory[], acceptChanges: boolean, options?: InvokeOptions) => __TAURI_INVOKE<SyncPeer_Serialize>("sync_peer_set", { id, name, mode, secrets, acceptChanges }, options),
+	/**  Forgets a paired device (and asks it to forget this one). */
+	syncUnpair: (id: string, options?: InvokeOptions) => __TAURI_INVOKE<null>("sync_unpair", { id }, options),
+	/**  Checks that a paired device answers. */
+	syncCheck: (id: string, options?: InvokeOptions) => __TAURI_INVOKE<SyncPeer_Serialize>("sync_check", { id }, options),
+	/**  Sends this profile to a paired device (merged or replacing what's there). */
+	syncPush: (id: string, mode: ImportMode, options?: InvokeOptions) => __TAURI_INVOKE<SyncPushed>("sync_push", { id, mode }, options),
+	/**
+	 *  Takes a paired device's profile (merged or replacing this one's). The
+	 *  app should restart afterwards, like after an import.
+	 */
+	syncPull: (id: string, mode: ImportMode, options?: InvokeOptions) => __TAURI_INVOKE<BackupImported_Serialize>("sync_pull", { id, mode }, options),
+	/**  Runs an automatic sync with a device now. */
+	syncNow: (id: string, options?: InvokeOptions) => __TAURI_INVOKE<SyncRun>("sync_now", { id }, options),
 	mcpStatus: (options?: InvokeOptions) => __TAURI_INVOKE<McpStatus_Serialize>("mcp_status", undefined, options),
 	/**  Saves the MCP settings and starts or stops the server. */
 	mcpSet: (settings: McpSettings_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<McpStatus_Serialize>("mcp_set", { settings }, options),
@@ -1789,6 +1825,11 @@ export type AppSettings_Deserialize = {
 	broadcasts?: boolean,
 	/**  Transmission ids the user acknowledged (never shown again). */
 	dismissedBroadcasts?: string[],
+	/**
+	 *  The newest version whose release notes were shown on this computer
+	 *  (D-204). Machine-specific: kept as is when a profile is imported.
+	 */
+	lastSeenVersion?: string | null,
 	/**  Alert rules and delivery. */
 	alerts?: AlertSettings_Deserialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -1815,6 +1856,8 @@ export type AppSettings_Deserialize = {
 	power?: PowerSettings_Deserialize,
 	/**  The MCP server (M12g). Machine-specific, like the status page. */
 	mcp?: McpSettings_Deserialize,
+	/**  Profile sync between devices (D-205). Machine-specific. */
+	sync?: SyncSettings_Deserialize,
 	/**
 	 *  Where notices go besides the inbox (1.1). The ntfy URL and token
 	 *  live in the keychain.
@@ -1842,7 +1885,7 @@ export type AppSettings_Deserialize = {
 	 */
 	disabledFeatures?: string[],
 	/**
-	 *  Components installed from Settings → STORE (D-205). A feature that
+	 *  Components installed from Settings → STORE (D-206). A feature that
 	 *  belongs to a component not in the list is off, whatever
 	 *  `disabled_features` says. `None`: never chosen (settings from before
 	 *  the store); [`AppSettings::load`] fills it in. Unknown ids (from a
@@ -1948,6 +1991,11 @@ export type AppSettings_Serialize = {
 	broadcasts: boolean,
 	/**  Transmission ids the user acknowledged (never shown again). */
 	dismissedBroadcasts: string[],
+	/**
+	 *  The newest version whose release notes were shown on this computer
+	 *  (D-204). Machine-specific: kept as is when a profile is imported.
+	 */
+	lastSeenVersion: string | null,
 	/**  Alert rules and delivery. */
 	alerts: AlertSettings_Serialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -1974,6 +2022,8 @@ export type AppSettings_Serialize = {
 	power: PowerSettings_Serialize,
 	/**  The MCP server (M12g). Machine-specific, like the status page. */
 	mcp: McpSettings_Serialize,
+	/**  Profile sync between devices (D-205). Machine-specific. */
+	sync: SyncSettings_Serialize,
 	/**
 	 *  Where notices go besides the inbox (1.1). The ntfy URL and token
 	 *  live in the keychain.
@@ -2001,7 +2051,7 @@ export type AppSettings_Serialize = {
 	 */
 	disabledFeatures: string[],
 	/**
-	 *  Components installed from Settings → STORE (D-205). A feature that
+	 *  Components installed from Settings → STORE (D-206). A feature that
 	 *  belongs to a component not in the list is off, whatever
 	 *  `disabled_features` says. `None`: never chosen (settings from before
 	 *  the store); [`AppSettings::load`] fills it in. Unknown ids (from a
@@ -3104,6 +3154,11 @@ export type ContainerView_Deserialize = {
 	status: string,
 	/**  healthy, unhealthy, starting; None when there is no healthcheck. */
 	health?: string | null,
+	/**
+	 *  The user ignores this container's healthcheck (D-201): Nightgrid
+	 *  treats it as having none. `health` still says what Docker reports.
+	 */
+	healthIgnored: boolean,
 	/**  Unix seconds. */
 	created: number,
 	ports: PortView_Deserialize[],
@@ -3126,6 +3181,11 @@ export type ContainerView_Serialize = {
 	status: string,
 	/**  healthy, unhealthy, starting; None when there is no healthcheck. */
 	health: string | null,
+	/**
+	 *  The user ignores this container's healthcheck (D-201): Nightgrid
+	 *  treats it as having none. `health` still says what Docker reports.
+	 */
+	healthIgnored: boolean,
 	/**  Unix seconds. */
 	created: number,
 	ports: PortView_Serialize[],
@@ -4587,6 +4647,37 @@ export type Health = "ok" |
 "warn" | 
 /**  Failing or failed. */
 "bad";
+
+export type HealthIgnore = {
+	id: number,
+	hostId: number,
+	/**  Compose project; empty for a plain container. */
+	project: string,
+	/**  Compose service; empty for a plain container. */
+	service: string,
+	/**  Container name; empty when matched by project/service. */
+	name: string,
+	createdAt: number,
+};
+
+/**  What the UI sends to ignore one container's healthcheck. */
+export type HealthIgnoreInput = HealthIgnoreInput_Serialize | HealthIgnoreInput_Deserialize;
+
+/**  What the UI sends to ignore one container's healthcheck. */
+export type HealthIgnoreInput_Deserialize = {
+	hostId: number,
+	project?: string | null,
+	service?: string | null,
+	name: string,
+};
+
+/**  What the UI sends to ignore one container's healthcheck. */
+export type HealthIgnoreInput_Serialize = {
+	hostId: number,
+	project: string | null,
+	service: string | null,
+	name: string,
+};
 
 export type HelperEvent = 
 /**  The model is being loaded (first question after start). */
@@ -6524,6 +6615,19 @@ export type McpStatus_Serialize = {
 	asks: McpAsk[],
 };
 
+/**  What a merge changed here. */
+export type Merged = {
+	/**  Items added or updated from the other side. */
+	applied: number,
+	deleted: number,
+	/**  Items that couldn't be applied (a missing parent, a clash). */
+	skipped: number,
+	/**  App settings changed. */
+	settings: boolean,
+	/**  Tables that changed, for the UI to reload. */
+	tables: string[],
+};
+
 export type MetricsEvent = MetricsEvent_Serialize | MetricsEvent_Deserialize;
 
 export type MetricsEvent_Deserialize = { kind: "sample"; hostId: number; sample: Sample_Deserialize } | { kind: "state"; hostId: number; state: PollState; message?: string | null; retrySecs?: number | null };
@@ -7511,6 +7615,13 @@ export type PackageUpdate_Serialize = {
 	 *  update) or in Nightgrid. Upgrades leave it alone; it isn't pending.
 	 */
 	held: boolean,
+};
+
+export type PairingCode = {
+	code: string,
+	/**  Seconds left. */
+	expiresIn: number,
+	acceptChanges: boolean,
 };
 
 export type PendingChange = {
@@ -9561,6 +9672,15 @@ export type Scope =
 /**  Every interface (`0.0.0.0`, `::`, `*`). */
 "all";
 
+/**  Saved secrets, in the groups the user can opt in to per device. */
+export type SecretCategory = 
+/**  SSH passwords, key passphrases and sudo passwords of hosts. */
+"logins" | 
+/**  Integration tokens and the alerts webhook. */
+"tokens" | 
+/**  .env vault keys (without them synced vault values can't be read). */
+"vault";
+
 /**  One secret in the list. */
 export type SecretItem = SecretItem_Serialize | SecretItem_Deserialize;
 
@@ -10614,6 +10734,109 @@ export type SupportLevel =
 /**  Can't work on Windows (`why` says why, and what to do instead). */
 "none";
 
+export type SyncInfo = SyncInfo_Serialize | SyncInfo_Deserialize;
+
+export type SyncInfo_Deserialize = {
+	settings: SyncSettings_Deserialize,
+	/**  What other devices see this one as. */
+	deviceName: string,
+	/**  Short id of this device's key, grouped for reading aloud. */
+	fingerprint: string,
+	listening: boolean,
+	/**  Addresses other devices can use (without the port). */
+	addresses: string[],
+	error?: string | null,
+	peers: SyncPeer_Deserialize[],
+	pairing?: PairingCode | null,
+	/**  A device pushed its profile here; restart to load it. */
+	receivedFrom?: string | null,
+	/**  The built-in Tailscale client runs, so tailnet names work too. */
+	tailnet: boolean,
+};
+
+export type SyncInfo_Serialize = {
+	settings: SyncSettings_Serialize,
+	/**  What other devices see this one as. */
+	deviceName: string,
+	/**  Short id of this device's key, grouped for reading aloud. */
+	fingerprint: string,
+	listening: boolean,
+	/**  Addresses other devices can use (without the port). */
+	addresses: string[],
+	error: string | null,
+	peers: SyncPeer_Serialize[],
+	pairing: PairingCode | null,
+	/**  A device pushed its profile here; restart to load it. */
+	receivedFrom: string | null,
+	/**  The built-in Tailscale client runs, so tailnet names work too. */
+	tailnet: boolean,
+};
+
+export type SyncMode = 
+/**  Push and pull only when asked. */
+"manual" | 
+/**  Changes go both ways automatically; the latest edit of an item wins. */
+"twoWay" | 
+/**  This device's changes go there; theirs don't come back. */
+"sendOnly" | 
+/**  Their changes come here; this device's don't go there. */
+"receiveOnly";
+
+/**  A paired device. */
+export type SyncPeer = SyncPeer_Serialize | SyncPeer_Deserialize;
+
+/**  A paired device. */
+export type SyncPeer_Deserialize = {
+	/**  Short id derived from its key. */
+	id: string,
+	name: string,
+	/**  Its X25519 public key, base64. */
+	publicKey: string,
+	/**  Addresses to reach it, the one that worked last first. */
+	addrs: string[],
+	port: number,
+	mode: SyncMode,
+	/**  Secret groups exchanged with this device (sent and accepted). */
+	secrets: SecretCategory[],
+	/**  It may change this device's profile (push, automatic sync). */
+	acceptChanges: boolean,
+	appVersion: string,
+	/**  Unix seconds. */
+	pairedAt: number | null,
+	lastSync?: number | null,
+	lastSeen?: number | null,
+	lastError?: string | null,
+};
+
+/**  A paired device. */
+export type SyncPeer_Serialize = {
+	/**  Short id derived from its key. */
+	id: string,
+	name: string,
+	/**  Its X25519 public key, base64. */
+	publicKey: string,
+	/**  Addresses to reach it, the one that worked last first. */
+	addrs: string[],
+	port: number,
+	mode: SyncMode,
+	/**  Secret groups exchanged with this device (sent and accepted). */
+	secrets: SecretCategory[],
+	/**  It may change this device's profile (push, automatic sync). */
+	acceptChanges: boolean,
+	appVersion: string,
+	/**  Unix seconds. */
+	pairedAt: number | null,
+	lastSync: number | null,
+	lastSeen: number | null,
+	lastError: string | null,
+};
+
+export type SyncPushed = {
+	added: number,
+	skipped: number,
+	secrets: number,
+};
+
 /**  What one sync brought in. */
 export type SyncReport = {
 	/**  Minute points and rollups stored. */
@@ -10626,6 +10849,34 @@ export type SyncReport = {
 	reset: boolean,
 	/**  Some node events were pruned before the app fetched them. */
 	pruned: boolean,
+};
+
+export type SyncRun = {
+	/**  What changed here. */
+	merged: Merged,
+	/**  The other device took this one's changes. */
+	sent: boolean,
+};
+
+/**  Sync settings of this device. Never synced or exported. */
+export type SyncSettings = SyncSettings_Serialize | SyncSettings_Deserialize;
+
+/**  Sync settings of this device. Never synced or exported. */
+export type SyncSettings_Deserialize = {
+	/**  Listen for paired devices (and pairing) on [`Self::port`]. */
+	enabled?: boolean,
+	port?: number,
+	/**  What other devices call this one; empty = the computer's name. */
+	deviceName?: string,
+};
+
+/**  Sync settings of this device. Never synced or exported. */
+export type SyncSettings_Serialize = {
+	/**  Listen for paired devices (and pairing) on [`Self::port`]. */
+	enabled: boolean,
+	port: number,
+	/**  What other devices call this one; empty = the computer's name. */
+	deviceName: string,
 };
 
 /**

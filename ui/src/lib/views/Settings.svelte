@@ -3,6 +3,7 @@
   import AlertSettings from "../components/alerts/AlertSettings.svelte";
   import AlertDeps from "../components/alerts/AlertDeps.svelte";
   import BackupPanel from "../components/backup/BackupPanel.svelte";
+  import SyncPanel from "../components/sync/SyncPanel.svelte";
   import StatusPagePanel from "../components/status/StatusPagePanel.svelte";
   import TailnetPanel from "../components/tailnet/TailnetPanel.svelte";
   import KeysPanel from "../components/keys/KeysPanel.svelte";
@@ -24,6 +25,8 @@
   import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
   import { patchLabel, uiPatch } from "../stores/uipatch.svelte";
   import { broadcasts } from "../stores/broadcasts.svelte";
+  import { releases } from "../stores/releases.svelte";
+  import ReleaseLog from "../components/update/ReleaseLog.svelte";
   import { DEFAULT_KEYMAP, formatChord, isMac, type ActionId } from "../keys";
   import {
     METRICS_BACKGROUND_STEPS,
@@ -122,7 +125,7 @@
   <Panel title="UPDATES" guide="settings-updates">
     <div class="update-row">
       <span class="muted">Installed</span>
-      <span class="data">v{info?.version ?? "…"}</span>
+      <span class="data">v{info?.version ?? "…"}{#if releases.running?.codename}<span class="codename" title="This release's codename">{releases.running.codename}</span>{/if}</span>
       <button type="button" class="btn ghost" disabled={updates.checking} onclick={() => void updates.check(true)}>
         {updates.checking ? "Checking…" : "Check now"}
       </button>
@@ -188,6 +191,12 @@
     </div>
     {#if broadcasts.error}<p class="error" role="alert" use:scramble={broadcasts.error}></p>{/if}
   </Panel>
+
+  <div class="wide">
+    <Panel title="RELEASE LOG" guide="settings-releases">
+      <ReleaseLog />
+    </Panel>
+  </div>
 
   <div class="wide">
     <Panel title="DIAGNOSTICS" guide="settings-diagnostics">
@@ -457,6 +466,10 @@
 <div class="grid">
   <div class="wide"><HelperSettings /></div>
 </div>
+{:else if ui.settingsTab === "sync"}
+<div class="grid">
+  <SyncPanel />
+</div>
 {:else if ui.settingsTab === "data"}
 <div class="grid">
   <BackupPanel />
@@ -469,6 +482,13 @@
 {/if}
 
 <style>
+  .codename {
+    margin-left: 8px;
+    font-family: var(--font-display);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--magenta);
+  }
   .tabstrip {
     margin-bottom: var(--sp-6);
   }

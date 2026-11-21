@@ -105,6 +105,9 @@ pub struct AppSettings {
     pub broadcasts: bool,
     /// Transmission ids the user acknowledged (never shown again).
     pub dismissed_broadcasts: Vec<String>,
+    /// The newest version whose release notes were shown on this computer
+    /// (D-204). Machine-specific: kept as is when a profile is imported.
+    pub last_seen_version: Option<String>,
     /// Alert rules and delivery.
     pub alerts: AlertSettings,
     /// Show a tray / menu bar icon with host status, tunnels and alerts.
@@ -127,6 +130,8 @@ pub struct AppSettings {
     pub power: PowerSettings,
     /// The MCP server (M12g). Machine-specific, like the status page.
     pub mcp: McpSettings,
+    /// Profile sync between devices (D-205). Machine-specific.
+    pub sync: crate::sync::SyncSettings,
     /// Where notices go besides the inbox (1.1). The ntfy URL and token
     /// live in the keychain.
     pub notify: crate::notify::NotifySettings,
@@ -149,7 +154,7 @@ pub struct AppSettings {
     /// feature and stops its background work; its data is kept. Unknown ids
     /// (from a newer version's profile) are kept as they are.
     pub disabled_features: Vec<String>,
-    /// Components installed from Settings → STORE (D-205). A feature that
+    /// Components installed from Settings → STORE (D-206). A feature that
     /// belongs to a component not in the list is off, whatever
     /// `disabled_features` says. `None`: never chosen (settings from before
     /// the store); [`AppSettings::load`] fills it in. Unknown ids (from a
@@ -463,6 +468,7 @@ impl Default for AppSettings {
             ui_patches: true,
             broadcasts: true,
             dismissed_broadcasts: Vec::new(),
+            last_seen_version: None,
             alerts: AlertSettings::default(),
             tray_enabled: true,
             close_to_tray: false,
@@ -476,6 +482,7 @@ impl Default for AppSettings {
             sound: SoundSettings::default(),
             power: PowerSettings::default(),
             mcp: McpSettings::default(),
+            sync: crate::sync::SyncSettings::default(),
             net_watch: NetWatchSettings::default(),
             handheld: false,
             controller_nav: true,
@@ -676,7 +683,7 @@ impl AppSettings {
 
     /// Loads settings, falling back to defaults when unset or invalid.
     ///
-    /// Settings saved before the feature store (D-205) get the components
+    /// Settings saved before the feature store (D-206) get the components
     /// whose features were on; a first launch (nothing saved, no hosts)
     /// starts with the core app only.
     pub fn load(store: &Store) -> Result<Self> {
@@ -769,7 +776,7 @@ mod tests {
     #[test]
     fn defaults_when_empty() {
         let store = Store::open_in_memory().unwrap();
-        // A first launch starts with the core app only (D-205).
+        // A first launch starts with the core app only (D-206).
         let first = AppSettings { installed_components: Some(Vec::new()), ..AppSettings::default() };
         assert_eq!(AppSettings::load(&store).unwrap(), first);
         assert!(

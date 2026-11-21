@@ -1,6 +1,6 @@
 # Feature store
 
-A slim core app plus optional components installed from **Settings → STORE**, each patchable on its own between app releases. Decisions: D-205 (part 1) and later D-numbers per part.
+A slim core app plus optional components installed from **Settings → STORE**, each patchable on its own between app releases. Decisions: D-206 (part 1) and later D-numbers per part.
 
 ## What's core and what's a component
 
@@ -35,7 +35,7 @@ The rejected alternative was WASM backends via wasmtime: fully patchable backend
 
 ## Parts
 
-1. **Store and install state (D-205).** STORE tab, install / remove, `AppSettings.installed_components`, migration (existing users keep every component with a feature on; a first launch gets the core only), unknown ids kept, everything gated through `AppSettings::feature`. Components are still bundled with the app.
+1. **Store and install state (D-206).** STORE tab, install / remove, `AppSettings.installed_components`, migration (existing users keep every component with a feature on; a first launch gets the core only), unknown ids kept, everything gated through `AppSettings::feature`. Components are still bundled with the app.
 2. **Signed component packs on their own channel.** Per component: `component-<id>.json.gz` + `.sig` (minisign, release key, same verification as kb packs and interface patches) + unsigned `.meta.json`, all on the rolling prerelease `components-latest` with a signed `index.json`. CI (`components.yml`) builds only components whose files changed since the last pack, so a fix to Proxmox ships just the Proxmox pack. Install downloads the pack when one is newer than the bundled copy; the app re-verifies on every load and falls back to the bundled copy on any failure (60 s ready watchdog, as for interface patches).
    - **Compatibility without pinning to one app build.** Interface patches pin to the exact app version; component packs must survive app updates. Each pack lists the Tauri commands it calls with a per-command signature hash (computed from `bindings.ts` at build time); the app computes the same hashes at build and refuses a pack whose commands changed. Shared interface code is imported through stable host modules (`/host/svelte.js`, `/host/lib/*.js`, an import map in `index.html`), and the pack lists the host exports it uses plus the Svelte major.minor it was compiled with.
    - **Serving.** Pack files are served same-origin through the existing asset wrapper (`app/src/uipatch_cmd.rs` `UiAssets`) under `/components/<id>/…`, so the CSP and command allow-list stay as compiled.

@@ -16,6 +16,32 @@ pub const EVENT_STATUS: &str = "tailnet://status";
 pub struct TailnetHub {
     sidecar: tokio::sync::Mutex<Option<Sidecar>>,
     last: std::sync::Mutex<Option<TailnetStatus>>,
+    /// Port profile sync wants forwarded from the tailnet (D-205).
+    forward: std::sync::Mutex<Option<u16>>,
+}
+
+/// This app's own node on the built-in tailnet, while it runs.
+pub fn self_node(state: &AppState) -> Option<nightgrid_core::tailnet::TailnetPeer> {
+    state
+        .tailnet
+        .last
+        .lock()
+        .expect("poisoned")
+        .as_ref()
+        .filter(|s| s.state == "running")
+        .and_then(|s| s.self_node.clone())
+}
+
+/// Profile sync's listener port to reach over the built-in tailnet (`None`
+/// = stop). Remembered and sent again whenever the client starts.
+pub async fn set_forward(state: &AppState, port: Option<u16>) {
+    *state.tailnet.forward.lock().expect("poisoned") = port;
+    if let Some(sc) = state.tailnet.sidecar.lock().await.as_mut() {
+        let to = port.map(|p| std::net::SocketAddr::from(([127, 0, 0, 1], p)));
+        if let Err(e) = sc.forward(to).await {
+            tracing::warn!("built-in Tailscale: couldn't forward the sync port: {e}");
+        }
+    }
 }
 
 fn key_ref() -> SecretRef {
@@ -71,6 +97,13 @@ async fn start(app: &AppHandle) -> Result<(), String> {
         publish(app, s);
         format!("Couldn't start the built-in Tailscale client: {e}")
     })?;
+    let fwd = *state.tailnet.forward.lock().expect("poisoned");
+    let mut sc = sc;
+    if let Some(p) = fwd {
+        if let Err(e) = sc.forward(Some(std::net::SocketAddr::from(([127, 0, 0, 1], p)))).await {
+            tracing::warn!("built-in Tailscale: couldn't forward the sync port: {e}");
+        }
+    }
     *state.tailnet.sidecar.lock().await = Some(sc);
     Ok(())
 }

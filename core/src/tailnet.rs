@@ -597,6 +597,16 @@ impl Sidecar {
         self.send(serde_json::json!({ "cmd": "acceptRoutes", "on": on })).await
     }
 
+    /// Profile sync (D-205): tailnet connections to `port` go to `to` (a
+    /// loopback address). `None` stops forwarding.
+    pub async fn forward(&mut self, to: Option<std::net::SocketAddr>) -> io::Result<()> {
+        let (port, to) = match to {
+            Some(a) if a.ip().is_loopback() => (a.port(), a.to_string()),
+            _ => (0, String::new()),
+        };
+        self.send(serde_json::json!({ "cmd": "forward", "port": port, "to": to })).await
+    }
+
     pub async fn stop(mut self) {
         let _ = self.send(serde_json::json!({ "cmd": "quit" })).await;
         if tokio::time::timeout(Duration::from_secs(3), self.child.wait()).await.is_err() {

@@ -1,4 +1,4 @@
-//! The feature store (D-205): optional components a user installs from
+//! The feature store (D-206): optional components a user installs from
 //! Settings → STORE instead of every view shipping switched on.
 //!
 //! The core app keeps the standard homelab essentials (hosts, overview,

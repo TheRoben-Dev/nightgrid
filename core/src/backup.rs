@@ -35,26 +35,26 @@ pub const MIN_PASSPHRASE: usize = 8;
 
 /// What to do when a reference has no row to point at.
 #[derive(Clone, Copy)]
-enum Missing {
+pub(crate) enum Missing {
     /// The column is nullable: clear it.
     Null,
     /// The row can't exist without it: leave the row out.
     Skip,
 }
 
-struct Table {
-    name: &'static str,
+pub(crate) struct Table {
+    pub(crate) name: &'static str,
     /// Has an integer `id` primary key that other tables point at.
-    id: bool,
+    pub(crate) id: bool,
     /// (column, referenced table, what to do if the target is missing).
-    fks: &'static [(&'static str, &'static str, Missing)],
+    pub(crate) fks: &'static [(&'static str, &'static str, Missing)],
     /// Natural keys used to spot duplicates when merging; a key is ignored
     /// when its first column is null in the incoming row.
-    keys: &'static [&'static [&'static str]],
+    pub(crate) keys: &'static [&'static [&'static str]],
 }
 
 /// Config tables in insert order (parents first).
-const TABLES: &[Table] = &[
+pub(crate) const TABLES: &[Table] = &[
     Table { name: "host_groups", id: true, fks: &[], keys: &[&["name"]] },
     Table { name: "tags", id: true, fks: &[], keys: &[&["name"]] },
     Table {
@@ -167,6 +167,12 @@ const TABLES: &[Table] = &[
         id: true,
         fks: &[("host_id", "hosts", Missing::Skip)],
         keys: &[&["host_id", "kind", "stack", "target"]],
+    },
+    Table {
+        name: "health_ignores",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Skip)],
+        keys: &[&["host_id", "project", "service", "name"]],
     },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];
@@ -283,7 +289,7 @@ fn bad(reason: impl Into<String>) -> Error {
     Error::Invalid { field: "backup", reason: reason.into() }
 }
 
-fn to_json(v: SqlValue) -> Result<Value> {
+pub(crate) fn to_json(v: SqlValue) -> Result<Value> {
     Ok(match v {
         SqlValue::Null => Value::Null,
         SqlValue::Integer(i) => Value::from(i),
@@ -293,7 +299,7 @@ fn to_json(v: SqlValue) -> Result<Value> {
     })
 }
 
-fn to_sql(v: &Value) -> Result<SqlValue> {
+pub(crate) fn to_sql(v: &Value) -> Result<SqlValue> {
     Ok(match v {
         Value::Null => SqlValue::Null,
         Value::Bool(b) => SqlValue::Integer(i64::from(*b)),
@@ -306,7 +312,7 @@ fn to_sql(v: &Value) -> Result<SqlValue> {
     })
 }
 
-fn columns(tx: &rusqlite::Connection, table: &str) -> Result<Vec<String>> {
+pub(crate) fn columns(tx: &rusqlite::Connection, table: &str) -> Result<Vec<String>> {
     let mut st = tx.prepare(&format!("SELECT name FROM pragma_table_info('{table}')"))?;
     let cols = st.query_map([], |r| r.get::<_, String>(0))?.collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(cols)
@@ -457,7 +463,7 @@ impl Bundle {
     }
 }
 
-fn find_existing(tx: &Transaction<'_>, t: &Table, row: &Map<String, Value>) -> Result<Option<Option<i64>>> {
+pub(crate) fn find_existing(tx: &Transaction<'_>, t: &Table, row: &Map<String, Value>) -> Result<Option<Option<i64>>> {
     for key in t.keys {
         let first = row.get(key[0]).unwrap_or(&Value::Null);
         if first.is_null() {

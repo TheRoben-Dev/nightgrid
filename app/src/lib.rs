@@ -55,6 +55,7 @@ mod services_cmd;
 mod starters_cmd;
 mod state;
 mod status_cmd;
+mod sync_cmd;
 mod system_cmd;
 mod tailnet_cmd;
 mod term_cmd;
@@ -137,6 +138,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         docker_cmd::docker_forget,
         docker_cmd::docker_fix_access,
         docker_cmd::docker_set_user,
+        docker_cmd::docker_health_ignores,
+        docker_cmd::docker_set_health_ignored,
+        docker_cmd::docker_health_ignore_delete,
         docker_cmd::docker_stacks,
         docker_cmd::docker_compose_run,
         docker_cmd::docker_compose_cancel,
@@ -497,6 +501,17 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         status_cmd::status_page_set,
         status_cmd::status_page_new_token,
         status_cmd::dashboard_export,
+        sync_cmd::sync_info,
+        sync_cmd::sync_configure,
+        sync_cmd::sync_pair_start,
+        sync_cmd::sync_pair_cancel,
+        sync_cmd::sync_pair_join,
+        sync_cmd::sync_peer_set,
+        sync_cmd::sync_unpair,
+        sync_cmd::sync_check,
+        sync_cmd::sync_push,
+        sync_cmd::sync_pull,
+        sync_cmd::sync_now,
         mcp_cmd::mcp_status,
         mcp_cmd::mcp_set,
         mcp_cmd::mcp_new_token,
@@ -605,6 +620,7 @@ pub fn run() {
             status_cmd::apply(app.handle());
             mcp_cmd::apply(app.handle());
             tailnet_cmd::start_if_enabled(app.handle());
+            sync_cmd::apply(app.handle());
             mousenav::install(app.handle());
             Ok(())
         })

@@ -2,6 +2,7 @@
  * DRIFT helper state: the side panel, the conversation, the attached view
  * context, the model download and the "show me" spotlight.
  */
+import { healthText } from "./healthIgnores.svelte";
 import { sound } from "./sound.svelte";
 import { api, type Host, type HelperModels, type HelperStatus } from "../api";
 import type { Lookup_Serialize as Lookup, LookupResult_Serialize as LookupResult } from "../bindings";
@@ -516,7 +517,7 @@ class HelperStore {
       if (jobs.length) out.push(`Backup jobs (Fleet → BACKUPS): ${clip(jobs, 8).join("; ")}`);
     }
     if (docker.hostId === h.id && docker.containers.length) {
-      const cs = docker.containers.map((c) => `${c.name} ${c.state}${c.health ? ` (${c.health})` : ""}`);
+      const cs = docker.containers.map((c) => `${c.name} ${c.state}${healthText(c) ? ` (${healthText(c)})` : ""}`);
       out.push(`Containers (Docker view, ${cs.length}): ${clip(cs, 20).join("; ")}`);
     }
     for (const l of quests.linesFor(h.id)) out.push(`Library guide checked on this host (read-only, Library → Verify): ${l}`);

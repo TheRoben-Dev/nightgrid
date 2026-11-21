@@ -1,26 +1,55 @@
 # Changelog
 
-All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
+All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them and gives every release a codename (`scripts/codenames.mjs`), shown in the heading, the GitHub release title and the app.
 
 ## [Unreleased]
 
 ### Added
 - **Feature store.** Settings has a new **STORE** tab. Nightgrid's core is now the everyday essentials (hosts, Overview, Terminal, Files, Docker, Services, System, Fleet updates/disks/backups/uptime, Tunnels, Network tools, Alerts, Knowledge and the Library); the less common parts are optional components you install when you want them: Proxmox, VM desktops, UPS, log search, expiry watch, power & cost, capacity planner, incident replay, Nightgrid Node, automation, journal, blueprints, service catalog, restore drills, network map, speed tests, security, access audit, DRIFT and UI sounds. A component that isn't installed is hidden everywhere, its code never loads and its background checks don't run. **Remove** keeps its data, so installing it again brings everything back. Nothing changes for you on update: every component with a feature you had on is installed already; one you had turned off stays out. A fresh install starts with the core only. Opening something that isn't installed (a shortcut, a link, DRIFT) lands on the store with **Install and open**.
 
-## [1.22.0] - 2026-11-21
+## [1.24.0] "Feral Mirage" - 2026-11-21
+
+### Added
+- **Sync between your devices.** Settings → **Sync** pairs Nightgrid on your Mac, PC and handheld with a one-time code, then keeps their profiles in step directly over your LAN or tailnet (the built-in Tailscale works too), with no server or account in between. Per paired device: **Manual** (push this profile there, or pull theirs here, merged or replacing) or automatic: **Two-way**, **Send only** or **Receive only**. Automatic sync works item by item: a host edited on the Mac and a dashboard changed on the Ally both survive, the latest edit of the same item wins, deletions travel too, and a host that was added on both before pairing becomes one. Saved secrets (SSH logins, integration tokens, .env vault keys) only travel when you tick their group for that device. Each device keeps its own name, scale and handheld options, tray, built-in Tailscale, status page, MCP server, sync folder and DRIFT model. Connections are encrypted and only paired devices get in.
+
+## [1.23.1] "Binary Diode" - 2026-11-21
+
+### Changed
+- Small fixes and upkeep behind the scenes.
+
+## [1.23.0] "Silent Ember" - 2026-11-21
+
+### Added
+- **Ignore a container's health check.** For a container that is "running but unhealthy" by design, tick **Ignore health check** in its Docker panel: unhealthy stops raising CONTAINER DOWN and stops counting as a problem (log watch, DRIFT), while exits, crashes and restart loops still alert. The row shows a **HEALTH IGNORED** chip; click it to watch the check again. Kept per host and compose service (or container name), so it survives the container being recreated, and included in the profile export.
+- **Every release has a codename.** Releases now carry a two-word name on top of their version, like the one this release got, shown in the update prompt, in **Settings → Updates** next to the installed version, on GitHub and in the changelog. Every earlier release got one too.
+- **What's new after an update.** The first start after an update shows **SYSTEM UPGRADED** with the codename decoding in and that release's notes; skipped a few versions? Each one since your last gets a tab. **Release log →** and **Got it** close it, and it shows once per version.
+- **Release log.** **Settings → General → RELEASE LOG** lists every Nightgrid release with its codename, date and notes, newest first: search by version, codename or anything in the notes, expand one to read it, or **Show What's new** again. The notes are built into the app, so it all works offline.
+
+### Fixed
+- **Releases 1.16.2, 1.21.2 and 1.22.1 have their own notes.** Their changes had been listed under the release before them.
+
+## [1.22.1] "Holographic Arcade" - 2026-11-21
 
 ### Added
 - **Windows: pick PowerShell, Command Prompt or a WSL distro for the local shell.** On Windows the terminal's **+ NEW** menu lists each shell on this computer: PowerShell 7 (when installed), Windows PowerShell, Command Prompt and every installed WSL distro. WSL shells start through `wsl.exe` in the distro's Linux home (`~`), not in the Windows folder. **Settings → Terminal → Local shell** picks what `Ctrl+Shift+T` and **Local shell** open. Shown only when WSL is installed; macOS and Linux are unchanged.
+
+## [1.22.0] "Scattered Frequency" - 2026-11-21
+
+### Added
 - **Transmissions from the developer.** When something needs fixing on your end (a provider changed something, a setting needs a nudge, a known issue has a workaround), a notice can now reach every installed Nightgrid without an app update. It opens as an **INCOMING TRANSMISSION**: the channel tunes in, the signal locks and the message decodes, with its own sound, the steps to take and a button to the right article, view or page. **Understood** hides it for good, **Later** until the next start. Notices are signed with the release key and checked on this computer, so nobody else can send one; they can be aimed at a system, a range of versions or a feature, and expire by themselves. Settings → Updates has the switch, **Check now** and **Show all**.
 
-## [1.21.1] - 2026-11-21
+## [1.21.2] "Encrypted Synapse" - 2026-11-21
 
 ### Fixed
 - **Keys reach `sudo` programs in SSH terminals again.** With key hints or "edit in Nightgrid" on, a program run with `sudo` that switches terminal modes (menus, `[y/N]` prompts, like `sudo nightgrid-node fix`) could stop receiving keys: no letters, no Enter, not even Ctrl+C, while the cursor kept blinking. The session hook now hands the shell the terminal's own device instead of `/dev/tty`, which `sudo` didn't recognise as the user's terminal.
+
+## [1.21.1] "Flickering Haze" - 2026-11-21
+
+### Fixed
 - **Busy logs no longer flicker.** A container's log restarted every time the Docker list refreshed, so it cleared and reloaded every few seconds; it now keeps streaming. Bursts of output no longer paint a frame of empty rows while following the end, and when you scroll up to read, the lines you're reading stay put even as the oldest drop off.
 - **System → Journal keeps up with fast hosts.** New entries are drawn once per frame instead of on every batch, and only new rows are added, so a chatty journal scrolls smoothly instead of stalling.
 
-## [1.21.0] - 2026-11-20
+## [1.21.0] "Cold Lattice" - 2026-11-20
 
 ### Added
 - **What's growing.** Every mount in Fleet → DISKS has **What's growing**: the biggest folders and files on that filesystem, what grew since the last scan, and files changed today. VM disk images (`.vhdx`, `.qcow2`, `.vmdk`, `.vdi`, Hyper-V checkpoints…) are flagged with what to do, since their growth is inside the VM and they don't shrink by themselves; Docker and the journal get hints too. Click a folder to look inside, **Read as root** for folders the login can't open. Works on Linux, macOS and Windows hosts, installs nothing, and the previous scan stays on the host (`~/.nightgrid/growth`), not on this computer.
@@ -35,14 +64,14 @@ All notable changes to this project are documented here. The format follows [Kee
 - **"Make a hub…" greyed out with no reason.** The card now says why (no host with Node 0.26+ connected, or which hosts to update), and a host marked as a client device that already runs the node can be picked as the hub too.
 - **Link card says what to do.** When the node-to-node link is off or has no tailnet address, **Turn on the link** runs `allow peers` as root and, on a network without Tailscale, makes the link listen on the host's LAN address (`[peers] listen = "lan"`, Node 0.28+). Hubs work on LAN-only networks.
 
-## [1.20.0] - 2026-11-20
+## [1.20.0] "Crimson Beacon" - 2026-11-20
 
 ### Added
 - **Synology with 2-step verification on.** The Synology DSM card no longer needs an account without 2-step: enter one current code in the integration's settings and DSM trusts Nightgrid from then on. The device token stays in the OS keychain (not in profile exports, so another computer asks once too), **Forget** removes it, and a card whose token DSM dropped shows **Enter 2-step code**. A regular (non-administrator) account works too: the card shows what DSM shares with it and names what needs an administrator instead of failing.
 - **SNMP cards (read-only).** **Add integration → SNMP** reads any SNMP agent with no app account: on a Synology NAS, system, power and fan status, temperature, storage pools (degraded in red), every disk with its health, volumes, CPU, memory and uptime; other agents show volumes, CPU and memory. SNMPv3 with SHA or MD5 and AES or DES, or v2c. Built in, nothing to install.
 - **Library: A Synology NAS alongside Nightgrid** now covers the two doors into DSM (web sign-ins with 2-step, SSH with keys), a key-only administrator for SSH, SNMP with no DSM account, and Docker as its own user.
 
-## [1.19.0] - 2026-11-20
+## [1.19.0] "Restless Lantern" - 2026-11-20
 
 ### Added
 - **Acknowledge alerts.** **✓ Ack** on an alert keeps it in the list but takes it off the badge and tray and stops every notification for it (desktop, inbox, ntfy, webhooks). Pick **Until it clears**, a time (1 hour to 30 days, or custom) or **Permanently**. Whatever you pick, it comes back if it gets worse, such as a disk crossing from WARN into CRITICAL.
@@ -52,13 +81,13 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 - **DISK FULL skips system mounts** by default (Settings → Alerts → **Skip system mounts**): read-only mounts and ones full by design, such as WSL's and Docker Desktop's `/mnt/wsl/…` (for example `/mnt/wsl/docker-desktop/cli-tools`), snaps and CD/DVD images.
 
-## [1.18.0] - 2026-11-20
+## [1.18.0] "Static Switchboard" - 2026-11-20
 
 ### Added
 - **Run Docker as a separate user.** A host can now have a **Docker user**: Nightgrid keeps logging in over SSH as your normal user and runs every Docker action on that host (containers, logs, shells, stacks, compose, routes) as that account through `sudo -u`. Handy for a dedicated docker user with its own UID and GID, as on many Synology NAS setups. Set it in the host's settings or with **Use a separate Docker user instead** on the NO ACCESS TO DOCKER card. Only the name is saved (it's in the profile export); no second login or password.
   - The first time, **DOCKER USER NEEDS SUDO** shows the one sudoers rule it needs (your login may run docker and docker-compose as that user, nothing else) and **Fix it for me** adds it in its own `/etc/sudoers.d` file after checking it with `visudo`. If the Docker user can't open the socket, the usual card shows the group steps for that user. **Stop using <user>** goes back to your login.
 
-## [1.17.0] - 2026-11-20
+## [1.17.0] "Orbital Helix" - 2026-11-20
 
 ### Added
 - **Hold updates back.** Keep anything you don't want touched out of updates, and silence its warnings. Nothing is held by default, held things are marked HELD, and **Fleet → UPDATES → HOLDS** lists everything held with **Release**.
@@ -69,14 +98,18 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 - **Enter confirms type-to-confirm dialogs.** After typing the name (host, group, VM, key or folder), pressing Enter, including keypad Enter, now runs the red button in every type-to-confirm dialog: Upgrade hosts, power and group power, Docker, VMs and Proxmox actions, firewall changes, SSH key removal and rotation, file delete and a changed host key. Enter does nothing until the name matches, and it waits while an input method (IME) is still composing.
 
-## [1.16.1] - 2026-11-20
+## [1.16.2] "Silver Cursor" - 2026-11-20
 
 ### Fixed
-- **macOS stops asking for keychain access after every update.** Releases are now signed with one stable certificate instead of a new ad-hoc signature each time, so macOS keeps recognising the updated app and remembers "Always Allow" for saved passwords and tokens. The first update with the new signature asks one last time per saved secret; choose **Always Allow** and later updates stay quiet. No Apple developer account or notarization is involved, and opening a freshly downloaded build still needs the quarantine step in the README.
 - **Web UI windows no longer stay black on macOS.** macOS (14 and later) refused plain http pages on LAN and tailnet addresses inside Nightgrid's web windows without saying so. Web windows may now load them; the app's own connections are unchanged.
 - **A web window that can't load its page says so** after 15 seconds instead of staying black, with the address, **Try again** and **Open in browser**.
 
-## [1.16.0] - 2026-11-20
+## [1.16.1] "Distant Monolith" - 2026-11-20
+
+### Fixed
+- **macOS stops asking for keychain access after every update.** Releases are now signed with one stable certificate instead of a new ad-hoc signature each time, so macOS keeps recognising the updated app and remembers "Always Allow" for saved passwords and tokens. The first update with the new signature asks one last time per saved secret; choose **Always Allow** and later updates stay quiet. No Apple developer account or notarization is involved, and opening a freshly downloaded build still needs the quarantine step in the README.
+
+## [1.16.0] "Shattered Current" - 2026-11-20
 
 Windows Server hosts get close to everything Nightgrid does on Linux, using only what Windows ships with. Every view says plainly what can't run on a Windows host and why.
 
@@ -104,7 +137,7 @@ Windows Server hosts get close to everything Nightgrid does on Linux, using only
 - Backup jobs accept Windows paths (`D:\Backups`, `\\nas\share`) and scheduled task paths.
 - The deploy wizard, stacks from git and the .env vault say plainly that they need a POSIX shell on Windows hosts.
 
-## [1.15.0] - 2026-11-20
+## [1.15.0] "Carbon Voltage" - 2026-11-20
 
 ### Added: Docker on Synology NAS
 - **NO ACCESS TO DOCKER knows Synology DSM.** DSM has no `usermod`, so the old hint failed with "command not found". On a Synology the card now shows the DSM way: `sudo synogroup --add docker <you>` (or `--memberadd` if the group exists) plus `sudo chown root:docker /var/run/docker.sock`, because Container Manager creates the socket owned by root. Plain Linux hosts get `usermod -aG docker` (and `groupadd docker` if the group is missing). Steps that are already done are left out.
@@ -114,12 +147,12 @@ Windows Server hosts get close to everything Nightgrid does on Linux, using only
 ### Fixed
 - Docker on hosts that keep the `docker` binary in `/usr/local/bin` (Synology DSM, some NAS systems): non-interactive SSH sessions don't have it on `PATH`, so Docker views, stacks, container shells and DRIFT lookups couldn't find it. Nightgrid now adds `/usr/local/bin` itself.
 
-## [1.14.1] - 2026-11-20
+## [1.14.1] "Liquid Skyline" - 2026-11-20
 
 ### Fixed
 - Type-to-confirm dialogs (upgrade hosts, power, removing containers, deleting files, SSH keys, firewall, VMs, Proxmox, UPS, automation runs) showed the name to type in uppercase, so a host called `braincage` read as BRAINCAGE and typing that kept the button disabled. The name is now shown exactly as stored, and the typed name is matched ignoring case.
 
-## [1.14.0] - 2026-11-19
+## [1.14.0] "Ultraviolet Firewall" - 2026-11-19
 
 ### Added: Edit on every Expiry Watch row
 - **Rows Nightgrid finds by itself** (SERVICE TLS from Services, PROXY TLS from Docker → Routes) now have an **Edit** button too. It shows the certificate (subject, issuer, end date, SHA-256 fingerprint) and lets you:
@@ -133,7 +166,7 @@ Windows Server hosts get close to everything Nightgrid does on Linux, using only
 ### Fixed
 - DRIFT described an Expiry Watch edit button that didn't exist yet. The guide now describes the real controls, and DRIFT is told never to describe buttons or options its guide doesn't name.
 
-## [1.13.0] - 2026-11-19
+## [1.13.0] "Obsidian Cipher" - 2026-11-19
 
 ### Added: storage, network and monitoring integrations
 Nine more integration types, 34 in all.
@@ -158,7 +191,7 @@ Nine more integration types, 34 in all.
 - The top bar keeps its breadcrumb readable in a narrow window: the search box drops its placeholder words (the shortcut stays) and the indicators no longer break onto two lines.
 - Service cards wrap their buttons instead of clipping EDIT at the card edge; the MCP port field no longer overflows its box; disk usage text no longer splits "61.0 / GB"; the Network ping sweep option and the saved-network "on map" boxes line up.
 
-## [1.12.1] - 2026-11-19
+## [1.12.1] "Electric Spectrum" - 2026-11-19
 
 ### Fixed: false downtime in Fleet → UPTIME
 - **A down has to be confirmed.** A host or service now counts as down only after staying down for 2½ minutes; a single failed check or a few failed polls used to count as a minute or more of downtime each. Unconfirmed blips are unknown time (grey), not up or down.
@@ -169,7 +202,7 @@ Nine more integration types, 34 in all.
 - **Nightgrid Node** hours where the node saw its host up now cancel downtime the app recorded for that time.
 - **History already recorded is cleaned up** once: client downtime becomes away time, and outages shorter than 2½ minutes are removed.
 
-## [1.12.0] - 2026-11-19
+## [1.12.0] "Wireless Parallax" - 2026-11-19
 
 Faster updates: interface fixes between releases, batched releases and quicker release builds.
 
@@ -181,7 +214,7 @@ Faster updates: interface fixes between releases, batched releases and quicker r
 - **Fixes merged close together now ship as one release** instead of one after another, and the release picks its own version number.
 - **Release builds take about half as long**: the platform builds run beside the checks instead of after them, and the Linux build tools install in a fraction of the time.
 
-## [1.11.0] - 2026-11-19
+## [1.11.0] "Pale Diode" - 2026-11-19
 
 Nine more integrations: download clients, files and photos, notifications and cameras.
 
@@ -194,20 +227,20 @@ Nine more integrations: download clients, files and photos, notifications and ca
 - **Gotify**: health, apps and latest messages; delete one or all.
 - **Frigate**: cameras with frame rates, detector speed, recording storage and latest detections.
 
-## [1.10.0] - 2026-11-19
+## [1.10.0] "Humming Packet" - 2026-11-19
 
 ### Added: back and forward
 - **Mouse side buttons go back and forward** through where you've been: views, the tabs beside a view's title (One host / Fleet, Map / Tools…), tabs inside a view (Fleet → DISKS, Docker → STACKS, Proxmox, Security, Files editors, Settings tabs), the host a view shows and Library articles. On macOS the buttons are caught natively, because the system webview doesn't pass them to the page.
 - **Keys**: `Cmd+[` / `Cmd+]` on macOS, `Alt+Left` / `Alt+Right` on Windows and Linux, plus the Back/Forward keys some keyboards and mice send. They stay with text fields and editors, and with the terminal on Windows and Linux, where shells move by word with `Alt+Left` / `Alt+Right`.
 - **‹ ›** buttons at the top left, and a **two-finger sideways swipe** on a trackpad (Settings → General → Swipe to go back; areas that scroll sideways keep the swipe).
 
-## [1.8.1] - 2026-11-19
+## [1.8.1] "Laser Underpass" - 2026-11-19
 
 ### Fixed
 - **Library shelf filters** are all the same size again. The ◇ QUESTS chip had picked up the Objectives panel's frame (notched corner, thick left edge, extra margin), which stretched ALL and USING NIGHTGRID into tall boxes. QUESTS keeps its amber look at the normal chip size, and the chips wrap evenly at any width.
 - **Sidebar collapse button** no longer gets clipped or overlaps Settings when the sidebar is narrow. The decorative barcode beside Settings shrinks first and hides below about 216 px.
 
-## [1.8.0] - 2026-11-19
+## [1.8.0] "Indigo Relay" - 2026-11-19
 
 Ten more integrations for the media stack, on a shared integration card.
 
@@ -223,12 +256,12 @@ Ten more integrations for the media stack, on a shared integration card.
 ### Changed
 - Integration types are checked by the app instead of a database constraint (migration 0050), so new types never need a table change again (D-182).
 
-## [1.7.2] - 2026-11-19
+## [1.7.2] "Lunar Checksum" - 2026-11-19
 
 ### Fixed
 - **Adding a Pi-hole or AdGuard Home integration failed** with "CHECK constraint failed: kind IN ('plex','amp','kuma','portainer')". The integrations table never learned the two DNS kinds from 0.10.36; migration 0049 rebuilds it with every kind and keeps your existing integrations (same ids, so saved passwords and tokens still match).
 
-## [1.7.1] - 2026-11-19
+## [1.7.1] "Holographic Echo" - 2026-11-19
 
 ### Fixed: logging in to Windows hosts (and any host without an agent key)
 - **SSH agent hosts no longer fail when there's no agent.** With no agent running (the Windows default) or an empty one, and no key file set, Nightgrid now tries `~/.ssh/id_ed25519`, `id_ecdsa` and `id_rsa`, then asks for the password when the server takes one, like OpenSSH. Before, the login stopped at the agent's error (often "SSH agent: early eof") and never offered a password.
@@ -236,7 +269,7 @@ Ten more integrations for the media stack, on a shared integration card.
 - **Terminals on OpenSSH for Windows** (Windows Server, Windows 10/11) open a plain shell. The key-hints and edit hook are POSIX shell, so on cmd or PowerShell they ended the session at once.
 - Failed connections are written to the log, so exported diagnostics say why a host won't connect.
 
-## [1.7.0] - 2026-11-19
+## [1.7.0] "Sleepless Vector" - 2026-11-19
 
 Ten more starter shelves: apps, scheduled jobs, firewall profiles, alert rules, Overview tiles and dashboards, log searches, proxy routes, Proxmox shapes, restore drills and security posture.
 
@@ -252,13 +285,13 @@ Ten more starter shelves: apps, scheduled jobs, firewall profiles, alert rules, 
 - **DRILLS**: weekly or monthly restore drills added for each backup job that has none.
 - **POSTURE**: two sets of Security view and network watch settings (watchful, relaxed).
 
-## [1.6.0] - 2026-11-18
+## [1.6.0] "Scattered Smog" - 2026-11-18
 
 ### Added: UI sounds
 - **Short cyberpunk-style UI sounds**, all synthesized by Nightgrid itself (no sound files or packs): alerts firing (a sharper one for critical) and clearing, new inbox notices, actions you started working or failing (container actions, firewall applies, Proxmox actions, package runs, power), confirm dialogs (a darker one for destructive ones), DRIFT finishing a reply, quest steps and completed quests, and scans, test restores, drills and speed tests finishing. Never for terminal output or live numbers.
 - **Settings → SOUND**: master switch, volume, a switch per kind of sound with a ▶ test button for every sound, quiet hours, and mute while the window isn't focused. On at 40 % to start; the view-switch tick is off until you turn it on. Included in profile exports, and in Settings → Features as **UI sounds**.
 
-## [1.5.0] - 2026-11-18
+## [1.5.0] "Flickering Paradox" - 2026-11-18
 
 Starters: ready-made server setups and alert runbooks you can read, preview and use as they are.
 
@@ -274,7 +307,7 @@ Starters: ready-made server setups and alert runbooks you can read, preview and 
 - Library links in notes (`kb:`) now open the article.
 - **New how-to**: *Start from a ready-made setup*.
 
-## [1.4.0] - 2026-11-18
+## [1.4.0] "Violet Mainframe" - 2026-11-18
 
 ### Added: quest log
 - **Start a quest** from any Library article with steps: the strip under the title says **◇ QUEST AVAILABLE**; pick the host it's for (or none) and press **▶ START QUEST**. Articles that can be quests are marked **◇ QUEST** in the list and on the shelves, and the **◇ QUESTS** chip shows only those. The same guide can run as separate quests on different hosts.
@@ -283,7 +316,7 @@ Starters: ready-made server setups and alert runbooks you can read, preview and 
 - On a quest, steps that pass their read-only check complete by themselves, after **Check** and every few minutes while Nightgrid is already connected to the host.
 - Quests are kept in the database and travel in profile exports.
 
-## [1.3.0] - 2026-11-18
+## [1.3.0] "Cold Ember" - 2026-11-18
 
 ### Fixed: installing Nightgrid Node
 - **Install… failed with "reading the response failed: length limit exceeded".** The download was cut at 4 MB and the node binary is 5.4 MB; release downloads may now be up to 64 MB, and a response over a limit says so in words.
@@ -295,14 +328,14 @@ Starters: ready-made server setups and alert runbooks you can read, preview and 
 - **ROLE** column: hub, reports to hub, or direct.
 - **Per-host tabs**: STATUS (services and `doctor`), HUB & LINK (role, join or leave, the link's address and peers), CONFIG (edit the node's or hub's config: checked first, the old file kept, services restarted, rolled back if they don't come up) and LOGS (the services' journal).
 
-## [1.2.0] - 2026-11-18
+## [1.2.0] "Electric Lattice" - 2026-11-18
 
 ### Added: Library content updates
 - **Library articles now update between app releases.** When only Library content changes (articles, guides, figures, the error reference), it's published as a small signed download, and Nightgrid picks it up after start-up and every 6 hours without an app update or restart. The Library's home page shows the content date and whether it's built in or a downloaded update.
 - **Settings → Updates → Library content updates** (on by default) turns it off; **Check content** looks right away, and **Use built-in copy** removes downloaded content.
 - Downloads come from this project's GitHub Releases and are checked against the same signing key as app updates; anything that doesn't verify, is older than the built-in copy or is meant for a newer app version is ignored. The Library still works fully offline, and DRIFT reads the newest content.
 
-## [1.1.0] - 2026-11-18
+## [1.1.0] "Liquid Rain" - 2026-11-18
 
 Nightgrid 1.1: a Security view, an inbox for every notice, and four new Fleet tabs for knowing what runs where and proving it can come back.
 
@@ -324,7 +357,7 @@ Nightgrid 1.1: a Security view, an inbox for every notice, and four new Fleet ta
 - **Incident replay**: step through an outage or an alert burst minute by minute with metrics, alerts, restarts, OOM kills, deploys and notices on one timeline, plus the host's warnings from that window.
 - **New how-tos**: *Prove your backups restore* and *Plan capacity and replay incidents*.
 
-## [1.0.0] - 2026-11-17
+## [1.0.0] "Polar Pulse" - 2026-11-17
 
 Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power & cost, Library quests, Node pairing) ends with an MCP server.
 
@@ -334,7 +367,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Changes are opt-in**: with **Allow changes** on, a client can also start, stop or restart a container and add a journal note, and each one waits for **Allow once** or **Deny** in Nightgrid (with a notification when the window isn't in front). Unanswered requests are denied after two minutes.
 - **Connect a client**: copy a ready config as HTTP JSON, as a command (`nightgrid --mcp`, which forwards to the running app and reads the token itself) or as a `claude mcp add` line. **New token** makes old configs stop working. **Recent calls** lists what clients asked for.
 
-## [0.10.88] - 2026-11-17
+## [0.10.88] "Rusted Billboard" - 2026-11-17
 
 ### Added: Nightgrid Node pairing
 - **Fleet → NODE**: where the optional Nightgrid Node agent runs. Nightgrid looks for it whenever it connects to a host (one read-only check) and uses it where it's running.
@@ -345,7 +378,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Per host **Use on this host**, and Settings → Features → Fleet → Nightgrid Node turns it all off. Hosts without the node work exactly as before.
 - What the node project could add to make this smoother is written up in `docs/NODE_PAIRING.md`.
 
-## [0.10.87] - 2026-11-17
+## [0.10.87] "Binary Shard" - 2026-11-17
 
 ### Added: Library quests
 - **Verify on a host**: step-by-step guides and how-tos now have a **VERIFY ON [host] Check** row in their Objectives box. Nightgrid runs fixed, read-only checks on that host (no sudo, nothing changed) and marks each step it can verify with ✓ done, ✗ not yet (with what it found) or ? couldn't tell (for example a file only root can read).
@@ -353,7 +386,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Checks cover key-only SSH, root logins, firewall, automatic updates, Docker and the docker group, time sync, Tailscale, backup timers, swap, fail2ban, pending reboots, and named containers, services, listening ports and installed commands. Fifteen articles carry them, including *First homelab weekend*, sshd hardening, unattended upgrades, restic, Caddy, Vaultwarden, Pi-hole and Tailscale.
 - DRIFT knows the last result for the open guide ("Lock it down: 3 of 5 verified on server01").
 
-## [0.10.86] - 2026-11-17
+## [0.10.86] "Ionic Wavelength" - 2026-11-17
 
 ### Added: power & cost
 - **Fleet → POWER**: what each host draws and costs. Give a host its watts at idle and at full CPU (**Set watts…**, or a preset from Raspberry Pi to rack server) and Nightgrid works out its average and peak draw from the CPU history it already keeps, plus the GPU watts it measures. Totals per month and per year, over the last 7, 30 or 90 days.
@@ -362,7 +395,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **UPS check**: a UPS that reports its output (`ups.realpower`, or load × rated power) is compared with the estimates for the hosts on it, so you can tell whether the profiles are close.
 - Nothing new is polled. Settings → Features → Fleet → Power & cost turns it off.
 
-## [0.10.85] - 2026-11-17
+## [0.10.85] "Frozen Mirage" - 2026-11-17
 
 ### Added: sandbox clones
 - **Proxmox → SANDBOX**: make a throwaway copy of a VM or container to try an upgrade or a risky change on, from its current state or from a snapshot. **+ Sandbox** on the tab, or **Sandbox copy…** in a guest's ⋯ menu.
@@ -372,7 +405,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Sandboxes are marked with Proxmox tags, so they show up from any Nightgrid and in Proxmox's own UI. Making, extending, keeping and destroying them lands in the journal.
 - Settings → Features → Proxmox → Sandboxes turns the tab off.
 
-## [0.10.84] - 2026-11-17
+## [0.10.84] "Midnight Monsoon" - 2026-11-17
 
 ### Added: lab blueprints
 - **Fleet → BLUEPRINTS**: save a host's setup as one file encrypted with a passphrase: its compose stacks (compose files and `.env`, or the `.env` vault's values for them), crontab, Nightgrid timers, firewall rules and Caddy/Traefik routes. Pick every stack or some, and leave out what you don't want.
@@ -380,7 +413,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Nothing on the target is ever deleted. Changing files that already exist is off until ticked. Deny rules, default policies and turning a firewall on stay manual, so they go through System → FIREWALL's rollback.
 - Saving and applying a blueprint lands in the journal.
 
-## [0.10.83] - 2026-11-17
+## [0.10.83] "Carbon Glow" - 2026-11-17
 
 ### Added: the homelab journal
 - **Fleet → JOURNAL**: a changelog of everything changed from Nightgrid across all hosts, newest first and grouped by day: deploys, compose runs, snapshots and rollbacks, container actions, files saved in the editor, crontab and timer edits, firewall changes (and whether they were kept), Caddy and Traefik routes, `.env` vault changes (names only), package upgrades and unit actions, power actions, Proxmox changes, SSH keys pushed or removed, config baselines and integrations.
@@ -390,7 +423,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **DRIFT reads the journal**: questions about a host include its changes from the last 14 days, and "what changed before it broke?" without a host gets the whole lab's. **Ask DRIFT** on an entry asks what it could have broken and how to undo it.
 - Settings → Features → Fleet → Journal turns it off; nothing is recorded while it's off.
 
-## [0.10.82] - 2026-11-17
+## [0.10.82] "Humming Tempest" - 2026-11-17
 
 ### Added: saved networks on the network map
 - **Scans know which network they're on**: each scan is matched to a saved network by its subnet and its router's MAC address. A laptop on home Wi-Fi and servers on another LAN are separate networks, and so are two places that both use `192.168.1.x`.
@@ -398,12 +431,12 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **NETWORKS bar** on the Network view: rename networks, show a network's last scan without scanning, **merge** a network back after a router swap, or forget one.
 - **Several networks on one map**: tick **on map** to draw another network's last scan behind its own router, in its own region. One **Internet** node sits above every router and the **tailnet** links its devices across networks, showing how the networks reach each other.
 
-## [0.10.81] - 2026-11-17
+## [0.10.81] "Lunar Afterglow" - 2026-11-17
 
 ### Changed: client devices are away, not offline
 - A host marked **Client, not a server** (laptop, desktop, handheld) that stops answering now shows as **away**: no HOST OFFLINE alert, and it doesn't count as down in uptime bars, SLA reports or the status page. Tick **Alert when it goes offline** in the host editor to watch a client anyway. D-153.
 
-## [0.10.80] - 2026-11-17
+## [0.10.80] "Pale Static" - 2026-11-17
 
 ### Added: DRIFT reads your servers, an error reference and Nightgrid Node guides
 - **DRIFT read-only server checks**: turn on "DRIFT may run read-only checks" per host and DRIFT looks around itself (disk, storage/RAID/ZFS, mounts, memory, processes, sensors, ports, network, services and their journals, error/kernel logs, timers, cron, logins, updates, containers and their logs, Docker stats/events/disk, allow-listed config files). Fixed read-only commands only: never sudo, secrets masked, every check is listed under "What I checked". DRIFT can ask for two more checks before answering. Host facts also include what other views know (service checks, updates, disks, backups, containers).
@@ -413,26 +446,26 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Fixed
 - **DRIFT "too many tokens"** on the first question: the prompt now fits the loaded model's window (only the relevant point targets, long sections split, the conversation budgeted and trimmed in a fixed order), and the window is 12k or 16k where memory allows.
 
-## [0.10.79] - 2026-11-17
+## [0.10.79] "Overclocked Signal" - 2026-11-17
 
 ### Added: a diagram for most of the Library
 - **148 more diagrams**. Nearly every Nightgrid how-to now has one, as do the Linux skills (boot and storage stacks, SELinux, DKMS, sysctl, static IPs and more) and most app guides (game servers, media and NAS layouts, monitoring agents, home automation, backups, CI, password and secret stores).
 - 267 of 321 articles now have a picture. That is 220 figures, about 1.3 MB in all.
 
-## [0.10.78] - 2026-11-17
+## [0.10.78] "Velvet Haze" - 2026-11-17
 
 ### Added: diagrams across the Library
 - **42 new diagrams**: Nightgrid how-tos (firewall rollback, tunnels, web UI windows, VM consoles, stacks from git, the alert path, the phone status page, update and rollback, UPS shutdown), Linux skills (SSH forwards, the boot chain, LUKS, mdadm, keepalived, iSCSI, nftables hooks, zram, Quadlets, ACME, fstab, chrony, IPMI, Btrfs snapshots) and apps (Authelia, authentik, Zigbee2MQTT and Home Assistant, Frigate, Immich, Nextcloud, Jellyfin, Paperless-ngx, Syncthing, restic/borgmatic/Kopia, PBS, rclone crypt, k3s, Gluetun, Headscale, Loki, Healthchecks, mergerfs + SnapRAID, NFS).
 - Existing diagrams now also appear where they fit: reverse proxies (Traefik, Caddy, NPM, nginx, proxy routes), the DNS chain (Pi-hole, AdGuard Home), the tailnet (subnet router, remote access) and more.
 - 89 articles now have a picture; 72 figures, about 465 KB in all.
 
-## [0.10.77] - 2026-11-17
+## [0.10.77] "Wired Circuit" - 2026-11-17
 
 ### Added: more Library diagrams
 - **Diagrams** for ZFS pools, a WireGuard hub, the Pi-hole → Unbound DNS chain, VLAN trunks, Cloudflare tunnels, GPU passthrough, LVM layers, NUT UPS shutdown and Prometheus scraping.
 - 30 bundled figures now, about 190 KB in all.
 
-## [0.10.76] - 2026-11-17
+## [0.10.76] "Fractured Rooftop" - 2026-11-17
 
 ### Added: pictures in the Library
 - **Quest briefings**: every guide opens with a briefing banner above its objectives, quest-log style.
@@ -440,21 +473,21 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Figures are framed like intel cards; click one to see it full size (Esc closes).
 - All drawn for Nightgrid as small bundled SVGs (about 125 KB for all 21), nothing fetched. DRIFT replies and notes still never show images.
 
-## [0.10.75] - 2026-11-17
+## [0.10.75] "Encrypted Bandwidth" - 2026-11-17
 
 ### Added: 2 more Library articles
 - **Linux skills**: move a server to a new SSD, by cloning or by copying files and reinstalling the bootloader.
 - **Apps**: Dockge alongside Nightgrid, sharing the same compose folders.
 - The library now holds 345 articles.
 
-## [0.10.74] - 2026-11-17
+## [0.10.74] "Orbital Transit" - 2026-11-17
 
 ### Added: 6 more Library articles
 - **Apps**: LanCache for game downloads, netboot.xyz network boot menu, SFTPGo file transfer server, Mailpit test mail catcher, and Verdaccio private npm registry.
 - **Linux skills**: reset a forgotten root or sudo password from the console.
 - The library now holds 343 articles.
 
-## [0.10.73] - 2026-11-17
+## [0.10.73] "Silent Arcade" - 2026-11-17
 
 ### Added: 7 more Library articles
 - **Guide**: a small office server (files, passwords, calendars, job board, paperwork and signing, workstation backups) for a shop of 2–15 people.
@@ -462,14 +495,14 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Apps**: VictoriaMetrics long-term metrics, Radicale calendars and contacts, and the LanguageTool grammar checker.
 - The library now holds 337 articles.
 
-## [0.10.72] - 2026-11-17
+## [0.10.72] "Silver Mosaic" - 2026-11-17
 
 ### Added: 8 more Library articles
 - **Linux skills**: memory limits and OOM kills (systemd and compose limits, finding what got killed, protecting key services), and changing kernel boot parameters on GRUB, grubby, systemd-boot and rpm-ostree hosts.
 - **Apps**: Wallabag read-it-later, Kanboard project boards, DocuSeal document signing, OpenBao secrets manager, Penpot design and prototyping, and Kasm Workspaces browser desktops.
 - The library now holds 330 articles.
 
-## [0.10.71] - 2026-11-17
+## [0.10.71] "Quantum Frequency" - 2026-11-17
 
 ### Added: 6 more Library articles
 - **Alongside Nightgrid**: a Synology NAS (SSH, SFTP, Container Manager's Docker) and an Unraid server (keys that survive reboots, compose stacks, what doesn't apply), plus an OpenWrt router with SQM.
@@ -477,28 +510,28 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Apps**: Jitsi Meet video calls.
 - The library now holds 322 articles.
 
-## [0.10.70] - 2026-11-17
+## [0.10.70] "Wireless Monorail" - 2026-11-17
 
 ### Added: 9 more Library articles
 - **Linux skills**: fix a full disk (including deleted-but-open files, inodes and snapshots), write nftables rules by hand with a rollback armed, keep DKMS modules (ZFS, NVIDIA) working across kernel updates, and HBA cards in IT mode for a NAS.
 - **Apps**: Recyclarr, Pinchflat, Joplin Server, NocoDB and Ghost.
 - The library now holds 316 articles.
 
-## [0.10.69] - 2026-11-17
+## [0.10.69] "Laser Daemon" - 2026-11-17
 
 ### Added: 11 more Library articles
 - **Apps**: game streaming with Sunshine and Moonlight, PiKVM, UpSnap, MeTube, LibreNMS, evcc solar charging, TeslaMate, Trilium notes and WordPress.
 - **Linux skills**: a floating IP with keepalived (two DNS servers behind one address), and lightweight containers with systemd-nspawn.
 - The library now holds 307 articles.
 
-## [0.10.68] - 2026-11-17
+## [0.10.68] "Analog Socket" - 2026-11-17
 
 ### Added: 12 more Library articles
 - **Linux skills**: two-factor codes for SSH (without breaking key logins or Nightgrid), SFTP-only accounts jailed to one folder, iSCSI block storage, tracking who changed what with auditd, and the kernel settings worth changing with sysctl.
 - **Apps**: Technitium DNS Server, Homarr, Matrix with Synapse, Mattermost, GoToSocial, Adminer and pgAdmin opened through Nightgrid's tunnel, and Proxmox VMs as code with OpenTofu.
 - The library now holds 296 articles.
 
-## [0.10.67] - 2026-11-17
+## [0.10.67] "Restless Flux" - 2026-11-17
 
 ### Added: 17 more Library articles
 - **Apps**: Wazuh security monitoring, Zabbix, Graylog, Keycloak, NetBird, Seafile, Outline, HedgeDoc, Semaphore UI for Ansible, ntopng, PairDrop, Webtop (a Linux desktop opened through Nightgrid's SSH tunnel), RomM, and Valheim and Satisfactory servers.
@@ -506,7 +539,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Linux skills**: share a printer with CUPS (AirPrint for phones, Windows by address).
 - The library now holds 284 articles.
 
-## [0.10.66] - 2026-11-17
+## [0.10.66] "Infrared Beacon" - 2026-11-17
 
 ### Added: 12 more Library articles
 - **Linux skills**: free disk space Docker is using (safely, volumes last), debug DNS on a server, mount Windows or NAS shares with credentials kept out of fstab, VLANs and bonded NICs, cut a home server's power draw, NVIDIA drivers for containers, organise `~/.ssh/config`, and admin scripts that fail loudly and never run twice.
@@ -514,7 +547,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Apps**: Duplicati, SABnzbd and Jellystat.
 - The library now holds 267 articles.
 
-## [0.10.65] - 2026-11-17
+## [0.10.65] "Shattered Satellite" - 2026-11-17
 
 ### Added: 54 more Library articles
 - **Linux skills** for the repair bench and the server room: test a drive before you trust it (SMART, long tests, badblocks), burn in a server (Memtest86+, stress-ng, MCE logs), wipe a drive properly (NVMe sanitize, ATA secure erase), recover data from a failing drive (ddrescue, testdisk, photorec), IPMI, fans and sensors, hardware inventory, LUKS encryption, fixing a server that won't boot, SSH tunnels, rsync, log rotation, finding what holds a port or file, apt and dnf, and ACME certificates.
@@ -522,7 +555,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **How-to**: open app web UIs inside Nightgrid (the 0.10.63 windows, the `nightgrid.webui` label, loopback-only ports).
 - The library now holds 255 articles in about 0.6 MB of plain text (about 200 KB compressed).
 
-## [0.10.64] - 2026-11-17
+## [0.10.64] "Magnetic Vortex" - 2026-11-17
 
 ### Added: a much bigger Library, with topics
 - **161 new articles**, all offline, on three new shelves. **How-tos** (44): one job in Nightgrid from start to finish, such as adding your first host, jump hosts, reaching servers away from home, deploying a stack, proxy routes, alerts and runbooks, backups, disks, updates, the firewall, schedules, power and UPS, the network map and tools, Proxmox, VM desktops and profiles. **Self-hosted apps** (96): install and run an app on a Linux server and watch it from Nightgrid, from Docker hosts, ZFS, Samba and restic to Caddy, Traefik, Pi-hole, Authentik, Vaultwarden, Nextcloud, Immich, Jellyfin, the *arr stack, Home Assistant, Frigate, Prometheus and Grafana, Forgejo, k3s, game servers, Ollama and more. **Linux skills** (19): systemd units, journald, fstab, LVM, static IPs, users and sudo, swap and zram, RAID, Btrfs snapshots, release upgrades, permissions, SELinux, Podman quadlets, rpm-ostree, tmux and more. Two more **Guides**: a first homelab weekend and a DIY NAS.
@@ -534,7 +567,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Fixed
 - A markdown line starting with four backticks (or a fence with words after the language) no longer freezes notes, DRIFT answers or the Library.
 
-## [0.10.63] - 2026-11-17
+## [0.10.63] "Glitched Lantern" - 2026-11-17
 
 ### Added: open a service's web UI inside Nightgrid
 - **⧉** on a running container's row in Docker (and **Web UI** in its detail panel) opens the container's web interface (AMP, Portainer, Homepage, anything with a published web port) in its own Nightgrid window. Ports that aren't web pages (databases, game servers, DNS) are skipped; the `nightgrid.webui` label picks the port, scheme and path yourself.
@@ -542,7 +575,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - It connects straight when this computer can reach the port, otherwise through a temporary SSH tunnel to the host, so ports bound to the host's loopback and hosts reached only through the built-in tailnet work too. It checks the page answers first and says why when it can't open (nothing listening, or an HTTPS certificate the window can't accept, with **Open in browser**).
 - The window shows only that site: it has no access to Nightgrid or your hosts, and pop-ups open in your browser.
 
-## [0.10.62] - 2026-11-16
+## [0.10.62] "Copper Undertow" - 2026-11-16
 
 ### Added: the Library, a built-in knowledge base (M11)
 - **Knowledge → Library** (`Mod+Shift+L`): every article is bundled and works offline, on three shelves. **Using Nightgrid** has one article per feature (the user guide, so it always matches the app). **Homelab basics** covers SSH keys and agents, hardening sshd, Docker and compose, the docker group, reverse proxies, Tailscale and WireGuard, backups and reading logs. **Guides** walks through whole setups: a Proxmox media server, a smart home hub, a local AI GPU server, family cloud and photos, a game server host, a dev and git deploy lab, remote family IT and a repair bench server.
@@ -551,21 +584,21 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **?** beside every view's title opens that view's article. The command palette lists every article as **Help: …**.
 - **DRIFT reads the library** too, and its answers link the articles they used.
 
-## [0.10.61] - 2026-11-16
+## [0.10.61] "Sodium Cascade" - 2026-11-16
 
 ### Added: security checks and a network watch (network map, part 5)
 - **SECURITY** above the map lists what the scan shows: router port forwards (UPnP) to risky services such as RDP, SSH, SMB, databases or a Docker API (red), UPnP being on at all, a public address on an interface, and a second DHCP server on the LAN (a rogue or forgotten one).
 - **Check web security** reads one page or certificate on the common web ports of every device found (up to 64): expired, nearly expired or self-signed certificates, admin pages of gear that ships with default passwords (routers, printers, cameras, NAS), and login forms or basic auth over plain HTTP. It never tries a password. Devices with findings get a ⚠ on the map; each finding opens in Tools.
 - **Watch the network**: a scheduled scan (every 15 minutes to once a day) from the chosen scanner keeps the device list current and raises alerts: **NEW DEVICE** (an untrusted device first seen in the last day), **DEVICE MISSING** (on the expected map but silent in a subnet that was scanned) and **NETWORK RISK** (the findings above). Each has its own switch; DRIFT's triage knows all three.
 
-## [0.10.60] - 2026-11-16
+## [0.10.60] "Cobalt Antenna" - 2026-11-16
 
 ### Added: more of the real topology (network map, part 4)
 - **Switches from LLDP.** When the scanning host runs `lldpd` (or systemd-networkd with LLDP on), the map shows the switch it's plugged into, with the port, between the router and the host. Drop other devices onto the switch to connect them through it.
 - **Routers on the way to routed ranges.** A scan with routed ranges also traces the path to each range; the last router before the range appears on the map with the range's devices under it, and the range's region says which router it's reached through.
 - **Tailscale direct or relayed.** Tailnet peers say whether the connection is direct (peer to peer) or goes through a Tailscale relay, in their details and in the tailnet list.
 
-## [0.10.59] - 2026-11-16
+## [0.10.59] "Tungsten Sector" - 2026-11-16
 
 ### Added: service scan (network map, part 4)
 - **Services** on a selected device or host on the map: **Scan services** connects to 46 common ports from the machine that scanned and reads what answers on each (SSH version, web server and status, mail, FTP, VNC, Redis and so on, over TLS when needed). Nothing is logged in to or changed.
@@ -573,7 +606,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Add as service** on any web port opens the service editor with the name and address filled in (and "allow untrusted certificate" for HTTPS), so it's watched under Services.
 - **Network → Tools → Services** runs the same scan on any host and port list.
 
-## [0.10.58] - 2026-11-16
+## [0.10.58] "Plasma Alley" - 2026-11-16
 
 ### Added: network tools (network map, part 3)
 - **Network → Tools** (`Mod+Shift+N`): **Ping**, **Path** (tracepath or traceroute), **DNS** lookups (any common record type, optionally against a chosen server), **Ports** (which TCP ports accept a connection, up to 64 at once), **HTTP / TLS** (status, server, redirect, and the certificate's issuer, expiry, whether it's self-signed and whether that machine trusts it), **Wake** (Wake-on-LAN to any MAC), the **Neighbours** table with makers, and open **Connections**.
@@ -582,7 +615,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - On the map, a selected device, router or host has **Tools** buttons (Ping, Ports, Web, Path, DNS, Wake) that open the tool with its address filled in, run from the machine that scanned it.
 - DRIFT knows each tool and can point at it.
 
-## [0.10.57] - 2026-11-16
+## [0.10.57] "Ultraviolet Synapse" - 2026-11-16
 
 ### Added: the network map as a real topology (network map, part 2)
 - **A graph, not columns.** The map now draws the internet above your router, the router above what connects through it, and the tailnet beside it, laid out automatically on first draw. Subnets are drawn as regions (**LAN**, each **ROUTED** range, **TAILNET**). Each node has a type icon; links are styled by kind (internet-facing, LAN, tailnet, routed range, the router's uplink) and nodes by state (internet-facing, new, offline, not seen, missing).
@@ -591,7 +624,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **The expected map.** **Save as expected** remembers the map as it is now. Later scans show expected devices that didn't answer as dashed **MISSING** ghosts in their place, mark devices that aren't in it with **+**, and say in the scan line whether the map matches. **Add it** puts a new device in the picture; **Remove from expected** takes one out; **Clear expected** drops the picture.
 - **List mode** keeps the old four columns; **Auto layout** forgets hand-placed positions (connections you set stay). Positions, connections and the expected picture are part of profile exports.
 
-## [0.10.56] - 2026-11-16
+## [0.10.56] "Distant Prism" - 2026-11-16
 
 ### Fixed
 - **macOS: no more crash when Nightgrid restarts** after installing an update or importing a profile, or when it quits, while DRIFT's model is loaded. The model is now freed first; llama.cpp's Metal backend aborted when it was still in memory at exit.
@@ -603,7 +636,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Inventory.** Every device a scan sees is remembered with when it was first and last seen. Devices seen for the first time show **NEW** on the map and under **New this scan**; known devices in the swept range that didn't answer are listed under **Missing**. **Trust** marks a device as expected; **Forget** removes it.
 - **Routed ranges.** Type subnets the scanner can reach through a router, VPN or Tailscale subnet route (`10.20.0.0/24`, up to 4, /24 to /30) and the scan sweeps them too, from whichever host or computer you scan from. MAC addresses, makers and local names don't cross a router, so those devices carry less detail and say so.
 
-## [0.10.55] - 2026-11-16
+## [0.10.55] "Hollow Overpass" - 2026-11-16
 
 ### Added: choose DRIFT's model
 - Settings → DRIFT → **Model** offers three sizes: **Light** (Qwen3 4B Instruct 2507, 2.5 GB, the one so far), **Balanced** (Qwen3 8B, 5.0 GB) and **Best** (Qwen3 30B-A3B Instruct 2507, 18.6 GB, a mixture-of-experts model that answers about as fast as a small one).
@@ -611,13 +644,13 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Models download on demand from pinned files checked against their SHA-256. The model in use keeps answering while another downloads, and DRIFT switches when it's ready. **Use this model** switches between downloaded ones; **Delete…** frees the space.
 - Qwen3 8B is asked to answer directly and any thinking block it writes is dropped.
 
-## [0.10.54] - 2026-11-16
+## [0.10.54] "Obsidian Reverie" - 2026-11-16
 
 ### Changed: Settings in tabs
 - Settings is split into tabs by topic instead of one long GENERAL page: **GENERAL** (tray and window, app updates, diagnostics), **APPEARANCE** (theme, custom colours, scale and effects), **TERMINAL** (terminal options, keyboard shortcuts), **MONITORING** (metrics, service checks), **ALERTS** (alert rules, log rules and mutes, dependencies, notifications), **CONNECTIONS** (built-in Tailscale, SSH keys), **DRIFT** (the helper, its model, tours), **DATA** (profile export and import, phone status page) and **FEATURES**.
 - DRIFT's spotlights and tours open the tab that holds the control they point at. **Alert rules…** in the Alerts panel opens the ALERTS tab.
 
-## [0.10.53] - 2026-11-16
+## [0.10.53] "Synthetic Kernel" - 2026-11-16
 
 ### Fixed: log alerts that weren't errors
 - Log levels decide. WARN, INFO and DEBUG lines are never errors, even when the logger's class is called `GlobalExceptionHandler`. Only ERROR, FATAL, CRITICAL and panic lines count, or wording like "uncaught exception" in lines without a level.
@@ -639,7 +672,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Added: Export diagnostics
 - **Settings → Diagnostics → Export diagnostics…** (also in the command palette) saves one text file: version, platform, settings, active and recent alerts and the newest app logs. Passwords, tokens and secret-looking lines are removed.
 
-## [0.10.52] - 2026-11-16
+## [0.10.52] "Amber Hologram" - 2026-11-16
 
 ### Changed: Overview widgets say more
 - **SERVICES** lists every service with a status dot and its latency, or why it's down (HTTP code or the first words of the error), problems first. Hover a row for the full reason.
@@ -650,7 +683,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - UPDATES, DISKS and BACKUPS fetch on their own while they're on screen: updates every 3 hours, disks hourly, backups every 30 minutes. They only read servers that aren't known to be offline, never clients, and never ask for a password, sudo or a Tailscale approval. **Check all** still reads every host.
 - Widgets whose feature is off in **Settings → Features** are hidden from the Overview and the add menu, and don't fetch. The rest close up over the gap; the layout itself is kept for when the feature comes back.
 
-## [0.10.51] - 2026-11-16
+## [0.10.51] "Mercury Syntax" - 2026-11-16
 
 ### Added: Tailscale SSH
 - Hosts with Tailscale SSH log in without a key. Nightgrid now asks the server with "none" first, like OpenSSH does, so the tailnet's policy decides.
@@ -667,7 +700,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
   - for 502 and 504, that the proxy couldn't reach the app behind it
   - for timeouts, the addresses that were tried
 
-## [0.10.50] - 2026-11-16
+## [0.10.50] "Feral Skyline" - 2026-11-16
 
 ### Changed: a shorter sidebar
 - Related views share one sidebar row and switch with tabs next to the view title: **System** holds One host and Fleet, **Network** holds the map and Tunnels, and **VMs** holds Proxmox and Desktops. A row with more than one view shows **+1**, and opens the view you used last in it.
@@ -677,7 +710,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - DRIFT knows the new layout: it names places the way the sidebar shows them ("System → Fleet"), its **Show me** and tours point at the right row and open the right tab, it can point at the tabs beside a title, and the Getting around tour shows Settings at the bottom and the Features tab.
 - Every shortcut still works (`Mod+6` Tunnels, `Mod+Shift+U` Fleet, `Mod+Shift+P` Proxmox, `Mod+Shift+M` Desktops). Turning a view off in Settings → Features drops its tab, and a row with one view left shows that view's own name.
 
-## [0.10.49] - 2026-11-16
+## [0.10.49] "Molten Rooftop" - 2026-11-16
 
 ### Changed: picking hosts
 - Hosts have a role. Tick **Client, not a server** in the host editor for a laptop, desktop or handheld you also manage (an ROG Ally, say). Views never pick a client by default. You can still choose one, and if every host is a client one is used.
@@ -688,7 +721,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - The **Scan from** dropdown is gone. Select a node on the map and the scan runs from it; the button says **Scan from <name>**. Nothing is preselected.
 - Nodes that can run a scan are marked **◉**: this computer, and saved hosts that answer. Other devices, and hosts that are offline, can't scan. **This computer** is now always on the map, so you can scan from it without a dropdown.
 
-## [0.10.48] - 2026-11-16
+## [0.10.48] "Crimson Daemon" - 2026-11-16
 
 ### Added: Settings → Features
 - Settings has two tabs now: **GENERAL** (everything that was there) and **FEATURES**.
@@ -701,7 +734,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Changed
 - Views load on first use. The app's startup JavaScript went from 1.8 MB to 1.2 MB (548 KB → 378 KB gzipped), and views that are off are never loaded. With Simple, opening every view it has loads 1.5 MB, against 1.8 MB with Everything.
 
-## [0.10.47] - 2026-11-16
+## [0.10.47] "Vapor Rain" - 2026-11-16
 
 ### Added: Proxmox VE, part 6: firewall (M10r)
 - New **FIREWALL** tab in Proxmox with a scope picker: **Datacenter**, the connected **node**, or a **security group**. Each guest's window gains its own **FIREWALL** tab.
@@ -710,14 +743,14 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Datacenter, node and group changes can lock you out, so they run under a rollback armed on the node. The first change saves the firewall files, and further changes join the same session. Press **Keep** within 90 seconds or the node restores its firewall by itself. Turning the firewall on asks first and explains Proxmox's management exception (local network only).
 - Every edit carries Proxmox's digest, so a list changed elsewhere in the meantime is refused instead of overwritten.
 
-## [0.10.46] - 2026-11-16
+## [0.10.46] "Hushed Underpass" - 2026-11-16
 
 ### Added: Proxmox VE, part 5: node network (M10r)
 - New **NETWORK** tab in Proxmox: the connected node's bridges, bonds, VLANs and NICs with state, ports or slaves, addresses, gateway and comments.
 - **+ Bridge**, **+ Bond** and **+ VLAN** add interfaces, and **Edit…** and **Remove…** change them. Ports already used by another bridge or bond are marked. As in Proxmox, every change is only staged: the tab shows the staged diff of `/etc/network/interfaces`, with **Revert** and **Apply…**.
 - **Apply…** first arms a rollback on the node, then reloads the network. Unless you press **Keep** within 90 seconds, the node restores the previous config by itself. A change that cuts off this computer, or the node's own address, undoes itself. **Roll back now** restores the old config at once.
 
-## [0.10.45] - 2026-11-16
+## [0.10.45] "Neon Vortex" - 2026-11-16
 
 ### Added: Proxmox VE, part 4: hardware and options (M10r)
 - A guest's window gains **HARDWARE**. Change cores, sockets, CPU type, memory and the balloon minimum (VMs) or swap (containers). Changes the running guest can't take are shown as waiting for the next restart, with a **Reboot…** button.
@@ -727,7 +760,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Options**: start at boot, boot order and delay, protection, tags and notes.
 - Every change is sent with the configuration's digest, so if someone changed the guest in the meantime Proxmox refuses it and the tab rereads it. Each change lands on the host's timeline.
 
-## [0.10.44] - 2026-11-16
+## [0.10.44] "Indigo Alley" - 2026-11-16
 
 ### Added: Proxmox VE, part 3: create, clone, templates and ISOs (M10r)
 - **Proxmox → GUESTS** gains **+ VM** and **+ Container**. A new VM takes an id (the next free one is filled in), name, cores, memory, disk size and storage, an install ISO, a bridge with optional VLAN, OS type and UEFI. It gets a VirtIO SCSI disk with discard and IO thread, VirtIO networking and the QEMU guest agent, and Windows 11 also gets UEFI and a TPM.
@@ -735,7 +768,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **⋯** on a guest adds **Clone…** (full, or linked from a template), **Convert to template…** and **Destroy…**. Destroy needs the guest's name typed and also removes its disks; backups stay.
 - **STORAGE** lists the node's ISO images and container templates. **Download ISO…** has the node fetch an installer from a URL itself, with the file name taken from the URL and an optional SHA-256 check. **Get CT template…** lists Proxmox's template catalogue with a filter and downloads one.
 
-## [0.10.43] - 2026-11-16
+## [0.10.43] "Acid Antenna" - 2026-11-16
 
 ### Added: Proxmox VE, part 2: snapshots and backups (M10r)
 - Click a guest's name in **Proxmox → GUESTS** to open it. **SNAPSHOTS** shows its snapshots as a tree, marks the one it currently runs from, and shows which ones hold RAM. **Take snapshot** suggests a name, takes an optional note and can save RAM for running VMs. **Roll back…** and **Delete…** ask first, naming the guest, node and snapshot.
@@ -743,7 +776,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - New **BACKUPS** tab: the cluster's backup jobs (schedule, guests, storage, mode, next run, disabled jobs) and the guests no job covers. Each guest's latest backup is listed worst first: red when it has none or the newest is older than 7 days, orange after 2 days.
 - Snapshot, rollback, delete, backup and restore steps follow their Proxmox task to the end. Closing the task window keeps following it in the background, and they're recorded on the host's timeline.
 
-## [0.10.42] - 2026-11-16
+## [0.10.42] "Carbon Frequency" - 2026-11-16
 
 ### Added: Proxmox VE, part 1: cluster, guests, storage and tasks (M10r)
 - New **Proxmox** view (`Mod+Shift+P`). Pick the host that runs Proxmox VE and Nightgrid reads its whole cluster through `pvesh` over SSH as root (the sudo prompt asks when needed). No API token, open port or web UI needed.
@@ -752,7 +785,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **STORAGE**: each storage with type, content, nodes and usage. Shared storage is listed once.
 - **TASKS**: recent cluster tasks (backups, starts, clones…) with their result. Click one for its log. A task Nightgrid starts opens its log and follows it until it ends. Power actions go to the host's timeline.
 
-## [0.10.41] - 2026-11-16
+## [0.10.41] "Ionic Checksum" - 2026-11-16
 
 ### Added: more signals, part 3: custom command widgets (M10x)
 - **Overview → Edit → + Widget → COMMAND…**: any read-only command on one of your hosts becomes a dashboard tile. Pick how to read the value (first number, a regex group, line count, exit code or the first line of text), an optional unit, warn and critical thresholds (or "low is bad" for things like free space) and a refresh interval from 10 s to 24 h.
@@ -760,20 +793,20 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Tiles colour by their thresholds and show the host, when it last ran and the refresh interval, with **Run now**, **Output** and **Edit…**. They only run while a dashboard shows them, and pause while the window is hidden.
 - Widgets refresh on their own, so commands that change something (rm, kill, prune, down, reboot, overwrite with `>`…) and sudo are refused. Saved widgets travel in backups and profiles; removing a tile keeps the widget under **YOUR COMMANDS** in the add menu, deleting it removes it everywhere.
 
-## [0.10.40] - 2026-11-16
+## [0.10.40] "Ultraviolet Sector" - 2026-11-16
 
 ### Added: more signals, part 2: network tests between hosts (M10x)
 - **Fleet → SPEED**: pick two hosts and **Run test**. Nightgrid measures throughput both ways with `iperf3` and latency with `ping`, from one host straight to the other (5, 10 or 20 seconds each way).
 - Results are kept per pair with a throughput history line, so you can compare a link with itself. About 100 Mbit/s on a link is flagged as a possible Fast Ethernet negotiation (a bad cable or port), and a run well below the pair's usual speed is called out. **Again** repeats a test, **Clear…** forgets a pair's results.
 - The target runs an iperf3 server only during the test; it stops itself after two minutes at most. Both hosts need `iperf3` installed, and the target's firewall must allow port 5201 from the source.
 
-## [0.10.39] - 2026-11-16
+## [0.10.39] "Liquid Mirage" - 2026-11-16
 
 ### Added: more signals, part 1: GPU history (M10x)
 - The monitor's **GPU** chart now shows VRAM use (the fullest GPU) next to how busy it is, **TEMP** adds the hottest GPU next to the CPU, and a new **GPU W** chart shows the power all GPUs draw. All of it is kept like the other metrics: a year of hourly points, with zoom.
 - New Overview widget **GPUS** (Edit → Add): every GPU across your hosts with busy %, VRAM, temperature and power; click one to open its host's monitor.
 
-## [0.10.38] - 2026-11-16
+## [0.10.38] "Orbital Smog" - 2026-11-16
 
 ### Added: deploy & secrets, part 2: stacks from git (M10w)
 - **Docker → Stacks → From git…** clones a repository onto the host (into a folder you choose, default `~/stacks/<repo>`) and tracks one stack folder inside it, so one repository can hold several stacks. An existing checkout of the same repository is adopted as it is.
@@ -782,7 +815,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Review & deploy…** shows the new commits and the diff for the stack's folder. **Deploy and up** saves a stack snapshot, moves the checkout to exactly that commit, then brings the stack up. **Roll back to …** returns to the previous deploy the same way.
 - **Stop tracking…** forgets the repository; the files and the stack stay on the host.
 
-## [0.10.37] - 2026-11-16
+## [0.10.37] "Feral Mosaic" - 2026-11-16
 
 ### Added: deploy & secrets, part 1: .env vault (M10w)
 - **Docker → Stacks → Vault** keeps a stack's environment variables encrypted inside Nightgrid, with the key in the system keychain. Values that look like secrets (passwords, tokens, keys) are masked until you click **Reveal**.
@@ -791,7 +824,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Deploy .env…** compares the vault with the host's file and lists which names are added, changed or removed (never the values), with a warning for names that would be dropped. **Write .env to <host>** saves a stack snapshot first, then writes the file readable only by its owner. **Up now** recreates the stack with the new values.
 - The vault travels in encrypted profile exports when you include secrets; on another computer the import brings the key along. Variables written with a key this computer doesn't have show as LOCKED.
 
-## [0.10.36] - 2026-11-16
+## [0.10.36] "Violet Socket" - 2026-11-16
 
 ### Added: host config editors, part 4: Pi-hole and AdGuard Home (M10v)
 - New integrations: **Pi-hole** (v6) and **AdGuard Home** (Services → Add integration). The card shows queries, blocked count, clients and the top blocked domains; **Turn on** appears while blocking is paused.
@@ -800,7 +833,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Lists**: block and allow lists with entry counts and when they were last downloaded. Tick to turn a list on or off. **Remove…** a list, add one by URL, and **Update gravity** / **Update lists** to download them again.
 - The password stays in the keychain. Pi-hole sessions are closed after every read, so the dashboard never uses up Pi-hole's session slots.
 
-## [0.10.35] - 2026-11-16
+## [0.10.35] "Crimson Circuit" - 2026-11-16
 
 ### Added: host config editors, part 3: reverse proxy route editor (M10v)
 - **Docker → Routes → Edit routes…**: change where your reverse proxy sends each domain, for Caddy (a Caddy container or Caddy installed on the host) and Traefik.
@@ -808,7 +841,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Traefik**: add, edit and remove routes (name, domains, upstream, entry points, TLS and certificate resolver from Traefik's own configuration). They are written to `nightgrid.yml` in Traefik's file provider directory, which Traefik picks up by itself; routes from container labels stay as they are. Without a file provider directory the editor says which flag to add.
 - The Routes list now includes the Traefik routes Nightgrid keeps.
 
-## [0.10.34] - 2026-11-16
+## [0.10.34] "Shattered Wavelength" - 2026-11-16
 
 ### Added: host config editors, part 2: firewall manager (M10v)
 - **System → FIREWALL**: see whether the host uses ufw, firewalld or plain nftables/iptables, whether it is on, and its rules. ufw shows its rules (with comments) and default incoming policy; firewalld shows each active zone with its services, ports and sources; the raw `nft list ruleset` (or `iptables-save`) is always one click away.
@@ -816,14 +849,14 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Every change is applied behind a rollback**: the host saves the current rules and sets a timer (1, 2 or 5 minutes) that puts them back unless you press **Keep**, even if Nightgrid can't reach the host any more. After the change Nightgrid opens a fresh SSH connection to show you can still get in; **Test again** repeats it, **Undo now** restores the old rules at once.
 - A change that could lock you out, such as deleting the rule that lets SSH in or turning on a firewall without it, says so and asks you to type the host name.
 
-## [0.10.33] - 2026-11-16
+## [0.10.33] "Quantum Synapse" - 2026-11-16
 
 ### Added: host config editors, part 1: cron and timer editor (M10v)
 - **System → Schedules → Crontab…**: edit your own crontab, root's or another user's (through sudo). Tick a job to turn it on or off (an off job stays in the file as a `#nightgrid-off` line), **Edit** or **Delete…** it, or add a new one with a schedule (common ones in a list) shown in plain words as you type. Every change is checked first: a broken schedule, a second line or an unescaped `%` (which cron turns into a line break) is refused with the reason. A change is refused if the crontab was edited elsewhere since it was opened, and the previous crontab is saved on the host in `~/.nightgrid/cron-backups` (the last 20).
 - **+ Timer**: run a command on a schedule as a systemd timer: a name, the command, an `OnCalendar` schedule (common ones in a list; **Check** asks systemd on the host what it means and when it next runs), the user to run as and whether to catch up on runs missed while the host was off. It becomes a `nightgrid-job-…` service and timer on the host; **Edit** on its row changes it, **Remove…** deletes it.
 - Every timer row now has **Run now** (starts its service once) and **Enable** / **Disable**.
 
-## [0.10.32] - 2026-11-16
+## [0.10.32] "Wired Spectrum" - 2026-11-16
 
 ### Added: logs & access, part 2: login & access audit (M10u)
 - **Fleet → ACCESS**: one row per host with SSH logins and failed attempts over the last 7 days, addresses banned right now, users with a shell, authorized keys and the most serious finding. **Audit all** reads every host three at a time; click a host for the full report.
@@ -832,7 +865,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Read as root when that needs no prompt (root login, passwordless sudo or a remembered sudo password); otherwise the report says what it couldn't see and **Read as root…** asks for the password. Logins come from the journal or `/var/log/auth.log` / `/var/log/secure`. Nothing is installed on hosts and nothing is stored: audit again to refresh. **Explain** sends the report to DRIFT.
 - Fixed a test that could fail on a busy machine (a freed port reused by another test).
 
-## [0.10.31] - 2026-11-16
+## [0.10.31] "Obsidian Afterglow" - 2026-11-16
 
 ### Added: logs & access, part 1: cross-host log search (M10u)
 - **Fleet → LOGS**: search the systemd journal and container logs of several hosts at once and read the matches as one stream, newest first. Plain text or a regular expression (`.*`), match case (`Aa`), look-back from 15 minutes to 7 days, all hosts or chosen ones, journal, containers or both. **More filters** narrows to a unit, a container name or a journal priority. Matches are highlighted; chips filter by source, and every line names its host and where it came from.
@@ -841,21 +874,21 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Saved searches**: save a search by name and load it with one click. Turn on **◉ alert** and the search runs every 5 minutes on connected hosts; new matching lines raise a **LOG MATCH** alert per host with the count and the newest line. Saved searches travel in profile exports.
 - **Explain** sends the matches to DRIFT.
 
-## [0.10.30] - 2026-11-16
+## [0.10.30] "Synthetic Bandwidth" - 2026-11-16
 
 ### Added: long-term history, parts 2 and 3: a year of metrics and monthly reports (M10t)
 - **A year of metrics**: hourly averages are now kept for 400 days next to the 1-minute points and 15-minute averages, and the host monitor offers **90D** and **1Y** ranges (hourly averages beyond a month). Existing 15-minute history is folded into hourly averages on update, so the long ranges start with what is already stored.
 - **Zoom**: drag across a history chart to zoom into that span (finer points are loaded when the span is short enough), **Reset zoom** or a double-click to go back. The chart says which averages it shows.
 - **Monthly uptime report** (Fleet → UPTIME → **Monthly report…**): pick a month (the last 13) and a target (99% to 99.99%) to see availability, downtime, outages and the longest one per host and service, and whether each met the target. **Export HTML…** saves a self-contained page with the summary, the table and every outage with its first error, styled for screen and print (save as PDF from the browser).
 
-## [0.10.29] - 2026-11-16
+## [0.10.29] "Rusted Mainframe" - 2026-11-16
 
 ### Added: long-term history, part 1: uptime (M10t)
 - **Fleet → UPTIME**: one bar per day for every host and checked service over 30 or 90 days, coloured by availability (green from 99.9%, yellow from 99%, red below, grey with no data), with the availability and total downtime for the range. Hover a bar for that day; click a row for its outages (when, how long, why) with the count, total and longest.
 - Uptime is recorded on every alerts round (15 s) while Nightgrid runs, also with the window closed and with alerts turned off: hosts from monitoring, services from their checks. Availability is up out of the time actually watched, and a host that is asleep, suspended or rebooting on purpose isn't counted as down. History is kept 400 days and stays on this computer (not in profile exports).
 - The **phone status page** and static export show the 90-day bars under every host and service.
 
-## [0.10.28] - 2026-11-16
+## [0.10.28] "Binary Voltage" - 2026-11-16
 
 ### Added: smarter alerts, part 3: UPS shutdown (M10s)
 - **Fleet → UPS**: watch a UPS through NUT. Pick the host it's plugged into (or any host that can reach a NUT server) and its NUT name, such as `ups@localhost`; **Test** reads it once. Each UPS shows its state, charge, runtime, load and input voltage, read with `upsc` every 30 s while the host is connected. Nothing is installed: the host needs NUT already (or a NAS's built-in NUT server).
@@ -863,7 +896,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Group shutdown** (optional): after a set time on battery, when the runtime drops under a limit, or when the UPS reports low battery, Nightgrid starts a countdown (2 minutes by default) and then shuts down every host in a chosen group, the UPS's own host last. Turning it on means typing the group's name. The countdown shows as a banner above every view with **Cancel shutdown**, sends a notification even in quiet hours, runs with the window closed, and stops by itself if the power comes back. After a cancel it won't start again until the power returns and fails again.
 - UPS watches travel in profile exports.
 
-## [0.10.27] - 2026-11-16
+## [0.10.27] "Hollow Switchboard" - 2026-11-16
 
 ### Added: smarter alerts, part 2: runbooks (M10s)
 - A note can be a **runbook for alerts**: pick the alert kinds it's for and optionally a host and a service. Matching alerts show **▤ Runbook** in the alerts list (also on alerts folded under a cause); others offer **+ Runbook**, which starts a note for that kind of alert with a step list to fill in.
@@ -871,7 +904,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **✦ Triage** on an alert tells DRIFT about your runbook for it, so the answer starts from your own steps.
 - Runbook settings travel with notes in profile exports.
 
-## [0.10.26] - 2026-11-16
+## [0.10.26] "Analog Glow" - 2026-11-16
 
 ### Added: smarter alerts, part 1: dependencies (M10s)
 - **Settings → Dependencies**: say what breaks when a host or service is down ("Media server depends on NAS", "NAS depends on router"). Loops are refused. Dependencies travel in profile exports and go away with the host or service.
@@ -879,7 +912,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - A notification whose cause may still fire (a service down while its host is inside the offline grace period) waits up to 5 minutes, so an outage gives one notification. The cause's notification says how many alerts it explains.
 - The status bar, the tray and the Overview's alert widget count causes, not every folded alert.
 
-## [0.10.25] - 2026-11-16
+## [0.10.25] "Frozen Monorail" - 2026-11-16
 
 ### Added: DRIFT as a guide (M10q)
 - **Guided tours**: step-by-step walkthroughs that put brackets around one control at a time, say what to do and wait for you: a click on the control, opening a view, a dialog opening or closing, or **Next** for steps that only explain. DRIFT never clicks, types or switches views itself. The callout has **Back**, **Skip step** and **End tour**, says when the control isn't on screen, and stays above open dialogs; Esc ends a tour.
@@ -888,7 +921,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - DRIFT can offer a tour at the end of a reply when a question is a multi-step task.
 - **First-run offer**: a one-time card offers the Getting around tour; either answer is remembered, and every tour can be replayed from **Settings → Helper**.
 
-## [0.10.24] - 2026-11-16
+## [0.10.24] "Indigo Packet" - 2026-11-16
 
 ### Added: DRIFT skills, part 2 (completes M10p)
 - **Words → command**: a one-line command in a DRIFT reply has a **TERMINAL** button that types it at the prompt of the host you're asking about (or the focused shell). Nothing runs until you press Enter. Commands the command check marks as dangerous show a DANGER badge and need a second click (**SEND ANYWAY?**).
@@ -899,7 +932,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Deeper shell history**: for hosts that share their history, DRIFT now also gets up to 25 older lines that mention the question's words ("when did I last restart nginx?"), not just the newest 60.
 - New skill chips: Regex, Draft a command, Daily summary.
 
-## [0.10.23] - 2026-11-16
+## [0.10.23] "Mercury Helix" - 2026-11-16
 
 ### Added: DRIFT skills, part 1 (M10p)
 - Before DRIFT answers, Nightgrid runs exact checks on the question and the attached text. They appear in a **checks card** above the reply and are given to the model as facts it must not contradict, so the risky parts can't be glossed over even when the answer is wrong.
@@ -909,7 +942,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Cron helper**, both ways: a cron expression in a question becomes plain words, its next three run times and the matching systemd `OnCalendar=`; "make a cron schedule for weekdays at 6pm" becomes `0 18 * * 1-5` with notes on cron's quirks.
 - Skill chips in an empty DRIFT panel start each kind of question.
 
-## [0.10.22] - 2026-11-16
+## [0.10.22] "Velvet Flux" - 2026-11-16
 
 ### Added: customizable Overview (M10o)
 - The Overview is now a dashboard of widgets on a 12-column grid. **Edit** turns on edit mode: drag a widget by its title bar to move it, drag its corner to resize, **×** removes it, and **+ Widget** adds one into the first free spot. Widgets that are moved onto push the others down, and everything slides up to close gaps. With the keyboard, focus a widget's grip: arrows move it, Shift+arrows resize it, Delete removes it. **Undo** steps back through the session's changes and **Reset** brings back the built-in layout.
@@ -919,28 +952,28 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - On a narrow window the widgets stack in one column in reading order.
 - Removed the old ROADMAP panel from the Overview.
 
-## [0.10.21] - 2026-11-16
+## [0.10.21] "Encrypted Lattice" - 2026-11-16
 
 ### Added: VM desktops (M10n)
 - **Screen** on a running VM in System → VMS opens its graphical console in the new **Desktops** view (`Mod+Shift+M`), one tab per guest. It is a VNC viewer built into Nightgrid: the picture travels over the host's existing SSH connection, so no port is opened, no API token is needed and nothing gets installed. libvirt/KVM guests with a VNC display (the usual `listen='127.0.0.1'`) and Proxmox VE VMs work; a guest with a password on its VNC display is handled when the host shows it to root. A SPICE-only guest says how to add VNC.
 - Click the screen to type into the guest; click outside to get the keyboard back. The toolbar has **Ctrl+Alt+Del**, **Type text…** (sends text key by key, for installers and login screens), **Send clipboard** / **Copy guest clipboard** (needs a clipboard agent in the guest), **1:1** / **Fit**, **Full**, **Redraw**, **Disconnect** and **Reconnect**.
 - **RDP** on a running VM finds the guest's address (libvirt DHCP leases or the QEMU guest agent), lets you pick or type one, and opens a tunnel from a free port on 127.0.0.1 through the host to the guest's RDP port. Nightgrid then opens a `.rdp` file for it in this computer's RDP client (Windows App / Microsoft Remote Desktop on macOS, `mstsc` on Windows, whatever handles `.rdp` on Linux). Tunnels show in the Desktops view with **Stop**. The file holds only the local address; you sign in inside the RDP client.
 
-## [0.10.20] - 2026-11-15
+## [0.10.20] "Silver Hologram" - 2026-11-15
 
 ### Added: backup monitor with test restores (completes M10m)
 - The backup board moved from System → BACKUPS to **Fleet → BACKUPS**, next to updates and disks, with a host picker for **Find jobs**. A failed or stale alert now opens it there.
 - **Test restore** on a restic or borg job restores one random file under 20 MB from the latest snapshot or archive into a new folder under `/tmp` on the host. It checks the file's size against the backup's listing, shows its SHA-256 and deletes the folder. It runs as root with the backup unit's own `EnvironmentFile=`, `Environment=` and `User=`, so the repository location and password stay on the host. For rsync and other copies to a folder (path jobs), it copies a random file out and compares checksums. You confirm first, and sudo asks for a password when the host needs one.
 - Each job shows when its restore was last tested and whether that passed. The result is kept with the job.
 
-## [0.10.19] - 2026-11-15
+## [0.10.19] "Lunar Vector" - 2026-11-15
 
 ### Added: disk health and fill-up forecast (M10m, part 2)
 - **Fleet → DISKS** shows every host's storage in one list, worst first. It covers **ZFS pools** (state, size, scrub or resilver progress, devices with errors), **software RAID** (`/proc/mdstat`: degraded arrays, failed or spare members, resync and recovery progress) and **btrfs** filesystems (missing devices, error counters, degraded mounts). None of these need root. **SMART** is read too where sudo needs no prompt, and **SMART details** opens System → DISKS.
 - Each mount shows its usage, its growth per day over the last two weeks, a 30-day sparkline and **full in about N days**. Usage is recorded on this computer while a host is monitored, one point an hour, kept 90 days. It isn't part of exports.
 - New alerts: **FILLING UP** when a mount is forecast to be full within 14 days (3, 7, 30 or 60 in Settings → Alerts; critical inside 3 days), and **POOL DEGRADED** for a ZFS pool, RAID array or btrfs filesystem that lost a device or has errors (checked every 30 minutes on connected hosts). Clicking either opens Fleet → DISKS. **✦ Explain** asks DRIFT what to fix first.
 
-## [0.10.18] - 2026-11-15
+## [0.10.18] "Glitched Cursor" - 2026-11-15
 
 ### Added: update center (M10m, part 1)
 - New **Fleet** view (`Mod+Shift+U`) for health across every host. Its **UPDATES** tab checks all hosts at once (three at a time) and lists pending packages per host, with security packages and **reboot required** flags first. Click a host for its package list and the reason a reboot is needed. Opening the view re-checks when the last check is older than 30 minutes.
@@ -949,7 +982,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **rpm-ostree** systems (Fedora Atomic, Bazzite and similar) now show a pending system image with its version, and **Upgrade** stages it for the next reboot (`rpm-ostree upgrade`). A staged image counts as reboot required. This works both in Fleet and in System → UPDATES.
 - **✦ Explain** asks DRIFT which updates matter most and which hosts to do first.
 
-## [0.10.17] - 2026-11-15
+## [0.10.17] "Magnetic Lantern" - 2026-11-15
 
 ### Added: expiry watch and config drift (completes M10l)
 - **Services → Expiry watch** lists everything that runs out on a date, soonest first: HTTPS service certificates, proxy route certificates (once Docker → Routes has been read) and items you add.
@@ -958,20 +991,20 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **System → CONFIG** compares a host's `/etc`, the compose files in its stack folders and its installed packages (apt, dnf/rpm, pacman, apk) with a **baseline** saved on the host, or with **another host**. Changed, added and removed files are grouped by folder; click a changed file for a line diff (values that look like secrets are masked until you reveal them). Packages show as upgraded, downgraded, added or removed. Host-to-host comparisons hide files that are meant to differ (hostname, machine-id, SSH host keys, network config) unless you turn that off. **✦ Explain** asks DRIFT which changes look risky.
 - The baseline lives on the host in `~/.nightgrid/baselines/default` (readable only by that login), so file contents never come to this computer's database; `.env` files are compared by checksum only. Only files the login can read are included, and nothing else on the host is changed.
 
-## [0.10.16] - 2026-11-15
+## [0.10.16] "Holographic Parallax" - 2026-11-15
 
 ### Added: incident timeline (M10l, part 1)
 - **System → TIMELINE** shows what happened on a host, newest first and grouped by day, for the last 24 hours, 7, 30 or 90 days. Nightgrid now records alerts firing and clearing, power actions and wake-ups, compose runs, deploys and rollbacks, container actions, unit actions, package upgrades and automation runs as they happen (kept 90 days on this computer). Opening the tab also reads the host's own history without installing anything: boots (with how long it was down), failed systemd units, kernel out-of-memory kills, apt, pacman and dnf transactions, and Docker container crashes, restarts, OOMs and health changes.
 - Filter chips (alerts, boots and power, containers and stacks, units and OOM, packages, automation, problems only) and a text filter. **✦ Summarize** asks DRIFT to explain the shown period: the incidents, likely causes, how they connect and what still needs attention.
 - **Clear recorded history…** forgets what Nightgrid recorded for a host; the host's own logs aren't touched.
 
-## [0.10.15] - 2026-11-15
+## [0.10.15] "Hushed Relay" - 2026-11-15
 
 ### Added: group and scheduled power (completes M10k)
 - **System → GROUP…** suspends, shuts down or reboots every host in a group, one after another, after you type the group's name. Hosts whose sudo needs a password Nightgrid doesn't remember are skipped and listed, not prompted one by one.
 - **System → Schedules → POWER SCHEDULE**: shut down, suspend or reboot a host at a set time on chosen days (or every day), or wake it up from its **Wake from** host. Each schedule is a systemd timer on the host itself (`nightgrid-power-…`, `nightgrid-wake-…` on the relay), so it runs whether or not Nightgrid is open, and a scheduled shutdown shows as planned, not offline. Schedules are listed with their next run and can be replaced or removed.
 
-## [0.10.14] - 2026-11-15
+## [0.10.14] "Humming Shard" - 2026-11-15
 
 ### Added: SSH key manager (M10k, part 2)
 - **Settings → SSH keys** lists your key pairs (`~/.ssh`) and SSH agent keys with fingerprints, passphrase and agent badges, and which saved hosts use each one. **Copy public key** copies the `.pub` line.
@@ -979,12 +1012,12 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **CHECK HOSTS** reads every host's `authorized_keys` and shows which of your keys each host accepts. You can add a key to a host in one click (skipped if it's already there) or remove one (you confirm by typing the host's name). Keys on a host that aren't yours are listed too.
 - **ROTATE A KEY** across hosts, one host at a time: add the new key, log in with only the new key, switch the host's saved settings to it, then remove the old key. A host where a step fails keeps its old key. Removing the old key needs its name typed to confirm.
 
-## [0.10.13] - 2026-11-15
+## [0.10.13] "Scattered Signal" - 2026-11-15
 
 ### Fixed
 - **Built-in Tailscale: public names that point at tailnet addresses** (for example a DNS record for `app.example.com` that points at a 100.x tailnet node) timed out in service checks, SSH and tunnels when the Tailscale app wasn't running. While the built-in client runs, Nightgrid now looks such names up first and connects through the tailnet when every address is a tailnet address. TLS and the Host header still use the name. With the built-in client off nothing changes.
 
-## [0.10.12] - 2026-11-15
+## [0.10.12] "Midnight Reverie" - 2026-11-15
 
 ### Added: power states and Wake-on-LAN (M10k, part 1)
 - **Suspended isn't offline**: a host that stops answering after Nightgrid suspended, shut down or rebooted it, or after the host itself announced sleep or shutdown (systemd-logind, followed over the monitoring connection), shows **SUSPENDED**, **SHUT DOWN** or **REBOOTING** with the reason and when it was last seen, in a calm colour, and raises no offline alert. It clears as soon as the host answers again; a reboot that takes longer than 15 minutes turns into a real outage. The sidebar, tray, phone status page and DRIFT say the same.
@@ -999,7 +1032,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - The router is found from an IPv6 default route too (matched to its IPv4 address by MAC), and from routing tables other than the main one.
 - Network shares the scanned host mounts (NFS, SMB) and LAN peers it has open connections to are listed even when they ignore ping, with the share and mount point. **Ping sweep** also tries a few TCP ports on each address for devices that drop ping.
 
-## [0.10.11] - 2026-11-15
+## [0.10.11] "Vapor Satellite" - 2026-11-15
 
 ### Added: built-in Tailscale and DRIFT knows your hosts (M10j)
 - **Settings → Tailnet → Built-in Tailscale** (off by default): Nightgrid joins your tailnet as its own device, without the Tailscale app and without admin rights. **LOG IN** opens the login page once; the node's keys are stored encrypted with a key kept in the OS keychain. SSH, files, Docker, metrics, service checks and tunnels all reach tailnet addresses, MagicDNS names and accepted subnet routes through it. **Use subnet routes** reaches LAN addresses another device advertises; Nightgrid tries the LAN first and the tailnet when the LAN doesn't answer. **DEVICES** lists your tailnet with copyable addresses; **Advanced** sets the device name and a self-hosted control server (Headscale). Nothing is sent to Tailscale's log servers. With it off, tailnet addresses go through the system Tailscale app as before.
@@ -1007,7 +1040,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **DRIFT knows your hosts**: when a question names one of your saved hosts (loosely: one word of its name, a typo, a follow-up like "check its history"), DRIFT gets that host's live facts first: reachability, monitoring state and last error, last seen and uptime, and active and recent alerts. It answers from those instead of the guide.
 - **DRIFT may read shell history** per host (host editor, off by default): DRIFT also gets the host's last 60 commands from bash, zsh or fish history, read over SSH when you ask. Lines that look like passwords or tokens are left out, and nothing is stored.
 
-## [0.10.10] - 2026-11-15
+## [0.10.10] "Fractured Ember" - 2026-11-15
 
 ### Added
 - **Terminal key hints**: a strip under the terminal shows the keys of the program in front (nano, vim, less/man, htop, top, btop, tmux, screen, watch, mc, nested ssh, and `journalctl -f` / `tail -f` / `docker logs -f`). SSH shells report the command through the session-only hook (bash, zsh, fish); local terminals ask the terminal which program is in front. Hide hints per program, or turn the strip off in **Settings → Terminal**. DRIFT knows the same keys and sees what's running.
@@ -1027,7 +1060,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Network discovery no longer lists loopback interfaces.
 - Network discovery works on macOS and BSD hosts: the ping sweep used a Linux-only timeout flag, and tools were wrapped in `timeout`, which macOS doesn't have.
 
-## [0.10.9] - 2026-11-15
+## [0.10.9] "Silent Echo" - 2026-11-15
 
 ### Added: network map, a custom colour scheme and DRIFT reads your notes (M10i)
 - **Network** view (`Mod+0`): a map of the internet, your router and tailnet, your hosts and the other devices on the network. **Scan** runs from a host you pick and reads its neighbour table, mDNS announcements, Tailscale peers, router port forwards (UPnP), Tailscale Funnel and cloudflared tunnels; **Ping sweep** also pings each address in its subnet. Nothing is scanned until you click, and nothing outside your network is contacted.
@@ -1040,13 +1073,13 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Terminal splits**: a pane split or resized while its session was still connecting kept the old size on the server, so output (a login banner, `htop`, `vim`) was laid out for the wrong width. The final size is now sent as soon as the session opens, and fits happen once per frame after the layout settles.
 - **Terminal panes going blank** after splits or with many panes open: when macOS drops a pane's GPU context, the pane now switches to the regular renderer and repaints instead of staying empty, and moved or re-shown panes repaint themselves.
 
-## [0.10.8] - 2026-11-15
+## [0.10.8] "Laser Undertow" - 2026-11-15
 
 ### Fixed
 - **Notes** fills the window: the list and the note scroll on their own, so **Save** stays in view however many notes you have. **Mod+S** saves a note while editing.
 - **Files**: dragging files from one pane to the other works on macOS (and Windows) again. The window's native file-drop handler was swallowing in-app drags.
 
-## [0.10.7] - 2026-11-15
+## [0.10.7] "Wireless Prism" - 2026-11-15
 
 ### Added: VMs, a phone status page and dashboard snapshots (M10h)
 - **System → VMs**: libvirt/KVM domains (`virsh`) and Proxmox VE VMs and LXC containers (`qm`, `pct`) on the host, with state, vCPUs, memory and autostart. **Start**, **Shut down** (clean, via ACPI), **Reboot** and **Force stop**. Every action except start asks first, naming the guest and the host, and force stop needs the guest's name typed. **Console** opens the guest's serial console (`virsh console`, `qm terminal`) and **Shell** opens `pct enter` for containers, in a terminal tab. When this login may not use the tools, **Read as root** goes through the usual sudo prompt.
@@ -1056,7 +1089,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Fixed
 - **CRT scanlines** now show on macOS (the overlay used a blend mode WebKit drops) and feel alive everywhere: lines that slowly crawl, a faint rolling refresh band, a rare subtle flicker and a vignette. Motion is GPU-only; reduced motion keeps the static lines, and Reduce effects turns it off.
 
-## [0.10.6] - 2026-11-15
+## [0.10.6] "Infrared Paradox" - 2026-11-15
 
 ### Added: backup board, proxy routes and log anomaly alerts (M10g)
 - **System → Backups**: a status board for restic, borg, rsync and rclone jobs on every host, with last run, last good run, size (and what the last run added), result and a **STALE** flag after an age you pick per job. A job points at a **systemd timer or service** (last run, exit status and the totals the tool printed in the journal) or a **path** such as a repository or rsync target (newest file and size on disk). **Find jobs** looks through the host's timers and cron tables and pre-fills them. Nightgrid never opens a repository, needs its password or runs a backup.
@@ -1067,7 +1100,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Settings → Backup · Profile**: the encrypted export is now called a profile: one file, a passphrase you choose, everything from hosts to settings (and saved secrets if ticked), importable on macOS, Windows and Linux. **Export profile…** and **Import profile…** are in the command palette.
 - **Backup reminder**: a small card reminds you to export when the last profile export from this computer is older than a week (or 2 weeks, a month, never). **Tomorrow** snoozes it; any export resets it.
 
-## [0.10.5] - 2026-11-15
+## [0.10.5] "Pale Syntax" - 2026-11-15
 
 ### Added: stack snapshots, image changelogs and a deploy wizard (M10f)
 - **Updates** on each Compose stack asks every image's registry (anonymously, only when you click) whether its tag moved, and shows the version you run, the new version and when it was built. When the image says where its source lives, **What changed** opens the GitHub compare page between the two versions (or the release notes), and **Project** opens the repository. Images pinned by digest, built locally or behind a login are labelled instead of guessed.
@@ -1075,28 +1108,28 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Roll back…** restores the saved files and images (pulled again by digest if they were removed) and recreates the services that changed. The confirmation names the stack, the host, every file it overwrites and every service's target image; the state before the rollback is saved first, so it can be undone.
 - **+ New stack** deploys from an image or from pasted compose YAML. From an image it reads the image's declared ports, volumes and environment variables to pre-fill a form, then shows the generated `compose.yaml` to edit before writing it. Environment values go into the stack's `.env` (mode 600), never into `compose.yaml`, and are masked until you click **Show values**. Existing files are never replaced without a second click under a warning that names them. The file is checked with `docker compose config` and the stack can be started from the last step.
 
-## [0.10.4] - 2026-11-15
+## [0.10.4] "Polar Haze" - 2026-11-15
 
 ### Added: notes, runbooks and history search (M10e)
 - **Notes** (`Mod+9`): markdown notes and runbooks, optionally tied to a host, with tags, pins, search and host/tag filters. Each code block in a note has **Send to terminal** (types it at the prompt of a shell on that host, opening one if needed; you press Enter) and **Copy**. **✦ Explain** asks DRIFT to walk through a runbook.
 - Notes never hold secrets: text that looks like a password, token, private key or a password in a URL is refused on save, and **Mask them** replaces those values with `••••`. Notes are included in encrypted backups.
 - **Shell history search** (off by default, **Settings → Terminal**): a **HIST** button on SSH terminals searches the host's bash, zsh and fish history. Picking a result types it at the prompt; **+ Note** starts a runbook from it. Lines that look like they hold a secret are left out (and counted), and nothing is saved.
 
-## [0.10.3] - 2026-11-15
+## [0.10.3] "Plasma Pulse" - 2026-11-15
 
 ### Added: security hygiene and port map (M10d)
 - **System → Security** grades a host from A to F with checks that need no root: root and password logins over SSH, an active firewall (ufw, firewalld or nftables), databases, caches or the Docker API listening on every interface, Docker-published ports that bypass ufw, brute-force protection, automatic security updates, a pending reboot and extra uid-0 accounts. Findings come with the fix and copy buttons for its commands; nothing is changed on the host. **✦ Explain** asks DRIFT what to fix first.
 - **Listening ports** per host: port, service, who can reach it (local, VPN, one address, all interfaces), and the process or Docker container behind it.
 - **Port map · all hosts** scans every host (three at a time, no prompts) and shows the ports each one exposes beyond localhost, with its grade.
 
-## [0.10.2] - 2026-11-15
+## [0.10.2] "Acid Billboard" - 2026-11-15
 
 ### Added: forecasts, GPUs and scheduled jobs (M10c)
 - **System → Schedules** lists systemd timers and cron jobs on the host: the schedule in plain words ("every 15 minutes", "weekdays at 09:00"), when each runs next and ran last, and whether the last run failed (marked red with its exit code). **Journal** opens the last 7 days of the service a timer starts. Cron jobs come from your crontab, `/etc/crontab` and `/etc/cron.d`; the `cron.daily`/`weekly`/… scripts are listed too. Commands that look like they carry a token are masked until you click **Reveal**.
 - **Disk and memory forecasts** in the host monitor: a trend over the last 14 days says when the fullest filesystem fills up, and warns when memory keeps climbing.
 - **GPU monitoring**: NVIDIA (`nvidia-smi`) and AMD (amdgpu sysfs) cards show busy %, VRAM, temperature and power in the monitor, and the busiest GPU is kept in history with its own chart.
 
-## [0.10.1] - 2026-11-15
+## [0.10.1] "Amber Cascade" - 2026-11-15
 
 ### Added: DRIFT explains things where you are (M10b)
 - **Explain** buttons hand what you're looking at to DRIFT with a label saying what it is: container logs (Docker → a container → Logs), the journal (System → Journal), compose output after a stack operation, and each host's result in Automation. Select some lines first to send only those; otherwise the newest 150–200 lines go.
@@ -1104,7 +1137,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - The question is asked straight away when the model is ready; otherwise DRIFT opens with the text attached and the question waiting in the box. Each question shows what was attached under it, and the chip can still be removed before asking. Secret-looking values are masked as before.
 - The buttons only appear while DRIFT is turned on.
 
-## [0.10.0] - 2026-11-15
+## [0.10.0] "Neon Static" - 2026-11-15
 
 ### Added: DRIFT, the local helper (M10)
 - **DRIFT** (`Cmd+J`, the DRIFT button in the top bar, or *Ask DRIFT* in the palette) answers questions about Nightgrid and your servers in a side panel. Select log lines, an error or a compose file first and ask what's wrong: the selection goes along with the current view and host. You can remove either before asking.
@@ -1113,19 +1146,19 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - Answers come from the bundled user guide. Each reply lists the guide sections it used and can show exactly what the model was given. Values that look like passwords or tokens are masked first.
 - Code blocks have a copy button; DRIFT never runs commands itself.
 
-## [0.9.2] - 2026-11-15
+## [0.9.2] "Tungsten Monolith" - 2026-11-15
 
 ### Changed
 - **Self-updates are on.** Releases are now signed, and Nightgrid checks GitHub Releases after start-up and offers **Install & restart** when a newer version is out (Settings → Updates). 0.9.2 is the first version that can update itself, so install it by hand once.
 
-## [0.9.1] - 2026-11-15
+## [0.9.1] "Overclocked Monsoon" - 2026-11-15
 
 ### Added: handhelds and docs (M9)
 - **Settings → Display → Handheld layout** for the ROG Ally, Steam Deck and touch screens: finger-sized buttons and fields, 130 % scale and an icon-only sidebar in one switch.
 - **Controller navigation**: with a gamepad connected, the D-pad or left stick moves focus (hold to repeat), A selects, B closes dialogs, LB/RB switch views, Start opens the command palette and Select toggles the sidebar. The focused item gets a clear outline while you use the controller.
 - A **user guide** (`docs/USER_GUIDE.md`) covering every view.
 
-## [0.9.0] - 2026-11-15
+## [0.9.0] "Restless Transit" - 2026-11-15
 
 ### Added: encrypted backups (M9)
 - **Settings → Backup** exports your setup (hosts, groups, tags, snippets, playbooks, services, tunnels, integrations, bookmarks, Docker stack folders and settings) to one file encrypted with a passphrase. It's a standard [age](https://age-encryption.org) file, so `age -d` can open it too.
@@ -1133,7 +1166,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Import** asks for the passphrase, shows what the file holds and lets you **Merge** (keep everything here, add what's new, skip what already exists) or **Replace** (delete the current setup and load the backup; you type `replace` to confirm). Nightgrid restarts afterwards.
 - **Sync folder**: pick a folder that syncs between your machines and export/import use `nightgrid-backup.age` in it with one click. The passphrase is never stored.
 
-## [0.8.0] - 2026-11-15
+## [0.8.0] "Molten Current" - 2026-11-15
 
 ### Added: automation (M8)
 - New **Automation** view (`Cmd+8`): type a command or pick a saved one, choose hosts (click a group to select all of its hosts) and **Run**. Hosts run in parallel, each with its own status, exit code, duration and live output (errors in red). **Stop** ends a run; **Select failed** re-targets the hosts that failed.
@@ -1143,7 +1176,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Safety**: commands that delete, kill, stop, restart, reboot, upgrade or overwrite (`rm`, `docker prune`, `compose down`, `systemctl restart`, `> file`, ...) ask first, listing what was found and the hosts. On several hosts you type the group name or the number of hosts.
 - **Palette**: `Snippet: …` (aimed at the host of the terminal in front), **Type into terminal** for plain snippets, `Playbook: …`, **Run a command on several hosts**, **New snippet** and **New playbook**.
 
-## [0.7.1] - 2026-11-15
+## [0.7.1] "Cold Kernel" - 2026-11-15
 
 ### Added: integrations (M7)
 - **Services → Add integration** connects Nightgrid to apps you run. Each gets a card in a new **INTEGRATIONS** panel at the top of Services, refreshed every 30 seconds while the view is open:
@@ -1153,7 +1186,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
   - **Portainer**: link it to a host and containers on that host get an **Open in Portainer** button in Docker.
 - Tokens and passwords are kept in the OS keychain only, masked in the editor with **Show** to reveal. **Test** tries the settings before you save.
 
-## [0.7.0] - 2026-11-15
+## [0.7.0] "Electric Diode" - 2026-11-15
 
 ### Added: alerts and notifications (M7)
 - Nightgrid now raises **alerts** from what it already watches: a host unreachable for 2 minutes, a disk over 90 % full, a container that was running and exits with an error (or restarts in a loop, or turns unhealthy), a service failing its check for about 90 seconds, a certificate expiring within 14 days, and a disk with a SMART warning.
@@ -1166,7 +1199,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - A tray icon (menu bar on macOS) with the alert count, **Connect** (every host with its status; click to open a terminal), **Tunnels** (click to start or stop a saved tunnel), **Show** and **Quit**. Turn it off in **Settings → Desktop**.
 - **Keep running when the window is closed** (off by default): closing hides the window while alerts, tunnels and checks keep running. Click the Dock icon or **Show** to bring it back.
 
-## [0.6.0] - 2026-11-15
+## [0.6.0] "Copper Cipher" - 2026-11-15
 
 ### Added: system management (M6)
 - New **System** view (`Cmd+7`) per host with four tabs:
@@ -1181,7 +1214,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Changed
 - Shortcuts: **Automation** moved to `Cmd+8` to make room for **System** on `Cmd+7`.
 
-## [0.5.0] - 2026-11-15
+## [0.5.0] "Flickering Overpass" - 2026-11-15
 
 ### Added: services board (M5)
 - **Services** view: every web app you run as a card with up/down state, HTTP status, latency with a 24-hour trend, 24 h uptime and, for https, certificate trust and days to expiry (warns under 14 days). Group by your own groups or by host, filter, check one or all now. Click a name to open it in your browser.
@@ -1193,7 +1226,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 - **Open web UI through a tunnel**: type a port or URL as the host sees it and press Open, or use **Tunnel** on a service card linked to a host. Nightgrid forwards it to a free local port and opens it in your browser.
 - The top bar's TUN counter shows running tunnels (click to open Tunnels). The palette has **Add service**, **Import Homepage**, **Open <service>**, **Add tunnel** and **Start/Stop tunnel <name>**.
 
-## [0.4.2] - 2026-11-15
+## [0.4.2] "Sleepless Firewall" - 2026-11-15
 
 ### Added: app updates (M4.5)
 - Nightgrid checks GitHub Releases for a newer version shortly after launch (one request; turn it off in **Settings → Updates**). When there is one, a dialog shows the version and its changelog with **Install & restart**, **Later** and **Skip this version**. **Check now** is in Settings.
@@ -1204,7 +1237,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Changed
 - The glitch/scramble text decode-in is used more widely: panel and dialog titles, view switches, notices and errors, and host state changes on the Overview tiles. It stays quick and is off with **Reduce effects** or the system's reduced-motion setting.
 
-## [0.4.1] - 2026-11-14 (prerelease)
+## [0.4.1] "Sodium Arcade" - 2026-11-14 (prerelease)
 
 ### Changed
 - New app icon (and matching sidebar mark): a terminal window in the app's colours (mint frame, a magenta/mint title-bar stepper, cyan prompt, magenta cursor) on a near-black tile sized to the macOS icon grid. The vector source is `app/icons/source.svg`.
@@ -1215,7 +1248,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Fixed
 - Command palette: the prompt and the search text sit on one left-aligned line again. A global form-field style was stacking them and centering the text.
 
-## [0.4.0] - 2026-11-14 (prerelease: M0–M4)
+## [0.4.0] "Distant Tempest" - 2026-11-14 (prerelease: M0–M4)
 
 ### Added: monitoring (M4)
 - **Overview tiles are live**: each host shows CPU % with a sparkline, memory and fullest-disk meters, network rates, CPU temperature and uptime. The state line says when a host is offline (with the retry countdown) or needs a login first.
@@ -1228,7 +1261,7 @@ Nightgrid 1.0: the road-to-1.0 batch (journal, blueprints, sandbox clones, power
 ### Changed
 - ASCII host icons size to their content, so they also fit inside the new tiles.
 
-## [0.3.0] - 2026-11-14 (prerelease: M0–M3)
+## [0.3.0] "Cobalt Beacon" - 2026-11-14 (prerelease: M0–M3)
 
 ### Added: release builds
 - Pushing a `v*` tag, or running CI manually with a `release_tag`, publishes the macOS (.dmg), Windows (.exe, portable .zip) and Linux (.deb, .rpm, .AppImage) installers as a GitHub prerelease. Builds are unsigned.

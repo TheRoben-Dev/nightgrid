@@ -349,8 +349,19 @@ jobs:
           fi
       - name: List installers
         run: ls -laR dist
+      # Title "vX.Y.Z · Codename" and the version's CHANGELOG notes (D-204);
+      # GitHub's generated list of PRs follows them.
+      - name: Release title and notes
+        id: notes
+        env:
+          TAG: ${{ inputs.release_tag || github.ref_name }}
+        run: |
+          echo "title=$(node scripts/codenames.mjs title "$TAG")" >> "$GITHUB_OUTPUT"
+          node scripts/codenames.mjs notes "$TAG" > release-notes.md
       - uses: softprops/action-gh-release@v2
         with:
+          name: ${{ steps.notes.outputs.title }}
+          body_path: release-notes.md
           # Not marked prerelease: the updater reads releases/latest, which skips prereleases.
           prerelease: false
           make_latest: true

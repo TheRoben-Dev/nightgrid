@@ -339,6 +339,7 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
 - **Acknowledge** (**✓ Ack** on an alert): it stays in the list but stops counting toward the badge and tray and sends nothing (desktop, inbox, ntfy, webhook). Choose **Until it clears**, a time (**1 hour**, **8 hours**, **1 day**, **1 week**, **30 days** or **Custom**) or **Permanently**. Whichever you pick, it comes back if it gets worse, such as a disk crossing from WARN into CRITICAL (98 %).
 - **Mute** (**Mute…** on an alert): this alert only, every alert of its kind on its host, everything on its host, or its kind on every host; for a time, **Custom** or **Forever**. Mutes hold whatever the severity.
 - **ACKNOWLEDGED & MUTED** in the Alerts panel lists them all with the time left; **Undo** ends one. A timed one that runs out while its alert is still active notifies once. Silenced alerts stay on the host's timeline tagged **ACKNOWLEDGED** or **MUTED** and aren't counted as problems. They're kept on this computer, not in a profile export.
+- **Ignore health check** (Docker → a container's panel): for a container that is unhealthy by design. Unhealthy no longer raises CONTAINER DOWN, colours it as a problem, or counts in the log watch and DRIFT's view; exits, crashes and restart loops still alert. The row shows **HEALTH IGNORED** (click it to watch the check again). Kept per host and compose service, or container name for plain containers, so it survives recreating the container; part of the profile export.
 - **Skip system mounts** (under **Disk almost full**, on by default): no DISK FULL for read-only mounts and ones that are full by design, such as WSL and Docker Desktop's `/mnt/wsl/…`, snaps and CD/DVD images.
 - Alerts arrive as desktop notifications, and optionally through a Discord or JSON webhook. Quiet hours hold notifications but still show alerts in the app. An active alert that gets worse (WARN to CRITICAL) notifies again.
 - **Inbox**: **INBOX** in the top bar keeps every notice Nightgrid sent for 30 days: alerts as they fire and clear, restore drills that passed or failed, secrets and certificates due for rotation, security score drops and capacity warnings. The count is what you haven't read; click a notice to open what it's about, or **Mark all read** / **Clear**.
@@ -355,6 +356,20 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
   - Nightgrid restarts afterwards.
 - **Sync folder**: pick a Syncthing, cloud-drive or git folder, and export and import use `nightgrid-backup.age` there in one click. The passphrase is never stored, so keep it somewhere safe. Without it the file can't be opened.
 - **Profiles**: an export is your profile. It imports on macOS, Windows and Linux (**Export profile…** / **Import profile…** in the command palette). A reminder card appears when your last export from this computer is older than a week; change the interval or turn it off under **Remind me to export**.
+
+## Sync between your devices
+
+**Settings → Sync** keeps Nightgrid the same on your computers and handhelds. The apps talk to each other directly over your LAN or tailnet (the built-in Tailscale works too); there is no server or account in between.
+
+- **Pair once.** On one device turn on **Let paired devices reach this one** and press **Show a code**. On the other press **Join a device…**, enter the first one's address (its LAN address, tailnet name or 100.x address, shown under **Reach it at**) and the code. A code is valid for 5 minutes and three tries. **It can change this device's profile** decides whether the new device may push or send changes here; you can change it later.
+- **Pick how each device syncs** under **Paired devices**:
+  - **Manual**: **Push to…** sends this profile there, **Pull from…** takes theirs. **Merge** adds what's new; **Replace** makes the receiving side a copy (type `replace` to confirm). The side that received a profile restarts to load it.
+  - **Two-way**: changes on either device go to the other within seconds, item by item. A host edited on one and a dashboard on the other both survive; when the same item was edited on both, the later edit wins. Deletions travel too. A device that was offline catches up when it's back.
+  - **Send only** / **Receive only**: automatic, one direction.
+  - Automatic sync needs the same Nightgrid version on both devices. If both already have a setup, push or pull once in Manual first, so they start the same.
+- **Secrets** (SSH passwords and key passphrases, integration tokens, .env vault keys) only travel when you tick their group for that device, on both devices.
+- **Stays on each device**: its name, window scale, handheld and controller options, tray, built-in Tailscale, phone status page, MCP server, sync folder and the DRIFT model. SSH key files in `~/.ssh` aren't copied.
+- **Unpair…** forgets a device and asks it to forget this one. Nothing is deleted from either profile.
 
 ## Phone status page and snapshots
 
@@ -422,6 +437,8 @@ Settings → **FEATURES** lists every installed view and the checks inside them,
 ## Updates
 
 Nightgrid checks GitHub Releases after start-up and offers **Install & restart** when a newer version is out. Turn this off, or check by hand, under Settings → Updates.
+
+Every release has a codename on top of its version number, two words like "Cobalt Signal". The update prompt shows it, and **Settings → Updates** shows the installed version's codename. The first time Nightgrid starts after an update, **SYSTEM UPGRADED** shows that release's codename and notes; if you skipped versions, each one since the last you saw gets its own tab. It shows once per version. **Settings → General → RELEASE LOG** lists every release with its codename, date and notes: search, expand one to read it, or **Show What's new** again. The notes are built into the app, so they work offline.
 
 Fixes that only touch the interface can arrive between releases. With **Settings → Updates → Interface fixes between releases** on (the default), Nightgrid looks for a fix built for exactly the version you run, after start-up and every 6 hours. It's a small download (a few MB), checked against the same signing key as app updates, and it applies the next time Nightgrid starts: a card offers **Restart now**. The Updates panel shows whether the interface is built in or a fix (and from when), with **Check fixes** and **Use built-in**. A fix can only change the interface: what the app is allowed to do stays as built. If a fix ever fails to start, Nightgrid notices within a minute, goes back to the built-in interface and never uses that fix again. A fix for an older version is ignored once you update, because every release carries all fixes before it.
 

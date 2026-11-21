@@ -2,6 +2,7 @@
   import { api, errorText, type ContainerDetail, type ContainerView } from "../../api";
   import { openExternal } from "../../clipboard";
   import { isUp } from "../../stores/docker.svelte";
+  import { healthIgnores } from "../../stores/healthIgnores.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { integrations, portainerUrl } from "../../stores/integrations.svelte";
   import { targetLabel, targetUrl, webui } from "../../stores/webui.svelte";
@@ -124,9 +125,25 @@
           <dt>STATE</dt>
           <dd>
             {detail.state}{#if detail.health}
-              · <span class="h-{detail.health}">{detail.health}</span>{/if}{#if detail.exitCode !== null && detail.state !== "running"}
+              · <span class="h-{container.healthIgnored ? 'ignored' : detail.health}">{detail.health}{container.healthIgnored ? " (ignored)" : ""}</span>{/if}{#if detail.exitCode !== null && detail.state !== "running"}
               · exit {detail.exitCode}{/if}
           </dd>
+          {#if container.health || container.healthIgnored}
+            <dt>HEALTH CHECK</dt>
+            <dd class="hc">
+              <label title="For a container that is unhealthy by design: unhealthy stops alerting and counting as down. Exits, crashes and restart loops still alert.">
+                <input
+                  type="checkbox"
+                  data-guide="docker-ignore-health"
+                  checked={container.healthIgnored}
+                  disabled={healthIgnores.busy}
+                  onchange={(e) => void healthIgnores.set(hostId, container, e.currentTarget.checked)}
+                />
+                Ignore health check{container.service && container.project ? ` (${container.project}/${container.service})` : ""}
+              </label>
+              {#if container.healthIgnored}<span class="muted hc-note">Unhealthy won't alert. Crashes still do.</span>{/if}
+            </dd>
+          {/if}
           <dt>STARTED</dt>
           <dd>{when(detail.startedAt)}</dd>
           {#if detail.finishedAt && detail.state !== "running"}<dt>FINISHED</dt>
@@ -436,5 +453,22 @@
   }
   .h-starting {
     color: var(--warn);
+  }
+  .h-ignored {
+    color: var(--text-2);
+  }
+  .hc {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .hc-note {
+    font-size: var(--fs-xs);
+  }
+  .hc label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
   }
 </style>

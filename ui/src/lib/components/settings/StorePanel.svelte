@@ -1,5 +1,5 @@
 <script lang="ts">
-  // Settings → STORE (D-205): optional components. The core app keeps the
+  // Settings → STORE (D-206): optional components. The core app keeps the
   // standard essentials; everything here is installed when wanted.
   import Panel from "../Panel.svelte";
   import { COMPONENTS, SHELVES, ownerOf, type StoreComponent } from "../../storeCatalog";
