@@ -105,6 +105,9 @@ pub struct AppSettings {
     pub broadcasts: bool,
     /// Transmission ids the user acknowledged (never shown again).
     pub dismissed_broadcasts: Vec<String>,
+    /// The newest version whose release notes were shown on this computer
+    /// (D-204). Machine-specific: kept as is when a profile is imported.
+    pub last_seen_version: Option<String>,
     /// Alert rules and delivery.
     pub alerts: AlertSettings,
     /// Show a tray / menu bar icon with host status, tunnels and alerts.
@@ -457,6 +460,7 @@ impl Default for AppSettings {
             ui_patches: true,
             broadcasts: true,
             dismissed_broadcasts: Vec::new(),
+            last_seen_version: None,
             alerts: AlertSettings::default(),
             tray_enabled: true,
             close_to_tray: false,
