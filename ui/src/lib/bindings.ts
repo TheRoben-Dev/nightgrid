@@ -131,6 +131,16 @@ export const commands = {
 	 *  user"), then drops the cached engine so the next call uses it.
 	 */
 	dockerSetUser: (hostId: number, user: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_set_user", { hostId, user }, options),
+	/**  Every container whose healthcheck is ignored, on every host (D-201). */
+	dockerHealthIgnores: (options?: InvokeOptions) => __TAURI_INVOKE<HealthIgnore[]>("docker_health_ignores", undefined, options),
+	/**
+	 *  Ignores a container's healthcheck, or stops ignoring it (D-201). Keyed
+	 *  by compose project/service when given, else by container name, so it
+	 *  survives the container being recreated.
+	 */
+	dockerSetHealthIgnored: (input: HealthIgnoreInput_Deserialize, ignored: boolean, options?: InvokeOptions) => __TAURI_INVOKE<HealthIgnore | null>("docker_set_health_ignored", { input, ignored }, options),
+	/**  Stops ignoring one healthcheck by its id (the Alerts settings list). */
+	dockerHealthIgnoreDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_health_ignore_delete", { id }, options),
 	/**
 	 *  Compose stacks on the host: from container labels plus the host's stack
 	 *  folders.
@@ -3128,6 +3138,11 @@ export type ContainerView_Deserialize = {
 	status: string,
 	/**  healthy, unhealthy, starting; None when there is no healthcheck. */
 	health?: string | null,
+	/**
+	 *  The user ignores this container's healthcheck (D-201): Nightgrid
+	 *  treats it as having none. `health` still says what Docker reports.
+	 */
+	healthIgnored: boolean,
 	/**  Unix seconds. */
 	created: number,
 	ports: PortView_Deserialize[],
@@ -3150,6 +3165,11 @@ export type ContainerView_Serialize = {
 	status: string,
 	/**  healthy, unhealthy, starting; None when there is no healthcheck. */
 	health: string | null,
+	/**
+	 *  The user ignores this container's healthcheck (D-201): Nightgrid
+	 *  treats it as having none. `health` still says what Docker reports.
+	 */
+	healthIgnored: boolean,
 	/**  Unix seconds. */
 	created: number,
 	ports: PortView_Serialize[],
@@ -4611,6 +4631,37 @@ export type Health = "ok" |
 "warn" | 
 /**  Failing or failed. */
 "bad";
+
+export type HealthIgnore = {
+	id: number,
+	hostId: number,
+	/**  Compose project; empty for a plain container. */
+	project: string,
+	/**  Compose service; empty for a plain container. */
+	service: string,
+	/**  Container name; empty when matched by project/service. */
+	name: string,
+	createdAt: number,
+};
+
+/**  What the UI sends to ignore one container's healthcheck. */
+export type HealthIgnoreInput = HealthIgnoreInput_Serialize | HealthIgnoreInput_Deserialize;
+
+/**  What the UI sends to ignore one container's healthcheck. */
+export type HealthIgnoreInput_Deserialize = {
+	hostId: number,
+	project?: string | null,
+	service?: string | null,
+	name: string,
+};
+
+/**  What the UI sends to ignore one container's healthcheck. */
+export type HealthIgnoreInput_Serialize = {
+	hostId: number,
+	project: string | null,
+	service: string | null,
+	name: string,
+};
 
 export type HelperEvent = 
 /**  The model is being loaded (first question after start). */

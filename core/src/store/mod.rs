@@ -72,7 +72,8 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         M::up(include_str!("migrations/0055_host_docker_user.sql")),
         M::up(include_str!("migrations/0056_alert_silences.sql")),
         M::up(include_str!("migrations/0057_storage_sources.sql")),
-        M::up(include_str!("migrations/0058_sync_peers.sql")),
+        M::up(include_str!("migrations/0058_health_ignores.sql")),
+        M::up(include_str!("migrations/0059_sync_peers.sql")),
     ])
 });
 
@@ -155,7 +156,7 @@ impl Store {
 mod tests {
     use super::*;
 
-    const LATEST: i64 = 58;
+    const LATEST: i64 = 59;
 
     #[test]
     fn migrations_are_valid() {

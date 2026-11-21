@@ -318,6 +318,7 @@ mod tests {
             state: "running".into(),
             status: "Up".into(),
             health: None,
+            health_ignored: false,
             created: 0,
             ports: ports
                 .iter()

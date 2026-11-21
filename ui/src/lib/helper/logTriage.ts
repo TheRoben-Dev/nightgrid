@@ -19,13 +19,14 @@ export interface ContainerFacts {
   error: string | null;
 }
 
-export function factsFrom(name: string, d: ContainerDetail | null, error: string | null): ContainerFacts {
+/** `healthIgnored`: the user ignores this container's healthcheck (D-201), so it doesn't count. */
+export function factsFrom(name: string, d: ContainerDetail | null, error: string | null, healthIgnored = false): ContainerFacts {
   if (!d) return { name, state: null, health: null, startedAt: null, restartCount: null, exitCode: null, error: error ?? "not read" };
   const t = d.startedAt ? Date.parse(d.startedAt) : NaN;
   return {
     name,
     state: d.state || null,
-    health: d.health,
+    health: healthIgnored && d.health ? `${d.health} (check ignored)` : d.health,
     startedAt: Number.isFinite(t) ? Math.floor(t / 1000) : null,
     restartCount: d.restartCount,
     exitCode: d.state === "exited" ? d.exitCode : null,

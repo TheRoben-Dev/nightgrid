@@ -478,7 +478,9 @@ async fn evaluate(app: &AppHandle, cfg: &AppSettings, now: i64, last_docker: &mu
             }
             let list = async {
                 let d = crate::docker_cmd::docker_for(app, *id).await.map_err(|e| e.message)?;
-                d.containers().await.map_err(|e| e.to_string())
+                let mut list = d.containers().await.map_err(|e| e.to_string())?;
+                crate::docker_cmd::mark_health_ignored(app, *id, &mut list);
+                Ok::<_, String>(list)
             };
             match tokio::time::timeout(Duration::from_secs(15), list).await {
                 Ok(Ok(list)) => {
@@ -799,7 +801,8 @@ async fn read_log_lines(
         return Some(out);
     }
     if let Ok(d) = crate::docker_cmd::docker_for(app, id).await {
-        if let Ok(list) = d.containers().await {
+        if let Ok(mut list) = d.containers().await {
+            crate::docker_cmd::mark_health_ignored(app, id, &mut list);
             let started = |status: &str| logwatch::uptime_from_status(status).map(|up| now - up);
             // The newest reverse-proxy start on the host: every site behind it reloads.
             let proxy = list
@@ -824,7 +827,7 @@ async fn read_log_lines(
                     journal: false,
                     started_at: started(&c.status),
                     proxy_started_at: if is_proxy { None } else { proxy },
-                    unhealthy: c.health.as_deref() == Some("unhealthy"),
+                    unhealthy: c.effective_health() == Some("unhealthy"),
                     restarting: c.state == "restarting",
                 };
                 out.insert(format!("{id}|container/{}", c.name), (lines, ctx));

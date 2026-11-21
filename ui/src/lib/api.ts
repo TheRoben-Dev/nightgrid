@@ -228,6 +228,8 @@ import {
   type ContainerDetail_Serialize as ContainerDetail,
   type ContainerStats,
   type ContainerView_Serialize as ContainerView,
+  type HealthIgnore,
+  type HealthIgnoreInput_Deserialize as HealthIgnoreInput,
   type WebUiOpen_Serialize as WebUiOpen,
   type WebUiTarget_Serialize as WebUiTarget,
   type DockerError,
@@ -728,6 +730,8 @@ export type {
   ContainerDetail,
   ContainerStats,
   ContainerView,
+  HealthIgnore,
+  HealthIgnoreInput,
   WebUiOpen,
   WebUiTarget,
   DockerError,
@@ -1203,6 +1207,10 @@ export const api = {
     T() ? commands.dockerFixAccess(hostId, steps, relogin, sudo) : mockDocker.fixAccess(hostId),
   dockerSetUser: (hostId: number, user: string | null): Promise<null> =>
     T() ? commands.dockerSetUser(hostId, user) : mockBackend.hostSetDockerUser(hostId, user).then(() => mockDocker.setUser(hostId, user)),
+  dockerHealthIgnores: (): Promise<HealthIgnore[]> => (T() ? commands.dockerHealthIgnores() : mockDocker.healthIgnores()),
+  dockerSetHealthIgnored: (input: HealthIgnoreInput, ignored: boolean): Promise<HealthIgnore | null> =>
+    T() ? commands.dockerSetHealthIgnored(input, ignored) : mockDocker.setHealthIgnored(input, ignored),
+  dockerHealthIgnoreDelete: (id: number): Promise<null> => (T() ? commands.dockerHealthIgnoreDelete(id) : mockDocker.deleteHealthIgnore(id)),
   dockerStacks: (hostId: number): Promise<Stack[]> => (T() ? commands.dockerStacks(hostId) : mockDocker.stacks(hostId)),
   dockerComposeRun: (hostId: number, stack: Stack, op: ComposeOp, on: (e: ComposeEvent) => void): Promise<number> => {
     if (!T()) return mockDocker.composeRun(hostId, stack, op, on);
