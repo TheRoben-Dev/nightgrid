@@ -54,6 +54,8 @@
   import WebUiNotice from "./lib/components/webui/WebUiNotice.svelte";
   import UiPatchNotice from "./lib/components/update/UiPatchNotice.svelte";
   import { uiPatch } from "./lib/stores/uipatch.svelte";
+  import Transmission from "./lib/components/update/Transmission.svelte";
+  import { broadcasts } from "./lib/stores/broadcasts.svelte";
   import McpAskCard from "./lib/components/mcp/McpAskCard.svelte";
   import { mcp } from "./lib/stores/mcp.svelte";
   import { authNotices } from "./lib/stores/authNotices.svelte";
@@ -93,6 +95,7 @@
       updates.startLaunchCheck();
       void kbContent.start();
       void uiPatch.start();
+      void broadcasts.start();
       mcp.start();
     });
     // Tray menu: quick connect and "open alerts".
@@ -345,6 +348,7 @@
 <SshImportDialog />
 <HostMonitor />
 <UpdateDialog />
+<Transmission />
 {#if settings.on("services")}
   <ServiceEditor />
   <HomepageImport />

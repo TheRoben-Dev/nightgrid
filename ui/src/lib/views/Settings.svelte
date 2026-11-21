@@ -21,6 +21,7 @@
   import { updates } from "../stores/updates.svelte";
   import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
   import { patchLabel, uiPatch } from "../stores/uipatch.svelte";
+  import { broadcasts } from "../stores/broadcasts.svelte";
   import { DEFAULT_KEYMAP, formatChord, isMac, type ActionId } from "../keys";
   import {
     METRICS_BACKGROUND_STEPS,
@@ -146,6 +147,12 @@
         checked={settings.value.uiPatches}
         onchange={(v) => settings.update({ uiPatches: v })}
       />
+      <Toggle
+        label="Transmissions from the developer"
+        hint="Short notices when something needs fixing on your end (a provider changed, a setting needs a nudge, a known issue with a workaround). Signed with the release key and checked after start-up and every 3 hours; nothing about you is sent."
+        checked={settings.value.broadcasts}
+        onchange={(v) => settings.update({ broadcasts: v })}
+      />
     </div>
     <div class="kbrow" data-guide="settings-kb-content">
       <span class="muted small">
@@ -165,6 +172,14 @@
     </div>
     {#if uiPatch.status?.skipped}<p class="muted small">Downloaded fix not in use: {uiPatch.status.skipped}</p>{/if}
     {#if uiPatch.error}<p class="error" role="alert" use:scramble={uiPatch.error}></p>{/if}
+    <div class="kbrow" data-guide="settings-transmissions">
+      <span class="muted small">
+        Transmissions · {broadcasts.all.length ? `${broadcasts.all.length} current, ${broadcasts.queue.length} unread` : "none current"}{#if broadcasts.status?.checkedAt} · checked {new Date(broadcasts.status.checkedAt).toLocaleTimeString()}{/if}
+      </span>
+      <button type="button" class="btn ghost tiny" disabled={broadcasts.checking || broadcasts.status?.notConfigured} onclick={() => void broadcasts.check(true)}>{broadcasts.checking ? "Checking…" : "Check now"}</button>
+      {#if broadcasts.all.length}<button type="button" class="btn ghost tiny" title="Show every current transmission again, including ones you marked understood" onclick={() => broadcasts.showAll()}>Show all</button>{/if}
+    </div>
+    {#if broadcasts.error}<p class="error" role="alert" use:scramble={broadcasts.error}></p>{/if}
   </Panel>
 
   <div class="wide">
