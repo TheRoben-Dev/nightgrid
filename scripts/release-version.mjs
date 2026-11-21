@@ -12,10 +12,12 @@
 // - main's version is already above the tag (a PR bumped by hand) → release it;
 // - else bump: minor when the Unreleased notes have an "### Added" heading,
 //   patch otherwise.
-// The Unreleased heading becomes `## [X.Y.Z] - YYYY-MM-DD`.
+// The Unreleased heading becomes `## [X.Y.Z] "Codename" - YYYY-MM-DD`: every
+// release gets a codename (D-204, scripts/codenames.mjs).
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import process from "node:process";
+import { heading, nameRelease, pickCodename, releasesIn, UNRELEASED_RE, usedCodenames } from "./codenames.mjs";
 
 const dry = process.argv.includes("--dry-run");
 const git = (...a) => execFileSync("git", a, { encoding: "utf8" }).trim();
@@ -52,7 +54,6 @@ const last = lastTag ? lastTag.slice(1) : "0.0.0";
 const changed = lastTag ? git("diff", "--name-only", lastTag, "HEAD").split("\n").filter(Boolean) : ["(first release)"];
 const appChanges = changed.filter((p) => !PATCHABLE.test(p));
 const changelog = readFileSync("CHANGELOG.md", "utf8");
-const UNRELEASED_RE = /^## \[Unreleased\][^\n]*\n([\s\S]*?)(?=^## \[|(?![\s\S]))/m;
 const unreleased = UNRELEASED_RE.exec(changelog)?.[1] ?? "";
 
 const bumpedByHand = cmp(current, last) > 0;
@@ -63,6 +64,9 @@ if (!appChanges.length && !bumpedByHand) {
 
 const version = nextVersion(last, current, unreleased);
 const tag = `v${version}`;
+// A version already in the changelog (bumped by hand with its notes) keeps
+// its codename; otherwise pick a new one.
+const codename = releasesIn(changelog).find((r) => r.version === version)?.codename ?? pickCodename(version, usedCodenames(changelog));
 if (!dry) {
   writeFileSync("Cargo.toml", cargo.replace(VERSION_RE, `$1${version}$3`));
   const pkg = readFileSync("package.json", "utf8");
@@ -73,8 +77,6 @@ if (!dry) {
   }
   writeFileSync("Cargo.lock", lock);
   const date = new Date().toISOString().slice(0, 10);
-  if (UNRELEASED_RE.test(changelog)) {
-    writeFileSync("CHANGELOG.md", changelog.replace(/^## \[Unreleased\][^\n]*$/m, `## [${version}] - ${date}`));
-  }
+  writeFileSync("CHANGELOG.md", nameRelease(changelog, heading(version, codename, date)));
 }
-console.log(JSON.stringify({ release: true, last, version, tag, changed: appChanges.length, bumpedByHand }));
+console.log(JSON.stringify({ release: true, last, version, tag, codename, changed: appChanges.length, bumpedByHand }));

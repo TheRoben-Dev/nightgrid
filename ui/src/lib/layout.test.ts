@@ -21,7 +21,7 @@ const styleOf = (text: string) => text.match(/<style>([\s\S]*?)<\/style>/)?.[1] 
 
 // Document-style tab rows (closable editor/terminal/desktop tabs, dashboards,
 // starter shelves) are a different control and keep their own look.
-const OWN_TABS = new Set(["lib/views/Terminal.svelte", "lib/views/Desktops.svelte", "lib/views/Files.svelte", "lib/views/Overview.svelte", "lib/components/fleet/StarterGallery.svelte"]);
+const OWN_TABS = new Set(["lib/views/Terminal.svelte", "lib/views/Desktops.svelte", "lib/views/Files.svelte", "lib/views/Overview.svelte", "lib/components/fleet/StarterGallery.svelte", "lib/components/update/WhatsNew.svelte"]);
 
 describe("shared layout pieces", () => {
   it("components.css defines the shared pieces", () => {

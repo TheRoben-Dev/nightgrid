@@ -38,6 +38,7 @@ const BY_TARGET: Record<string, SettingsTab> = {
   "settings-desktop": "general",
   "settings-updates": "general",
   "settings-transmissions": "general",
+  "settings-releases": "general",
   "settings-diagnostics": "general",
   "settings-diagnostics-export": "general",
   "settings-sync": "sync",

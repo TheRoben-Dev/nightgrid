@@ -1815,6 +1815,11 @@ export type AppSettings_Deserialize = {
 	broadcasts?: boolean,
 	/**  Transmission ids the user acknowledged (never shown again). */
 	dismissedBroadcasts?: string[],
+	/**
+	 *  The newest version whose release notes were shown on this computer
+	 *  (D-204). Machine-specific: kept as is when a profile is imported.
+	 */
+	lastSeenVersion?: string | null,
 	/**  Alert rules and delivery. */
 	alerts?: AlertSettings_Deserialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -1968,6 +1973,11 @@ export type AppSettings_Serialize = {
 	broadcasts: boolean,
 	/**  Transmission ids the user acknowledged (never shown again). */
 	dismissedBroadcasts: string[],
+	/**
+	 *  The newest version whose release notes were shown on this computer
+	 *  (D-204). Machine-specific: kept as is when a profile is imported.
+	 */
+	lastSeenVersion: string | null,
 	/**  Alert rules and delivery. */
 	alerts: AlertSettings_Serialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */

@@ -987,6 +987,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   uiPatches: true,
   broadcasts: true,
   dismissedBroadcasts: [],
+  lastSeenVersion: null,
   alerts: {
     enabled: true,
     hostOffline: true,
