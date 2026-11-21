@@ -425,6 +425,7 @@ export const CATALOG: CatalogEntry[] = [
   { id: "apps/dockge", shelf: "apps", title: "Dockge alongside Nightgrid", cat: "docker" },
   { id: "linux/move-to-new-ssd", shelf: "linux", title: "Move a server to a new SSD", cat: "hardware" },
   { id: "basics/nightgrid-node", shelf: "basics", title: "Nightgrid Node: the optional server agent", cat: "monitoring" },
+  { id: "basics/feature-store", shelf: "basics", title: "The feature store: a slim core and components you add", cat: "start" },
   { id: "howto/node-install", shelf: "howto", title: "Install Nightgrid Node", cat: "monitoring" },
   { id: "howto/node-grants", shelf: "howto", title: "Choose what Nightgrid Node may do", cat: "security" },
   { id: "howto/node-cli", shelf: "howto", title: "Use Nightgrid Node from the command line and its fix menu", cat: "monitoring" },
