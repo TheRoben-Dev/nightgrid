@@ -421,6 +421,8 @@ Settings → **STORE** is where the optional parts of Nightgrid live. The core a
 
 **Install** turns a component on at once, no restart. A component that isn't installed is hidden from the sidebar, the command palette, shortcuts, Overview widgets and DRIFT, its code is never loaded and its background checks don't run. **Remove** keeps everything it stored (history, settings, notes), so installing it again brings it all back. Opening something that isn't installed lands here with **Install and open**.
 
+**Component patches.** Some components (Proxmox, VM desktops, Security, the network map and Automation so far) get fixes on their own between app releases. Nightgrid looks for them after start-up and every 6 hours for the components you have installed, or when you press **Check for patches**; installing a component fetches its newest patch. A patch is signed with the same key as app updates and checked before it's stored and again whenever it's used. It's only used when it's newer than the copy in your app and everything it needs from the app is unchanged, and it applies the next time you open that view after a restart. A component's card says when it runs a patch, and why a patch isn't used. If a patch ever fails to load or draw, Nightgrid switches to the built-in copy right away and never tries that patch again. Patches follow **Settings → Updates → Interface fixes between releases**.
+
 Updating from a version before the store installs every component you had a feature switched on for; anything you had turned off in Features stays out. A fresh install starts with the core only. What's installed travels in profile exports.
 
 ## Features: simple or everything

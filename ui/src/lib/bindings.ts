@@ -1203,6 +1203,15 @@ export const commands = {
 	 *  app's UI, so a pack older than the app's own copy is never fetched.
 	 */
 	kbPackCheck: (bundled: number, options?: InvokeOptions) => __TAURI_INVOKE<KbPackStatus_Serialize>("kb_pack_check", { bundled }, options),
+	/**  The stored packs. */
+	componentPacks: (options?: InvokeOptions) => __TAURI_INVOKE<ComponentPackInfo[]>("component_packs", undefined, options),
+	/**  Looks for newer packs of the given (installed) components and stores them. */
+	componentPacksCheck: (ids: string[], options?: InvokeOptions) => __TAURI_INVOKE<ComponentPackCheck_Serialize>("component_packs_check", { ids }, options),
+	/**
+	 *  Deletes a component's stored pack (removing the component, or going back
+	 *  to the built-in copy).
+	 */
+	componentPackRemove: (id: string, options?: InvokeOptions) => __TAURI_INVOKE<ComponentPackInfo[]>("component_pack_remove", { id }, options),
 	/**  The stored pack's catalog, and its files when `files` is true. */
 	kbPackLoad: (files: boolean, options?: InvokeOptions) => __TAURI_INVOKE<KbPackContent | null>("kb_pack_load", { files }, options),
 	/**  Deletes the stored pack: the Library goes back to the copy bundled with the app. */
@@ -3023,6 +3032,43 @@ export type CmdWidget_Serialize = {
 /**  Error returned to the frontend. Messages are user-safe and secret-free. */
 export type CommandError = {
 	message: string,
+};
+
+export type ComponentPackCheck = ComponentPackCheck_Serialize | ComponentPackCheck_Deserialize;
+
+export type ComponentPackCheck_Deserialize = {
+	packs: ComponentPackInfo[],
+	/**  Components that got a newer pack just now. */
+	updated: string[],
+	/**  When packs were last checked this run (RFC 3339). */
+	checkedAt?: string | null,
+	error?: string | null,
+	/**  This build can't verify packs (no release key, or a dev build). */
+	notConfigured: boolean,
+};
+
+export type ComponentPackCheck_Serialize = {
+	packs: ComponentPackInfo[],
+	/**  Components that got a newer pack just now. */
+	updated: string[],
+	/**  When packs were last checked this run (RFC 3339). */
+	checkedAt: string | null,
+	error: string | null,
+	/**  This build can't verify packs (no release key, or a dev build). */
+	notConfigured: boolean,
+};
+
+export type ComponentPackInfo = {
+	id: string,
+	/**  Unix time of the newest commit to the component's files. */
+	built: number,
+	commit: string,
+	notes: string[],
+	entry: string,
+	style: boolean,
+	/**  What it needs from the interface (JSON), checked by the interface. */
+	requires: string,
+	bytes: number,
 };
 
 /**  What a compose run's channel carries. */

@@ -8,7 +8,10 @@
 </script>
 
 <script lang="ts">
-  // Renders a view loaded on first use; later visits render at once.
+  import { componentPacks, packedInfo } from "../componentUi";
+  // Renders a view loaded on first use; later visits render at once. A view
+  // from a component pack that throws while rendering is swapped for the
+  // copy built into the app (componentUi.ts).
   interface Props {
     load: Loader;
     props?: Record<string, unknown>;
@@ -26,11 +29,26 @@
       })
       .catch((e) => (error = String((e as { message?: string })?.message ?? e)));
   });
+
+  function renderFailed(e: unknown, reset: () => void) {
+    const info = packedInfo(load);
+    if (!info || !componentPacks.failed(info.componentId, e)) return;
+    const l = load;
+    void info.bundled().then((m) => {
+      loaded.set(l, m.default);
+      reset();
+    });
+  }
 </script>
 
 {#if comp}
   {@const View = comp}
-  <View {...props} />
+  <svelte:boundary onerror={renderFailed}>
+    <View {...props} />
+    {#snippet failed(e)}
+      <p class="error" role="alert"><span aria-hidden="true">▲</span> This view stopped: {String((e as { message?: string })?.message ?? e)}</p>
+    {/snippet}
+  </svelte:boundary>
 {:else if error}
   <p class="error" role="alert"><span aria-hidden="true">▲</span> Couldn't load this view: {error}</p>
 {:else}

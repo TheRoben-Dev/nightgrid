@@ -1,0 +1,103 @@
+name: Component patches
+
+# Component packs (feature store part 2, D-207): when a store component's
+# interface files change on main, build that component on its own, sign it
+# with the release key and publish it to the rolling `components-latest`
+# release. Installed apps with the component installed fetch it, verify it
+# and use it when it's newer than their built-in copy and fits their app
+# (same Svelte, every shared module and command it needs unchanged), so a
+# fix to one component ships without an app release.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ui/**"
+      - "vite.config.ts"
+      - "svelte.config.js"
+  workflow_dispatch:
+
+# Its own group: never cancels (or waits on) the app's CI and release runs.
+concurrency:
+  group: components
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    name: Build, sign and publish component packs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Each component's version is the time of the last commit to its files.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Component tests
+        run: pnpm vitest run ui/tools ui/src/lib/componentUi.test.ts
+
+      - name: What's published
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p comp-pub
+          gh release download components-latest --pattern index.json --dir comp-pub --repo "$GITHUB_REPOSITORY" || echo "nothing published yet"
+
+      - name: Build components
+        run: node ui/tools/buildComponents.ts comp-built
+
+      - name: Pack what changed
+        run: node scripts/component-pack.mjs comp-built comp-out comp-pub/index.json
+
+      - name: Sign with the release key
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ ! -s comp-out/packed.txt ]; then echo "Nothing to sign."; exit 0; fi
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set: apps would refuse unsigned packs."
+            exit 1
+          fi
+          while read -r id; do
+            pnpm tauri signer sign "comp-out/$id.json.gz"
+            test -s "comp-out/$id.json.gz.sig"
+          done < comp-out/packed.txt
+          ls -la comp-out
+
+      - name: Files to publish
+        id: files
+        run: |
+          {
+            echo "list<<FILES_END"
+            echo "comp-out/index.json"
+            while read -r id; do echo "comp-out/$id.json.gz"; echo "comp-out/$id.json.gz.sig"; done < comp-out/packed.txt
+            echo "FILES_END"
+          } >> "$GITHUB_OUTPUT"
+          test -s comp-out/packed.txt && echo "go=true" >> "$GITHUB_OUTPUT" || echo "go=false" >> "$GITHUB_OUTPUT"
+
+      # Packs first, the index last (in the same upload the index is just a hint;
+      # apps trust only the signed packs).
+      - uses: softprops/action-gh-release@v2
+        if: steps.files.outputs.go == 'true'
+        with:
+          tag_name: components-latest
+          name: Component patches (rolling)
+          # Never "latest": the app updater reads releases/latest.
+          prerelease: true
+          make_latest: false
+          target_commitish: ${{ github.sha }}
+          overwrite_files: true
+          body: |
+            Signed component patches for Nightgrid's feature store, updated whenever a component's interface changes on main.
+            Apps pick them up by themselves for the components you have installed; there is nothing to download here by hand.
+          files: ${{ steps.files.outputs.list }}

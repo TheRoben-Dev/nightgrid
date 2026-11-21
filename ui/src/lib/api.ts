@@ -263,6 +263,8 @@ import {
   type Temp,
   type UpdateInfo,
   type KbPackStatus_Serialize as KbPackStatus,
+  type ComponentPackInfo,
+  type ComponentPackCheck_Serialize as ComponentPackCheck,
   type Broadcast_Serialize as Broadcast,
   type BroadcastStatus_Serialize as BroadcastStatus,
   type BroadcastLevel,
@@ -760,6 +762,8 @@ export type {
   UpdateInfo,
   KbPackStatus,
   KbPackContent,
+  ComponentPackInfo,
+  ComponentPackCheck,
   Broadcast,
   BroadcastStatus,
   BroadcastLevel,
@@ -1104,6 +1108,15 @@ function channel(listener: TermListener) {
 const T = inTauri;
 
 /** Outside the desktop app there is no downloaded Library content. */
+/** Browser preview: packs from localStorage `nightgrid.mockComponentPacks` (for trying the loader). */
+function mockComponentPacks(): ComponentPackInfo[] {
+  try {
+    const v = JSON.parse(localStorage.getItem("nightgrid.mockComponentPacks") ?? "[]") as unknown;
+    return Array.isArray(v) ? (v as ComponentPackInfo[]) : [];
+  } catch {
+    return [];
+  }
+}
 const NO_KB_PACK: KbPackStatus = { installed: null, checkedAt: null, error: null, updated: false, notConfigured: true };
 /** Nor interface patches. */
 const NO_UI_PATCH: UiPatchStatus = { running: null, waiting: null, bundledBuilt: 0, skipped: null, checkedAt: null, error: null, updated: false, notConfigured: true };
@@ -1787,6 +1800,10 @@ export const api = {
   kbPackCheck: (bundled: number): Promise<KbPackStatus> => (T() ? commands.kbPackCheck(bundled) : Promise.resolve(NO_KB_PACK)),
   kbPackLoad: (files: boolean): Promise<KbPackContent | null> => (T() ? commands.kbPackLoad(files) : Promise.resolve(null)),
   kbPackRemove: (): Promise<KbPackStatus> => (T() ? commands.kbPackRemove() : Promise.resolve(NO_KB_PACK)),
+  componentPacks: (): Promise<ComponentPackInfo[]> => (T() ? commands.componentPacks() : Promise.resolve(mockComponentPacks())),
+  componentPacksCheck: (ids: string[]): Promise<ComponentPackCheck> =>
+    T() ? commands.componentPacksCheck(ids) : Promise.resolve({ packs: mockComponentPacks(), updated: [], checkedAt: null, error: null, notConfigured: true }),
+  componentPackRemove: (id: string): Promise<ComponentPackInfo[]> => (T() ? commands.componentPackRemove(id) : Promise.resolve(mockComponentPacks().filter((p) => p.id !== id))),
   uiPatchStatus: (): Promise<UiPatchStatus> => (T() ? commands.uiPatchStatus() : Promise.resolve(NO_UI_PATCH)),
   uiPatchReady: (): Promise<void> => (T() ? commands.uiPatchReady() : Promise.resolve()),
   uiPatchCheck: (): Promise<UiPatchStatus> => (T() ? commands.uiPatchCheck() : Promise.resolve(NO_UI_PATCH)),

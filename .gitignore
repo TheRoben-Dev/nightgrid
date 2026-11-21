@@ -6,3 +6,4 @@
 .DS_Store
 /app/binaries
 __pycache__/
+/dist-components

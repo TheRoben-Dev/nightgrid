@@ -5,6 +5,8 @@
   import { COMPONENTS, SHELVES, ownerOf, type StoreComponent } from "../../storeCatalog";
   import { settings } from "../../stores/settings.svelte";
   import { ui } from "../../stores/ui.svelte";
+  import { componentPatches } from "../../stores/componentPatches.svelte";
+  import { componentPacks } from "../../componentUi";
 
   const installedCount = $derived(COMPONENTS.filter((c) => settings.installed(c.id)).length);
   const asked = $derived(ui.featureAsked ? ownerOf(ui.featureAsked) : undefined);
@@ -14,6 +16,9 @@
     busy = c.id;
     try {
       await settings.setInstalled(c.id, on);
+      // Fetch its newest patch right away (if one is published), or drop the stored one.
+      if (on) void componentPatches.check(true, [c.id]);
+      else await componentPatches.remove(c.id);
     } finally {
       busy = null;
     }
@@ -25,6 +30,18 @@
     await set(asked, true);
     ui.featureAsked = null;
     if (view) ui.go(view as Parameters<typeof ui.go>[0]);
+  }
+
+  const day = (t: number) => new Date(t * 1000).toISOString().slice(0, 10);
+
+  /** What to say about a component's patch, if it has one. */
+  function patchLine(id: string): string | null {
+    const p = componentPatches.pack(id);
+    if (!p) return null;
+    if (componentPacks.running.get(id) === p.built) return `Running patch from ${day(p.built)}.`;
+    const why = componentPacks.skipped.get(id);
+    if (why) return `Patch from ${day(p.built)} not used: ${why}.`;
+    return `Patch from ${day(p.built)} ready; used the next time this view opens after a restart.`;
   }
 
   const CORE = "Hosts, Overview, Terminal, Files, Docker, Services, System, Fleet (updates, disks, backups, uptime), Tunnels, Network tools, Alerts, Knowledge and the Library.";
@@ -45,6 +62,16 @@
       checks don't run. Removing one keeps its data, so installing it again brings everything back.
     </p>
     <p class="muted count">{installedCount} of {COMPONENTS.length} installed</p>
+    <div class="patches">
+      <button type="button" class="btn ghost tiny" disabled={componentPatches.checking} onclick={() => componentPatches.check(true)}>
+        {componentPatches.checking ? "Checking…" : "Check for patches"}
+      </button>
+      <span class="muted">
+        Components get fixes on their own between app releases, signed with the release key and checked before use.
+        {#if componentPatches.checkedAt}Last checked {componentPatches.checkedAt.slice(11, 16)}.{/if}
+      </span>
+    </div>
+    {#if componentPatches.error}<p class="error" role="alert"><span aria-hidden="true">▲</span> {componentPatches.error}</p>{/if}
   </Panel>
 
   {#each SHELVES as shelf (shelf.id)}
@@ -60,6 +87,10 @@
                 <span class="chip" class:ok={on}>{on ? "INSTALLED" : "AVAILABLE"}</span>
               </header>
               <p class="hint">{c.hint}</p>
+              {#if on && patchLine(c.id)}
+                {@const p = componentPatches.pack(c.id)}
+                <p class="patch">{patchLine(c.id)}{#if p?.notes.length} {p.notes.slice(0, 3).join(" · ")}{/if}</p>
+              {/if}
               <footer>
                 {#if on}
                   <button type="button" class="btn ghost tiny" disabled={busy !== null} onclick={() => set(c, false)} aria-label="Remove {c.label}">Remove</button>
@@ -151,6 +182,18 @@
     flex: 1;
     font-size: var(--fs-xs);
     color: var(--text-1);
+  }
+  .patches {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 10px;
+    font-size: var(--fs-xs);
+  }
+  .patch {
+    margin: 0;
+    font-size: var(--fs-xs);
+    color: var(--cyan);
   }
   footer {
     display: flex;

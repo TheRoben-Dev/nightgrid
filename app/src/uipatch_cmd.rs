@@ -160,16 +160,25 @@ impl<R: Runtime> Assets<R> for NoAssets {
 pub struct UiAssets<R: Runtime> {
     bundled: Box<dyn Assets<R>>,
     patches: Arc<UiPatches>,
+    components: Arc<crate::compack_cmd::ComponentPacks>,
 }
 
 impl<R: Runtime> UiAssets<R> {
-    pub fn new(bundled: Box<dyn Assets<R>>, patches: Arc<UiPatches>) -> Self {
-        Self { bundled, patches }
+    pub fn new(
+        bundled: Box<dyn Assets<R>>,
+        patches: Arc<UiPatches>,
+        components: Arc<crate::compack_cmd::ComponentPacks>,
+    ) -> Self {
+        Self { bundled, patches, components }
     }
 }
 
 impl<R: Runtime> Assets<R> for UiAssets<R> {
     fn get(&self, key: &AssetKey) -> Option<Cow<'_, [u8]>> {
+        // Component packs (D-207) live under their own prefix, beside either interface.
+        if key.as_ref().trim_start_matches('/').starts_with("components/") {
+            return self.components.file(key.as_ref()).map(Cow::Owned);
+        }
         match self.patches.serving() {
             // Only the pack's own files: never a mix of two builds.
             Some(a) => a.files.get(key.as_ref()).map(|b| Cow::Borrowed(b.as_slice())),
