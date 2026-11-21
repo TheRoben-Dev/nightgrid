@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them and gives every release a codename (`scripts/codenames.mjs`), shown in the heading, the GitHub release title and the app.
 
-## [Unreleased]
+## [1.26.0] "Tungsten Undertow" - 2026-11-21
 
 ### Added
 - **Store components get their own fixes.** Proxmox, VM desktops, Security, the network map and Automation can now be patched on their own between app releases: when one of them changes, a signed patch for just that component is published, and Nightgrid picks it up for the components you have installed (after start-up and every 6 hours, or **Check for patches** in Settings → STORE). Each patch is checked against the release key, and used only when it's newer than the copy in your app and everything it needs from the app is unchanged; otherwise the built-in copy is used. A patch that fails to load or draw is set aside for good and the built-in copy takes over at once. The store shows when a component runs a patch and what it fixed. Patches follow **Settings → Updates → Interface fixes between releases**; installing a component fetches its latest patch, removing it deletes it.
