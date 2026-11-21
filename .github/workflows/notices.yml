@@ -1,0 +1,133 @@
+name: Notices
+
+# Transmissions (D-202): notices from the developer to every installed app,
+# for problems people have to fix on their end. docs/notices/notices.json is
+# the feed; this signs it with the release key and publishes it to the rolling
+# `notices-latest` release. Apps check it after start-up and every 3 hours,
+# verify the signature and show new notices as an INCOMING TRANSMISSION.
+#
+# Publish from GitHub: Actions → Notices → Run workflow, choose "add" and fill
+# in the fields (or "withdraw" with an id). The run commits the change to
+# docs/notices/notices.json on main and publishes it. A PR that edits the file
+# publishes when it merges.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/notices/**"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "publish (as committed), add a notice, or withdraw one by id"
+        type: choice
+        options: [add, withdraw, publish]
+        default: add
+      level:
+        description: "Severity"
+        type: choice
+        options: [warn, info, critical]
+        default: warn
+      title:
+        description: "Title (up to 100 characters)"
+        type: string
+      body:
+        description: "What happened and what to do. Markdown: **bold**, `code`, - lists, [x](kb:shelf/slug), [x](view:fleet). Write \\n for a new line."
+        type: string
+      link_label:
+        description: "Button label (optional)"
+        type: string
+      link_to:
+        description: "Button target: kb:shelf/slug, view:id[/tab] or https://… (optional)"
+        type: string
+      os:
+        description: "Only on these systems: macos,windows,linux (empty = all)"
+        type: string
+      max_app:
+        description: "Only on versions up to this one, e.g. the last version with the bug (optional)"
+        type: string
+      expires:
+        description: "Hide after YYYY-MM-DD (optional)"
+        type: string
+      id:
+        description: "Id (optional for add: made from the date and title; required for withdraw)"
+        type: string
+
+# One at a time, in order: each run publishes what main holds when it runs.
+concurrency:
+  group: notices
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Sign and publish the notice feed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Add or withdraw a notice
+        if: github.event_name == 'workflow_dispatch' && inputs.action != 'publish'
+        env:
+          ACTION: ${{ inputs.action }}
+          NOTICE_ID: ${{ inputs.id }}
+          NOTICE_LEVEL: ${{ inputs.level }}
+          NOTICE_TITLE: ${{ inputs.title }}
+          NOTICE_BODY: ${{ inputs.body }}
+          NOTICE_LINK_LABEL: ${{ inputs.link_label }}
+          NOTICE_LINK_TO: ${{ inputs.link_to }}
+          NOTICE_OS: ${{ inputs.os }}
+          NOTICE_MAX_APP: ${{ inputs.max_app }}
+          NOTICE_EXPIRES: ${{ inputs.expires }}
+        run: |
+          if [ "$ACTION" = add ]; then
+            what=$(node scripts/notices.mjs add)
+          else
+            what=$(node scripts/notices.mjs withdraw "$NOTICE_ID")
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "notice: $what"
+          git push origin HEAD:main
+
+      - name: Build feed
+        run: node scripts/notices.mjs build notices-out
+
+      - name: Sign with the release key
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set: apps would refuse an unsigned feed."
+            exit 1
+          fi
+          pnpm tauri signer sign notices-out/notices.json
+          test -s notices-out/notices.json.sig
+          cat notices-out/notices.json
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: notices-latest
+          name: Notices (rolling)
+          # Never "latest": the app updater reads releases/latest.
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          body: |
+            Signed notices from Nightgrid's developer, shown in the app as an INCOMING TRANSMISSION.
+            Edit docs/notices/notices.json or run the Notices workflow; there is nothing to download here by hand.
+          files: |
+            notices-out/notices.json
+            notices-out/notices.json.sig

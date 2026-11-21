@@ -7,6 +7,7 @@ mod automation_cmd;
 mod backup_cmd;
 mod backup_jobs_cmd;
 mod blueprint_cmd;
+mod broadcast_cmd;
 mod capacity_cmd;
 mod catalog_cmd;
 mod chores;
@@ -501,6 +502,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         mcp_cmd::mcp_answer,
         update_cmd::update_check,
         update_cmd::update_install,
+        broadcast_cmd::broadcast_status,
+        broadcast_cmd::broadcast_check,
         kbpack_cmd::kb_pack_status,
         kbpack_cmd::kb_pack_check,
         kbpack_cmd::kb_pack_load,
@@ -553,6 +556,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().pubkey(update_cmd::PUBKEY.trim()).build())
         .manage(update_cmd::PendingUpdate::default())
         .manage(kbpack_cmd::KbPacks::default())
+        .manage(broadcast_cmd::Broadcasts::default())
         .manage(patches)
         .manage(helper_cmd::Helper::default())
         .manage(desktop_cmd::Desktops::default())

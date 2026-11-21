@@ -36,6 +36,7 @@ const BY_TARGET: Record<string, SettingsTab> = {
   "settings-ntfy": "alerts",
   "settings-desktop": "general",
   "settings-updates": "general",
+  "settings-transmissions": "general",
   "settings-diagnostics": "general",
   "settings-diagnostics-export": "general",
   "settings-backup": "data",

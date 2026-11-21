@@ -9,7 +9,7 @@ export type SoundCategory = "alerts" | "notices" | "actions" | "dialogs" | "drif
 
 export const CATEGORIES: { id: SoundCategory; label: string; hint: string }[] = [
   { id: "alerts", label: "Alerts", hint: "An alert fires (warning or critical) or clears." },
-  { id: "notices", label: "Inbox", hint: "A new notice lands in the inbox." },
+  { id: "notices", label: "Inbox", hint: "A new notice lands in the inbox, or a transmission from the developer comes in." },
   { id: "actions", label: "Actions", hint: "Something you started worked or failed: container actions, applies, power." },
   { id: "dialogs", label: "Dialogs", hint: "A confirm dialog opens." },
   { id: "drift", label: "DRIFT", hint: "DRIFT finished a reply." },
@@ -23,6 +23,7 @@ export type SoundId =
   | "alertWarn"
   | "alertClear"
   | "notice"
+  | "transmission"
   | "ok"
   | "fail"
   | "dialog"
@@ -100,6 +101,24 @@ export const SOUNDS: Sound[] = [
         { wave: "sine", at: 0.055, dur: 0.05, f0: 1760, gain: 0.5, decay: 0.03 },
         { wave: "sine", at: 0.11, dur: 0.09, f0: 2217, gain: 0.45, decay: 0.05 },
         { wave: "noise", at: 0, dur: 0.16, f0: 1, gain: 0.08, hp: 4000, lp: 9000, gate: [60, 0.4], decay: 0.06 },
+      ],
+    },
+  },
+  {
+    id: "transmission",
+    category: "notices",
+    label: "Incoming transmission",
+    recipe: {
+      level: 0.55,
+      echo: [0.09, 0.3, 0.3],
+      voices: [
+        // A burst of radio static opening the channel, a stepped carrier
+        // sweep locking on, then two clean "incoming" pips.
+        { wave: "noise", at: 0, dur: 0.22, f0: 1, gain: 0.22, hp: 1800, lp: 7000, gate: [44, 0.55], crush: 3, decay: 0.09 },
+        { wave: "square", at: 0.04, dur: 0.2, f0: 420, f1: 1260, steps: 6, gain: 0.22, lp: 3000, width: 0.3, decay: 0.12 },
+        { wave: "sine", at: 0.28, dur: 0.08, f0: 1568, gain: 0.5, decay: 0.05 },
+        { wave: "sine", at: 0.4, dur: 0.14, f0: 2093, gain: 0.45, vib: [9, 0.15], decay: 0.07 },
+        { wave: "tri", at: 0.4, dur: 0.14, f0: 1046, gain: 0.15, decay: 0.07 },
       ],
     },
   },

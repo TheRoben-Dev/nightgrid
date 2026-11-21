@@ -260,6 +260,10 @@ import {
   type Temp,
   type UpdateInfo,
   type KbPackStatus_Serialize as KbPackStatus,
+  type Broadcast_Serialize as Broadcast,
+  type BroadcastStatus_Serialize as BroadcastStatus,
+  type BroadcastLevel,
+  type BroadcastLink,
   type KbPackContent,
   type UiPatchStatus_Serialize as UiPatchStatus,
   type UpdateProgress_Serialize as UpdateProgress,
@@ -448,6 +452,7 @@ import {
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
+import { mockBroadcast } from "./mockBroadcast";
 import { mockJournal } from "./mockJournal";
 import { mockPower } from "./mockPower";
 import { mockCapacity, mockCatalog, mockDrills, mockReplay } from "./mockFleet11";
@@ -739,6 +744,10 @@ export type {
   UpdateInfo,
   KbPackStatus,
   KbPackContent,
+  Broadcast,
+  BroadcastStatus,
+  BroadcastLevel,
+  BroadcastLink,
   UiPatchStatus,
   Service,
   ServiceInput,
@@ -954,6 +963,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   updateSkipVersion: null,
   kbUpdates: true,
   uiPatches: true,
+  broadcasts: true,
+  dismissedBroadcasts: [],
   alerts: {
     enabled: true,
     hostOffline: true,
@@ -1721,6 +1732,8 @@ export const api = {
           return mock.settingsSet({ ...cur, alerts: { ...cur.alerts, logMutes: [...mutes, { source, regex: "", fingerprint, label }] } });
         }),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
+  broadcastStatus: (): Promise<BroadcastStatus> => (T() ? commands.broadcastStatus() : Promise.resolve(mockBroadcast.status())),
+  broadcastCheck: (): Promise<BroadcastStatus> => (T() ? commands.broadcastCheck() : Promise.resolve(mockBroadcast.status())),
   kbPackStatus: (): Promise<KbPackStatus> => (T() ? commands.kbPackStatus() : Promise.resolve(NO_KB_PACK)),
   kbPackCheck: (bundled: number): Promise<KbPackStatus> => (T() ? commands.kbPackCheck(bundled) : Promise.resolve(NO_KB_PACK)),
   kbPackLoad: (files: boolean): Promise<KbPackContent | null> => (T() ? commands.kbPackLoad(files) : Promise.resolve(null)),
