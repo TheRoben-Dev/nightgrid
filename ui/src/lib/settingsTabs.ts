@@ -3,7 +3,7 @@
  * and tours open the right one. Every settings guide target must map here
  * (a test checks it).
  */
-export type SettingsTab = "general" | "appearance" | "sound" | "terminal" | "monitoring" | "alerts" | "connections" | "drift" | "data" | "features";
+export type SettingsTab = "general" | "appearance" | "sound" | "terminal" | "monitoring" | "alerts" | "connections" | "drift" | "sync" | "data" | "features";
 
 export const SETTINGS_TABS: { id: SettingsTab; label: string; what: string }[] = [
   { id: "general", label: "GENERAL", what: "tray and window, app updates, diagnostics" },
@@ -14,6 +14,7 @@ export const SETTINGS_TABS: { id: SettingsTab; label: string; what: string }[] =
   { id: "alerts", label: "ALERTS", what: "alert rules, log alert rules and mutes, dependencies, notifications" },
   { id: "connections", label: "CONNECTIONS", what: "built-in Tailscale and SSH keys" },
   { id: "drift", label: "DRIFT", what: "the helper, its model and the tours" },
+  { id: "sync", label: "SYNC", what: "pair your devices and keep their profiles in step: push, pull or automatic two-way sync" },
   { id: "data", label: "DATA", what: "profile export and import, phone status page" },
   { id: "features", label: "FEATURES", what: "turn views and checks on or off" },
 ];
@@ -40,6 +41,11 @@ const BY_TARGET: Record<string, SettingsTab> = {
   "settings-releases": "general",
   "settings-diagnostics": "general",
   "settings-diagnostics-export": "general",
+  "settings-sync": "sync",
+  "sync-pair": "sync",
+  "sync-join": "sync",
+  "sync-peers": "sync",
+  "sync-mode": "sync",
   "settings-backup": "data",
   "dashboard-export": "data",
   "settings-status-page": "data",

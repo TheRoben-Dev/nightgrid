@@ -3,6 +3,7 @@
   import AlertSettings from "../components/alerts/AlertSettings.svelte";
   import AlertDeps from "../components/alerts/AlertDeps.svelte";
   import BackupPanel from "../components/backup/BackupPanel.svelte";
+  import SyncPanel from "../components/sync/SyncPanel.svelte";
   import StatusPagePanel from "../components/status/StatusPagePanel.svelte";
   import TailnetPanel from "../components/tailnet/TailnetPanel.svelte";
   import KeysPanel from "../components/keys/KeysPanel.svelte";
@@ -463,6 +464,10 @@
 {:else if ui.settingsTab === "drift"}
 <div class="grid">
   <div class="wide"><HelperSettings /></div>
+</div>
+{:else if ui.settingsTab === "sync"}
+<div class="grid">
+  <SyncPanel />
 </div>
 {:else if ui.settingsTab === "data"}
 <div class="grid">

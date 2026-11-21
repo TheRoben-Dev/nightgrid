@@ -77,6 +77,7 @@ pub mod starters;
 pub mod status_page;
 pub mod storagelink;
 pub mod store;
+pub mod sync;
 pub mod system;
 pub mod tailnet;
 pub mod term;

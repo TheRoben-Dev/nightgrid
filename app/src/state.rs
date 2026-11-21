@@ -61,6 +61,8 @@ pub struct AppState {
     /// What servers said while logging in (Tailscale SSH approval links), per host.
     pub auth_notices: Mutex<HashMap<HostId, (nightgrid_core::ssh::client::AuthNotice, std::time::Instant)>>,
     pub tailnet: Arc<crate::tailnet_cmd::TailnetHub>,
+    /// Profile sync between devices (D-205).
+    pub sync: Arc<crate::sync_cmd::SyncHub>,
     /// Backup file picked for import (opened and previewed, not yet imported).
     pub pending_backup: Mutex<Option<PathBuf>>,
     next_term: AtomicU32,
@@ -101,6 +103,7 @@ impl AppState {
             status_server: Arc::default(),
             auth_notices: Mutex::default(),
             tailnet: Arc::default(),
+            sync: Arc::default(),
             next_term: AtomicU32::new(1),
         })
     }

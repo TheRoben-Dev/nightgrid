@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them and gives every release a codename (`scripts/codenames.mjs`), shown in the heading, the GitHub release title and the app.
 
+## [Unreleased]
+
+### Added
+- **Sync between your devices.** Settings → **Sync** pairs Nightgrid on your Mac, PC and handheld with a one-time code, then keeps their profiles in step directly over your LAN or tailnet (the built-in Tailscale works too), with no server or account in between. Per paired device: **Manual** (push this profile there, or pull theirs here, merged or replacing) or automatic: **Two-way**, **Send only** or **Receive only**. Automatic sync works item by item: a host edited on the Mac and a dashboard changed on the Ally both survive, the latest edit of the same item wins, deletions travel too, and a host that was added on both before pairing becomes one. Saved secrets (SSH logins, integration tokens, .env vault keys) only travel when you tick their group for that device. Each device keeps its own name, scale and handheld options, tray, built-in Tailscale, status page, MCP server, sync folder and DRIFT model. Connections are encrypted and only paired devices get in.
+
 ## [1.23.1] "Binary Diode" - 2026-11-21
 
 ### Changed

@@ -64,6 +64,13 @@ export function buildCommands(): PaletteCommand[] {
       run: () => void helper.point("settings-backup", "Import: choose the .age file and type its passphrase."),
     },
     {
+      id: "sync.devices",
+      title: "Sync profile with another device…",
+      group: "SETTINGS",
+      keywords: ["sync", "pair", "device", "ally", "laptop", "two-way", "push", "pull", "profile", "another computer"],
+      run: () => void helper.point("sync-pair", "Show a code on one device, then Join from the other with its address and the code."),
+    },
+    {
       id: "status.page",
       title: "Phone status page…",
       group: "SETTINGS",

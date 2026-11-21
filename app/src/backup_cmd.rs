@@ -232,6 +232,7 @@ pub async fn backup_import(app: AppHandle, passphrase: String, mode: ImportMode)
             s.profile_reminder_snooze = before.profile_reminder_snooze;
             s.status_page = before.status_page;
             s.mcp = before.mcp;
+            s.sync = before.sync;
             s.save(&store)?;
         }
         // The database is already committed: a keychain failure must not
