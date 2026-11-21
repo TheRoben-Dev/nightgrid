@@ -207,6 +207,7 @@ import {
   type SshConfigCandidate_Serialize as SshConfigCandidate,
   type TermMessage_Serialize as TermMessage,
   type TermOpen,
+  type LocalShell,
   type TermState,
   type Bookmark_Serialize as Bookmark,
   type ConflictPolicy,
@@ -262,6 +263,10 @@ import {
   type Temp,
   type UpdateInfo,
   type KbPackStatus_Serialize as KbPackStatus,
+  type Broadcast_Serialize as Broadcast,
+  type BroadcastStatus_Serialize as BroadcastStatus,
+  type BroadcastLevel,
+  type BroadcastLink,
   type KbPackContent,
   type UiPatchStatus_Serialize as UiPatchStatus,
   type UpdateProgress_Serialize as UpdateProgress,
@@ -450,6 +455,7 @@ import {
 } from "./bindings";
 import { mockAlerts } from "./mockAlerts";
 import { mockUps } from "./mockUps";
+import { mockBroadcast } from "./mockBroadcast";
 import { mockJournal } from "./mockJournal";
 import { mockPower } from "./mockPower";
 import { mockCapacity, mockCatalog, mockDrills, mockReplay } from "./mockFleet11";
@@ -693,6 +699,7 @@ export type {
   SshConfigCandidate,
   TermMessage,
   TermOpen,
+  LocalShell,
   TermState,
   Bookmark,
   ConflictPolicy,
@@ -743,6 +750,10 @@ export type {
   UpdateInfo,
   KbPackStatus,
   KbPackContent,
+  Broadcast,
+  BroadcastStatus,
+  BroadcastLevel,
+  BroadcastLink,
   UiPatchStatus,
   Service,
   ServiceInput,
@@ -944,6 +955,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   termEditInApp: false,
   termKeyHints: true,
   termSolidBg: false,
+  termLocalShell: "",
   tailnetEnabled: false,
   tailnetAcceptRoutes: true,
   tailnetHostname: "nightgrid",
@@ -958,6 +970,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   updateSkipVersion: null,
   kbUpdates: true,
   uiPatches: true,
+  broadcasts: true,
+  dismissedBroadcasts: [],
+  lastSeenVersion: null,
   alerts: {
     enabled: true,
     hostOffline: true,
@@ -1062,7 +1077,7 @@ function channel(listener: TermListener) {
   const ch = new Channel<TermMessage>();
   ch.onmessage = listener;
   // The generated signature names the deserialize-side type; they are identical.
-  return ch as unknown as Parameters<typeof commands.termOpenLocal>[2];
+  return ch as unknown as Parameters<typeof commands.termOpenLocal>[3];
 }
 
 const T = inTauri;
@@ -1103,8 +1118,11 @@ export const api = {
   knownHostsImportSystem: (): Promise<number> => (T() ? commands.knownHostsImportSystem() : Promise.resolve(0)),
   hostsPing: (ids: number[]): Promise<HostPing[]> => (T() ? commands.hostsPing(ids) : mockBackend.hostsPing(ids)),
 
-  termOpenLocal: (cols: number, rows: number, on: TermListener): Promise<number> =>
-    T() ? commands.termOpenLocal(cols, rows, channel(on)) : mockBackend.termOpenLocal(on),
+  /** `shell`: an id from `termLocalShells` (Windows only; null = the default shell). */
+  termOpenLocal: (cols: number, rows: number, shell: string | null, on: TermListener): Promise<number> =>
+    T() ? commands.termOpenLocal(cols, rows, shell, channel(on)) : mockBackend.termOpenLocal(on),
+  /** Windows: PowerShell, cmd and WSL distros. Empty on macOS/Linux and in the browser preview. */
+  termLocalShells: (): Promise<LocalShell[]> => (T() ? commands.termLocalShells() : Promise.resolve([])),
   termOpenSsh: (hostId: number, cols: number, rows: number, token: string | null, edit: boolean, hints: boolean, on: TermListener): Promise<TermOpen> =>
     T() ? commands.termOpenSsh(hostId, cols, rows, token, edit, hints, channel(on)) : mockBackend.termOpenSsh(hostId, on),
   /** Login notices (a Tailscale SSH approval link) for hosts still connecting. */
@@ -1729,6 +1747,8 @@ export const api = {
           return mock.settingsSet({ ...cur, alerts: { ...cur.alerts, logMutes: [...mutes, { source, regex: "", fingerprint, label }] } });
         }),
   updateCheck: (): Promise<UpdateStatus> => (T() ? commands.updateCheck() : Promise.resolve({ kind: "notConfigured" })),
+  broadcastStatus: (): Promise<BroadcastStatus> => (T() ? commands.broadcastStatus() : Promise.resolve(mockBroadcast.status())),
+  broadcastCheck: (): Promise<BroadcastStatus> => (T() ? commands.broadcastCheck() : Promise.resolve(mockBroadcast.status())),
   kbPackStatus: (): Promise<KbPackStatus> => (T() ? commands.kbPackStatus() : Promise.resolve(NO_KB_PACK)),
   kbPackCheck: (bundled: number): Promise<KbPackStatus> => (T() ? commands.kbPackCheck(bundled) : Promise.resolve(NO_KB_PACK)),
   kbPackLoad: (files: boolean): Promise<KbPackContent | null> => (T() ? commands.kbPackLoad(files) : Promise.resolve(null)),

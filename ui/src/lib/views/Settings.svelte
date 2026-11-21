@@ -17,10 +17,14 @@
   import SoundPanel from "../components/settings/SoundPanel.svelte";
   import { SETTINGS_TABS } from "../settingsTabs";
   import { ui } from "../stores/ui.svelte";
+  import { terms } from "../stores/terms.svelte";
   import { scramble } from "../scramble";
   import { updates } from "../stores/updates.svelte";
   import { kbContent, kbVersionLabel } from "../stores/kbcontent.svelte";
   import { patchLabel, uiPatch } from "../stores/uipatch.svelte";
+  import { broadcasts } from "../stores/broadcasts.svelte";
+  import { releases } from "../stores/releases.svelte";
+  import ReleaseLog from "../components/update/ReleaseLog.svelte";
   import { DEFAULT_KEYMAP, formatChord, isMac, type ActionId } from "../keys";
   import {
     METRICS_BACKGROUND_STEPS,
@@ -35,6 +39,11 @@
     info: AppInfo | null;
   }
   let { info }: Props = $props();
+
+  // Windows: the shells "Local shell" can open (PowerShell, cmd, WSL distros).
+  $effect(() => {
+    if (ui.settingsTab === "terminal") void terms.loadLocalShells();
+  });
 
   let diagBusy = $state(false);
   let diagNote = $state<string | null>(null);
@@ -114,7 +123,7 @@
   <Panel title="UPDATES" guide="settings-updates">
     <div class="update-row">
       <span class="muted">Installed</span>
-      <span class="data">v{info?.version ?? "…"}</span>
+      <span class="data">v{info?.version ?? "…"}{#if releases.running?.codename}<span class="codename" title="This release's codename">{releases.running.codename}</span>{/if}</span>
       <button type="button" class="btn ghost" disabled={updates.checking} onclick={() => void updates.check(true)}>
         {updates.checking ? "Checking…" : "Check now"}
       </button>
@@ -146,6 +155,12 @@
         checked={settings.value.uiPatches}
         onchange={(v) => settings.update({ uiPatches: v })}
       />
+      <Toggle
+        label="Transmissions from the developer"
+        hint="Short notices when something needs fixing on your end (a provider changed, a setting needs a nudge, a known issue with a workaround). Signed with the release key and checked after start-up and every 3 hours; nothing about you is sent."
+        checked={settings.value.broadcasts}
+        onchange={(v) => settings.update({ broadcasts: v })}
+      />
     </div>
     <div class="kbrow" data-guide="settings-kb-content">
       <span class="muted small">
@@ -165,7 +180,21 @@
     </div>
     {#if uiPatch.status?.skipped}<p class="muted small">Downloaded fix not in use: {uiPatch.status.skipped}</p>{/if}
     {#if uiPatch.error}<p class="error" role="alert" use:scramble={uiPatch.error}></p>{/if}
+    <div class="kbrow" data-guide="settings-transmissions">
+      <span class="muted small">
+        Transmissions · {broadcasts.all.length ? `${broadcasts.all.length} current, ${broadcasts.queue.length} unread` : "none current"}{#if broadcasts.status?.checkedAt} · checked {new Date(broadcasts.status.checkedAt).toLocaleTimeString()}{/if}
+      </span>
+      <button type="button" class="btn ghost tiny" disabled={broadcasts.checking || broadcasts.status?.notConfigured} onclick={() => void broadcasts.check(true)}>{broadcasts.checking ? "Checking…" : "Check now"}</button>
+      {#if broadcasts.all.length}<button type="button" class="btn ghost tiny" title="Show every current transmission again, including ones you marked understood" onclick={() => broadcasts.showAll()}>Show all</button>{/if}
+    </div>
+    {#if broadcasts.error}<p class="error" role="alert" use:scramble={broadcasts.error}></p>{/if}
   </Panel>
+
+  <div class="wide">
+    <Panel title="RELEASE LOG" guide="settings-releases">
+      <ReleaseLog />
+    </Panel>
+  </div>
 
   <div class="wide">
     <Panel title="DIAGNOSTICS" guide="settings-diagnostics">
@@ -288,6 +317,16 @@
       format={(v) => (v >= 1000 ? `${v / 1000}k` : String(v))}
       onchange={(v) => settings.update({ termScrollback: v })}
     />
+    {#if terms.localShells.length}
+      <label class="field">
+        <span>Local shell</span>
+        <select class="input" value={settings.value.termLocalShell} onchange={(e) => settings.update({ termLocalShell: e.currentTarget.value })}>
+          <option value="">Default ({terms.localShells[0]?.name})</option>
+          {#each terms.localShells as sh (sh.id)}<option value={sh.id}>{sh.wsl ? `${sh.name} (WSL)` : sh.name}</option>{/each}
+        </select>
+        <span class="field-hint">What "Local shell" and its shortcut open. The terminal's + menu lists them all, so any one is a click away. WSL shells start in the distro's Linux home.</span>
+      </label>
+    {/if}
     <div class="toggles">
       <Toggle
         label="Solid background"
@@ -435,6 +474,13 @@
 {/if}
 
 <style>
+  .codename {
+    margin-left: 8px;
+    font-family: var(--font-display);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--magenta);
+  }
   .tabstrip {
     margin-bottom: var(--sp-6);
   }

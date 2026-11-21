@@ -1,0 +1,32 @@
+name: Release titles
+
+# Renames published GitHub releases to "vX.Y.Z · Codename" from CHANGELOG.md
+# (D-204). New releases get their title when they're made (ci.yml); this is
+# for older ones, or after a codename was corrected. Only titles change.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  titles:
+    name: Title releases with their codenames
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rename
+        run: |
+          gh release list --limit 500 --json tagName,name --jq '.[] | [.tagName, .name] | @tsv' |
+          while IFS=$'\t' read -r tag name; do
+            case "$tag" in v[0-9]*) ;; *) continue ;; esac
+            want=$(node scripts/codenames.mjs title "$tag")
+            if [ "$want" != "$name" ] && [ "$want" != "$tag" ]; then
+              gh release edit "$tag" --title "$want" && echo "$tag → $want"
+            fi
+          done

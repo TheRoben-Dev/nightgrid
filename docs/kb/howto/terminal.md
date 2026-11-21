@@ -15,6 +15,7 @@ Splits, tabs, history search, editing server files in Nightgrid's editor and key
 
 - [ ] Click a host for its terminal (Alt-click or Cmd-click always opens a new one). `Ctrl+Shift+T` opens a local shell.
 - [ ] **+ NEW** in the tab bar opens any saved host as a new tab or a split next to the focused pane.
+- [ ] On Windows, **+ NEW** lists PowerShell, Command Prompt and each WSL distro separately. WSL shells start in the Linux home; **Settings → Terminal → Local shell** picks the one `Ctrl+Shift+T` opens.
 - [ ] Split right `Ctrl+Shift+D`, split down `Ctrl+Shift+S`, close a pane `Ctrl+Shift+W`, next tab `Ctrl+Tab`.
 - [ ] Find in the output with `Ctrl+Shift+F`.
 - [ ] Command palette from inside a terminal: `Ctrl+Shift+K`.

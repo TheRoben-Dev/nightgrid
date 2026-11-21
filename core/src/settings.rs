@@ -65,6 +65,9 @@ pub struct AppSettings {
     /// Paint terminals on a solid background instead of letting the app's
     /// backdrop show through.
     pub term_solid_bg: bool,
+    /// Windows: the shell "local shell" opens (an id from `localshell::list`,
+    /// such as `wsl:Ubuntu`). Empty = PowerShell. Ignored on macOS/Linux.
+    pub term_local_shell: String,
     /// Built-in Tailscale client (M10j): off until the user turns it on.
     pub tailnet_enabled: bool,
     /// Use subnet routes other tailnet nodes advertise.
@@ -98,6 +101,13 @@ pub struct AppSettings {
     /// Fetch signed interface patches for this exact version (D-185); off
     /// also stops a downloaded one from being used.
     pub ui_patches: bool,
+    /// Fetch signed transmissions from the developer (D-202).
+    pub broadcasts: bool,
+    /// Transmission ids the user acknowledged (never shown again).
+    pub dismissed_broadcasts: Vec<String>,
+    /// The newest version whose release notes were shown on this computer
+    /// (D-204). Machine-specific: kept as is when a profile is imported.
+    pub last_seen_version: Option<String>,
     /// Alert rules and delivery.
     pub alerts: AlertSettings,
     /// Show a tray / menu bar icon with host status, tunnels and alerts.
@@ -432,6 +442,7 @@ impl Default for AppSettings {
             term_edit_in_app: false,
             term_key_hints: true,
             term_solid_bg: false,
+            term_local_shell: String::new(),
             tailnet_enabled: false,
             tailnet_accept_routes: true,
             tailnet_hostname: "nightgrid".into(),
@@ -447,6 +458,9 @@ impl Default for AppSettings {
             update_skip_version: None,
             kb_updates: true,
             ui_patches: true,
+            broadcasts: true,
+            dismissed_broadcasts: Vec::new(),
+            last_seen_version: None,
             alerts: AlertSettings::default(),
             tray_enabled: true,
             close_to_tray: false,

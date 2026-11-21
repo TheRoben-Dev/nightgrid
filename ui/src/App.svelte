@@ -54,6 +54,10 @@
   import WebUiNotice from "./lib/components/webui/WebUiNotice.svelte";
   import UiPatchNotice from "./lib/components/update/UiPatchNotice.svelte";
   import { uiPatch } from "./lib/stores/uipatch.svelte";
+  import Transmission from "./lib/components/update/Transmission.svelte";
+  import WhatsNew from "./lib/components/update/WhatsNew.svelte";
+  import { releases } from "./lib/stores/releases.svelte";
+  import { broadcasts } from "./lib/stores/broadcasts.svelte";
   import McpAskCard from "./lib/components/mcp/McpAskCard.svelte";
   import { mcp } from "./lib/stores/mcp.svelte";
   import { authNotices } from "./lib/stores/authNotices.svelte";
@@ -69,6 +73,10 @@
     if (ui.section === "files") filesMounted = true;
   });
   let booted = $state(false);
+  // "What's new" after an update (D-204), once settings and the version are known.
+  $effect(() => {
+    if (booted && info) void releases.start(info.version);
+  });
 
   onMount(() => {
     const stop = settings.watchReducedMotion();
@@ -93,6 +101,7 @@
       updates.startLaunchCheck();
       void kbContent.start();
       void uiPatch.start();
+      void broadcasts.start();
       mcp.start();
     });
     // Tray menu: quick connect and "open alerts".
@@ -345,6 +354,8 @@
 <SshImportDialog />
 <HostMonitor />
 <UpdateDialog />
+<Transmission />
+<WhatsNew />
 {#if settings.on("services")}
   <ServiceEditor />
   <HomepageImport />

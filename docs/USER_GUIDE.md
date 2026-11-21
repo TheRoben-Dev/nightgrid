@@ -29,6 +29,7 @@ Nightgrid manages your servers over plain SSH. Nothing is installed on them: ter
 
 - Click a host to go to its terminal (a new one opens if it has none; Alt-click or Cmd-click always opens a new one), or press `Mod+2`. Use `Ctrl+Shift+T` for a local shell.
 - **+ NEW** in the tab bar opens this computer or any saved host, as a new tab or split next to the focused pane. Type to filter, arrows and Enter to pick.
+- **Windows:** "this computer" is one row per shell: PowerShell, Command Prompt and each installed WSL distro (type `wsl` to filter). A WSL shell starts in that distro's Linux home. **Settings → Terminal → Local shell** sets what `Ctrl+Shift+T` opens.
 - Panes and tabs:
   - Split right with `Ctrl+Shift+D` and split down with `Ctrl+Shift+S`.
   - Close a pane with `Ctrl+Shift+W`.
@@ -415,14 +416,20 @@ Settings → **FEATURES** lists every view and the checks inside them, each with
 
 Nightgrid checks GitHub Releases after start-up and offers **Install & restart** when a newer version is out. Turn this off, or check by hand, under Settings → Updates.
 
+Every release has a codename on top of its version number, two words like "Cobalt Signal". The update prompt shows it, and **Settings → Updates** shows the installed version's codename. The first time Nightgrid starts after an update, **SYSTEM UPGRADED** shows that release's codename and notes; if you skipped versions, each one since the last you saw gets its own tab. It shows once per version. **Settings → General → RELEASE LOG** lists every release with its codename, date and notes: search, expand one to read it, or **Show What's new** again. The notes are built into the app, so they work offline.
+
 Fixes that only touch the interface can arrive between releases. With **Settings → Updates → Interface fixes between releases** on (the default), Nightgrid looks for a fix built for exactly the version you run, after start-up and every 6 hours. It's a small download (a few MB), checked against the same signing key as app updates, and it applies the next time Nightgrid starts: a card offers **Restart now**. The Updates panel shows whether the interface is built in or a fix (and from when), with **Check fixes** and **Use built-in**. A fix can only change the interface: what the app is allowed to do stays as built. If a fix ever fails to start, Nightgrid notices within a minute, goes back to the built-in interface and never uses that fix again. A fix for an older version is ignored once you update, because every release carries all fixes before it.
+
+### Transmissions
+
+Now and then the developer may need to tell everyone about something they have to fix on their own end: a provider changed something, a setting needs a nudge, or a known issue has a workaround. Those notices arrive as an **INCOMING TRANSMISSION** without an app update. Each one says what happened and what to do, and may have a button to a Library article, a view or a web page. **Understood** hides it for good; **Later** brings it back on the next start. Notices are signed with the same key as app updates and verified on your computer before they show, so nobody else can send one. They can be aimed at one system or a range of versions and expire by themselves. Turn them off, check by hand or see them all again under **Settings → Updates → Transmissions from the developer**. Checking is one small download from GitHub Releases after start-up and every 3 hours; nothing about you is sent.
 
 ## Privacy
 
 There's no telemetry. Nightgrid only connects to:
 - your hosts;
 - the services and integrations you added;
-- GitHub Releases, for the update check;
+- GitHub Releases, for the update check, Library content, interface fixes and transmissions;
 - your webhook, if you set one;
 - Tailscale's control server and relays (or your Headscale), only while Built-in Tailscale is on. Its log upload is switched off.
 
