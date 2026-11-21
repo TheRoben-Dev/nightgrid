@@ -5,6 +5,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [1.21.1] - 2026-11-21
 
 ### Fixed
+- **Keys reach `sudo` programs in SSH terminals again.** With key hints or "edit in Nightgrid" on, a program run with `sudo` that switches terminal modes (menus, `[y/N]` prompts, like `sudo nightgrid-node fix`) could stop receiving keys: no letters, no Enter, not even Ctrl+C, while the cursor kept blinking. The session hook now hands the shell the terminal's own device instead of `/dev/tty`, which `sudo` didn't recognise as the user's terminal.
 - **Busy logs no longer flicker.** A container's log restarted every time the Docker list refreshed, so it cleared and reloaded every few seconds; it now keeps streaming. Bursts of output no longer paint a frame of empty rows while following the end, and when you scroll up to read, the lines you're reading stay put even as the oldest drop off.
 - **System → Journal keeps up with fast hosts.** New entries are drawn once per frame instead of on every batch, and only new rows are added, so a chatty journal scrolls smoothly instead of stalling.
 
