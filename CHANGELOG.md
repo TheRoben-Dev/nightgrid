@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 - **Windows: pick PowerShell, Command Prompt or a WSL distro for the local shell.** On Windows the terminal's **+ NEW** menu lists each shell on this computer: PowerShell 7 (when installed), Windows PowerShell, Command Prompt and every installed WSL distro. WSL shells start through `wsl.exe` in the distro's Linux home (`~`), not in the Windows folder. **Settings → Terminal → Local shell** picks what `Ctrl+Shift+T` and **Local shell** open. Shown only when WSL is installed; macOS and Linux are unchanged.
+- **Transmissions from the developer.** When something needs fixing on your end (a provider changed something, a setting needs a nudge, a known issue has a workaround), a notice can now reach every installed Nightgrid without an app update. It opens as an **INCOMING TRANSMISSION**: the channel tunes in, the signal locks and the message decodes, with its own sound, the steps to take and a button to the right article, view or page. **Understood** hides it for good, **Later** until the next start. Notices are signed with the release key and checked on this computer, so nobody else can send one; they can be aimed at a system, a range of versions or a feature, and expire by themselves. Settings → Updates has the switch, **Check now** and **Show all**.
 
 ## [1.21.1] - 2026-11-21
 

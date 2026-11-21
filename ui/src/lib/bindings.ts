@@ -1158,6 +1158,9 @@ export const commands = {
 	 *  restarts the app. Returns an error (and leaves the app running) on failure.
 	 */
 	updateInstall: (onProgress: Channel<UpdateProgress_Deserialize>, options?: InvokeOptions) => __TAURI_INVOKE<null>("update_install", { onProgress }, options),
+	broadcastStatus: (options?: InvokeOptions) => __TAURI_INVOKE<BroadcastStatus_Serialize>("broadcast_status", undefined, options),
+	/**  Looks for new transmissions. */
+	broadcastCheck: (options?: InvokeOptions) => __TAURI_INVOKE<BroadcastStatus_Serialize>("broadcast_check", undefined, options),
 	kbPackStatus: (options?: InvokeOptions) => __TAURI_INVOKE<KbPackStatus_Serialize>("kb_pack_status", undefined, options),
 	/**
 	 *  Looks for newer Library content. `bundled` is the version built into this
@@ -1782,6 +1785,10 @@ export type AppSettings_Deserialize = {
 	 *  also stops a downloaded one from being used.
 	 */
 	uiPatches?: boolean,
+	/**  Fetch signed transmissions from the developer (D-202). */
+	broadcasts?: boolean,
+	/**  Transmission ids the user acknowledged (never shown again). */
+	dismissedBroadcasts?: string[],
 	/**  Alert rules and delivery. */
 	alerts?: AlertSettings_Deserialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -1929,6 +1936,10 @@ export type AppSettings_Serialize = {
 	 *  also stops a downloaded one from being used.
 	 */
 	uiPatches: boolean,
+	/**  Fetch signed transmissions from the developer (D-202). */
+	broadcasts: boolean,
+	/**  Transmission ids the user acknowledged (never shown again). */
+	dismissedBroadcasts: string[],
 	/**  Alert rules and delivery. */
 	alerts: AlertSettings_Serialize,
 	/**  Show a tray / menu bar icon with host status, tunnels and alerts. */
@@ -2402,6 +2413,92 @@ export type BpStepState =
 "differs" | 
 /**  Can't be applied from here; the detail says how. */
 "manual";
+
+export type Broadcast = Broadcast_Serialize | Broadcast_Deserialize;
+
+export type BroadcastLevel = "info" | "warn" | "critical";
+
+/**
+ *  The one button a transmission may carry: `kb:shelf/slug` (a Library
+ *  article), `view:id` or `view:id/tab` (a view), or an `https://` page
+ *  opened in the browser.
+ */
+export type BroadcastLink = {
+	label: string,
+	to: string,
+};
+
+export type BroadcastStatus = BroadcastStatus_Serialize | BroadcastStatus_Deserialize;
+
+export type BroadcastStatus_Deserialize = {
+	/**
+	 *  Transmissions meant for this app now (system, version, dates), most
+	 *  urgent first. Dismissed ones are included; the UI filters them.
+	 */
+	notices: Broadcast_Deserialize[],
+	/**  When the stored feed was published (unix seconds), 0 when there's none. */
+	version: number | null,
+	/**  When the feed was last checked this run (RFC 3339). */
+	checkedAt?: string | null,
+	error?: string | null,
+	/**  This build has no release key, so feeds can't be verified. */
+	notConfigured: boolean,
+};
+
+export type BroadcastStatus_Serialize = {
+	/**
+	 *  Transmissions meant for this app now (system, version, dates), most
+	 *  urgent first. Dismissed ones are included; the UI filters them.
+	 */
+	notices: Broadcast_Serialize[],
+	/**  When the stored feed was published (unix seconds), 0 when there's none. */
+	version: number | null,
+	/**  When the feed was last checked this run (RFC 3339). */
+	checkedAt: string | null,
+	error: string | null,
+	/**  This build has no release key, so feeds can't be verified. */
+	notConfigured: boolean,
+};
+
+export type Broadcast_Deserialize = {
+	/**  Stable id; a dismissed id never shows again. */
+	id: string,
+	level: BroadcastLevel,
+	title: string,
+	/**  Markdown subset: paragraphs, lists, `code`, **bold**, `[x](kb:…)`, `[x](view:…)`. */
+	body: string,
+	link?: BroadcastLink | null,
+	/**  Only on these systems (empty: all). */
+	os?: string[],
+	/**  Only on app versions in this range (inclusive). */
+	minApp?: string | null,
+	maxApp?: string | null,
+	/**  Only when at least one of these Settings → Features ids is on (empty: always). */
+	features?: string[],
+	/**  `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ` (UTC): shown from, and until before. */
+	starts?: string | null,
+	expires?: string | null,
+};
+
+export type Broadcast_Serialize = {
+	/**  Stable id; a dismissed id never shows again. */
+	id: string,
+	level: BroadcastLevel,
+	title: string,
+	/**  Markdown subset: paragraphs, lists, `code`, **bold**, `[x](kb:…)`, `[x](view:…)`. */
+	body: string,
+	link: BroadcastLink | null,
+	/**  Only on these systems (empty: all). */
+	os: string[],
+	/**  Only on app versions in this range (inclusive). */
+	minApp: string | null,
+	maxApp: string | null,
+	/**  Only when at least one of these Settings → Features ids is on (empty: always). */
+	features: string[],
+	/**  `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ` (UTC): shown from, and until before. */
+	starts: string | null,
+	expires: string | null,
+};
 
 /**  One change to a Caddyfile. */
 export type CaddyEdit = 

@@ -101,6 +101,10 @@ pub struct AppSettings {
     /// Fetch signed interface patches for this exact version (D-185); off
     /// also stops a downloaded one from being used.
     pub ui_patches: bool,
+    /// Fetch signed transmissions from the developer (D-202).
+    pub broadcasts: bool,
+    /// Transmission ids the user acknowledged (never shown again).
+    pub dismissed_broadcasts: Vec<String>,
     /// Alert rules and delivery.
     pub alerts: AlertSettings,
     /// Show a tray / menu bar icon with host status, tunnels and alerts.
@@ -451,6 +455,8 @@ impl Default for AppSettings {
             update_skip_version: None,
             kb_updates: true,
             ui_patches: true,
+            broadcasts: true,
+            dismissed_broadcasts: Vec::new(),
             alerts: AlertSettings::default(),
             tray_enabled: true,
             close_to_tray: false,
