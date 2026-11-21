@@ -23,6 +23,7 @@ const host = (id: number, name: string, extra: Partial<Host> = {}): Host => ({
   driftHistory: false,
   driftLookups: false,
   alertOffline: false,
+  dockerUser: null,
   driftPaths: null,
   macAddress: null,
   wakeRelayId: null,
@@ -64,6 +65,7 @@ describe("host facts", () => {
     since: now - 3600,
     resolved: now - 600,
     causedBy: null,
+    silenced: null,
   };
   it("lists status, last seen, alerts and history", () => {
     const text = hostFacts({

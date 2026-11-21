@@ -1,4 +1,4 @@
-//! Which shells "This computer" can open in the terminal (D-195).
+//! Which shells "This computer" can open in the terminal (D-201).
 //!
 //! macOS and Linux keep their single login shell: [`list`] is empty there and
 //! the UI shows the plain "local shell" entry it always had. On Windows it

@@ -109,6 +109,13 @@
     <Toggle label="Disk almost full" checked={a.diskFull} disabled={!a.enabled} onchange={(v) => set({ diskFull: v })} />
     {#if a.diskFull}
       <SegmentSlider label="DISK FULL AT" steps={DISK_STEPS} value={a.diskPercent} format={(v) => `${v}%`} onchange={(v) => set({ diskPercent: v })} />
+      <Toggle
+        label="Skip system mounts"
+        hint="Read-only mounts and ones that are always full by design: WSL and Docker Desktop (/mnt/wsl/…), snaps, CD/DVD and disk images. To silence a real disk you know is full, use Ack or Mute on its alert."
+        checked={a.diskSkipSystem}
+        disabled={!a.enabled}
+        onchange={(v) => set({ diskSkipSystem: v })}
+      />
     {/if}
     <Toggle
       label="Disk full soon (forecast)"

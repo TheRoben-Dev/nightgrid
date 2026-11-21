@@ -26,15 +26,32 @@ import {
 const host = (id: number, name: string, groupId: number | null = null) => ({ id, name, groupId }) as unknown as Host;
 const rep = (n: number, o: Partial<UpdatesReport> = {}): UpdatesReport => ({
   manager: "apt",
-  updates: Array.from({ length: n }, (_, i) => ({ name: `p${i}`, current: "1", available: "2", repo: i === 0 && o.note === "sec" ? "jammy-security" : "jammy-updates" })),
+  updates: Array.from({ length: n }, (_, i) => ({ name: `p${i}`, current: "1", available: "2", repo: i === 0 && o.note === "sec" ? "jammy-security" : "jammy-updates", held: false })),
   rebootRequired: false,
   rebootReasons: [],
   note: null,
+  held: [],
+  holdSupport: "host",
   ...o,
 });
 const ok = (r: UpdatesReport): HostUpdates => ({ status: "ok", report: r, error: null, checkedAt: 1 });
 
 describe("fleet updates", () => {
+  it("leaves held hosts and packages out (D-195)", () => {
+    const r = rep(3, { note: "sec" });
+    r.updates[0].held = true;
+    expect(securityCount(r)).toBe(0);
+    const hold = { id: 1, hostId: 2, kind: "host" as const, target: "", stack: "", version: null, until: null, note: "", createdAt: 0 };
+    const rows = updateRows([host(1, "a"), host(2, "b")], { 1: ok(r), 2: ok(rep(4)) }, (id) => (id === 2 ? hold : null));
+    const a = rows.find((x) => x.host.id === 1)!;
+    const b = rows.find((x) => x.host.id === 2)!;
+    expect([a.count, a.heldCount, a.upgradable, a.tone]).toEqual([2, 1, true, "warn"]);
+    expect([b.count, b.heldCount, b.upgradable, b.tone]).toEqual([0, 4, false, "held"]);
+    expect(rows[1].host.id).toBe(2);
+    expect(totals(rows)).toMatchObject({ hosts: 1, packages: 2 });
+    expect(updatesText(rows, [])).toContain("b (apt): updates held by the user");
+  });
+
   it("counts security packages", () => {
     expect(securityCount(rep(3, { note: "sec" }))).toBe(1);
     expect(securityCount(null)).toBe(0);
@@ -87,7 +104,28 @@ describe("fleet updates", () => {
 });
 
 describe("fleet disks", () => {
-  const f = (o: Partial<MountForecast>): MountForecast => ({ mount: "/", size: 100e9, used: 50e9, at: 0, perDay: null, daysLeft: null, spanDays: 0, daily: [], ...o });
+  const f = (o: Partial<MountForecast>): MountForecast => ({
+    mount: "/",
+    size: 100e9,
+    used: 50e9,
+    at: 0,
+    perDay: null,
+    daysLeft: null,
+    spanDays: 0,
+    daily: [],
+    device: "/dev/sda1",
+    fstype: "ext4",
+    kind: "local",
+    label: "",
+    also: [],
+    owner: null,
+    mountedOn: [],
+    stores: [],
+    storedOn: null,
+    counted: true,
+    note: null,
+    ...o,
+  });
 
   it("words the forecast", () => {
     expect(fillText(f({}))).toBe("learning (needs a day of history)");
@@ -102,6 +140,10 @@ describe("fleet disks", () => {
     expect(fillTone(f({ perDay: 1e9, daysLeft: 9 }), 14)).toBe("warn");
     expect(fillTone(f({ perDay: 1e9, daysLeft: 40 }), 14)).toBe("ok");
     expect(usedPct(f({}))).toBe(50);
+    // A share counted on the NAS is neutral here, and says where it's counted.
+    const share = f({ kind: "network", counted: false, perDay: 9e9, daysLeft: 1, owner: { hostId: 2, host: "nas", mount: "/volume1" } });
+    expect(fillText(share)).toBe("counted on nas");
+    expect(fillTone(share, 14)).toBe("ok");
   });
 
   it("draws a sparkline and ranks hosts", () => {
@@ -126,5 +168,7 @@ describe("fleet disks", () => {
     ]);
     expect(diskTone(undefined, 14)).toBe("unknown");
     expect(disksText(rows)).toContain("c:\n  - /: 50.0 GB of 100 GB (50%), +1.0 GB/day, full in about 9 days");
+    const wsl = diskRows([host(4, "w")], { 4: d({ forecasts: [f({ mount: "/mnt/h", kind: "passthrough", label: "Windows drive H:", note: "The disk belongs to Windows." })] }) }, 14);
+    expect(disksText(wsl)).toContain("/mnt/h (Windows drive H:): 50.0 GB of 100 GB (50%), trend unknown, learning (needs a day of history). The disk belongs to Windows.");
   });
 });

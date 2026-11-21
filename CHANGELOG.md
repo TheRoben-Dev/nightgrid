@@ -7,6 +7,62 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 - **Windows: pick PowerShell, Command Prompt or a WSL distro for the local shell.** On Windows the terminal's **+ NEW** menu lists each shell on this computer: PowerShell 7 (when installed), Windows PowerShell, Command Prompt and every installed WSL distro. WSL shells start through `wsl.exe` in the distro's Linux home (`~`), not in the Windows folder. **Settings → Terminal → Local shell** picks what `Ctrl+Shift+T` and **Local shell** open. Shown only when WSL is installed; macOS and Linux are unchanged.
 
+## [1.21.1] - 2026-11-21
+
+### Fixed
+- **Keys reach `sudo` programs in SSH terminals again.** With key hints or "edit in Nightgrid" on, a program run with `sudo` that switches terminal modes (menus, `[y/N]` prompts, like `sudo nightgrid-node fix`) could stop receiving keys: no letters, no Enter, not even Ctrl+C, while the cursor kept blinking. The session hook now hands the shell the terminal's own device instead of `/dev/tty`, which `sudo` didn't recognise as the user's terminal.
+- **Busy logs no longer flicker.** A container's log restarted every time the Docker list refreshed, so it cleared and reloaded every few seconds; it now keeps streaming. Bursts of output no longer paint a frame of empty rows while following the end, and when you scroll up to read, the lines you're reading stay put even as the oldest drop off.
+- **System → Journal keeps up with fast hosts.** New entries are drawn once per frame instead of on every batch, and only new rows are added, so a chatty journal scrolls smoothly instead of stalling.
+
+## [1.21.0] - 2026-11-20
+
+### Added
+- **What's growing.** Every mount in Fleet → DISKS has **What's growing**: the biggest folders and files on that filesystem, what grew since the last scan, and files changed today. VM disk images (`.vhdx`, `.qcow2`, `.vmdk`, `.vdi`, Hyper-V checkpoints…) are flagged with what to do, since their growth is inside the VM and they don't shrink by themselves; Docker and the journal get hints too. Click a folder to look inside, **Read as root** for folders the login can't open. Works on Linux, macOS and Windows hosts, installs nothing, and the previous scan stays on the host (`~/.nightgrid/growth`), not on this computer.
+- **Storage links: "disks stored on".** On a drive's What's growing panel, link the VMs whose disk images live there (a VM image named after a saved host is suggested). It's not a "depends on": a linked VM's alerts fold under that drive's critical DISK FULL and under its hypervisor going offline, while a share mounted from a NAS never makes a host depend on it. Links are in the profile export.
+
+### Changed
+- **Disk forecasts understand shares and nested storage.** Fleet → DISKS tells a host's own disks from NFS/SMB/SSHFS shares, Windows drives passed into WSL, VM shared folders and ZFS/APFS datasets, with a chip on each. A share from a saved host (say `/mnt/plex` from the NAS) is counted once, on the NAS, and shown on the client as **counted on nas** with no FILLING UP or DISK FULL alert; the same share mounted on several hosts with no owner saved counts on the first. Datasets of one pool are forecast together (their free space is shared), and the same storage mounted twice on one host shows once. WSL's `/mnt/c`-style drives say the disk belongs to Windows, and SMART no longer reads as missing inside WSL or a VM guest. DRIFT's disk explanations get all of this.
+
+### Fixed
+- **Hub member says "connection refused" for its hub.** A member that is only on the LAN pings its hub on the hub host's LAN address, but the hub's collector only listened on Tailscale, so the link failed while pulls (which go the other way) worked. Joining a hub now also makes the collector answer on that LAN address, and a member whose hub link fails gets **Fix on <hub>** under LINKED: it updates the hub if needed and adds the address in one go.
+- **The hub's version.** The hub card said "Node 0.26.0" while showing the hub program's own version; it now says **Hub 0.26.0**, and when the node next to it is newer (the hub isn't updated with the node) it says so and offers **Update hub** (config and history stay).
+- **"Make a hub…" greyed out with no reason.** The card now says why (no host with Node 0.26+ connected, or which hosts to update), and a host marked as a client device that already runs the node can be picked as the hub too.
+- **Link card says what to do.** When the node-to-node link is off or has no tailnet address, **Turn on the link** runs `allow peers` as root and, on a network without Tailscale, makes the link listen on the host's LAN address (`[peers] listen = "lan"`, Node 0.28+). Hubs work on LAN-only networks.
+
+## [1.20.0] - 2026-11-20
+
+### Added
+- **Synology with 2-step verification on.** The Synology DSM card no longer needs an account without 2-step: enter one current code in the integration's settings and DSM trusts Nightgrid from then on. The device token stays in the OS keychain (not in profile exports, so another computer asks once too), **Forget** removes it, and a card whose token DSM dropped shows **Enter 2-step code**. A regular (non-administrator) account works too: the card shows what DSM shares with it and names what needs an administrator instead of failing.
+- **SNMP cards (read-only).** **Add integration → SNMP** reads any SNMP agent with no app account: on a Synology NAS, system, power and fan status, temperature, storage pools (degraded in red), every disk with its health, volumes, CPU, memory and uptime; other agents show volumes, CPU and memory. SNMPv3 with SHA or MD5 and AES or DES, or v2c. Built in, nothing to install.
+- **Library: A Synology NAS alongside Nightgrid** now covers the two doors into DSM (web sign-ins with 2-step, SSH with keys), a key-only administrator for SSH, SNMP with no DSM account, and Docker as its own user.
+
+## [1.19.0] - 2026-11-20
+
+### Added
+- **Acknowledge alerts.** **✓ Ack** on an alert keeps it in the list but takes it off the badge and tray and stops every notification for it (desktop, inbox, ntfy, webhooks). Pick **Until it clears**, a time (1 hour to 30 days, or custom) or **Permanently**. Whatever you pick, it comes back if it gets worse, such as a disk crossing from WARN into CRITICAL.
+- **Mute alerts.** **Mute…** silences this alert, every alert of its kind on its host, everything on its host, or its kind on every host, for a time or forever. **ACKNOWLEDGED & MUTED** in the Alerts panel lists them with the time left and an **Undo**. Silenced alerts stay on the host's timeline, tagged **ACKNOWLEDGED** or **MUTED**, and aren't counted as problems.
+- **An alert that gets worse notifies again** (WARN to CRITICAL), and a timed acknowledgement or mute that runs out while its alert is still active notifies once.
+
+### Changed
+- **DISK FULL skips system mounts** by default (Settings → Alerts → **Skip system mounts**): read-only mounts and ones full by design, such as WSL's and Docker Desktop's `/mnt/wsl/…` (for example `/mnt/wsl/docker-desktop/cli-tools`), snaps and CD/DVD images.
+
+## [1.18.0] - 2026-11-20
+
+### Added
+- **Run Docker as a separate user.** A host can now have a **Docker user**: Nightgrid keeps logging in over SSH as your normal user and runs every Docker action on that host (containers, logs, shells, stacks, compose, routes) as that account through `sudo -u`. Handy for a dedicated docker user with its own UID and GID, as on many Synology NAS setups. Set it in the host's settings or with **Use a separate Docker user instead** on the NO ACCESS TO DOCKER card. Only the name is saved (it's in the profile export); no second login or password.
+  - The first time, **DOCKER USER NEEDS SUDO** shows the one sudoers rule it needs (your login may run docker and docker-compose as that user, nothing else) and **Fix it for me** adds it in its own `/etc/sudoers.d` file after checking it with `visudo`. If the Docker user can't open the socket, the usual card shows the group steps for that user. **Stop using <user>** goes back to your login.
+
+## [1.17.0] - 2026-11-20
+
+### Added
+- **Hold updates back.** Keep anything you don't want touched out of updates, and silence its warnings. Nothing is held by default, held things are marked HELD, and **Fleet → UPDATES → HOLDS** lists everything held with **Release**.
+  - **Hosts**: **Hold…** on a host in Fleet → UPDATES, for 1 day, 1 week, 30 days or until released, with a note. A held host isn't counted as pending (Fleet badge, Overview widget, DRIFT) and can't be picked for **Upgrade selected…**.
+  - **Packages**: **Hold** / **Release** on any package in Fleet → UPDATES or System → UPDATES. On apt, dnf with versionlock and Windows the hold is set on the host (`apt-mark hold`, `dnf versionlock`, hiding the update in Windows Update), so unattended upgrades and other tools respect it too; holds made outside Nightgrid (including pacman's `IgnorePkg`) show as held. On pacman and dnf without versionlock, Nightgrid's upgrades leave held packages out. Held packages aren't counted and the upgrade confirmation names them.
+  - **Container images and stacks**: **Hold** an image, or **Hold stack**, in a stack's **Updates** dialog (or next to an image in **Check images**). Pull and Update then skip its services, so they stay on the image they run; checks still say when a newer version exists, without counting it.
+
+### Fixed
+- **Enter confirms type-to-confirm dialogs.** After typing the name (host, group, VM, key or folder), pressing Enter, including keypad Enter, now runs the red button in every type-to-confirm dialog: Upgrade hosts, power and group power, Docker, VMs and Proxmox actions, firewall changes, SSH key removal and rotation, file delete and a changed host key. Enter does nothing until the name matches, and it waits while an input method (IME) is still composing.
+
 ## [1.16.1] - 2026-11-20
 
 ### Fixed

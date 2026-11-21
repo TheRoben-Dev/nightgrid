@@ -293,6 +293,7 @@ mod tests {
             since: 0,
             resolved: None,
             caused_by: None,
+            silenced: None,
         };
         let full = alert("disk:9:/", AlertKind::DiskFull, Some(9));
         let on_nas = alert("docker:1:x", AlertKind::ContainerDown, Some(h.id));

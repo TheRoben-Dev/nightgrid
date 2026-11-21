@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../confirm";
+  import { enterConfirms, typedMatches } from "../confirm";
   import { scramble } from "../scramble";
   import Modal from "../components/Modal.svelte";
   import AuthPrompt from "../components/terminal/AuthPrompt.svelte";
@@ -53,7 +53,7 @@
 
   const hostName = $derived(system.host?.name ?? "");
   const pending = $derived(system.pendingUnit);
-  const upCount = $derived(system.updates?.updates.length ?? 0);
+  const upCount = $derived(system.updates?.updates.filter((u) => !u.held).length ?? 0);
   let typed = $state("");
   $effect(() => {
     if (!system.confirmPower) typed = "";
@@ -203,11 +203,12 @@
 <Modal open={system.confirmUpgrade} title="UPGRADE PACKAGES" tone="danger" width={560} onclose={() => (system.confirmUpgrade = false)}>
   <p>Install <strong>{upCount}</strong> package upgrade{upCount === 1 ? "" : "s"} on <strong>{hostName}</strong>?</p>
   <ul class="targets">
-    {#each (system.updates?.updates ?? []).slice(0, 12) as p (p.name)}
+    {#each (system.updates?.updates ?? []).filter((u) => !u.held).slice(0, 12) as p (p.name)}
       <li><code>{p.name}</code> <span class="muted">{p.current ?? ""} → {p.available}</span></li>
     {/each}
     {#if upCount > 12}<li class="muted">…and {upCount - 12} more</li>{/if}
   </ul>
+  {#if system.updates?.held.length}<p class="muted">Held packages are left out: {system.updates.held.join(", ")}.</p>{/if}
   <p class="muted">
     Runs non-interactively with sudo; existing config files are kept. Services may restart. Keep Nightgrid connected until
     it finishes: a dropped connection can interrupt the package manager.
@@ -229,13 +230,14 @@
   <p class="muted">{system.confirmPower ? POWER_TEXT[system.confirmPower] : ""} Nightgrid shows it as {system.confirmPower === "suspend" ? "suspended" : system.confirmPower === "shutdown" ? "shut down" : "rebooting"}, not offline, and raises no offline alert.</p>
   <label class="field">
     <span>Type <strong class="verbatim">{hostName}</strong> to confirm</span>
-    <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
+    <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" />
   </label>
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (system.confirmPower = null)}>Cancel</button>
     <button
       type="button"
       class="btn danger"
+      data-confirm
       disabled={!typedMatches(typed, hostName)}
       onclick={() => system.confirmPower && system.power(system.confirmPower)}>{system.confirmPower ? POWER_LABEL[system.confirmPower] : ""} {hostName}</button
     >
@@ -274,7 +276,7 @@
     <p class="muted">{POWER_TEXT[g.action]} Hosts whose sudo needs a password that Nightgrid doesn't remember are skipped and listed.</p>
     <label class="field">
       <span>Type <strong class="verbatim">{groupName}</strong> to confirm</span>
-      <input class="input" bind:value={groupTyped} autocomplete="off" spellcheck="false" />
+      <input class="input" use:enterConfirms bind:value={groupTyped} autocomplete="off" spellcheck="false" />
     </label>
   {/if}
   {#snippet footer()}
@@ -282,6 +284,7 @@
     <button
       type="button"
       class="btn danger"
+      data-confirm
       disabled={!groupMembers.length || !typedMatches(groupTyped, groupName)}
       onclick={() => system.confirmGroupPower && system.groupPower(system.confirmGroupPower.groupId, system.confirmGroupPower.action)}
       >{system.confirmGroupPower ? POWER_LABEL[system.confirmGroupPower.action] : ""} {groupMembers.length} host{groupMembers.length === 1 ? "" : "s"}</button

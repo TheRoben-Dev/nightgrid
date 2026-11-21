@@ -28,7 +28,8 @@ fn other(e: impl std::fmt::Display) -> SystemError {
 async fn docker(app: &AppHandle, host_id: HostId) -> SysResult<Arc<DockerHost>> {
     let conn = connect_host(app, host_id).await?;
     let state = app.state::<AppState>();
-    Ok(state.docker.get(host_id, conn).await.map_err(other)?)
+    let user = crate::docker_cmd::docker_user_of(&state, host_id);
+    Ok(state.docker.get(host_id, conn, user.as_deref()).await.map_err(other)?)
 }
 
 async fn read_caddy(d: &DockerHost, proxy_name: &str) -> SysResult<CaddyTarget> {

@@ -23,6 +23,7 @@ mod files_cmd;
 mod firewall_cmd;
 mod gitstack_cmd;
 mod helper_cmd;
+mod holds_cmd;
 mod hosts_cmd;
 mod hub_cmd;
 mod integrations_cmd;
@@ -134,6 +135,7 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         docker_cmd::docker_logs_stop,
         docker_cmd::docker_forget,
         docker_cmd::docker_fix_access,
+        docker_cmd::docker_set_user,
         docker_cmd::docker_stacks,
         docker_cmd::docker_compose_run,
         docker_cmd::docker_compose_cancel,
@@ -218,6 +220,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         starters_cmd::starters_list,
         starters_cmd::starter_target,
         starters_cmd::starter_open,
+        holds_cmd::update_holds_list,
+        holds_cmd::update_hold_save,
+        holds_cmd::update_hold_delete,
+        system_cmd::system_package_hold,
         expiry_cmd::watch_list,
         expiry_cmd::watch_save,
         expiry_cmd::watch_delete,
@@ -232,6 +238,10 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         system_cmd::system_disks,
         system_cmd::system_pools,
         system_cmd::disk_forecasts,
+        system_cmd::disk_growth,
+        system_cmd::storage_links,
+        system_cmd::storage_link_add,
+        system_cmd::storage_link_delete,
         integrations_cmd::integrations_list,
         integrations_cmd::integration_create,
         integrations_cmd::integration_update,
@@ -241,6 +251,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         integrations_cmd::integration_test,
         integrations_cmd::amp_instance_action,
         integrations_cmd::dns_filter_action,
+        integrations_cmd::synology_trust_device,
+        integrations_cmd::synology_forget_device,
         integrations_cmd::integration_action,
         envvault_cmd::env_vars_list,
         envvault_cmd::env_stacks,
@@ -340,6 +352,9 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         alerts_cmd::alerts_subscribe,
         alerts_cmd::alerts_refresh,
         alerts_cmd::alerts_clear_history,
+        alerts_cmd::alerts_ack,
+        alerts_cmd::alerts_mute,
+        alerts_cmd::alerts_unsilence,
         alerts_cmd::alerts_deps_list,
         alerts_cmd::alerts_deps_add,
         alerts_cmd::alerts_deps_delete,
@@ -366,6 +381,8 @@ pub fn specta_builder() -> Builder<tauri::Wry> {
         hub_cmd::hub_join,
         hub_cmd::hub_leave,
         hub_cmd::hub_allow_networks,
+        hub_cmd::hub_repair_link,
+        hub_cmd::node_link_enable,
         hub_cmd::hub_members,
         powercost_cmd::power_profile_set,
         powercost_cmd::power_profile_clear,

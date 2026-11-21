@@ -46,6 +46,7 @@
     sleepWindow: null,
     role: "server",
     alertOffline: false,
+    dockerUser: null,
     tags: [],
   });
 
@@ -101,6 +102,7 @@
         identityFile: form.authMethod === "password" ? null : nullable(form.identityFile),
         proxyJump: nullable(form.proxyJump),
         tailnetAddress: nullable(form.tailnetAddress),
+        dockerUser: nullable(form.dockerUser),
         macAddress: nullable(form.macAddress),
         sleepWindow: nullable(form.sleepWindow),
         notes: nullable(form.notes),
@@ -238,6 +240,15 @@
         </datalist>
         <span class="field-hint">Optional. Tried when the address above doesn't answer (away from home), and the other way round when you're back. The host key is checked against the main address.</span>
       </label>
+
+      <label class="field span2" data-guide="host-docker-user">
+        <span>Docker user</span>
+        <input class="input mono" bind:value={form.dockerUser} placeholder="same as login" autocomplete="off" spellcheck="false" />
+      </label>
+      <p class="span4 field-hint">
+        Optional. Run Docker on this host as another account, such as a dedicated docker user with its own UID and GID, while SSH keeps
+        using the login above. Nightgrid runs <code>sudo -u</code> for it and offers to add the sudoers rule on first use.
+      </p>
 
       <label class="field span2" data-guide="host-wake">
         <span>MAC address (Wake-on-LAN)</span>

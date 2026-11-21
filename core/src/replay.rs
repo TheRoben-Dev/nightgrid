@@ -267,7 +267,15 @@ mod tests {
     use crate::timeline::Origin;
 
     fn ev(at: i64, kind: EventKind, level: Level, title: &str) -> HostEvent {
-        HostEvent { at, kind, level, title: title.into(), detail: String::new(), origin: Origin::Nightgrid }
+        HostEvent {
+            at,
+            kind,
+            level,
+            title: title.into(),
+            detail: String::new(),
+            origin: Origin::Nightgrid,
+            silenced: None,
+        }
     }
 
     #[test]

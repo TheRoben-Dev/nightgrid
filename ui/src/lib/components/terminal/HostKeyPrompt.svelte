@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../../confirm";
+  import { enterConfirms, typedMatches } from "../../confirm";
   import { scramble } from "../../scramble";
   import type { ConnectError } from "../../api";
   import { errorText } from "../../api";
@@ -39,7 +39,7 @@
   }
 </script>
 
-<div class="prompt" class:changed role="alertdialog" aria-labelledby="hk-title" aria-describedby="hk-desc">
+<div class="prompt" class:changed data-confirm-scope role="alertdialog" aria-labelledby="hk-title" aria-describedby="hk-desc">
   {#if changed}
     <div class="banner" aria-hidden="true">
       {#each Array(3) as _, i (i)}<span>!! HOST KEY MISMATCH !!</span>{/each}
@@ -69,7 +69,7 @@
     </div>
     <label class="field confirm">
       <span>Type <strong class="verbatim">{confirmName}</strong> to replace the recorded key</span>
-      <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" aria-invalid={typed !== "" && !canAccept} />
+      <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" aria-invalid={typed !== "" && !canAccept} />
     </label>
   {:else}
     <h2 id="hk-title">First connection to {prompt.host}:{prompt.port}</h2>
@@ -85,7 +85,7 @@
   {#if error}<p class="error-text" role="alert" use:scramble={error}></p>{/if}
   <div class="actions">
     <button type="button" class="btn ghost" onclick={oncancel}>{changed ? "Disconnect" : "Cancel"}</button>
-    <button type="button" class="btn {changed ? 'danger' : 'primary'}" disabled={!canAccept || busy} onclick={accept}>
+    <button type="button" class="btn {changed ? 'danger' : 'primary'}" data-confirm disabled={!canAccept || busy} onclick={accept}>
       {changed ? "Accept new key" : "Trust & connect"}
     </button>
   </div>

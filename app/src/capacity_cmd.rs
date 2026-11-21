@@ -24,9 +24,10 @@ fn read(state: &AppState, days: u32, now: i64) -> CmdResult<Vec<HostCapacity>> {
     let specs = store.host_specs()?;
     let from = now - i64::from(days.clamp(1, 400)) * DAY;
     let mut out = Vec::new();
+    let mut fleet = store.fleet_disk_forecasts(now)?;
     for h in store.list_hosts()? {
         let points = store.metric_history_at(h.id, HOURLY, from, now)?;
-        let disks = store.disk_forecasts(h.id, now)?;
+        let disks = fleet.remove(&h.id).unwrap_or_default();
         let spec = specs.iter().find(|s| s.host_id == h.id).cloned();
         out.push(capacity::summarize(h.id, spec, &points, &disks));
     }

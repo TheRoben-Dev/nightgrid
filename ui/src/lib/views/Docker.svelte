@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../confirm";
+  import { enterConfirms, typedMatches } from "../confirm";
   import { scramble } from "../scramble";
   import { onMount } from "svelte";
   import type { ContainerView, DockerAction } from "../api";
@@ -50,6 +50,8 @@
   /** Removing several containers needs the host name typed. */
   const needsTyping = $derived(!!pending && pending.action.kind === "remove" && pending.targets.length > 1);
   const hostName = $derived(docker.host?.name ?? "");
+  const hostDockerUser = $derived(docker.host?.dockerUser ?? null);
+  let altUser = $state("");
   const confirmOk = $derived(
     !!pending && (!needsTyping || typedMatches(typed, hostName)) && !(pending.action.kind === "remove" && runningTargets.length && !forceRemove),
   );
@@ -214,7 +216,11 @@
         <div class="empty">
           {#if docker.problem.kind === "permissionDenied"}
             {@const p = docker.problem}
+            {@const dockerUser = hostDockerUser}
             <p class="label warn">NO ACCESS TO DOCKER</p>
+            {#if dockerUser && dockerUser === p.user}
+              <p class="muted">{p.user} is this host's Docker user: Nightgrid runs docker as it through <code>sudo -u</code>, and it needs the socket too.</p>
+            {/if}
             {#if p.steps.length}
               <p>
                 <strong>{p.user}</strong> can't use <code>{p.socket}</code> on {hostName}.
@@ -246,6 +252,56 @@
                 {docker.fixing ? "Fixing…" : p.steps.length ? "Fix it for me" : "Reconnect"}
               </button>
               <button type="button" class="btn ghost" disabled={docker.fixing} onclick={() => docker.retry()}>Retry</button>
+              {#if dockerUser}
+                <button type="button" class="btn ghost" disabled={docker.fixing} onclick={() => docker.setDockerUser(null)}>Stop using {dockerUser}</button>
+              {/if}
+            </div>
+            {#if !dockerUser}
+              <details class="alt-user" data-guide="docker-alt-user">
+                <summary>Use a separate Docker user instead</summary>
+                <p class="muted">
+                  Keep logging in as <strong>{p.user}</strong> and run Docker on {hostName} as another account, such as a dedicated docker user
+                  with its own UID and GID. Nightgrid runs docker as it through <code>sudo -u</code> and offers the sudoers rule next. Only the
+                  user name is saved (in the host's settings), no password.
+                </p>
+                <form
+                  class="fix-row"
+                  onsubmit={(e) => {
+                    e.preventDefault();
+                    void docker.setDockerUser(altUser);
+                  }}
+                >
+                  <input class="input mono" bind:value={altUser} placeholder="dockeruser" autocomplete="off" spellcheck="false" aria-label="Docker user" />
+                  <button type="submit" class="btn" disabled={docker.fixing || !altUser.trim()}>Use this user</button>
+                </form>
+              </details>
+            {/if}
+          {:else if docker.problem.kind === "dockerUserSudo"}
+            {@const p = docker.problem}
+            <p class="label warn">DOCKER USER NEEDS SUDO</p>
+            <p>
+              Nightgrid logs in to {hostName} as <strong>{p.login}</strong> and runs Docker as <strong>{p.user}</strong> (this host's Docker
+              user), but sudo wants a password for that.
+              {#if p.steps.length}
+                Nightgrid can add this rule for you (it asks for the sudo password once), or run it yourself and press Retry:
+              {:else}
+                Allow {p.login} to run <code>docker</code> as {p.user} without a password in sudoers, then press Retry.
+              {/if}
+            </p>
+            {#if p.steps.length}<pre class="cmd">{p.steps.map((s) => `sudo ${s}`).join("\n")}</pre>{/if}
+            <p class="muted">
+              The rule lets {p.login} run only the docker CLI (and docker-compose) as {p.user}, in its own file under
+              <code>/etc/sudoers.d</code>, checked with <code>visudo</code> first. Docker access is root-equivalent on that host either way.
+              {#if p.synology}A DSM update can reset <code>/etc/sudoers.d</code>; this card comes back then and the fix is one click again.{/if}
+            </p>
+            <div class="fix-row">
+              {#if p.steps.length}
+                <button type="button" class="btn primary" disabled={docker.fixing} onclick={() => docker.fixAccess()}>
+                  {docker.fixing ? "Fixing…" : "Fix it for me"}
+                </button>
+              {/if}
+              <button type="button" class="btn ghost" disabled={docker.fixing} onclick={() => docker.retry()}>Retry</button>
+              <button type="button" class="btn ghost" disabled={docker.fixing} onclick={() => docker.setDockerUser(null)}>Stop using {p.user}</button>
             </div>
           {:else}
             <p class="label warn">DOCKER NOT FOUND</p>
@@ -404,7 +460,7 @@
     {#if needsTyping}
       <label class="field">
         <span>Type <strong class="verbatim">{hostName}</strong> to confirm</span>
-        <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
+        <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
   {/if}
@@ -413,6 +469,7 @@
     <button
       type="button"
       class="btn danger"
+      data-confirm
       disabled={!confirmOk}
       onclick={() => pending && pendingAction && docker.run(pendingAction, pending.targets)}
     >
@@ -744,6 +801,9 @@
     color: var(--cyan);
     font-family: var(--font-mono);
     user-select: all;
+    max-width: 100%;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
   code {
     color: var(--cyan);
@@ -751,6 +811,19 @@
   .fix-row {
     display: flex;
     gap: 8px;
+  }
+  .alt-user {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+  }
+  .alt-user summary {
+    cursor: pointer;
+    color: var(--accent);
+  }
+  .alt-user .input {
+    flex: 1;
+    min-width: 0;
   }
   .pad {
     padding: 14px;

@@ -5,6 +5,9 @@
 //! Microsoft's own remote tools, the install runs as a one-off scheduled
 //! task as SYSTEM, which writes a log that this session streams back, and
 //! the task is removed when it ends. Installing needs an administrator.
+//!
+//! Holding an update (D-195) hides it in Windows Update, which every tool
+//! on the host respects; releasing un-hides it.
 
 use serde::Deserialize;
 
@@ -15,22 +18,25 @@ use crate::system::{SystemError, SystemResult};
 use super::{run, IS_ADMIN};
 
 const CHECK: &str = r#"$ErrorActionPreference = 'Stop'
-$o = [ordered]@{ updates = @(); error = $null; reboot = @() }
+$o = [ordered]@{ updates = @(); hidden = @(); error = $null; reboot = @() }
 $rk = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'
 if (Test-Path $rk) { $o.reboot += 'Windows Update is waiting for a restart' }
 if (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') { $o.reboot += 'a Windows component is waiting for a restart' }
 try {
   $s = New-Object -ComObject Microsoft.Update.Session
   $s.ClientApplicationID = 'Nightgrid'
-  $r = $s.CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0 and Type='Software'")
-  $o.updates = @(foreach ($u in $r.Updates) {
+  $r = $s.CreateUpdateSearcher().Search("IsInstalled=0 and Type='Software'")
+  $all = @(foreach ($u in $r.Updates) {
     [ordered]@{
       title = [string]$u.Title
       kb = (@($u.KBArticleIDs) | ForEach-Object { 'KB' + $_ }) -join ', '
       cat = (@($u.Categories) | Select-Object -First 1 | ForEach-Object { $_.Name }) -join ''
       severity = [string]$u.MsrcSeverity
+      hidden = [bool]$u.IsHidden
     }
   })
+  $o.updates = @($all | Where-Object { -not $_.hidden })
+  $o.hidden = @($all | Where-Object { $_.hidden })
 } catch {
   $o.error = $_.Exception.Message
 }
@@ -40,6 +46,9 @@ ConvertTo-Json -InputObject $o -Depth 3 -Compress"#;
 struct Raw {
     #[serde(default)]
     updates: Vec<RawUpdate>,
+    /// Updates hidden in Windows Update: held.
+    #[serde(default)]
+    hidden: Vec<RawUpdate>,
     error: Option<String>,
     #[serde(default)]
     reboot: Vec<String>,
@@ -67,10 +76,14 @@ pub fn parse(json: &str) -> SystemResult<UpdatesReport> {
             format!("Windows Update couldn't search: {}", e.trim())
         }
     });
+    let held: Vec<String> = raw.hidden.iter().map(|u| u.title.clone()).collect();
+    let hidden = raw.hidden.into_iter().map(|u| (u, true));
     let updates = raw
         .updates
         .into_iter()
-        .map(|u| {
+        .map(|u| (u, false))
+        .chain(hidden)
+        .map(|(u, held)| {
             let repo = match (u.cat.trim(), u.severity.trim()) {
                 ("", "") => None,
                 (c, "") => Some(c.to_owned()),
@@ -83,6 +96,7 @@ pub fn parse(json: &str) -> SystemResult<UpdatesReport> {
                 name: u.title,
                 current: None,
                 repo,
+                held,
             }
         })
         .collect();
@@ -92,7 +106,46 @@ pub fn parse(json: &str) -> SystemResult<UpdatesReport> {
         reboot_required: !raw.reboot.is_empty(),
         reboot_reasons: raw.reboot,
         note,
+        held,
+        hold_support: crate::system::packages::HoldSupport::Host,
     })
+}
+
+/// Hides (holds) or un-hides (releases) updates by title. Needs an
+/// administrator, like installing.
+const HOLD: &str = r#"$ErrorActionPreference = 'Stop'
+if (-not (__ADMIN__)) { [Console]::Error.WriteLine('Holding Windows updates needs an administrator account. Log in to this host as an administrator (Windows has no sudo).'); exit 5 }
+$want = @(__TITLES__)
+$s = New-Object -ComObject Microsoft.Update.Session
+$s.ClientApplicationID = 'Nightgrid'
+$r = $s.CreateUpdateSearcher().Search("IsInstalled=0 and Type='Software'")
+$n = 0
+foreach ($u in $r.Updates) { if ($want -contains [string]$u.Title) { $u.IsHidden = __HIDE__; $n++ } }
+[Console]::Out.WriteLine('changed ' + $n)"#;
+
+/// The PowerShell that holds (`hide`) or releases these updates.
+pub fn hold_script(titles: &[String], hide: bool) -> SystemResult<String> {
+    if titles.is_empty() {
+        return Err(SystemError::other("no update named"));
+    }
+    if titles.iter().any(|t| t.trim().is_empty() || t.len() > 400 || t.chars().any(char::is_control)) {
+        return Err(SystemError::other("not an update title"));
+    }
+    let list: Vec<String> = titles.iter().map(|t| super::quote(t)).collect();
+    Ok(HOLD
+        .replace("__ADMIN__", IS_ADMIN)
+        .replace("__HIDE__", if hide { "$true" } else { "$false" })
+        .replace("__TITLES__", &list.join(", ")))
+}
+
+/// Holds or releases updates on the host; how many it changed.
+pub async fn hold(conn: &Connection, titles: &[String], hide: bool) -> SystemResult<u32> {
+    let o = run(conn, &hold_script(titles, hide)?).await.map_err(SystemError::other)?;
+    if o.code != 0 {
+        let t = o.error_text();
+        return Err(SystemError::other(if t.is_empty() { format!("exit {}", o.code) } else { t }));
+    }
+    Ok(o.stdout.trim().strip_prefix("changed ").and_then(|n| n.trim().parse().ok()).unwrap_or(0))
 }
 
 pub async fn check(conn: &Connection) -> SystemResult<UpdatesReport> {
@@ -200,6 +253,23 @@ mod tests {
         assert_eq!(r.updates[1].repo.as_deref(), Some("Definition Updates"));
         assert!(r.reboot_required);
         assert!(r.note.is_none());
+    }
+
+    #[test]
+    fn hidden_updates_are_held() {
+        let r = parse(
+            r#"{"updates":[{"title":"Feature update","kb":"KB1","cat":"Upgrades","severity":""}],
+                "hidden":[{"title":"Driver update","kb":"","cat":"Drivers","severity":""}],"error":null,"reboot":[]}"#,
+        )
+        .unwrap();
+        assert_eq!(r.updates.len(), 2);
+        assert!(r.updates[1].held && !r.updates[0].held);
+        assert_eq!(r.held, ["Driver update"]);
+        assert_eq!(r.pending(), 1);
+        let s = hold_script(&["It's an update".to_owned()], true).unwrap();
+        assert!(s.contains("'It''s an update'") && s.contains("$u.IsHidden = $true") && !s.contains("__"));
+        assert!(hold_script(&[], true).is_err());
+        assert!(hold_script(&["a\nb".to_owned()], false).is_err());
     }
 
     #[test]

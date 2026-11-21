@@ -5,9 +5,11 @@
  * isn't remembered are reported, not prompted for (one prompt per host would
  * be easy to click through).
  */
-import { api, errorText, systemError, type PoolsReport } from "../api";
-import type { FleetTab, HostDisks, HostRun, HostUpdates, ImageRow } from "../fleet";
+import { api, errorText, systemError, type GrowthReport, type PoolsReport, type StorageLink } from "../api";
+import { isGuest, type FleetTab, type HostDisks, type HostRun, type HostUpdates, type ImageRow } from "../fleet";
+import { system } from "./system.svelte";
 import { backups } from "./backups.svelte";
+import { holds } from "./holds.svelte";
 import { hosts } from "./hosts.svelte";
 import { nav } from "./nav.svelte";
 
@@ -49,6 +51,54 @@ class FleetStore {
   disks = $state<Record<number, HostDisks>>({});
   disksChecking = $state(false);
   disksAt = $state<number | null>(null);
+  /** "What's growing" scans by `hostId|path`. */
+  growth = $state<Record<string, { busy: boolean; report: GrowthReport | null; error: string | null }>>({});
+  /** Hosts whose disks are stored on another host's drive. */
+  links = $state<StorageLink[]>([]);
+
+  /** Scans a folder on a host; `elevate` reads as root (asks for sudo). */
+  async scanGrowth(hostId: number, path: string, elevate = false) {
+    const key = `${hostId}|${path}`;
+    const prev = this.growth[key];
+    this.growth = { ...this.growth, [key]: { busy: true, report: prev?.report ?? null, error: null } };
+    try {
+      const name = hosts.hosts.find((h) => h.id === hostId)?.name;
+      const report = elevate
+        ? await system.withSudo(`read every folder under ${path}`, (sudo) => api.diskGrowth(hostId, path, true, sudo), name ?? "this host")
+        : await api.diskGrowth(hostId, path, false, null);
+      this.growth = { ...this.growth, [key]: { busy: false, report, error: null } };
+    } catch (e) {
+      this.growth = { ...this.growth, [key]: { busy: false, report: prev?.report ?? null, error: hostError(e) } };
+    }
+  }
+
+  async loadLinks() {
+    this.links = await api.storageLinks().catch(() => this.links);
+  }
+
+  /** "`hostId`'s disks are stored on `owner`'s `mount`", then re-reads both hosts' forecasts. */
+  async addLink(hostId: number, owner: number, mount: string) {
+    await api.storageLinkAdd(hostId, owner, mount);
+    await this.loadLinks();
+    await this.refreshForecasts([hostId, owner]);
+  }
+
+  async removeLink(id: number) {
+    const l = this.links.find((x) => x.id === id);
+    await api.storageLinkDelete(id);
+    await this.loadLinks();
+    if (l) await this.refreshForecasts([l.hostId, l.ownerHostId]);
+  }
+
+  /** Forecasts only (local, no connection). */
+  async refreshForecasts(ids: number[]) {
+    for (const id of ids) {
+      const cur = this.disks[id];
+      if (!cur) continue;
+      const forecasts = await api.diskForecasts(id).catch(() => cur.forecasts);
+      this.disks = { ...this.disks, [id]: { ...this.disks[id], forecasts } };
+    }
+  }
 
   /** Opens the BACKUPS tab, reading the board once per session. */
   openBackups() {
@@ -59,6 +109,7 @@ class FleetStore {
 
   /** Opening the DISKS tab: forecasts right away (local), pools and SMART when stale. */
   ensureDisks() {
+    void this.loadLinks();
     if (this.disksChecking) return;
     if (this.disksAt === null || Date.now() - this.disksAt > FRESH_MS) void this.checkDisks();
   }
@@ -110,6 +161,8 @@ class FleetStore {
             : system?.kind === "noSudo"
               ? "this login can't use sudo"
               : errorText(e);
+      // WSL or a VM guest: there is no disk of its own to read.
+      if (system?.kind !== "sudoRequired" && isGuest(forecasts)) smartNote = "not here: the disks belong to the machine this runs on, so read SMART there";
     }
     this.disks = { ...this.disks, [id]: { status: "ok", error: null, pools, smart, smartNote, forecasts, checkedAt: Date.now() } };
   }
@@ -124,6 +177,7 @@ class FleetStore {
   async checkAll(ids?: number[]) {
     if (this.checking) return;
     this.checking = true;
+    holds.ensure();
     this.runs = Object.fromEntries(Object.entries(this.runs).filter(([, r]) => r.running));
     try {
       await pool(
@@ -145,13 +199,14 @@ class FleetStore {
     } catch (e) {
       this.updates = { ...this.updates, [id]: { status: "error", report: null, error: hostError(e), checkedAt: Date.now() } };
     }
-    this.selected = this.selected.filter((x) => x !== id || (this.updates[id]?.report?.updates.length ?? 0) > 0);
+    this.selected = this.selected.filter((x) => x !== id || (this.updates[id]?.report?.updates.some((u) => !u.held) ?? false));
   }
 
   /** Asks registries whether any stack's image tags moved (rule 7: registries, on request). */
   async checkImages() {
     if (this.imagesChecking) return;
     this.imagesChecking = true;
+    holds.ensure();
     const rows: ImageRow[] = [];
     const skipped: Record<number, string> = {};
     try {
@@ -207,7 +262,11 @@ class FleetStore {
 
   private async upgradeHost(id: number) {
     const manager = this.updates[id]?.report?.manager;
-    if (!manager || !this.updates[id]?.report?.updates.length) {
+    if (holds.host(id)) {
+      this.setRun(id, { running: false, skipped: "updates are held on this host" });
+      return;
+    }
+    if (!manager || !this.updates[id]?.report?.updates.some((u) => !u.held)) {
       this.setRun(id, { running: false, skipped: "nothing to upgrade" });
       return;
     }

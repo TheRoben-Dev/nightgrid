@@ -20,6 +20,10 @@ import {
   type BackupWritten,
   type ImportMode,
   type Alert_Serialize as Alert,
+  type AckFor,
+  type MuteScope,
+  type Silence_Serialize as Silence,
+  type SilenceMode,
   type AccessReport_Serialize as AccessReport,
   type Crontab_Serialize as Crontab,
   type CrontabJob_Serialize as CrontabJob,
@@ -235,6 +239,10 @@ import {
   type ComposeOp,
   type ImageChange_Serialize as ImageChange,
   type ImageUpdate_Serialize as ImageUpdate,
+  type UpdateHold_Serialize as UpdateHold,
+  type HoldInput_Deserialize as HoldInput,
+  type HoldKind,
+  type HoldSupport,
   type ImageStatus,
   type VersionInfo_Serialize as VersionInfo,
   type RemoteImage_Serialize as RemoteImage,
@@ -245,7 +253,7 @@ import {
   type Stack,
   type StackDir,
   type MetricsEvent_Serialize as MetricsEvent,
-  type MountUsage,
+  type MountUsage_Serialize as MountUsage,
   type Point_Serialize as MetricPoint,
   type PollState,
   type Rate,
@@ -281,6 +289,11 @@ import {
   type PoolKind,
   type PoolDevice_Serialize as PoolDevice,
   type MountForecast_Serialize as MountForecast,
+  type MountKind,
+  type MountOwner,
+  type GrowthReport_Serialize as GrowthReport,
+  type GrowthEntry_Serialize as GrowthEntry,
+  type StorageLink,
   type UsagePoint,
   type Disk_Serialize as Disk,
   type Health,
@@ -304,7 +317,7 @@ import {
   type PowerAction,
   type WakeSent_Serialize as WakeSent,
   type HostSchedule_Serialize as HostSchedule,
-  type HostEvent,
+  type HostEvent_Serialize as HostEvent,
   type DriftReport_Serialize as DriftReport,
   type FileDiff_Serialize as FileDiff,
   type DiffLine_Serialize as DiffLine,
@@ -316,7 +329,7 @@ import {
   type WatchKind,
   type ExpiryPref_Serialize as ExpiryPref,
   type PrefTarget,
-  type Timeline,
+  type Timeline_Serialize as Timeline,
   type EventKind,
   type Level,
   type ScheduleSpec_Deserialize as ScheduleSpec,
@@ -461,6 +474,7 @@ import { mockProxmox } from "./mockProxmox";
 import { mockAutomation } from "./mockAutomation";
 import { mockNotes } from "./mockNotes";
 import { mockOps } from "./mockOps";
+import { mockHolds } from "./mockHolds";
 import { mockDesktop } from "./mockDesktop";
 import { mockTailnet } from "./mockTailnet";
 import { mockKeys } from "./mockKeys";
@@ -656,6 +670,10 @@ export type {
   UpsWatch,
   AlertSettings,
   AlertsSnapshot,
+  AckFor,
+  MuteScope,
+  Silence,
+  SilenceMode,
   AlertTestResult,
   Severity,
   WebhookInfo,
@@ -706,6 +724,10 @@ export type {
   ComposeOp,
   ImageChange,
   ImageUpdate,
+  UpdateHold,
+  HoldInput,
+  HoldKind,
+  HoldSupport,
   ImageStatus,
   VersionInfo,
   RemoteImage,
@@ -744,6 +766,11 @@ export type {
   PoolKind,
   PoolDevice,
   MountForecast,
+  MountKind,
+  MountOwner,
+  GrowthReport,
+  GrowthEntry,
+  StorageLink,
   UsagePoint,
   Disk,
   Health,
@@ -936,6 +963,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
     containerDown: true,
     diskFull: true,
     diskPercent: 90,
+    diskSkipSystem: true,
     serviceDown: true,
     certExpiring: true,
     certDays: 14,
@@ -1141,6 +1169,8 @@ export const api = {
   dockerForget: (hostId: number): Promise<null> => (T() ? commands.dockerForget(hostId) : Promise.resolve(null)),
   dockerFixAccess: (hostId: number, steps: string[], relogin: boolean, sudo: SudoInput | null): Promise<null> =>
     T() ? commands.dockerFixAccess(hostId, steps, relogin, sudo) : mockDocker.fixAccess(hostId),
+  dockerSetUser: (hostId: number, user: string | null): Promise<null> =>
+    T() ? commands.dockerSetUser(hostId, user) : mockBackend.hostSetDockerUser(hostId, user).then(() => mockDocker.setUser(hostId, user)),
   dockerStacks: (hostId: number): Promise<Stack[]> => (T() ? commands.dockerStacks(hostId) : mockDocker.stacks(hostId)),
   dockerComposeRun: (hostId: number, stack: Stack, op: ComposeOp, on: (e: ComposeEvent) => void): Promise<number> => {
     if (!T()) return mockDocker.composeRun(hostId, stack, op, on);
@@ -1266,6 +1296,12 @@ export const api = {
   },
   systemStreamStop: (run: number): Promise<null> => (T() ? commands.systemStreamStop(run) : mockSystem.streamStop(run)),
   systemUpdates: (hostId: number): Promise<UpdatesReport> => (T() ? commands.systemUpdates(hostId) : mockSystem.updates(hostId)),
+  /** Holds or releases packages on the host itself (apt-mark, dnf versionlock, hidden Windows updates). */
+  systemPackageHold: (hostId: number, manager: PackageManager, names: string[], hold: boolean, sudo: SudoInput | null): Promise<null> =>
+    T() ? commands.systemPackageHold(hostId, manager, names, hold, sudo) : mockHolds.packageHold(hostId, manager, names, hold),
+  updateHoldsList: (): Promise<UpdateHold[]> => (T() ? commands.updateHoldsList() : mockHolds.list()),
+  updateHoldSave: (input: HoldInput): Promise<UpdateHold> => (T() ? commands.updateHoldSave(input) : mockHolds.save(input)),
+  updateHoldDelete: (id: number): Promise<null> => (T() ? commands.updateHoldDelete(id) : mockHolds.remove(id)),
   systemUpgradeRun: (hostId: number, manager: PackageManager, op: UpgradeOp, sudo: SudoInput | null, on: (e: RunEvent) => void): Promise<number> => {
     if (!T()) return mockSystem.upgradeRun(hostId, manager, op, sudo, on);
     const ch = new Channel<RunEvent>();
@@ -1310,6 +1346,12 @@ export const api = {
     T() ? commands.keysVerify(hostId, file, passphrase) : mockKeys.verify(),
   systemPools: (hostId: number): Promise<PoolsReport> => (T() ? commands.systemPools(hostId) : mockSystem.pools(hostId)),
   diskForecasts: (hostId: number): Promise<MountForecast[]> => (T() ? commands.diskForecasts(hostId) : mockSystem.forecasts(hostId)),
+  diskGrowth: (hostId: number, path: string, elevate: boolean, sudo: SudoInput | null): Promise<GrowthReport> =>
+    T() ? commands.diskGrowth(hostId, path, elevate, sudo) : mockSystem.growth(hostId, path),
+  storageLinks: (): Promise<StorageLink[]> => (T() ? commands.storageLinks() : mockSystem.links()),
+  storageLinkAdd: (hostId: number, ownerHostId: number, ownerMount: string): Promise<StorageLink> =>
+    T() ? commands.storageLinkAdd(hostId, ownerHostId, ownerMount) : mockSystem.linkAdd(hostId, ownerHostId, ownerMount),
+  storageLinkDelete: (id: number): Promise<null> => (T() ? commands.storageLinkDelete(id) : mockSystem.linkDelete(id)),
   systemDisks: (hostId: number, sudo: SudoInput | null): Promise<DisksReport> =>
     T() ? commands.systemDisks(hostId, sudo) : mockSystem.disks(hostId, sudo),
   systemVms: (hostId: number, elevate: boolean, sudo: SudoInput | null): Promise<VmReport> =>
@@ -1386,6 +1428,9 @@ export const api = {
   ampInstanceAction: (id: number, instance: string, action: AmpAction): Promise<null> =>
     T() ? commands.ampInstanceAction(id, instance, action) : mockIntegrations.ampAction(id, instance, action),
   dnsFilterAction: (id: number, action: DnsAction): Promise<null> => (T() ? commands.dnsFilterAction(id, action) : mockIntegrations.dnsAction(id, action)),
+  synologyTrustDevice: (id: number, code: string): Promise<boolean> =>
+    T() ? commands.synologyTrustDevice(id, code) : mockIntegrations.trustDevice(id, code),
+  synologyForgetDevice: (id: number): Promise<null> => (T() ? commands.synologyForgetDevice(id) : mockIntegrations.forgetDevice(id)),
   integrationAction: (id: number, target: string, action: string): Promise<null> =>
     T() ? commands.integrationAction(id, target, action) : mockIntegrations.action(id, target, action),
   snippetsList: (): Promise<Snippet[]> => (T() ? commands.snippetsList() : mockAutomation.snippets()),
@@ -1461,6 +1506,10 @@ export const api = {
   },
   alertsRefresh: (): Promise<null> => (T() ? commands.alertsRefresh() : mockAlerts.refresh()),
   alertsClearHistory: (): Promise<null> => (T() ? commands.alertsClearHistory() : mockAlerts.clearHistory()),
+  alertsAck: (key: string, how: AckFor): Promise<Silence> => (T() ? commands.alertsAck(key, how) : mockAlerts.ack(key, how)),
+  alertsMute: (key: string, scope: MuteScope, secs: number | null): Promise<Silence> =>
+    T() ? commands.alertsMute(key, scope, secs) : mockAlerts.mute(key, scope, secs),
+  alertsUnsilence: (id: number): Promise<null> => (T() ? commands.alertsUnsilence(id) : mockAlerts.unsilence(id)),
   alertsWebhookGet: (): Promise<WebhookInfo> => (T() ? commands.alertsWebhookGet() : mockAlerts.webhookGet()),
   alertsWebhookSet: (url: string | null): Promise<WebhookInfo> =>
     T() ? commands.alertsWebhookSet(url) : mockAlerts.webhookSet(url),
@@ -1606,8 +1655,12 @@ export const api = {
     T() ? commands.hubJoin(memberId, hubHost, sudo) : mockHub.join(memberId, hubHost),
   hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<HubJoinResult> =>
     T() ? commands.hubLeave(memberId, hubHost, sudo) : mockHub.leave(memberId),
-  hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null): Promise<ConfigSaveReport> =>
-    T() ? commands.hubAllowNetworks(hubHost, networks, sudo) : mockHub.allowNetworks(networks),
+  hubAllowNetworks: (hubHost: number, networks: string[], listen: string[], sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.hubAllowNetworks(hubHost, networks, listen, sudo) : mockHub.allowNetworks(networks, listen),
+  nodeLinkEnable: (hostId: number, sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.nodeLinkEnable(hostId, sudo) : mockHub.linkEnable(hostId),
+  hubRepairLink: (memberId: number, hubHost: number, sudo: SudoInput | null): Promise<ConfigSaveReport> =>
+    T() ? commands.hubRepairLink(memberId, hubHost, sudo) : mockHub.repairLink(memberId),
   powerOverview: (days: number, utcOffsetMins: number): Promise<PowerOverview> => (T() ? commands.powerOverview(days, utcOffsetMins) : mockPower.overview(days)),
   powerProfileSet: (hostId: number, idleW: number, maxW: number): Promise<null> => (T() ? commands.powerProfileSet(hostId, idleW, maxW) : mockPower.set(hostId, idleW, maxW)),
   powerProfileClear: (hostId: number): Promise<null> => (T() ? commands.powerProfileClear(hostId) : mockPower.clear(hostId)),

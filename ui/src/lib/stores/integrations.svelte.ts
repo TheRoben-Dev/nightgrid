@@ -12,6 +12,26 @@ import {
   type IntegrationView,
 } from "../api";
 
+/** Start of the error DSM's login gives when it wants a 2-step code (core NEEDS_OTP). */
+export const DSM_NEEDS_OTP = "DSM asks for a 2-step code";
+export const needsDsmCode = (error: string | null | undefined) => !!error?.startsWith(DSM_NEEDS_OTP);
+
+/** SNMPv3 protocol pairs kept in `slug` (core snmp::PROTOCOLS); the first is the default. */
+export const SNMP_PROTOCOLS: { id: string; label: string }[] = [
+  { id: "sha-aes", label: "SHA + AES (recommended)" },
+  { id: "sha-des", label: "SHA + DES" },
+  { id: "sha", label: "SHA, no privacy" },
+  { id: "md5-aes", label: "MD5 + AES" },
+  { id: "md5-des", label: "MD5 + DES" },
+  { id: "md5", label: "MD5, no privacy" },
+];
+
+/** The address field: http(s) URLs, or a bare host / snmp:// for SNMP. */
+export function addressOk(kind: IntegrationKind, url: string | null | undefined): boolean {
+  const u = (url ?? "").trim();
+  return kind === "snmp" ? /^(snmp:\/\/)?(\[[0-9a-f:.]+\]|[^/\s@?#:[\]]+)(:\d{1,5})?\/?$/i.test(u) : /^https?:\/\/[^/\s@?#]+/i.test(u);
+}
+
 /** Seconds between status reads while the Services view is open. */
 const POLL_SECS = 30;
 
@@ -188,7 +208,7 @@ export const KIND_META: Record<IntegrationKind, KindMeta> = {
     label: "SYNOLOGY",
     name: "Synology DSM",
     group: "Storage",
-    help: "Volumes with status and how full they are, disks with SMART problems, CPU, memory and temperature. Needs an administrator account without 2-step verification (make a separate one for Nightgrid).",
+    help: "Volumes with status and how full they are, disks with SMART problems, CPU, memory and temperature. Use a separate account for Nightgrid. 2-step verification can stay on: enter one code and DSM trusts Nightgrid from then on. DSM shows volumes and disks only to administrators; for no admin at all, add an SNMP card instead.",
     placeholder: "https://nas.example.lan:5001",
     secret: { label: "Password", hint: "Kept in the OS keychain only." },
     username: { label: "Login name", required: true },
@@ -253,6 +273,15 @@ export const KIND_META: Record<IntegrationKind, KindMeta> = {
     placeholder: "http://server01:9090",
     secret: { label: "Password or token", hint: "Kept in the OS keychain only.", optional: true },
     username: { label: "Login name", required: false },
+  },
+  snmp: {
+    label: "SNMP",
+    name: "SNMP",
+    group: "Storage",
+    help: "Read-only health from any SNMP agent: on a Synology NAS (Control Panel → Terminal & SNMP) system and power status, fans, temperature, storage pools, disks with health, volumes, CPU and memory, with no DSM account at all. Other agents show volumes, CPU and memory. Prefer SNMPv3 with privacy; v2c sends its community in the clear.",
+    placeholder: "nas.example.lan",
+    secret: { label: "Community", hint: "Kept in the OS keychain only." },
+    username: { label: "SNMPv3 user", required: false, placeholder: "empty for v2c" },
   },
   amp: {
     label: "AMP",
@@ -386,7 +415,7 @@ export function summary(s: IntegrationStatus | null): string {
 export type Tone = "ok" | "warn" | "bad" | "idle";
 export function toneOf(e: Entry | undefined): Tone {
   if (!e || (!e.status && !e.error)) return "idle";
-  if (e.error) return "bad";
+  if (e.error) return needsDsmCode(e.error) ? "warn" : "bad";
   const s = e.status!;
   if (s.kind === "kuma" && s.down) return "warn";
   if ((s.kind === "pihole" || s.kind === "adguard") && !s.blocking) return "warn";
@@ -471,6 +500,19 @@ class IntegrationsStore {
     await this.load();
     void this.refresh(v.integration.id);
     return v;
+  }
+
+  /** Synology 2-step: has DSM trust this computer with one code. False when DSM gave no token. */
+  async trustDsm(id: number, code: string): Promise<boolean> {
+    const trusted = await api.synologyTrustDevice(id, code.trim());
+    await this.load();
+    void this.refresh(id);
+    return trusted;
+  }
+
+  async forgetDsm(id: number) {
+    await api.synologyForgetDevice(id);
+    await this.load();
   }
 
   async remove(id: number) {

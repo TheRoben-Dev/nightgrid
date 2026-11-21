@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../../confirm";
+  import { enterConfirms, typedMatches } from "../../confirm";
   /**
    * Fleet → UPDATES (M10m): pending package updates on every host, reboot
    * flags, batch upgrade with a typed confirmation (rule 5), and container
@@ -8,8 +8,10 @@
   import { tick } from "svelte";
   import { openExternal } from "../../clipboard";
   import { agoText, confirmPhrase, MANAGER_WORD, pendingImages, totals, updateRows, updatesText } from "../../fleet";
+  import { errorText, systemError } from "../../api";
   import { docker } from "../../stores/docker.svelte";
   import { fleet } from "../../stores/fleet.svelte";
+  import { HOLD_FOR, holdUntilText, holds, packageHoldPlace } from "../../stores/holds.svelte";
   import { hosts } from "../../stores/hosts.svelte";
   import { system } from "../../stores/system.svelte";
   import { ui } from "../../stores/ui.svelte";
@@ -18,7 +20,57 @@
 
   $effect(() => {
     if (hosts.hosts.length) fleet.ensure();
+    holds.ensure();
   });
+
+  // ---- holds (D-195) ----
+  let holdFor = $state<number | null>(7 * 86_400);
+  let holdNote = $state("");
+  let holdErr = $state<Record<number, string>>({});
+  let pkgBusy = $state<string | null>(null);
+  const dialogHost = $derived(holds.dialogHost === null ? null : (hosts.byId(holds.dialogHost) ?? null));
+  const heldImages = $derived((fleet.images ?? []).filter((i) => i.update.held));
+  const kindWord = { host: "HOST", package: "PACKAGE", image: "IMAGE", stack: "STACK" } as const;
+
+  function openHold(id: number) {
+    holdFor = 7 * 86_400;
+    holdNote = "";
+    holds.dialogHost = id;
+  }
+
+  async function confirmHold() {
+    const id = holds.dialogHost;
+    if (id === null) return;
+    const err = await holds.holdHost(id, holdFor, holdNote.trim());
+    if (err) holdErr = { ...holdErr, [id]: err };
+    else {
+      holds.dialogHost = null;
+      fleet.selected = fleet.selected.filter((x) => x !== id);
+    }
+  }
+
+  async function setPkg(hostId: number, name: string, hold: boolean, version: string | null) {
+    const rep = fleet.updates[hostId]?.report;
+    if (!rep) return;
+    pkgBusy = `${hostId}/${name}`;
+    const { [hostId]: _old, ...rest } = holdErr;
+    holdErr = rest;
+    try {
+      await holds.setPackage(hostId, rep, name, hold, null, version);
+      await fleet.checkHost(hostId);
+    } catch (e) {
+      const { system } = systemError(e);
+      holdErr = {
+        ...holdErr,
+        [hostId]: system?.kind === "sudoRequired" ? "needs a sudo password: hold it from System → UPDATES (and tick remember)" : errorText(e),
+      };
+    } finally {
+      pkgBusy = null;
+    }
+  }
+
+  const holdName = (h: { kind: keyof typeof kindWord; target: string; stack: string }) =>
+    h.kind === "host" ? "all updates" : h.kind === "image" ? `${h.stack} · ${h.target}` : h.target;
 
   let now = $state(Date.now());
   $effect(() => {
@@ -26,7 +78,7 @@
     return () => clearInterval(t);
   });
 
-  const rows = $derived(updateRows(hosts.hosts, fleet.updates));
+  const rows = $derived(updateRows(hosts.hosts, fleet.updates, (id) => holds.host(id)));
   const sum = $derived(totals(rows));
   const images = $derived(pendingImages(fleet.images ?? []));
   const imagesChecked = $derived((fleet.images ?? []).length);
@@ -131,14 +183,20 @@
             </td>
             <td class="small">{s?.report?.manager ? MANAGER_WORD[s.report.manager] : s?.status === "ok" ? "—" : ""}</td>
             <td>
-              {#if s?.status === "ok"}
+              {#if r.held}
+                <span class="chip held" title={r.held.note || "Held: skipped by Upgrade and not counted"}>HELD {holdUntilText(r.held).toUpperCase()}</span>
+                {#if r.heldCount}<span class="muted small">{r.heldCount} waiting</span>{/if}
+              {:else if s?.status === "ok"}
                 {#if r.count}<span class="count">{r.count}</span>{:else}<span class="ok small">UP TO DATE</span>{/if}
+                {#if r.heldCount}<span class="chip held" title="Held packages: left out of upgrades">{r.heldCount} HELD</span>{/if}
                 {#if r.security}<span class="chip bad">{r.security} SECURITY</span>{/if}
                 {#if r.reboot}<span class="chip warn" title={s.report?.rebootReasons.join("; ")}>REBOOT</span>{/if}
               {/if}
             </td>
             <td class="status small">
-              {#if run?.running}
+              {#if holdErr[r.host.id]}
+                <span class="bad" title={holdErr[r.host.id]}>HOLD: {holdErr[r.host.id]}</span>
+              {:else if run?.running}
                 <span class="live">● UPGRADING</span>
               {:else if run?.skipped}
                 <span class="muted" title={run.skipped}>SKIPPED: {run.skipped}</span>
@@ -157,6 +215,11 @@
               {/if}
             </td>
             <td class="acts">
+              {#if r.held}
+                <button type="button" class="btn ghost tiny" data-guide="fleet-release-host" title="Release the hold: count and upgrade this host again" onclick={() => r.held && holds.release(r.held.id)}>Release</button>
+              {:else}
+                <button type="button" class="btn ghost tiny" data-guide="fleet-hold-host" title="Hold this host's updates: skip it in upgrades and silence its count" disabled={!!run?.running} onclick={() => openHold(r.host.id)}>Hold…</button>
+              {/if}
               {#if r.reboot && !run?.running}
                 <button type="button" class="btn ghost tiny danger-text" title="Reboot {r.host.name} (opens System with the confirmation)" onclick={() => reboot(r.host.id)}>Reboot…</button>
               {/if}
@@ -172,21 +235,48 @@
               <td></td>
               <td colspan="5">
                 {#if isOpen && s?.report?.updates.length}
+                  {@const rep = s.report}
+                  {@const mine = holds.forHost(r.host.id)}
                   <table class="pkgs">
-                    <thead><tr><th>PACKAGE</th><th>INSTALLED</th><th>AVAILABLE</th><th>FROM</th></tr></thead>
+                    <thead><tr><th>PACKAGE</th><th>INSTALLED</th><th>AVAILABLE</th><th>FROM</th><th></th></tr></thead>
                     <tbody>
-                      {#each s.report.updates as p (p.name)}
-                        <tr class:sec={/security/i.test(p.repo ?? "")}>
-                          <td>{p.name}</td>
+                      {#each rep.updates as p (p.name)}
+                        {@const place = p.held ? packageHoldPlace(rep, p.name, mine) : null}
+                        <tr class:sec={!p.held && /security/i.test(p.repo ?? "")} class:heldrow={p.held}>
+                          <td>{p.name}{#if p.held}<span class="chip held" title={place === "nightgrid" ? "Held in Nightgrid: left out of Nightgrid's upgrades" : "Held on the host: every tool leaves it alone"}>HELD</span>{/if}</td>
                           <td class="ver">{p.current ?? "—"}</td>
                           <td class="ver new">{p.available}</td>
                           <td class="muted">{p.repo ?? ""}</td>
+                          <td class="acts">
+                            {#if rep.holdSupport !== "none"}
+                              <button type="button" class="btn ghost tiny" disabled={pkgBusy !== null || !!run?.running}
+                                title={p.held ? "Release: upgrades install it again" : rep.holdSupport === "host" ? "Hold it on the host (needs root)" : "Hold it in Nightgrid: left out of Nightgrid's upgrades"}
+                                onclick={() => setPkg(r.host.id, p.name, !p.held, p.current)}>{pkgBusy === `${r.host.id}/${p.name}` ? "…" : p.held ? "Release" : "Hold"}</button>
+                            {/if}
+                          </td>
                         </tr>
                       {/each}
                     </tbody>
                   </table>
                 {:else if isOpen && s?.status === "ok"}
                   <p class="muted small">Nothing to upgrade.</p>
+                {/if}
+                {#if isOpen && s?.report}
+                  {@const rep = s.report}
+                  {@const quiet = rep.held.filter((n) => !rep.updates.some((u) => u.name === n))}
+                  {#if quiet.length}
+                    <p class="muted small heldlist">
+                      Also held, nothing new for them right now:
+                      {#each quiet as n (n)}
+                        <span class="chip held">{n}</span><button type="button" class="btn ghost tiny" disabled={pkgBusy !== null} onclick={() => setPkg(r.host.id, n, false, null)}>Release</button>
+                      {/each}
+                    </p>
+                  {/if}
+                  {#if rep.holdSupport === "none" && rep.manager}
+                    <p class="muted small">This host updates as one image, so single packages can't be held: hold the whole host instead.</p>
+                  {:else if rep.holdSupport === "nightgrid" && rep.manager}
+                    <p class="muted small">{rep.manager === "dnf" ? "dnf's versionlock plugin isn't installed" : "pacman holds packages in pacman.conf"}, so holds here only keep Nightgrid's upgrades away from them.</p>
+                  {/if}
                 {/if}
                 {#if isOpen && s?.report?.rebootRequired && s.report.rebootReasons.length}
                   <p class="hint">Reboot needed: {s.report.rebootReasons.join("; ")}.</p>
@@ -224,10 +314,18 @@
               <span class="ver">{i.update.current.version ?? i.update.current.revision?.slice(0, 7) ?? "current"} → <span class="new">{i.update.latest?.version ?? i.update.latest?.revision?.slice(0, 7) ?? "newer"}</span></span>
               <span class="spacer"></span>
               {#if i.update.notes}<button type="button" class="btn ghost tiny" onclick={() => i.update.notes && openExternal(i.update.notes)}>Notes</button>{/if}
+              <button type="button" class="btn ghost tiny" title="Keep this image where it is: Update and Pull leave its services alone"
+                onclick={async () => {
+                  await holds.holdImage(i.hostId, i.stack.name, i.update.image, i.update.current.version ?? i.update.current.revision ?? null);
+                  i.update.held = true;
+                }}>Hold</button>
               <button type="button" class="btn ghost tiny" onclick={() => openStack(i.hostId)}>Open stack</button>
             </li>
           {/each}
         </ul>
+      {/if}
+      {#if heldImages.length}
+        <p class="muted small pad">{heldImages.length} held image{heldImages.length === 1 ? "" : "s"} with a newer version not counted ({heldImages.filter((i) => i.update.status === "available").length} newer). See HOLDS below.</p>
       {/if}
       {#if fleet.images !== null && skippedImages}
         <details class="skipped">
@@ -238,17 +336,65 @@
         </details>
       {/if}
     </section>
+
+    <section class="holds" data-guide="fleet-holds">
+      <h3 class="label">// HOLDS</h3>
+      {#if !holds.list.length}
+        <p class="muted small pad">
+          Nothing is held. <strong>Hold…</strong> on a host skips it in upgrades and silences its count for a while; <strong>Hold</strong> on a package, image or stack keeps it where it is.
+        </p>
+      {:else}
+        <ul class="imgs">
+          {#each holds.list as h (h.id)}
+            <li>
+              <span class="host">{nameOf(h.hostId)}</span>
+              <span class="chip held">{kindWord[h.kind]}</span>
+              <code>{holdName(h)}</code>
+              {#if h.version}<span class="ver">at {h.version}</span>{/if}
+              <span class="muted small">{holdUntilText(h)}{h.note ? ` · ${h.note}` : ""}</span>
+              <span class="spacer"></span>
+              <button type="button" class="btn ghost tiny" onclick={() => holds.release(h.id)}>Release</button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      <p class="muted small pad">Packages held on a host itself (apt-mark hold, dnf versionlock, hidden Windows updates) show in that host's package list.</p>
+    </section>
   </div>
 </div>
+
+<Modal open={dialogHost !== null} title={dialogHost ? `HOLD UPDATES · ${dialogHost.name}` : ""} width={480} onclose={() => (holds.dialogHost = null)}>
+  <p>
+    While held, {dialogHost?.name} isn't counted as pending, isn't picked for <strong>Upgrade</strong>, and the Overview stays quiet about it. Checking still works, and
+    nothing changes on the host.
+  </p>
+  <fieldset class="for">
+    <legend class="label">HOLD FOR</legend>
+    {#each HOLD_FOR as o (o.label)}
+      <label><input type="radio" name="holdfor" checked={holdFor === o.secs} onchange={() => (holdFor = o.secs)} /> {o.label}</label>
+    {/each}
+  </fieldset>
+  <label class="field">
+    <span>Note (optional)</span>
+    <input class="input" bind:value={holdNote} maxlength="500" placeholder="why: waiting for a fix, game server event, …" />
+  </label>
+  {#if dialogHost && holdErr[dialogHost.id]}<p class="error-text">{holdErr[dialogHost.id]}</p>{/if}
+  {#snippet footer()}
+    <button type="button" class="btn ghost" onclick={() => (holds.dialogHost = null)}>Cancel</button>
+    <button type="button" class="btn primary" onclick={confirmHold}>Hold updates</button>
+  {/snippet}
+</Modal>
 
 <Modal open={fleet.confirm} title="UPGRADE HOSTS" tone="danger" width={540} onclose={() => (fleet.confirm = false)}>
   <p>Install every pending update on these hosts, three at a time:</p>
   <ul class="targets">
     {#each picked as h (h.id)}
       {@const rep = fleet.updates[h.id]?.report}
+      {@const n = rep?.updates.filter((u) => !u.held).length ?? 0}
+      {@const kept = (rep?.updates.length ?? 0) - n}
       <li>
         <strong>{h.name}</strong>
-        <span class="muted">{rep?.manager ? MANAGER_WORD[rep.manager] : ""} · {rep?.updates.length ?? 0} package{rep?.updates.length === 1 ? "" : "s"}{rep?.manager === "ostree" ? " (staged for the next reboot)" : ""}</span>
+        <span class="muted">{rep?.manager ? MANAGER_WORD[rep.manager] : ""} · {n} package{n === 1 ? "" : "s"}{kept ? ` (${kept} held, left out)` : ""}{rep?.manager === "ostree" ? " (staged for the next reboot)" : ""}</span>
       </li>
     {/each}
   </ul>
@@ -258,11 +404,11 @@
   </p>
   <label class="field">
     <span>Type <strong class="verbatim">{phrase}</strong> to confirm</span>
-    <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
+    <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" />
   </label>
   {#snippet footer()}
     <button type="button" class="btn ghost" onclick={() => (fleet.confirm = false)}>Cancel</button>
-    <button type="button" class="btn danger" disabled={!picked.length || !typedMatches(typed, phrase)} onclick={() => fleet.upgradeSelected()}
+    <button type="button" class="btn danger" data-confirm disabled={!picked.length || !typedMatches(typed, phrase)} onclick={() => fleet.upgradeSelected()}
       >Upgrade {picked.length} host{picked.length === 1 ? "" : "s"}</button
     >
   {/snippet}
@@ -359,6 +505,32 @@
   }
   .chip.warn {
     color: var(--warn);
+  }
+  .chip.held {
+    color: var(--text-1);
+    border-style: dashed;
+    margin-left: 6px;
+  }
+  .pkgs tr.heldrow td {
+    color: var(--text-1);
+  }
+  .heldlist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin: 6px 0 0;
+  }
+  .holds {
+    margin-top: 16px;
+  }
+  .for {
+    border: 1px solid var(--line);
+    padding: 6px 10px 8px;
+    margin: 10px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
   }
   .status {
     max-width: 380px;

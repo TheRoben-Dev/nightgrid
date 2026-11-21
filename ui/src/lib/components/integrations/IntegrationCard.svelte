@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { IntegrationView } from "../../api";
   import { openExternal } from "../../clipboard";
-  import { integrations, KIND_META, summary, toneOf } from "../../stores/integrations.svelte";
+  import { integrations, KIND_META, needsDsmCode, summary, toneOf } from "../../stores/integrations.svelte";
 
   interface Props {
     view: IntegrationView;
@@ -15,13 +15,19 @@
   const tone = $derived(toneOf(e));
   const meta = $derived(KIND_META[i.kind]);
   const needsSecret = $derived(!!meta?.secret && !meta.secret.optional && !view.hasSecret);
+  /** "4.0" → "v4.0"; "DSM 7.2 (DS920+)" stays as it is. */
+  const versionText = (v: string) => (/^v?\d/.test(v) ? `v${v.replace(/^v/, "")}` : v);
   const busy = (target: string, action: string) => integrations.acting === `${i.id}:${target}:${action}`;
 </script>
 
 <article class="card {tone}">
   <header>
     <span class="kind">{meta?.label ?? i.kind.toUpperCase()}</span>
-    <button type="button" class="name" title="Open {i.baseUrl}" onclick={() => openExternal(i.baseUrl)}>{i.name}</button>
+    {#if i.kind === "snmp"}
+      <span class="name" title={i.baseUrl}>{i.name}</span>
+    {:else}
+      <button type="button" class="name" title="Open {i.baseUrl}" onclick={() => openExternal(i.baseUrl)}>{i.name}</button>
+    {/if}
     <span class="spacer"></span>
     <button type="button" class="icon" title="Refresh" aria-label="Refresh {i.name}" disabled={e?.loading} onclick={() => integrations.refresh(i.id)}>↻</button>
     <button type="button" class="icon" title="Edit" aria-label="Edit {i.name}" onclick={() => (integrations.editing = i.id)}>…</button>
@@ -29,6 +35,9 @@
 
   {#if needsSecret}
     <p class="muted small">No {(meta?.secret?.label ?? "password").replace("Plex ", "").toLowerCase()} saved. <button type="button" class="link" onclick={() => (integrations.editing = i.id)}>Add it</button></p>
+  {:else if e?.error && i.kind === "synology" && needsDsmCode(e.error)}
+    <p class="muted small" title={e.error}>{e.error}</p>
+    <p><button type="button" class="btn ghost tiny" onclick={() => (integrations.editing = i.id)}>Enter 2-step code</button></p>
   {:else if e?.error}
     <p class="err small" title={e.error}>{e.error}</p>
   {:else if !s}
@@ -133,7 +142,7 @@
       {/if}
       {#if s.actions.length || s.version}
         <div class="dnsacts">
-          {#if s.version}<span class="muted small">v{s.version.replace(/^v/, "")}</span>{/if}
+          {#if s.version}<span class="muted small">{versionText(s.version)}</span>{/if}
           <span class="spacer"></span>
           {#each s.actions as a (a.id)}
             <button type="button" class="btn ghost tiny" disabled={busy("", a.id)} onclick={() => integrations.requestAction({ id: i.id, target: "", action: a, subject: i.name })}>{a.label}</button>

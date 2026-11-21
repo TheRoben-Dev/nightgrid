@@ -403,21 +403,7 @@ pub async fn hub_install(
             hub::MEMBER_MIN_VERSION
         )));
     }
-    let (_, out, _) = exec(&conn, &install::probe_script()).await?;
-    let probe = install::parse_probe(&out);
-    let arch = install::arch(&probe.arch).ok_or_else(|| err(format!("there's no hub build for {}", probe.arch)))?;
-    let bin = if from_file {
-        let Some(path) = pick_binary(&app).await else { return Ok(None) };
-        let bin = tokio::fs::read(&path).await.map_err(err)?;
-        install::looks_like_binary(&bin).map_err(err)?;
-        bin
-    } else {
-        release_binary(&app, "nightgrid-hub", arch).await.map_err(err)?.1
-    };
-    let (dir, path) = upload(&app, host_id, &conn, "nightgrid-hub", &bin, 0o700).await?;
-    let installed = root_report(&conn, &auth, &hub::install_command(&path, &probe.user), "the hub's install").await;
-    let _ = conn.exec(&format!("rm -rf {}", shell_quote(&dir))).await;
-    let mut report = installed?;
+    let Some(mut report) = install_hub_binary(&app, host_id, &conn, &auth, from_file).await? else { return Ok(None) };
     // This host is a member of its own hub over its own link.
     let latest: NodePeersLatest = node_call(&c, "peers.latest", json!({})).await.unwrap_or_default();
     if latest.access != "ok" {
@@ -437,6 +423,33 @@ pub async fn hub_install(
     reconnect(&app, host_id).await;
     let setup = node_setup(app, host_id).await?;
     Ok(Some(HubStepResult { report, setup }))
+}
+
+/// Downloads `nightgrid-hub` from the node's release (or a picked file,
+/// `None` when the picker is cancelled) and runs its `install` as root,
+/// which keeps the config and restarts the hub's services.
+async fn install_hub_binary(
+    app: &AppHandle,
+    host_id: HostId,
+    conn: &Connection,
+    auth: &sudo::SudoAuth,
+    from_file: bool,
+) -> SysResult<Option<HubReport>> {
+    let (_, out, _) = exec(conn, &install::probe_script()).await?;
+    let probe = install::parse_probe(&out);
+    let arch = install::arch(&probe.arch).ok_or_else(|| err(format!("there's no hub build for {}", probe.arch)))?;
+    let bin = if from_file {
+        let Some(path) = pick_binary(app).await else { return Ok(None) };
+        let bin = tokio::fs::read(&path).await.map_err(err)?;
+        install::looks_like_binary(&bin).map_err(err)?;
+        bin
+    } else {
+        release_binary(app, "nightgrid-hub", arch).await.map_err(err)?.1
+    };
+    let (dir, path) = upload(app, host_id, conn, "nightgrid-hub", &bin, 0o700).await?;
+    let installed = root_report(conn, auth, &hub::install_command(&path, &probe.user), "the hub's install").await;
+    let _ = conn.exec(&format!("rm -rf {}", shell_quote(&dir))).await;
+    installed.map(Some)
 }
 
 /// Removes the hub from `host_id` (its store and config too with `purge`).
@@ -484,7 +497,7 @@ async fn link_ready(app: &AppHandle, host: HostId) -> SysResult<(Arc<NodeClient>
     )))
 }
 
-#[derive(Debug, Clone, Serialize, Type)]
+#[derive(Debug, Clone, Default, Serialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct HubJoinResult {
     pub steps: Vec<String>,
@@ -492,6 +505,10 @@ pub struct HubJoinResult {
     /// Addresses the hub's `[collect] networks` must allow before it can
     /// reach this member: pass them to `hub_allow_networks` on the hub host.
     pub hub_networks: Vec<String>,
+    /// Addresses the hub's collector must also answer on (`[collect]
+    /// listen`) so a LAN-only member's pings reach it: pass them to
+    /// `hub_allow_networks` too.
+    pub hub_listen: Vec<String>,
 }
 
 /// Makes `member_id`'s node report to the hub on `hub_host` (spec 0020 §2):
@@ -510,7 +527,7 @@ pub async fn hub_join(
     let hconn = connect_posix(&app, hub_host, "node").await?;
     let mconn = connect_posix(&app, member_id, "node").await?;
     let auth = resolve_sudo(&app, member_id, &mconn, sudo).await?;
-    let mut res = HubJoinResult { steps: vec![], warnings: vec![], hub_networks: vec![] };
+    let mut res = HubJoinResult::default();
     let member_name = host_name(&app, member_id);
 
     let hprobe = hub_probe(&hconn).await?;
@@ -623,6 +640,18 @@ pub async fn hub_join(
             return Err(err("the hub's collector has no address yet: check that Tailscale is up on the hub host"))
         }
     };
+    if !on_tailnet && !collector_answers_on(&ov, &hub_addr) {
+        // Pulls go out from the hub, but the member's pings come in: the
+        // collector has to listen on the address it was given.
+        res.hub_listen.push(hub_addr.clone());
+        if !hub::at_least(&hprobe.version, hub::LISTEN_LIST_MIN_VERSION) {
+            res.warnings.push(format!(
+                "the hub on {} is {}: update it (Update hub on the hub card) so {member_name} can reach it on the LAN",
+                host_name(&app, hub_host),
+                hprobe.version
+            ));
+        }
+    }
     let mut list: NodePeerList = node_call(&c, "peers.get", json!({})).await?;
     let hub_name = hub::peer_name(&format!("hub {}", host_name(&app, hub_host)));
     hub::upsert(
@@ -676,7 +705,7 @@ pub async fn hub_leave(
 ) -> SysResult<HubJoinResult> {
     let mconn = connect_posix(&app, member_id, "node").await?;
     let auth = resolve_sudo(&app, member_id, &mconn, sudo).await?;
-    let mut res = HubJoinResult { steps: vec![], warnings: vec![], hub_networks: vec![] };
+    let mut res = HubJoinResult::default();
     let c = ensure(&app, member_id).await.ok_or_else(|| err("Nightgrid Node isn't running on this host"))?;
     let node_id = c.welcome().node.node_id.clone();
     let mine: hub::HubMember = node_call(&c, "hub.member.get", json!({})).await.unwrap_or_default();
@@ -713,24 +742,135 @@ pub async fn hub_leave(
     Ok(res)
 }
 
-/// Lets the hub's collector reach these addresses (`[collect] networks`),
-/// then runs `allow collect` again. `sudo` is for the hub host.
+/// Turns on `host_id`'s node-to-node link (`allow peers`) and, when the
+/// host has no tailnet address, makes it listen on its LAN address
+/// (`[peers] listen = "lan"`, Node 0.28.0+), so a network without
+/// Tailscale can still have a hub. `sudo` is for that host.
+#[tauri::command]
+#[specta::specta]
+pub async fn node_link_enable(app: AppHandle, host_id: HostId, sudo: Option<SudoInput>) -> SysResult<ConfigSaveReport> {
+    let name = host_name(&app, host_id);
+    let conn = connect_posix(&app, host_id, "node").await?;
+    let auth = resolve_sudo(&app, host_id, &conn, sudo).await?;
+    let c = ensure(&app, host_id).await.ok_or_else(|| err(format!("Nightgrid Node isn't running on {name}")))?;
+    if c.welcome().cap("peers") < 1 {
+        return Err(err(format!("the link needs a newer Nightgrid Node on {name}: Update it first")));
+    }
+    let version = c.welcome().node.version.clone();
+    let mut r = ConfigSaveReport { ok: true, ..Default::default() };
+    let latest: NodePeersLatest = node_call(&c, "peers.latest", json!({})).await.unwrap_or_default();
+    if latest.access != "ok" {
+        let rep = root_report(&conn, &auth, "nightgrid-node allow peers --json", "turning on the link").await?;
+        r.steps.push("turned on the node-to-node link (allow peers)".into());
+        r.warnings.extend(rep.warnings);
+        tokio::time::sleep(Duration::from_secs(3)).await;
+        reconnect(&app, host_id).await;
+    }
+    let latest: NodePeersLatest = match ensure(&app, host_id).await {
+        Some(c) => node_call(&c, "peers.latest", json!({})).await.unwrap_or_default(),
+        None => NodePeersLatest::default(),
+    };
+    if latest.listening.is_none() {
+        if !hub::at_least(&version, hub::LISTEN_LIST_MIN_VERSION) {
+            r.warnings.push(format!(
+                "{name} has no tailnet address and its node ({version}) can't listen on the LAN by itself: Update it, then press this again"
+            ));
+            return Ok(r);
+        }
+        let cfg = read_config(&conn, NodePart::Node).await?;
+        let mut doc = hub::parse_config(&cfg.text).map_err(err)?;
+        hub::set_str(&mut doc, "peers", "listen", "lan");
+        let mut s = save_config(
+            &app,
+            host_id,
+            &conn,
+            &auth,
+            NodePart::Node,
+            &doc.to_string(),
+            "Let the link listen on the LAN",
+        )
+        .await?;
+        r.ok = s.ok;
+        r.steps
+            .push("no tailnet address here: the link now listens on this host's LAN address (listen = \"lan\")".into());
+        r.steps.append(&mut s.steps);
+        r.warnings.append(&mut s.warnings);
+        r.failure = s.failure;
+        if !r.ok {
+            return Ok(r);
+        }
+        reconnect(&app, host_id).await;
+    }
+    match link_ready(&app, host_id).await {
+        Ok((_, l)) => r
+            .steps
+            .push(format!("the link is on, listening on {}", l.listening.unwrap_or_else(|| "nowhere yet".into()))),
+        Err(e) => r.warnings.push(e.message),
+    }
+    record(
+        &app,
+        Change::new(host_id, ChangeArea::System, "Turned on the node-to-node link").detail(&r.steps.join("\n")),
+    );
+    Ok(r)
+}
+
+/// The collector already answers members' pings on `addr`.
+fn collector_answers_on(ov: &HubOverview, addr: &str) -> bool {
+    ov.listening.as_deref() == Some(addr) || ov.listen_all.iter().any(|a| a == addr)
+}
+
+/// Lets the hub's collector reach these addresses (`[collect] networks`)
+/// and answer pings on `listen` (`[collect] listen`, hub 0.28.0+), then
+/// runs `allow collect` again. `sudo` is for the hub host.
 #[tauri::command]
 #[specta::specta]
 pub async fn hub_allow_networks(
     app: AppHandle,
     hub_host: HostId,
     networks: Vec<String>,
+    listen: Vec<String>,
     sudo: Option<SudoInput>,
 ) -> SysResult<ConfigSaveReport> {
     let conn = connect_posix(&app, hub_host, "node").await?;
+    if !listen.is_empty() {
+        let p = hub_probe(&conn).await?;
+        if !hub::at_least(&p.version, hub::LISTEN_LIST_MIN_VERSION) {
+            return Err(err(format!(
+                "the hub on {} is {}, which listens on one address only: Update hub first (it needs {} or newer)",
+                host_name(&app, hub_host),
+                if p.version.is_empty() { "unknown".into() } else { p.version },
+                hub::LISTEN_LIST_MIN_VERSION
+            )));
+        }
+    }
     let auth = resolve_sudo(&app, hub_host, &conn, sudo).await?;
-    let cfg = read_config(&conn, NodePart::Hub).await?;
+    allow_on_hub(&app, hub_host, &conn, &auth, &networks, &listen).await
+}
+
+async fn allow_on_hub(
+    app: &AppHandle,
+    hub_host: HostId,
+    conn: &Connection,
+    auth: &sudo::SudoAuth,
+    networks: &[String],
+    listen: &[String],
+) -> SysResult<ConfigSaveReport> {
+    let cfg = read_config(conn, NodePart::Hub).await?;
     let mut doc = hub::parse_config(&cfg.text).map_err(err)?;
     let mut changed = false;
-    for n in &networks {
+    for n in networks {
         let ip: IpAddr = n.split('/').next().unwrap_or("").parse().map_err(|_| err(format!("{n} isn't an address")))?;
         changed |= hub::add_network(&mut doc, "collect", ip);
+    }
+    let mut steps = vec![];
+    for a in listen {
+        if hub::addr_ip(a).is_none() {
+            return Err(err(format!("{a} isn't an ip:port address")));
+        }
+        if hub::add_listen(&mut doc, a) {
+            changed = true;
+            steps.push(format!("the collector now also answers on {a}"));
+        }
     }
     if !changed {
         return Ok(ConfigSaveReport {
@@ -739,7 +879,90 @@ pub async fn hub_allow_networks(
             ..Default::default()
         });
     }
-    save_config(&app, hub_host, &conn, &auth, NodePart::Hub, &doc.to_string(), "Let the hub reach more members").await
+    let mut r =
+        save_config(app, hub_host, conn, auth, NodePart::Hub, &doc.to_string(), "Let the hub reach more members")
+            .await?;
+    if r.ok {
+        steps.append(&mut r.steps);
+        r.steps = steps;
+    }
+    Ok(r)
+}
+
+/// Fixes a member's failing link to its hub (Fleet → NODE → member →
+/// LINKED): updates the hub when it's older than the node next to it (or
+/// too old to listen on more than one address), then makes its collector
+/// answer on the address the member pings and lets it reach the member.
+/// Pulls never needed this, so the hub can look fine while the member's
+/// link says "connection refused". `sudo` is for the hub host.
+#[tauri::command]
+#[specta::specta]
+pub async fn hub_repair_link(
+    app: AppHandle,
+    member_id: HostId,
+    hub_host: HostId,
+    sudo: Option<SudoInput>,
+) -> SysResult<ConfigSaveReport> {
+    let member_name = host_name(&app, member_id);
+    let hub_name = host_name(&app, hub_host);
+    let c =
+        ensure(&app, member_id).await.ok_or_else(|| err(format!("Nightgrid Node isn't running on {member_name}")))?;
+    let mine: hub::HubMember = node_call(&c, "hub.member.get", json!({})).await?;
+    let hub_id = mine.hub_id.ok_or_else(|| err(format!("{member_name} doesn't report to a hub")))?;
+    let list: NodePeerList = node_call(&c, "peers.get", json!({})).await?;
+    let peer = list
+        .peers
+        .iter()
+        .find(|p| p.id == hub_id)
+        .ok_or_else(|| err(format!("{member_name} isn't paired with its hub: add it to the hub again")))?;
+    let hub_addr = peer.address.clone();
+    let latest: NodePeersLatest = node_call(&c, "peers.latest", json!({})).await.unwrap_or_default();
+
+    let hconn = connect_posix(&app, hub_host, "node").await?;
+    let auth = resolve_sudo(&app, hub_host, &hconn, sudo).await?;
+    let mut steps = vec![];
+    let mut warnings = vec![];
+    let mut probe = hub_probe(&hconn).await?;
+    let node_version = ensure(&app, hub_host).await.map(|n| n.welcome().node.version.clone()).unwrap_or_default();
+    let old = !hub::at_least(&probe.version, hub::LISTEN_LIST_MIN_VERSION)
+        || (!node_version.is_empty() && !hub::at_least(&probe.version, &node_version));
+    if old {
+        let from = probe.version.clone();
+        let r = install_hub_binary(&app, hub_host, &hconn, &auth, false)
+            .await?
+            .ok_or_else(|| err("the hub's update was cancelled"))?;
+        warnings.extend(r.warnings);
+        probe = hub_probe(&hconn).await?;
+        steps.push(format!("updated the hub on {hub_name} from {from} to {}", probe.version));
+        record(
+            &app,
+            Change::new(hub_host, ChangeArea::System, &format!("Updated the Nightgrid hub to {}", probe.version)),
+        );
+    }
+    let ov: HubOverview =
+        serde_json::from_value(hub_call(&hconn, &probe, "fleet.overview", Value::Null).await?).map_err(err)?;
+    let listen = match hub::addr_ip(&hub_addr) {
+        Some(ip) if !hub::is_tailnet(ip) && !collector_answers_on(&ov, &hub_addr) => vec![hub_addr.clone()],
+        _ => vec![],
+    };
+    let networks: Vec<String> =
+        latest.listening.as_deref().and_then(hub::addr_ip).map(|ip| vec![hub::host_cidr(ip)]).unwrap_or_default();
+    let mut r = allow_on_hub(&app, hub_host, &hconn, &auth, &networks, &listen).await?;
+    if listen.is_empty() && !old {
+        r.warnings.push(format!(
+            "the hub on {hub_name} already answers on {hub_addr}: check that its collector is running (hub Logs)"
+        ));
+    }
+    steps.append(&mut r.steps);
+    r.steps = steps;
+    warnings.append(&mut r.warnings);
+    r.warnings = warnings;
+    record(
+        &app,
+        Change::new(hub_host, ChangeArea::System, &format!("Let {member_name} reach the hub"))
+            .detail(&r.steps.join("\n")),
+    );
+    Ok(r)
 }
 
 /// Members of the hub on `hub_host` as the hub sees them (for the Fleet

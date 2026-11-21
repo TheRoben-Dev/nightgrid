@@ -4,9 +4,9 @@
  */
 import type {
   HostSchedule_Serialize as HostSchedule,
-  HostEvent,
+  HostEvent_Serialize as HostEvent,
   NetFinding_Serialize as NetFinding,
-  Timeline,
+  Timeline_Serialize as Timeline,
   DriftReport_Serialize as DriftReport,
   FileDiff_Serialize as FileDiff,
   SideInfo,
@@ -217,13 +217,14 @@ const unitFor = (sp: ScheduleSpec) => (sp.action === "wake" ? `nightgrid-wake-${
 /** A few days of plausible history for the timeline. */
 function sampleEvents(now: number): HostEvent[] {
   const h = 3600;
-  const e = (ago: number, kind: HostEvent["kind"], level: HostEvent["level"], title: string, detail = "", origin: HostEvent["origin"] = "host"): HostEvent => ({
+  const e = (ago: number, kind: HostEvent["kind"], level: HostEvent["level"], title: string, detail = "", origin: HostEvent["origin"] = "host", silenced: HostEvent["silenced"] = null): HostEvent => ({
     at: now - ago,
     kind,
     level,
     title,
     detail,
     origin,
+    silenced,
   });
   return [
     e(0.2 * h, "recovered", "ok", "CONTAINER DOWN: web on host", "cleared after 4m", "nightgrid"),
@@ -236,6 +237,7 @@ function sampleEvents(now: number): HostEvent[] {
     e(50 * h, "oom", "critical", "Out of memory: killed java"),
     e(51 * h, "unit", "warn", "backup.service failed", "result: exit-code"),
     e(74 * h, "automation", "info", "Ran Update all", "finished", "nightgrid"),
+    e(30 * h, "alert", "warn", "DISK FULL: host", "/volume1 is 94% full (220 GB free)", "nightgrid", "ack"),
     e(75 * h, "alert", "warn", "DISK FULL: host /srv", "91 % used", "nightgrid"),
   ].sort((a, b) => b.at - a.at);
 }

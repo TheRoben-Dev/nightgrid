@@ -1,5 +1,5 @@
 /** Fleet health (M10m): the update center's rows, counts and wording. */
-import type { DisksReport, Health, Host, ImageUpdate, MountForecast, PackageManager, PoolKind, PoolsReport, Stack, UpdatesReport, UsagePoint } from "./api";
+import type { DisksReport, Health, Host, ImageUpdate, MountForecast, PackageManager, PoolKind, PoolsReport, Stack, UpdateHold, UpdatesReport, UsagePoint } from "./api";
 
 export type FleetTab = "updates" | "disks" | "backups" | "ups" | "uptime" | "logs" | "access" | "speed" | "journal" | "blueprints" | "power" | "node" | "catalog" | "drills" | "capacity" | "replay";
 
@@ -28,7 +28,7 @@ export interface ImageRow {
 
 export const MANAGER_WORD: Record<PackageManager, string> = { apt: "APT", dnf: "DNF", pacman: "PACMAN", ostree: "RPM-OSTREE", windowsUpdate: "WINDOWS UPDATE" };
 
-export type RowTone = "bad" | "warn" | "ok" | "unknown" | "busy";
+export type RowTone = "bad" | "warn" | "ok" | "unknown" | "busy" | "held";
 
 export interface UpdateRow {
   host: Host;
@@ -37,39 +37,53 @@ export interface UpdateRow {
   security: number;
   reboot: boolean;
   tone: RowTone;
-  /** Can be upgraded from here (a supported manager and something to install). */
+  /** Can be upgraded from here (a supported manager, something to install, not held). */
   upgradable: boolean;
+  /** The host's hold (D-195): its updates are silenced and it isn't upgraded. */
+  held: UpdateHold | null;
+  /** Pending updates that are held (packages, or all of a held host's). */
+  heldCount: number;
 }
 
-/** Packages from a security pocket or repository (apt and zypper name them). */
+/** Updates that aren't held (D-195). */
+export function pendingCount(r: UpdatesReport | null | undefined): number {
+  return r ? r.updates.filter((u) => !u.held).length : 0;
+}
+
+/** Packages from a security pocket or repository (apt and zypper name them), not held. */
 export function securityCount(r: UpdatesReport | null | undefined): number {
-  return r ? r.updates.filter((u) => /security/i.test(u.repo ?? "")).length : 0;
+  return r ? r.updates.filter((u) => !u.held && /security/i.test(u.repo ?? "")).length : 0;
 }
 
-export function rowTone(s: HostUpdates | undefined): RowTone {
-  if (!s) return "unknown";
+export function rowTone(s: HostUpdates | undefined, held: UpdateHold | null = null): RowTone {
+  if (!s) return held ? "held" : "unknown";
   if (s.status === "checking") return "busy";
+  if (held) return "held";
   if (s.status === "error" || !s.report) return "unknown";
   if (securityCount(s.report) || s.report.rebootRequired) return "bad";
-  return s.report.updates.length ? "warn" : "ok";
+  return pendingCount(s.report) ? "warn" : "ok";
 }
 
-const ORDER: Record<RowTone, number> = { bad: 0, warn: 1, busy: 2, unknown: 3, ok: 4 };
+const ORDER: Record<RowTone, number> = { bad: 0, warn: 1, busy: 2, unknown: 3, ok: 4, held: 5 };
 
 /** One row per host: security and reboots first, then pending, then the rest by name. */
-export function updateRows(hosts: Host[], state: Record<number, HostUpdates>): UpdateRow[] {
+export function updateRows(hosts: Host[], state: Record<number, HostUpdates>, hostHold: (id: number) => UpdateHold | null = () => null): UpdateRow[] {
   return hosts
     .map((host) => {
       const s = state[host.id];
       const r = s?.report ?? null;
+      const held = hostHold(host.id);
+      const pending = pendingCount(r);
       return {
         host,
         state: s,
-        count: r?.updates.length ?? 0,
-        security: securityCount(r),
+        count: held ? 0 : pending,
+        security: held ? 0 : securityCount(r),
         reboot: !!r?.rebootRequired,
-        tone: rowTone(s),
-        upgradable: !!r?.manager && r.updates.length > 0,
+        tone: rowTone(s, held),
+        upgradable: !held && !!r?.manager && pending > 0,
+        held,
+        heldCount: (r?.updates.length ?? 0) - (held ? 0 : pending),
       };
     })
     .sort((a, b) => ORDER[a.tone] - ORDER[b.tone] || b.count - a.count || a.host.name.localeCompare(b.host.name));
@@ -104,7 +118,7 @@ export function confirmPhrase(selected: Host[], groups: { id: number; name: stri
 /** Images whose tag moved, newest check first, grouped by host then stack. */
 export function pendingImages(rows: ImageRow[]): ImageRow[] {
   return rows
-    .filter((r) => r.update.status === "available")
+    .filter((r) => r.update.status === "available" && !r.update.held)
     .sort((a, b) => a.hostId - b.hostId || a.stack.name.localeCompare(b.stack.name) || a.update.image.localeCompare(b.update.image));
 }
 
@@ -132,9 +146,10 @@ export function updatesText(rows: UpdateRow[], images: ImageRow[]): string {
     const rep = s.report;
     if (!rep) continue;
     const mgr = rep.manager ?? "no package manager";
-    const head = `${r.host.name} (${mgr}): ${r.count ? `${r.count} pending${r.security ? `, ${r.security} security` : ""}` : "up to date"}${r.reboot ? `; reboot required (${rep.rebootReasons.join("; ")})` : ""}`;
+    const state = r.held ? "updates held by the user" : r.count ? `${r.count} pending${r.security ? `, ${r.security} security` : ""}` : "up to date";
+    const head = `${r.host.name} (${mgr}): ${state}${r.heldCount && !r.held ? `; ${r.heldCount} held` : ""}${r.reboot ? `; reboot required (${rep.rebootReasons.join("; ")})` : ""}`;
     lines.push(head);
-    for (const u of rep.updates.slice(0, 25)) lines.push(`  - ${u.name} ${u.current ?? "?"} → ${u.available}${u.repo ? ` [${u.repo}]` : ""}`);
+    for (const u of rep.updates.slice(0, 25)) lines.push(`  - ${u.name} ${u.current ?? "?"} → ${u.available}${u.repo ? ` [${u.repo}]` : ""}${u.held ? " (held)" : ""}`);
     if (rep.updates.length > 25) lines.push(`  - …and ${rep.updates.length - 25} more`);
   }
   const pend = pendingImages(images);
@@ -142,6 +157,8 @@ export function updatesText(rows: UpdateRow[], images: ImageRow[]): string {
     lines.push("Container images with a newer version:");
     for (const i of pend) lines.push(`  - stack ${i.stack.name}: ${i.update.image} ${i.update.current.version ?? ""} → ${i.update.latest?.version ?? "newer"}`);
   }
+  const held = images.filter((i) => i.update.held);
+  if (held.length) lines.push(`Held by the user (not updated): ${held.map((i) => `${i.stack.name}/${i.update.image}`).join(", ")}`);
   return lines.join("\n");
 }
 
@@ -183,6 +200,7 @@ export function rateText(perDay: number | null): string {
 
 /** "full in about 12 days", "not growing", "learning…". */
 export function fillText(f: MountForecast): string {
+  if (f.counted === false) return f.owner ? `counted on ${f.owner.host}` : "counted elsewhere";
   if (f.perDay == null) return (f.spanDays ?? 0) < 1 ? "learning (needs a day of history)" : "not enough history";
   if (f.daysLeft == null) return "not growing";
   const d = f.daysLeft;
@@ -192,9 +210,19 @@ export function fillText(f: MountForecast): string {
 }
 
 export function fillTone(f: MountForecast, within: number): RowTone {
+  // Counted (and alerted) on the host that owns the disk.
+  if (f.counted === false) return "ok";
   if (f.daysLeft == null) return f.perDay == null ? "unknown" : "ok";
   if (f.daysLeft < 3) return "bad";
   return f.daysLeft < within ? "warn" : "ok";
+}
+
+/** Hosts whose disks (VM images) live on another host's drive. */
+export const KIND_WORD: Record<MountForecast["kind"], string> = { local: "", network: "SHARE", passthrough: "PASSED IN", pool: "POOL" };
+
+/** WSL or a VM guest whose disks all belong to the machine it runs on. */
+export function isGuest(forecasts: MountForecast[]): boolean {
+  return forecasts.some((f) => f.kind === "passthrough");
 }
 
 /** Percent used, 0–100. */
@@ -266,7 +294,12 @@ export function disksText(rows: { host: Host; state: HostDisks | undefined }[]):
     }
     if (d.smart) for (const k of d.smart.disks) lines.push(`  - disk ${k.name} ${k.model ?? ""}: SMART ${k.health}${k.issues.length ? `; ${k.issues.join("; ")}` : ""}`);
     else if (d.smartNote) lines.push(`  - SMART not read: ${d.smartNote}`);
-    for (const f of d.forecasts) lines.push(`  - ${f.mount}: ${size(f.used)} of ${size(f.size)} (${usedPct(f).toFixed(0)}%), ${rateText(f.perDay) || "trend unknown"}, ${fillText(f)}`);
+    for (const f of d.forecasts) {
+      const what = [f.label, f.also?.length ? `also mounted at ${f.also.join(", ")}` : ""].filter(Boolean).join("; ");
+      lines.push(
+        `  - ${f.mount}${what ? ` (${what})` : ""}: ${size(f.used)} of ${size(f.size)} (${usedPct(f).toFixed(0)}%), ${rateText(f.perDay) || "trend unknown"}, ${fillText(f)}${f.note ? `. ${f.note}` : ""}`,
+      );
+    }
   }
   return lines.join("\n");
 }

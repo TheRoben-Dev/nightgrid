@@ -1,8 +1,34 @@
 <script lang="ts">
   import { tick } from "svelte";
+  import { errorText } from "../../api";
+  import { holdUntilText, holds, packageHoldPlace } from "../../stores/holds.svelte";
   import { system } from "../../stores/system.svelte";
 
   const r = $derived(system.updates);
+  const pending = $derived(r ? r.updates.filter((u) => !u.held).length : 0);
+  const heldCount = $derived(r ? r.held.length : 0);
+  const hostHold = $derived(system.hostId === null ? null : holds.host(system.hostId));
+  const mine = $derived(system.hostId === null ? [] : holds.forHost(system.hostId));
+  let busy = $state<string | null>(null);
+  let holdError = $state<string | null>(null);
+  $effect(() => holds.ensure());
+
+  /** Holds or releases one package (on the host needs root, like upgrades). */
+  async function setHold(name: string, hold: boolean, version: string | null) {
+    const id = system.hostId;
+    const rep = r;
+    if (id === null || !rep) return;
+    busy = name;
+    holdError = null;
+    try {
+      await system.withSudo(hold ? `hold ${name}` : `release ${name}`, (sudo) => holds.setPackage(id, rep, name, hold, sudo, version));
+      await system.checkUpdates();
+    } catch (e) {
+      if (errorText(e) !== "Cancelled.") holdError = errorText(e);
+    } finally {
+      busy = null;
+    }
+  }
   const run = $derived(system.run);
   const canUpgrade = $derived(!!r?.manager);
   let out: HTMLPreElement | undefined = $state();
@@ -20,9 +46,10 @@
   <div class="bar">
     {#if r?.manager}<span class="chip">{MGR[r.manager]}</span>{/if}
     {#if r}
-      <span class="count" class:none={!r.updates.length}>
-        {r.updates.length ? `${r.updates.length} UPGRADABLE` : "UP TO DATE"}
+      <span class="count" class:none={!pending}>
+        {pending ? `${pending} UPGRADABLE` : "UP TO DATE"}
       </span>
+      {#if heldCount}<span class="held" title="Held packages: upgrades leave them alone">{heldCount} HELD</span>{/if}
       {#if r.rebootRequired}<span class="reboot">REBOOT REQUIRED</span>{/if}
     {/if}
     <span class="spacer"></span>
@@ -35,7 +62,7 @@
       </button>
     {/if}
     {#if canUpgrade}
-      <button type="button" class="btn primary tiny" disabled={!r?.updates.length || run?.running} onclick={() => (system.confirmUpgrade = true)}>
+      <button type="button" class="btn primary tiny" disabled={!pending || run?.running} onclick={() => (system.confirmUpgrade = true)}>
         Upgrade all…
       </button>
     {/if}
@@ -45,6 +72,13 @@
   </div>
 
   {#if system.errors.updates}<p class="error-text">{system.errors.updates}</p>{/if}
+  {#if holdError}<p class="error-text">{holdError}</p>{/if}
+  {#if hostHold}
+    <p class="hint">
+      This host's updates are held {holdUntilText(hostHold)}{hostHold.note ? ` (${hostHold.note})` : ""}: Fleet → UPDATES skips it and doesn't count it. Upgrade here still works.
+      <button type="button" class="btn ghost tiny" onclick={() => holds.release(hostHold.id)}>Release</button>
+    </p>
+  {/if}
   {#if r?.note}<p class="hint">{r.note}</p>{/if}
   {#if r?.rebootRequired && r.rebootReasons.length}
     <p class="hint warn">Reboot needed: {r.rebootReasons.join("; ")}.</p>
@@ -57,18 +91,36 @@
       {:else if r && !r.updates.length}
         <p class="muted pad">{r.manager ? "Nothing to upgrade." : ""}</p>
       {/if}
+      {#if r}
+        {@const rep = r}
+        {@const quiet = rep.held.filter((n) => !rep.updates.some((u) => u.name === n))}
+        {#if quiet.length}
+          <p class="muted pad heldlist">
+            Held, nothing new for them:
+            {#each quiet as n (n)}<span class="tag">{n}</span><button type="button" class="btn ghost tiny" disabled={busy !== null || run?.running} onclick={() => setHold(n, false, null)}>Release</button>{/each}
+          </p>
+        {/if}
+      {/if}
       {#if r?.updates.length}
         <table>
           <thead>
-            {#if win}<tr><th>UPDATE</th><th></th><th>ARTICLE</th><th>CATEGORY</th></tr>{:else}<tr><th>PACKAGE</th><th>INSTALLED</th><th>AVAILABLE</th><th>FROM</th></tr>{/if}
+            {#if win}<tr><th>UPDATE</th><th></th><th>ARTICLE</th><th>CATEGORY</th><th></th></tr>{:else}<tr><th>PACKAGE</th><th>INSTALLED</th><th>AVAILABLE</th><th>FROM</th><th></th></tr>{/if}
           </thead>
           <tbody>
             {#each r.updates as p (p.name)}
-              <tr class:sec={(p.repo ?? "").includes("security")}>
-                <td class="name">{p.name}</td>
+              {@const place = p.held ? packageHoldPlace(r, p.name, mine) : null}
+              <tr class:sec={!p.held && (p.repo ?? "").includes("security")} class:heldrow={p.held}>
+                <td class="name">{p.name}{#if p.held}<span class="tag" title={place === "nightgrid" ? "Held in Nightgrid: left out of Nightgrid's upgrades" : win ? "Hidden in Windows Update" : "Held on the host: every tool leaves it alone"}>HELD</span>{/if}</td>
                 <td class="ver">{p.current ?? "—"}</td>
                 <td class="ver new">{p.available}</td>
                 <td class="repo">{p.repo ?? ""}</td>
+                <td class="acts">
+                  {#if r.holdSupport !== "none"}
+                    <button type="button" class="btn ghost tiny" data-guide="system-hold-package" disabled={busy !== null || run?.running}
+                      title={p.held ? "Release: upgrades install it again" : win ? "Hide it in Windows Update (needs an administrator)" : r.holdSupport === "host" ? "Hold it on the host (apt-mark hold / dnf versionlock, needs root)" : "Hold it in Nightgrid: left out of Nightgrid's upgrades"}
+                      onclick={() => setHold(p.name, !p.held, p.current)}>{busy === p.name ? "…" : p.held ? "Release" : "Hold"}</button>
+                  {/if}
+                </td>
               </tr>
             {/each}
           </tbody>
@@ -108,6 +160,30 @@
     flex-wrap: wrap;
     font-size: var(--fs-xs);
     letter-spacing: 0.1em;
+  }
+  .held,
+  .tag {
+    color: var(--text-1);
+  }
+  .tag {
+    font-size: var(--fs-xs);
+    letter-spacing: 0.08em;
+    border: 1px dashed currentColor;
+    padding: 0 4px;
+    margin-left: 6px;
+  }
+  tr.heldrow td {
+    color: var(--text-1);
+  }
+  .acts {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .heldlist {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
   }
   .chip {
     padding: 0 var(--tag-px);

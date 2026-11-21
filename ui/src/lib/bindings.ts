@@ -127,6 +127,11 @@ export const commands = {
 	 */
 	dockerFixAccess: (hostId: number, steps: string[], relogin: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_fix_access", { hostId, steps, relogin, sudo }, options),
 	/**
+	 *  Sets or clears the host's Docker user (the NO ACCESS card's "Use another
+	 *  user"), then drops the cached engine so the next call uses it.
+	 */
+	dockerSetUser: (hostId: number, user: string | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("docker_set_user", { hostId, user }, options),
+	/**
 	 *  Compose stacks on the host: from container labels plus the host's stack
 	 *  folders.
 	 */
@@ -329,7 +334,7 @@ export const commands = {
 	 *  The host's timeline for the last `days` days (1–90): recorded events
 	 *  always; the host's own history and Docker's when it answers.
 	 */
-	timelineGet: (hostId: number, days: number, options?: InvokeOptions) => __TAURI_INVOKE<Timeline>("timeline_get", { hostId, days }, options),
+	timelineGet: (hostId: number, days: number, options?: InvokeOptions) => __TAURI_INVOKE<Timeline_Serialize>("timeline_get", { hostId, days }, options),
 	/**  Forgets what Nightgrid recorded for the host (the host's own logs stay). */
 	timelineClear: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("timeline_clear", { hostId }, options),
 	journalQuery: (query: ChangeQuery_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<ChangeEntry_Serialize[]>("journal_query", { query }, options),
@@ -384,6 +389,18 @@ export const commands = {
 	 *  ready for `blueprint_plan` on `host_id`. Nothing is written to the host.
 	 */
 	starterOpen: (id: string, values: StarterValue[], parent: string, options?: InvokeOptions) => __TAURI_INVOKE<BlueprintSummary_Serialize>("starter_open", { id, values, parent }, options),
+	/**  Every hold still in force (ended snoozes are dropped). */
+	updateHoldsList: (options?: InvokeOptions) => __TAURI_INVOKE<UpdateHold_Serialize[]>("update_holds_list", undefined, options),
+	/**  Adds a hold, or changes the one for the same thing. */
+	updateHoldSave: (input: HoldInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<UpdateHold_Serialize>("update_hold_save", { input }, options),
+	/**  Releases a hold. */
+	updateHoldDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("update_hold_delete", { id }, options),
+	/**
+	 *  Holds (or releases) packages on the host itself: `apt-mark hold`, `dnf
+	 *  versionlock`, or hiding Windows updates. Every tool on the host then
+	 *  leaves them alone, not just Nightgrid (D-195).
+	 */
+	systemPackageHold: (hostId: number, manager: Manager, names: string[], hold: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<null>("system_package_hold", { hostId, manager, names, hold, sudo }, options),
 	watchList: (options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize[]>("watch_list", undefined, options),
 	/**  Adds or updates an item; a certificate file is read right away. */
 	watchSave: (input: WatchInput_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<WatchItem_Serialize>("watch_save", { input }, options),
@@ -422,6 +439,17 @@ export const commands = {
 	 *  while the host was monitored (local only, no connection).
 	 */
 	diskForecasts: (hostId: number, options?: InvokeOptions) => __TAURI_INVOKE<MountForecast_Serialize[]>("disk_forecasts", { hostId }, options),
+	/**
+	 *  "What's growing" under a mount or folder (D-200): biggest folders and
+	 *  files, change since the last scan (kept on the host) and VM images.
+	 *  `elevate` reads as root (folders this login can't enter).
+	 */
+	diskGrowth: (hostId: number, path: string, elevate: boolean, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<GrowthReport_Serialize>("disk_growth", { hostId, path, elevate, sudo }, options),
+	/**  Storage links: which hosts' disks are stored on which drive (D-200). */
+	storageLinks: (options?: InvokeOptions) => __TAURI_INVOKE<StorageLink[]>("storage_links", undefined, options),
+	/**  Adds "`host_id`'s disks are stored on `owner_host_id`'s `owner_mount`". */
+	storageLinkAdd: (hostId: number, ownerHostId: number, ownerMount: string, options?: InvokeOptions) => __TAURI_INVOKE<StorageLink>("storage_link_add", { hostId, ownerHostId, ownerMount }, options),
+	storageLinkDelete: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("storage_link_delete", { id }, options),
 	integrationsList: (options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize[]>("integrations_list", undefined, options),
 	integrationCreate: (input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize>("integration_create", { input, secret }, options),
 	integrationUpdate: (id: number, input: IntegrationInput_Deserialize, secret: string | null, options?: InvokeOptions) => __TAURI_INVOKE<IntegrationView_Serialize>("integration_update", { id, input, secret }, options),
@@ -444,6 +472,18 @@ export const commands = {
 	 *  confirms turning blocking off and removals with the target named.
 	 */
 	dnsFilterAction: (id: number, action: DnsAction_Deserialize, options?: InvokeOptions) => __TAURI_INVOKE<null>("dns_filter_action", { id, action }, options),
+	/**
+	 *  Synology with 2-step verification: signs in once with `code` from the
+	 *  authenticator and asks DSM to trust this computer. The device token DSM
+	 *  returns goes to the keychain, so later polls need no code. Returns
+	 *  whether DSM gave one (it doesn't when the account has no 2-step).
+	 */
+	synologyTrustDevice: (id: number, code: string, options?: InvokeOptions) => __TAURI_INVOKE<boolean>("synology_trust_device", { id, code }, options),
+	/**
+	 *  Forgets DSM's trusted-device token (the next poll asks for a code again).
+	 *  Remove "Nightgrid" from DSM's trusted devices too (Personal → Security).
+	 */
+	synologyForgetDevice: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("synology_forget_device", { id }, options),
 	/**
 	 *  Runs an action an integration card offered (scan libraries, approve a
 	 *  request, remove a queue item, ...). `target` is the row's id, empty for
@@ -665,6 +705,22 @@ export const commands = {
 	/**  Re-evaluates now (after alert settings change). */
 	alertsRefresh: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_refresh", undefined, options),
 	alertsClearHistory: (options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_clear_history", undefined, options),
+	/**
+	 *  Acknowledges an active alert (D-198): no badge or notifications while it
+	 *  stays as it is. It ends when the alert gets worse, and otherwise when it
+	 *  clears, after a while, or never, as chosen.
+	 */
+	alertsAck: (key: string, how: AckFor, options?: InvokeOptions) => __TAURI_INVOKE<Silence_Serialize>("alerts_ack", { key, how }, options),
+	/**
+	 *  Mutes alerts like this one (D-198): this alert, its kind on its host, its
+	 *  host, or its kind everywhere; for `secs` seconds or (`None`) for good.
+	 */
+	alertsMute: (key: string, scope: MuteScope, secs: number | null, options?: InvokeOptions) => __TAURI_INVOKE<Silence_Serialize>("alerts_mute", { key, scope, secs }, options),
+	/**
+	 *  Ends an acknowledgement or mute now. Its alerts count again, without a
+	 *  new notification.
+	 */
+	alertsUnsilence: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("alerts_unsilence", { id }, options),
 	/**  What depends on what (M10s). */
 	alertsDepsList: (options?: InvokeOptions) => __TAURI_INVOKE<Dependency[]>("alerts_deps_list", undefined, options),
 	/**  Adds "`child` depends on `parent`" (refuses loops). */
@@ -754,10 +810,27 @@ export const commands = {
 	 */
 	hubLeave: (memberId: number, hubHost: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<HubJoinResult>("hub_leave", { memberId, hubHost, sudo }, options),
 	/**
-	 *  Lets the hub's collector reach these addresses (`[collect] networks`),
-	 *  then runs `allow collect` again. `sudo` is for the hub host.
+	 *  Lets the hub's collector reach these addresses (`[collect] networks`)
+	 *  and answer pings on `listen` (`[collect] listen`, hub 0.28.0+), then
+	 *  runs `allow collect` again. `sudo` is for the hub host.
 	 */
-	hubAllowNetworks: (hubHost: number, networks: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_allow_networks", { hubHost, networks, sudo }, options),
+	hubAllowNetworks: (hubHost: number, networks: string[], listen: string[], sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_allow_networks", { hubHost, networks, listen, sudo }, options),
+	/**
+	 *  Fixes a member's failing link to its hub (Fleet → NODE → member →
+	 *  LINKED): updates the hub when it's older than the node next to it (or
+	 *  too old to listen on more than one address), then makes its collector
+	 *  answer on the address the member pings and lets it reach the member.
+	 *  Pulls never needed this, so the hub can look fine while the member's
+	 *  link says "connection refused". `sudo` is for the hub host.
+	 */
+	hubRepairLink: (memberId: number, hubHost: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("hub_repair_link", { memberId, hubHost, sudo }, options),
+	/**
+	 *  Turns on `host_id`'s node-to-node link (`allow peers`) and, when the
+	 *  host has no tailnet address, makes it listen on its LAN address
+	 *  (`[peers] listen = "lan"`, Node 0.28.0+), so a network without
+	 *  Tailscale can still have a hub. `sudo` is for that host.
+	 */
+	nodeLinkEnable: (hostId: number, sudo: SudoInput | null, options?: InvokeOptions) => __TAURI_INVOKE<ConfigSaveReport_Serialize>("node_link_enable", { hostId, sudo }, options),
 	/**
 	 *  Members of the hub on `hub_host` as the hub sees them (for the Fleet
 	 *  list's role column).
@@ -1167,6 +1240,15 @@ export type AccessReport_Serialize = {
 	findings: Finding[],
 };
 
+/**  How long an acknowledgement lasts. */
+export type AckFor = 
+/**  Until the alert clears (or gets worse). */
+{ type: "clear" } | 
+/**  For this many seconds (or until it gets worse), even if it clears and comes back. */
+{ type: "for"; secs: number } | 
+/**  For good, unless it gets worse. */
+{ type: "always" };
+
 export type Action = { kind: "start" } | { kind: "stop" } | { kind: "restart" } | { kind: "kill" } | { kind: "pause" } | { kind: "unpause" } | { kind: "remove"; force: boolean };
 
 export type ActionResult = ActionResult_Serialize | ActionResult_Deserialize;
@@ -1224,6 +1306,11 @@ export type AlertSettings_Deserialize = {
 	diskFull?: boolean,
 	/**  Percent used that counts as full, 50–99. */
 	diskPercent?: number,
+	/**
+	 *  No DISK FULL for read-only and by-design-full system mounts (WSL and
+	 *  Docker Desktop mounts, snaps, CD/DVD and other images) (D-198).
+	 */
+	diskSkipSystem?: boolean,
 	serviceDown?: boolean,
 	certExpiring?: boolean,
 	/**  Alert when a certificate expires within this many days, 1–90. */
@@ -1298,6 +1385,11 @@ export type AlertSettings_Serialize = {
 	diskFull: boolean,
 	/**  Percent used that counts as full, 50–99. */
 	diskPercent: number,
+	/**
+	 *  No DISK FULL for read-only and by-design-full system mounts (WSL and
+	 *  Docker Desktop mounts, snaps, CD/DVD and other images) (D-198).
+	 */
+	diskSkipSystem: boolean,
 	serviceDown: boolean,
 	certExpiring: boolean,
 	/**  Alert when a certificate expires within this many days, 1–90. */
@@ -1384,6 +1476,11 @@ export type Alert_Deserialize = {
 	 *  (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
 	 */
 	causedBy?: number | null,
+	/**
+	 *  The acknowledgement or mute that silences it (D-198,
+	 *  [`crate::silence`]). Filled in for the snapshot only.
+	 */
+	silenced?: number | null,
 };
 
 export type Alert_Serialize = {
@@ -1403,6 +1500,11 @@ export type Alert_Serialize = {
 	 *  (M10s, [`crate::depgraph::fold`]). Filled in for the snapshot only.
 	 */
 	causedBy: number | null,
+	/**
+	 *  The acknowledgement or mute that silences it (D-198,
+	 *  [`crate::silence`]). Filled in for the snapshot only.
+	 */
+	silenced: number | null,
 };
 
 export type AlertsSnapshot = AlertsSnapshot_Serialize | AlertsSnapshot_Deserialize;
@@ -1419,6 +1521,11 @@ export type AlertsSnapshot_Deserialize = {
 	logNotes: LogNote_Deserialize[],
 	/**  Log events left out by a mute or as 404 noise, per source, since the app started. */
 	logQuiet: LogQuiet[],
+	/**
+	 *  Acknowledged alerts and mutes, newest first (D-198). Active alerts
+	 *  they cover carry the silence's id in `silenced`.
+	 */
+	silences: Silence_Deserialize[],
 };
 
 export type AlertsSnapshot_Serialize = {
@@ -1433,6 +1540,11 @@ export type AlertsSnapshot_Serialize = {
 	logNotes: LogNote_Serialize[],
 	/**  Log events left out by a mute or as 404 noise, per source, since the app started. */
 	logQuiet: LogQuiet[],
+	/**
+	 *  Acknowledged alerts and mutes, newest first (D-198). Active alerts
+	 *  they cover carry the silence's id in `silenced`.
+	 */
+	silences: Silence_Serialize[],
 };
 
 export type AmpAction = "start" | "stop" | "restart";
@@ -3436,7 +3548,18 @@ socketGroup: string;
  */
 steps: string[]; 
 /**  The group change needs a new SSH login to apply. */
-relogin: boolean } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
+relogin: boolean } | 
+/**
+ *  The host has a Docker user set, and the SSH login may not run
+ *  docker as that user without a password.
+ */
+{ kind: "dockerUserSudo"; 
+/**  The SSH login. */
+login: string; 
+/**  The host's Docker user. */
+user: string; synology: boolean; 
+/**  Root commands that add the rule (see [`sudoers_step`]). */
+steps: string[] } | { kind: "notFound"; id: string } | { kind: "api"; status: number; message: string } | { kind: "other"; message: string };
 
 /**  One finding of `nightgrid-node doctor --json`. */
 export type DoctorFinding = DoctorFinding_Serialize | DoctorFinding_Deserialize;
@@ -4241,6 +4364,80 @@ export type Group_Serialize = {
 	sortOrder: number,
 };
 
+export type GrowthEntry = GrowthEntry_Serialize | GrowthEntry_Deserialize;
+
+export type GrowthEntry_Deserialize = {
+	/**  Path under the scanned folder, `/`-separated (`vms/win11.vhdx`). */
+	path: string,
+	size: number,
+	dir: boolean,
+	/**  A file modified within the last day. */
+	recent: boolean,
+	/**
+	 *  Change since the previous scan, bytes; `None` when it wasn't listed
+	 *  then (or there was no previous scan).
+	 */
+	delta?: number | null,
+	/**  A VM disk image or VM bundle: the growth is inside that VM. */
+	vmImage: boolean,
+	/**  What usually makes this grow and what to do, for well-known paths. */
+	hint?: string | null,
+};
+
+export type GrowthEntry_Serialize = {
+	/**  Path under the scanned folder, `/`-separated (`vms/win11.vhdx`). */
+	path: string,
+	size: number,
+	dir: boolean,
+	/**  A file modified within the last day. */
+	recent: boolean,
+	/**
+	 *  Change since the previous scan, bytes; `None` when it wasn't listed
+	 *  then (or there was no previous scan).
+	 */
+	delta: number | null,
+	/**  A VM disk image or VM bundle: the growth is inside that VM. */
+	vmImage: boolean,
+	/**  What usually makes this grow and what to do, for well-known paths. */
+	hint: string | null,
+};
+
+export type GrowthReport = GrowthReport_Serialize | GrowthReport_Deserialize;
+
+export type GrowthReport_Deserialize = {
+	/**  The folder scanned, as given. */
+	root: string,
+	at: number,
+	/**  When the previous scan of this folder ran, if one was saved. */
+	prevAt?: number | null,
+	/**  Everything under the folder on its filesystem, bytes. */
+	total: number,
+	totalDelta?: number | null,
+	/**  Biggest first; the folder itself left out. */
+	entries: GrowthEntry_Deserialize[],
+	/**  Folders or files that couldn't be read (permissions). */
+	denied: number,
+	/**  The folder doesn't exist or can't be entered. */
+	missing: boolean,
+};
+
+export type GrowthReport_Serialize = {
+	/**  The folder scanned, as given. */
+	root: string,
+	at: number,
+	/**  When the previous scan of this folder ran, if one was saved. */
+	prevAt: number | null,
+	/**  Everything under the folder on its filesystem, bytes. */
+	total: number,
+	totalDelta: number | null,
+	/**  Biggest first; the folder itself left out. */
+	entries: GrowthEntry_Serialize[],
+	/**  Folders or files that couldn't be read (permissions). */
+	denied: number,
+	/**  The folder doesn't exist or can't be entered. */
+	missing: boolean,
+};
+
 /**  The guest's addresses, for RDP. */
 export type GuestAddrs = GuestAddrs_Serialize | GuestAddrs_Deserialize;
 
@@ -4390,6 +4587,48 @@ export type HistoryResult_Serialize = {
 	truncated: boolean,
 };
 
+export type HoldInput = HoldInput_Serialize | HoldInput_Deserialize;
+
+export type HoldInput_Deserialize = {
+	hostId: number,
+	kind: HoldKind,
+	target?: string,
+	stack?: string,
+	version?: string | null,
+	until?: number | null,
+	note?: string,
+};
+
+export type HoldInput_Serialize = {
+	hostId: number,
+	kind: HoldKind,
+	target: string,
+	stack: string,
+	version: string | null,
+	until: number | null,
+	note: string,
+};
+
+export type HoldKind = "host" | "package" | "image" | "stack";
+
+/**  How this host can hold a package back. */
+export type HoldSupport = 
+/**
+ *  The package manager holds it (apt-mark hold, dnf versionlock, hiding a
+ *  Windows update), so every tool on the host respects it.
+ */
+"host" | 
+/**
+ *  Only Nightgrid's upgrades leave it out (pacman, dnf without the
+ *  versionlock plugin).
+ */
+"nightgrid" | 
+/**
+ *  Packages can't be held one by one (image-based systems, no manager):
+ *  hold the whole host instead.
+ */
+"none";
+
 export type HomepageCandidate = {
 	container: string,
 	/**  Host directory mounted at the container's `/app/config`. */
@@ -4491,7 +4730,9 @@ export type HostCapacity_Serialize = {
 	disks: CapDisk_Serialize[],
 };
 
-export type HostEvent = {
+export type HostEvent = HostEvent_Serialize | HostEvent_Deserialize;
+
+export type HostEvent_Deserialize = {
 	/**  Unix seconds. */
 	at: number,
 	kind: EventKind,
@@ -4499,6 +4740,20 @@ export type HostEvent = {
 	title: string,
 	detail: string,
 	origin: Origin,
+	/**  Recorded while the alert was acknowledged or muted (D-198). */
+	silenced?: SilenceMode | null,
+};
+
+export type HostEvent_Serialize = {
+	/**  Unix seconds. */
+	at: number,
+	kind: EventKind,
+	level: Level,
+	title: string,
+	detail: string,
+	origin: Origin,
+	/**  Recorded while the alert was acknowledged or muted (D-198). */
+	silenced: SilenceMode | null,
 };
 
 /**  Shell history for DRIFT: the newest lines plus older ones that match the question. */
@@ -4558,6 +4813,8 @@ export type HostInput_Deserialize = {
 	role?: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline?: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser?: string | null,
 };
 
 /**  Fields the user edits. Missing optional fields mean "unset". */
@@ -4595,6 +4852,8 @@ export type HostInput_Serialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser: string | null,
 };
 
 /**  A host key as shown to the user. */
@@ -4736,6 +4995,8 @@ export type Host_Deserialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser?: string | null,
 	/**
 	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
 	 *  Not user-edited (not in [`HostInput`]).
@@ -4780,6 +5041,8 @@ export type Host_Serialize = {
 	role: string,
 	/**  A client raises offline alerts only when this is on (servers always do). */
 	alertOffline: boolean,
+	/**  Run docker as this account (`sudo -n -u`) instead of the SSH login. */
+	dockerUser: string | null,
 	/**
 	 *  OS family learned on connect: "" (not yet), "posix" or "windows".
 	 *  Not user-edited (not in [`HostInput`]).
@@ -4801,6 +5064,12 @@ export type HubJoinResult = {
 	 *  reach this member: pass them to `hub_allow_networks` on the hub host.
 	 */
 	hubNetworks: string[],
+	/**
+	 *  Addresses the hub's collector must also answer on (`[collect]
+	 *  listen`) so a LAN-only member's pings reach it: pass them to
+	 *  `hub_allow_networks` too.
+	 */
+	hubListen: string[],
 };
 
 /**  A member in `fleet.overview`. */
@@ -4840,6 +5109,8 @@ export type HubOverview_Deserialize = {
 	hubId?: string,
 	fingerprint?: string | null,
 	listening?: string | null,
+	/**  Every address the collector answers on (0.28.0+; empty before). */
+	listenAll?: string[],
 	/**  `ok`, `off` (never ran: `allow collect`) or `denied` (stopped). */
 	collector?: string,
 	storeBytes?: number | null,
@@ -4851,6 +5122,8 @@ export type HubOverview_Serialize = {
 	hubId: string,
 	fingerprint: string | null,
 	listening: string | null,
+	/**  Every address the collector answers on (0.28.0+; empty before). */
+	listenAll: string[],
 	/**  `ok`, `off` (never ran: `allow collect`) or `denied` (stopped). */
 	collector: string,
 	storeBytes: number | null,
@@ -4992,6 +5265,11 @@ export type ImageUpdate_Deserialize = {
 	source?: string | null,
 	/**  Release notes or a commit comparison (https), when it can be worked out. */
 	notes?: string | null,
+	/**
+	 *  Held in Nightgrid (D-195): still checked, but not counted and not
+	 *  pulled by Pull / Update.
+	 */
+	held: boolean,
 };
 
 export type ImageUpdate_Serialize = {
@@ -5006,6 +5284,11 @@ export type ImageUpdate_Serialize = {
 	source: string | null,
 	/**  Release notes or a commit comparison (https), when it can be worked out. */
 	notes: string | null,
+	/**
+	 *  Held in Nightgrid (D-195): still checked, but not counted and not
+	 *  pulled by Pull / Update.
+	 */
+	held: boolean,
 };
 
 export type ImportMode = 
@@ -5143,7 +5426,7 @@ export type IntegrationInput_Serialize = {
 	allowUntrusted: boolean,
 };
 
-export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate" | "truenas" | "synology" | "unraid" | "pbs" | "opnsense" | "unifi" | "npm" | "grafana" | "prometheus";
+export type IntegrationKind = "plex" | "amp" | "kuma" | "portainer" | "pihole" | "adguard" | "jellyfin" | "emby" | "tautulli" | "sonarr" | "radarr" | "lidarr" | "prowlarr" | "bazarr" | "overseerr" | "jellyseerr" | "qbittorrent" | "transmission" | "sabnzbd" | "nzbget" | "immich" | "nextcloud" | "syncthing" | "gotify" | "frigate" | "truenas" | "synology" | "unraid" | "pbs" | "opnsense" | "unifi" | "npm" | "grafana" | "prometheus" | "snmp";
 
 /**  What an integration reports right now. */
 export type IntegrationStatus = IntegrationStatus_Serialize | IntegrationStatus_Deserialize;
@@ -5192,12 +5475,16 @@ export type IntegrationView_Deserialize = {
 	integration: Integration_Deserialize,
 	/**  A token/password is saved in the keychain. */
 	hasSecret: boolean,
+	/**  Synology: DSM trusts this computer (a 2-step device token is saved). */
+	trustedDevice: boolean,
 };
 
 export type IntegrationView_Serialize = {
 	integration: Integration_Serialize,
 	/**  A token/password is saved in the keychain. */
 	hasSecret: boolean,
+	/**  Synology: DSM trusts this computer (a 2-step device token is saved). */
+	trustedDevice: boolean,
 };
 
 export type Integration_Deserialize = {
@@ -6204,6 +6491,41 @@ export type MountForecast_Deserialize = {
 	spanDays: number | null,
 	/**  The last sample of each day, oldest first, for a sparkline. */
 	daily: UsagePoint[],
+	/**
+	 *  `/proc/mounts` device (`/dev/sda1`, `nas:/volume1/plex`); empty for
+	 *  history recorded before D-200.
+	 */
+	device: string,
+	fstype: string,
+	kind: MountKind,
+	/**
+	 *  Chip words ("NFS · nas", "Windows drive H:", "ZFS tank"); empty for
+	 *  a plain local disk.
+	 */
+	label: string,
+	/**
+	 *  Other mounts of the same storage on this host, forecast as one
+	 *  (datasets of one pool, the same share mounted twice).
+	 */
+	also: string[],
+	/**  The host whose disk this really is, when it's another saved host. */
+	owner?: MountOwner | null,
+	/**  Other hosts that mount this storage over the network. */
+	mountedOn: string[],
+	/**  Hosts whose disks are stored here (storage links: VM disk images). */
+	stores: string[],
+	/**
+	 *  Where this host's own disks are stored, when linked (a VM's image on
+	 *  its hypervisor's drive).
+	 */
+	storedOn?: MountOwner | null,
+	/**
+	 *  False when the growth is counted on another host: no FILLING UP or
+	 *  DISK FULL alert here, and the row is shown as a reference.
+	 */
+	counted: boolean,
+	/**  One sentence on what this mount is and where its growth is counted. */
+	note?: string | null,
 };
 
 export type MountForecast_Serialize = {
@@ -6224,16 +6546,92 @@ export type MountForecast_Serialize = {
 	spanDays: number | null,
 	/**  The last sample of each day, oldest first, for a sparkline. */
 	daily: UsagePoint[],
+	/**
+	 *  `/proc/mounts` device (`/dev/sda1`, `nas:/volume1/plex`); empty for
+	 *  history recorded before D-200.
+	 */
+	device: string,
+	fstype: string,
+	kind: MountKind,
+	/**
+	 *  Chip words ("NFS · nas", "Windows drive H:", "ZFS tank"); empty for
+	 *  a plain local disk.
+	 */
+	label: string,
+	/**
+	 *  Other mounts of the same storage on this host, forecast as one
+	 *  (datasets of one pool, the same share mounted twice).
+	 */
+	also: string[],
+	/**  The host whose disk this really is, when it's another saved host. */
+	owner: MountOwner | null,
+	/**  Other hosts that mount this storage over the network. */
+	mountedOn: string[],
+	/**  Hosts whose disks are stored here (storage links: VM disk images). */
+	stores: string[],
+	/**
+	 *  Where this host's own disks are stored, when linked (a VM's image on
+	 *  its hypervisor's drive).
+	 */
+	storedOn: MountOwner | null,
+	/**
+	 *  False when the growth is counted on another host: no FILLING UP or
+	 *  DISK FULL alert here, and the row is shown as a reference.
+	 */
+	counted: boolean,
+	/**  One sentence on what this mount is and where its growth is counted. */
+	note: string | null,
+};
+
+export type MountKind = 
+/**  A filesystem on this host's own disks. */
+"local" | 
+/**  A share served by another machine over the network. */
+"network" | 
+/**
+ *  A drive or folder of the machine this host runs on (WSL, a VM's
+ *  shared folder): its disks and SMART belong to that machine.
+ */
+"passthrough" | 
+/**
+ *  A dataset or volume sharing its free space with others in one pool
+ *  (ZFS pool, APFS container), forecast as the pool.
+ */
+"pool";
+
+/**  Who owns the disk behind a mount that isn't this host's own. */
+export type MountOwner = {
+	hostId: number,
+	host: string,
+	/**  The owner's mount that holds it. */
+	mount: string,
 };
 
 /**  Usage of one mounted filesystem. */
-export type MountUsage = {
+export type MountUsage = MountUsage_Serialize | MountUsage_Deserialize;
+
+/**  Usage of one mounted filesystem. */
+export type MountUsage_Deserialize = {
 	device: string,
 	mount: string,
 	fstype: string,
 	total: number,
 	used: number,
 	avail: number,
+	/**  Mounted read-only (`ro` in /proc/mounts). */
+	readOnly?: boolean,
+};
+
+/**  Usage of one mounted filesystem. */
+export type MountUsage_Serialize = {
+	device: string,
+	mount: string,
+	fstype: string,
+	total: number,
+	used: number,
+	avail: number,
+	/**  Mounted read-only (`ro` in /proc/mounts). */
+	readOnly: boolean,
 };
 
 export type MountView = MountView_Serialize | MountView_Deserialize;
@@ -6253,6 +6651,17 @@ export type MountView_Serialize = {
 	rw: boolean,
 	name: string | null,
 };
+
+/**  What a mute covers. */
+export type MuteScope = 
+/**  This one alert (one mount, container, service…). */
+{ type: "alert" } | 
+/**  This kind of alert on this alert's host. */
+{ type: "kindOnHost" } | 
+/**  Every alert on this alert's host. */
+{ type: "host" } | 
+/**  This kind of alert on every host. */
+{ type: "kind" };
 
 export type NetDevice = NetDevice_Serialize | NetDevice_Deserialize;
 
@@ -6971,6 +7380,11 @@ export type PackageUpdate_Deserialize = {
 	available: string,
 	/**  apt suite / dnf repository. */
 	repo?: string | null,
+	/**
+	 *  Held: on the host (apt-mark hold, IgnorePkg, a hidden Windows
+	 *  update) or in Nightgrid. Upgrades leave it alone; it isn't pending.
+	 */
+	held: boolean,
 };
 
 export type PackageUpdate_Serialize = {
@@ -6979,6 +7393,11 @@ export type PackageUpdate_Serialize = {
 	available: string,
 	/**  apt suite / dnf repository. */
 	repo: string | null,
+	/**
+	 *  Held: on the host (apt-mark hold, IgnorePkg, a hidden Windows
+	 *  update) or in Nightgrid. Upgrades leave it alone; it isn't pending.
+	 */
+	held: boolean,
 };
 
 export type PendingChange = {
@@ -8805,7 +9224,7 @@ export type Sample_Deserialize = {
 	memUsed: number,
 	swapTotal: number,
 	swapUsed: number,
-	mounts: MountUsage[],
+	mounts: MountUsage_Deserialize[],
 	/**  Per interface (loopback left out). */
 	net: Rate[],
 	/**  Sum over physical-looking interfaces (no veth/docker/bridges). */
@@ -8838,7 +9257,7 @@ export type Sample_Serialize = {
 	memUsed: number,
 	swapTotal: number,
 	swapUsed: number,
-	mounts: MountUsage[],
+	mounts: MountUsage_Serialize[],
 	/**  Per interface (loopback left out). */
 	net: Rate[],
 	/**  Sum over physical-looking interfaces (no veth/docker/bridges). */
@@ -9269,6 +9688,50 @@ export type SideInfo = {
 	manager: string,
 	files: number,
 	packages: number,
+};
+
+export type Silence = Silence_Serialize | Silence_Deserialize;
+
+export type SilenceMode = "ack" | "mute";
+
+export type Silence_Deserialize = {
+	id: number,
+	mode: SilenceMode,
+	/**  One alert (`disk:3:/srv`). Acknowledgements always have one. */
+	key?: string | null,
+	/**  Mutes without a key: this kind of alert (on `host_id`, or everywhere). */
+	kind?: AlertKind | null,
+	/**  Mutes without a key: this host (every kind, or `kind` only). */
+	hostId?: number | null,
+	/**  What it silences, in words, for the list: `DISK FULL · nas01 · /volume1`. */
+	label: string,
+	/**  Acknowledgements: the severity acknowledged. Worse lifts it. */
+	severity?: Severity | null,
+	/**  Ends at this time (unix seconds); `None` = no time limit. */
+	until?: number | null,
+	/**  Acknowledgements: also ends when the alert clears. */
+	untilClear: boolean,
+	created: number,
+};
+
+export type Silence_Serialize = {
+	id: number,
+	mode: SilenceMode,
+	/**  One alert (`disk:3:/srv`). Acknowledgements always have one. */
+	key: string | null,
+	/**  Mutes without a key: this kind of alert (on `host_id`, or everywhere). */
+	kind: AlertKind | null,
+	/**  Mutes without a key: this host (every kind, or `kind` only). */
+	hostId: number | null,
+	/**  What it silences, in words, for the list: `DISK FULL · nas01 · /volume1`. */
+	label: string,
+	/**  Acknowledgements: the severity acknowledged. Worse lifts it. */
+	severity: Severity | null,
+	/**  Ends at this time (unix seconds); `None` = no time limit. */
+	until: number | null,
+	/**  Acknowledgements: also ends when the alert clears. */
+	untilClear: boolean,
+	created: number,
 };
 
 export type SlaIncident = {
@@ -9986,6 +10449,15 @@ mode: number | null } |
 /**  Container name/id, or image for pull. */
 target: string };
 
+export type StorageLink = {
+	id: number,
+	/**  The host (usually a VM) whose disks are stored there. */
+	hostId: number,
+	ownerHostId: number,
+	/**  The owner's mount or drive holding them (`/mnt/h`, `H:\`). */
+	ownerMount: string,
+};
+
 /**  The sudo password typed into the prompt. Never logged. */
 export type SudoInput = {
 	password: string,
@@ -10218,8 +10690,18 @@ export type TextFile_Serialize = {
 	stat: Entry_Serialize,
 };
 
-export type Timeline = {
-	events: HostEvent[],
+export type Timeline = Timeline_Serialize | Timeline_Deserialize;
+
+export type Timeline_Deserialize = {
+	events: HostEvent_Deserialize[],
+	/**  What couldn't be read (journal permissions, Docker, an offline host). */
+	notes: string[],
+	/**  Unix seconds the timeline starts at. */
+	since: number,
+};
+
+export type Timeline_Serialize = {
+	events: HostEvent_Serialize[],
 	/**  What couldn't be read (journal permissions, Docker, an offline host). */
 	notes: string[],
 	/**  Unix seconds the timeline starts at. */
@@ -10654,6 +11136,40 @@ export type Unit_Serialize = {
 	fileState: string | null,
 };
 
+export type UpdateHold = UpdateHold_Serialize | UpdateHold_Deserialize;
+
+export type UpdateHold_Deserialize = {
+	id: number,
+	hostId: number,
+	kind: HoldKind,
+	/**  Package name, image reference or stack name; empty for a host. */
+	target: string,
+	/**  The stack an image belongs to; empty otherwise. */
+	stack: string,
+	/**  What was installed or running when it was held. */
+	version?: string | null,
+	/**  Unix seconds the hold ends by itself; `None` = until released. */
+	until?: number | null,
+	note: string,
+	createdAt: number,
+};
+
+export type UpdateHold_Serialize = {
+	id: number,
+	hostId: number,
+	kind: HoldKind,
+	/**  Package name, image reference or stack name; empty for a host. */
+	target: string,
+	/**  The stack an image belongs to; empty otherwise. */
+	stack: string,
+	/**  What was installed or running when it was held. */
+	version: string | null,
+	/**  Unix seconds the hold ends by itself; `None` = until released. */
+	until: number | null,
+	note: string,
+	createdAt: number,
+};
+
 export type UpdateInfo = UpdateInfo_Serialize | UpdateInfo_Deserialize;
 
 export type UpdateInfo_Deserialize = {
@@ -10716,6 +11232,12 @@ export type UpdatesReport_Deserialize = {
 	rebootReasons: string[],
 	/**  Something the user should know (stale package lists, ...). */
 	note?: string | null,
+	/**
+	 *  Packages held on the host (some aren't in `updates`: dnf hides
+	 *  locked ones from its list).
+	 */
+	held: string[],
+	holdSupport: HoldSupport,
 };
 
 export type UpdatesReport_Serialize = {
@@ -10730,6 +11252,12 @@ export type UpdatesReport_Serialize = {
 	rebootReasons: string[],
 	/**  Something the user should know (stale package lists, ...). */
 	note: string | null,
+	/**
+	 *  Packages held on the host (some aren't in `updates`: dnf hides
+	 *  locked ones from its list).
+	 */
+	held: string[],
+	holdSupport: HoldSupport,
 };
 
 /**  What an upgrade run does. */

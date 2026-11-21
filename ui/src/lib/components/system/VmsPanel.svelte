@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { typedMatches } from "../../confirm";
+  import { enterConfirms, typedMatches } from "../../confirm";
   import Modal from "../Modal.svelte";
   import RdpDialog from "../desktop/RdpDialog.svelte";
   import { desktops } from "../../stores/desktops.svelte";
@@ -111,7 +111,7 @@
     {#if needsTyping}
       <label class="field">
         <span>Type <strong class="verbatim">{pending.vm.name}</strong> to confirm</span>
-        <input class="input" bind:value={typed} autocomplete="off" spellcheck="false" />
+        <input class="input" use:enterConfirms bind:value={typed} autocomplete="off" spellcheck="false" />
       </label>
     {/if}
   {/if}
@@ -120,6 +120,7 @@
     <button
       type="button"
       class="btn danger"
+      data-confirm
       disabled={!pending || (needsTyping && !typedMatches(typed, pending.vm.name))}
       onclick={() => pending && vms.act(pending.vm, pending.action)}>{pending ? `${VM_ACTION_WORD[pending.action]} ${pending.vm.name}` : ""}</button
     >

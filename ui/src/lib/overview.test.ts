@@ -57,10 +57,12 @@ describe("services widget", () => {
 describe("updates and disks widgets", () => {
   const rep = (n: number, o: Partial<UpdatesReport> = {}): UpdatesReport => ({
     manager: "apt",
-    updates: Array.from({ length: n }, (_, i) => ({ name: `p${i}`, current: "1", available: "2", repo: i === 0 ? "jammy-security" : "jammy-updates" })),
+    updates: Array.from({ length: n }, (_, i) => ({ name: `p${i}`, current: "1", available: "2", repo: i === 0 ? "jammy-security" : "jammy-updates", held: false })),
     rebootRequired: false,
     rebootReasons: [],
     note: null,
+    held: [],
+    holdSupport: "host",
     ...o,
   });
 

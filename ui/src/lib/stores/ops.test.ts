@@ -91,7 +91,7 @@ describe("proxy routes", () => {
 });
 
 describe("log alerts", () => {
-  const alert = (key: string, kind: Alert["kind"]): Alert => ({ id: 1, key, kind, severity: "warn", title: "t", detail: "d", hostId: 2, since: 0, resolved: null, causedBy: null });
+  const alert = (key: string, kind: Alert["kind"]): Alert => ({ id: 1, key, kind, severity: "warn", title: "t", detail: "d", hostId: 2, since: 0, resolved: null, causedBy: null, silenced: null });
   it("finds the source", () => {
     expect(logSource(alert("logs:2:container/web:burst", "logBurst"))).toBe("container/web");
     expect(logSource(alert("logs:2:journal/sshd:new", "logNewError"))).toBe("journal/sshd");

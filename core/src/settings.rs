@@ -331,6 +331,9 @@ pub struct AlertSettings {
     pub disk_full: bool,
     /// Percent used that counts as full, 50–99.
     pub disk_percent: u8,
+    /// No DISK FULL for read-only and by-design-full system mounts (WSL and
+    /// Docker Desktop mounts, snaps, CD/DVD and other images) (D-198).
+    pub disk_skip_system: bool,
     pub service_down: bool,
     pub cert_expiring: bool,
     /// Alert when a certificate expires within this many days, 1–90.
@@ -389,6 +392,7 @@ impl Default for AlertSettings {
             container_down: true,
             disk_full: true,
             disk_percent: 90,
+            disk_skip_system: true,
             service_down: true,
             cert_expiring: true,
             cert_days: 14,

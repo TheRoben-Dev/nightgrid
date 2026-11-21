@@ -129,6 +129,12 @@ const TABLES: &[Table] = &[
         ],
     },
     Table {
+        name: "storage_links",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Skip), ("owner_host_id", "hosts", Missing::Skip)],
+        keys: &[&["host_id", "owner_host_id", "owner_mount"]],
+    },
+    Table {
         name: "ups_watches",
         id: true,
         fks: &[("host_id", "hosts", Missing::Skip), ("group_id", "host_groups", Missing::Null)],
@@ -155,6 +161,12 @@ const TABLES: &[Table] = &[
         id: true,
         fks: &[("host_id", "hosts", Missing::Skip)],
         keys: &[&["article_id", "host_id"]],
+    },
+    Table {
+        name: "update_holds",
+        id: true,
+        fks: &[("host_id", "hosts", Missing::Skip)],
+        keys: &[&["host_id", "kind", "stack", "target"]],
     },
     Table { name: "settings", id: false, fks: &[], keys: &[&["key"]] },
 ];

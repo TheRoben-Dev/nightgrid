@@ -134,6 +134,8 @@ fn parent_reaches(g: &Graph, from: Node, to: Node) -> bool {
 #[derive(Debug, Default, Clone)]
 pub struct Graph {
     parents: HashMap<Node, Vec<Node>>,
+    /// Storage links: host → drives (owner host, mount) its disks are on.
+    stored: HashMap<HostId, Vec<(HostId, String)>>,
 }
 
 impl Graph {
@@ -148,7 +150,21 @@ impl Graph {
                 e.push(Node::Host(*h));
             }
         }
-        Self { parents }
+        Self { parents, stored: HashMap::new() }
+    }
+
+    /// Adds storage links (D-200): a host whose disks are stored on another
+    /// host's drive goes down with that host, and with that drive filling
+    /// up. Shares mounted over the network add nothing here.
+    pub fn with_storage(mut self, links: &[crate::storagelink::StorageLink]) -> Self {
+        for l in links {
+            let e = self.parents.entry(Node::Host(l.host_id)).or_default();
+            if !e.contains(&Node::Host(l.owner_host_id)) {
+                e.push(Node::Host(l.owner_host_id));
+            }
+            self.stored.entry(l.host_id).or_default().push((l.owner_host_id, l.owner_mount.clone()));
+        }
+        self
     }
 
     /// Everything `n` depends on, directly or not, with its distance.
@@ -198,12 +214,40 @@ pub struct Folding {
     pub waiting: HashSet<u32>,
 }
 
+/// A critical DISK FULL alert (`disk:<host>:<mount>`): that drive is out
+/// of space.
+fn full_drive(a: &Alert) -> Option<(HostId, &str)> {
+    if a.kind != AlertKind::DiskFull || a.severity != crate::alerts::Severity::Critical {
+        return None;
+    }
+    let (host, mount) = a.key.strip_prefix("disk:")?.split_once(':')?;
+    Some((host.parse().ok()?, mount))
+}
+
+fn same_drive(a: &str, b: &str) -> bool {
+    let n = |s: &str| s.trim_end_matches(['/', '\\']).to_ascii_lowercase();
+    n(a) == n(b)
+}
+
 /// Which active alerts are explained by an outage upstream of them. The
 /// cause is the furthest-up node that is down, so a chain (router → NAS →
-/// media server) folds everything under the router.
+/// media server) folds everything under the router. A full drive counts
+/// as down for the hosts stored on it ([`Graph::with_storage`]).
 pub fn fold(active: &[Alert], pending: &[Condition], graph: &Graph) -> Folding {
     let down: HashMap<Node, u32> =
         active.iter().filter_map(|a| down_node(&a.key, a.kind, a.host_id).map(|n| (n, a.id))).collect();
+    let full: Vec<(HostId, &str, u32)> =
+        active.iter().filter_map(|a| full_drive(a).map(|(h, m)| (h, m, a.id))).collect();
+    // Hosts whose disks sit on a full drive → that DISK FULL alert.
+    let drive_full: HashMap<HostId, u32> = graph
+        .stored
+        .iter()
+        .filter_map(|(host, drives)| {
+            drives
+                .iter()
+                .find_map(|(o, m)| full.iter().find(|(fh, fm, _)| fh == o && same_drive(fm, m)).map(|f| (*host, f.2)))
+        })
+        .collect();
     let pending_down: HashSet<Node> = pending.iter().filter_map(|c| down_node(&c.key, c.kind, c.host_id)).collect();
     let mut out = Folding::default();
     for a in active {
@@ -216,9 +260,16 @@ pub fn fold(active: &[Alert], pending: &[Condition], graph: &Graph) -> Folding {
             candidates.push((s, 0));
         }
         candidates.extend(graph.ancestors(s));
+        // A full drive is one step further up than the host stored on it,
+        // and explains even that host's own offline alert.
+        let on_full = std::iter::once((s, 0)).chain(graph.ancestors(s)).filter_map(|(n, d)| match n {
+            Node::Host(h) => drive_full.get(&h).filter(|id| **id != a.id).map(|id| (d + 1, *id)),
+            Node::Service(_) => None,
+        });
         let cause = candidates
             .iter()
             .filter_map(|(n, d)| down.get(n).filter(|id| **id != a.id).map(|id| (*d, *id)))
+            .chain(on_full)
             .max_by_key(|(d, id)| (*d, std::cmp::Reverse(*id)));
         if let Some((_, id)) = cause {
             out.caused_by.insert(a.id, id);
@@ -246,6 +297,7 @@ mod tests {
             since: 0,
             resolved: None,
             caused_by: None,
+            silenced: None,
         }
     }
 
@@ -326,5 +378,32 @@ mod tests {
         assert_eq!(s.deps_list().unwrap(), vec![d.clone()]);
         s.delete_host(r.id).unwrap();
         assert!(s.deps_list().unwrap().is_empty());
+    }
+
+    #[test]
+    fn hosts_stored_on_a_full_drive_fold_under_it() {
+        use crate::storagelink::StorageLink;
+        let links = [StorageLink { id: 1, host_id: 4, owner_host_id: 6, owner_mount: "H:\\".into() }];
+        let g = Graph::new(&[], &HashMap::from([(5, 4)])).with_storage(&links);
+        let mut full = alert(1, "disk:6:H:\\", AlertKind::DiskFull, Some(6));
+        let active = [
+            full.clone(),
+            alert(2, "host:4", AlertKind::HostOffline, Some(4)),
+            alert(3, "svc:5", AlertKind::ServiceDown, Some(4)),
+            alert(7, "disk:9:/", AlertKind::DiskFull, Some(9)),
+        ];
+        let f = fold(&active, &[], &g);
+        assert_eq!(f.caused_by, HashMap::from([(2, 1), (3, 1)]));
+        // Only a critical DISK FULL means the drive is out of space.
+        full.severity = Severity::Warn;
+        let f = fold(&[full, alert(2, "host:4", AlertKind::HostOffline, Some(4))], &[], &g);
+        assert!(f.caused_by.is_empty());
+        // The hypervisor being offline takes the VM down too.
+        let f = fold(
+            &[alert(1, "host:6", AlertKind::HostOffline, Some(6)), alert(2, "host:4", AlertKind::HostOffline, Some(4))],
+            &[],
+            &g,
+        );
+        assert_eq!(f.caused_by, HashMap::from([(2, 1)]));
     }
 }

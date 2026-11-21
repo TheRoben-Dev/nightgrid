@@ -78,7 +78,8 @@ export function updateLines(rows: UpdateRow[]): UpdLine[] {
       out.push({ host: r.host, tone: "unknown", text: "couldn't check", detail: s.error ?? "" });
       continue;
     }
-    const bits = [r.count ? `${r.count} pending` : "up to date"];
+    const bits = [r.held ? "held" : r.count ? `${r.count} pending` : "up to date"];
+    if (r.heldCount && !r.held) bits.push(`${r.heldCount} held`);
     if (r.security) bits.push(`${r.security} security`);
     if (r.reboot) bits.push("reboot");
     out.push({ host: r.host, tone: r.tone, text: bits.join(" · "), detail: s.report?.rebootReasons.join("; ") ?? "" });
@@ -110,7 +111,7 @@ export function diskLines(rows: { host: Host; state: HostDisks | undefined; tone
     const pct = d.forecasts.length ? Math.round(Math.max(...d.forecasts.map((f) => (f.size ? (f.used / f.size) * 100 : 0)))) : null;
     const badPool = d.pools?.pools.find((p) => p.health === "bad") ?? d.pools?.pools.find((p) => p.health === "warn");
     const badDisk = d.smart?.disks.find((k) => k.health === "bad") ?? d.smart?.disks.find((k) => k.health === "warn");
-    const soon = d.forecasts.filter((f) => f.daysLeft != null).sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))[0];
+    const soon = d.forecasts.filter((f) => f.daysLeft != null && f.counted !== false).sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))[0];
     let text: string;
     let detail = "";
     if (badPool) {
