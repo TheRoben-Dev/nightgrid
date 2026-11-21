@@ -1841,6 +1841,14 @@ export type AppSettings_Deserialize = {
 	 *  (from a newer version's profile) are kept as they are.
 	 */
 	disabledFeatures?: string[],
+	/**
+	 *  Components installed from Settings → STORE (D-205). A feature that
+	 *  belongs to a component not in the list is off, whatever
+	 *  `disabled_features` says. `None`: never chosen (settings from before
+	 *  the store); [`AppSettings::load`] fills it in. Unknown ids (from a
+	 *  newer version's profile) are kept.
+	 */
+	installedComponents?: string[] | null,
 };
 
 /**
@@ -1992,6 +2000,14 @@ export type AppSettings_Serialize = {
 	 *  (from a newer version's profile) are kept as they are.
 	 */
 	disabledFeatures: string[],
+	/**
+	 *  Components installed from Settings → STORE (D-205). A feature that
+	 *  belongs to a component not in the list is off, whatever
+	 *  `disabled_features` says. `None`: never chosen (settings from before
+	 *  the store); [`AppSettings::load`] fills it in. Unknown ids (from a
+	 *  newer version's profile) are kept.
+	 */
+	installedComponents: string[] | null,
 };
 
 export type AppStatus = AppStatus_Serialize | AppStatus_Deserialize;

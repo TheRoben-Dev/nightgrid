@@ -293,6 +293,7 @@ export const GUIDE_TARGETS: GuideTarget[] = [
   ...SETTINGS_TABS.map((t) => ({ id: `settings-tab-${t.id}`, view: "settings" as const, what: `Settings ${t.label} tab: ${t.what}` })),
   { id: "settings-feature-presets", view: "settings", what: "Simple, Standard and Everything presets" },
   { id: "settings-features", view: "settings", what: "list of features with on/off toggles" },
+  { id: "settings-store", view: "settings", what: "feature store: optional components with Install and Remove buttons, grouped by shelf" },
 ];
 
 export const guideTarget = (id: string): GuideTarget | undefined => GUIDE_TARGETS.find((t) => t.id === id);

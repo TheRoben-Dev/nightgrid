@@ -63,6 +63,7 @@
   import ProfileReminder from "./lib/components/backup/ProfileReminder.svelte";
   import { helper } from "./lib/stores/helper.svelte";
   import { sound } from "./lib/stores/sound.svelte";
+  import { installedFor } from "./lib/storeCatalog";
 
   let info = $state<AppInfo | null>(null);
   /** Files stays mounted after the first visit so open editors survive section switches. */
@@ -130,6 +131,7 @@
 
   // Views turned off in Settings → Features redirect there instead.
   ui.allow = (id) => settings.on(id);
+  ui.missing = (id) => !installedFor(settings.value.installedComponents, id);
   // Background stores start only for features that are on, and start when
   // one is turned on later (no restart).
   $effect(() => {

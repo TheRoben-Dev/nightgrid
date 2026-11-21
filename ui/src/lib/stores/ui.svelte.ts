@@ -16,6 +16,8 @@ class UiStore {
   featureAsked = $state<string | null>(null);
   /** Whether a section is on (set by the app from Settings → Features). */
   allow: (id: SectionId) => boolean = () => true;
+  /** Whether a section's store component isn't installed (set by the app). */
+  missing: (id: SectionId) => boolean = () => false;
 
   /** The view last open in each sidebar entry, so the entry returns to it. */
   lastInRail = $state<Record<string, SectionId>>({});
@@ -23,7 +25,7 @@ class UiStore {
   go(id: SectionId) {
     if (!this.allow(id)) {
       this.featureAsked = id;
-      this.settingsTab = "features";
+      this.settingsTab = this.missing(id) ? "store" : "features";
       id = "settings";
     }
     if (id !== this.section) sound.play("tick");

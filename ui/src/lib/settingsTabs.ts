@@ -3,7 +3,7 @@
  * and tours open the right one. Every settings guide target must map here
  * (a test checks it).
  */
-export type SettingsTab = "general" | "appearance" | "sound" | "terminal" | "monitoring" | "alerts" | "connections" | "drift" | "data" | "features";
+export type SettingsTab = "general" | "appearance" | "sound" | "terminal" | "monitoring" | "alerts" | "connections" | "drift" | "data" | "features" | "store";
 
 export const SETTINGS_TABS: { id: SettingsTab; label: string; what: string }[] = [
   { id: "general", label: "GENERAL", what: "tray and window, app updates, diagnostics" },
@@ -15,7 +15,8 @@ export const SETTINGS_TABS: { id: SettingsTab; label: string; what: string }[] =
   { id: "connections", label: "CONNECTIONS", what: "built-in Tailscale and SSH keys" },
   { id: "drift", label: "DRIFT", what: "the helper, its model and the tours" },
   { id: "data", label: "DATA", what: "profile export and import, phone status page" },
-  { id: "features", label: "FEATURES", what: "turn views and checks on or off" },
+  { id: "store", label: "STORE", what: "install or remove optional components (Proxmox, UPS, VM desktops, DRIFT …)" },
+  { id: "features", label: "FEATURES", what: "turn installed views and checks on or off" },
 ];
 
 /** Guide target id → the tab it's on. */
@@ -57,6 +58,7 @@ const BY_TARGET: Record<string, SettingsTab> = {
   "settings-tours": "drift",
   "settings-features": "features",
   "settings-feature-presets": "features",
+  "settings-store": "store",
 };
 
 /** The tab a settings target lives on (null: not a settings target or a tab button itself). */

@@ -4,12 +4,16 @@
   import { FEATURES, PRESETS, presetOf } from "../../features";
   import { settings } from "../../stores/settings.svelte";
   import { ui } from "../../stores/ui.svelte";
+  import { COMPONENTS, installedFor } from "../../storeCatalog";
 
   const disabled = $derived(settings.value.disabledFeatures ?? []);
   const preset = $derived(presetOf(disabled));
-  const top = FEATURES.filter((f) => !f.parent);
-  const kids = (id: string) => FEATURES.filter((f) => f.parent === id);
-  const onCount = $derived(FEATURES.filter((f) => settings.on(f.id)).length);
+  // Only what's installed (Settings → STORE) is listed here.
+  const shown = $derived(FEATURES.filter((f) => installedFor(settings.value.installedComponents, f.id)));
+  const top = $derived(shown.filter((f) => !f.parent));
+  const kids = (id: string) => shown.filter((f) => f.parent === id);
+  const onCount = $derived(shown.filter((f) => settings.on(f.id)).length);
+  const notInstalled = $derived(COMPONENTS.filter((c) => !settings.installed(c.id)).length);
   const asked = $derived(ui.featureAsked ? FEATURES.find((f) => f.id === ui.featureAsked) : undefined);
 
   function turnOnAsked() {
@@ -41,8 +45,10 @@
       {/each}
     </div>
     <p class="muted note">
-      {preset ? "" : "Custom mix. "}{onCount} of {FEATURES.length} on. Off hides a feature from the sidebar, palette, shortcuts and DRIFT, doesn't load its code and stops its background checks. Nothing
+      {preset ? "" : "Custom mix. "}{onCount} of {shown.length} on. Off hides a feature from the sidebar, palette, shortcuts and DRIFT, doesn't load its code and stops its background checks. Nothing
       is deleted: turn it back on and it's all there, no restart.
+      {#if notInstalled}{notInstalled} more optional components are in the
+        <button type="button" class="link" onclick={() => (ui.settingsTab = "store")}>STORE</button>.{/if}
     </p>
   </Panel>
 
@@ -143,6 +149,15 @@
   }
   .error {
     color: var(--danger);
+  }
+  .link {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--cyan);
+    cursor: pointer;
+    font: inherit;
+    text-decoration: underline;
   }
   @media (max-width: 720px) {
     .presets {

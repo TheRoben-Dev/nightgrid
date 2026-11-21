@@ -16,6 +16,7 @@ pub mod broadcast;
 pub mod capacity;
 pub mod catalog;
 pub mod cmdwidget;
+pub mod components;
 pub mod confdiff;
 pub mod dashboard;
 pub mod depgraph;

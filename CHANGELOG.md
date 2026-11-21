@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them.
 
+## [Unreleased]
+
+### Added
+- **Feature store.** Settings has a new **STORE** tab. Nightgrid's core is now the everyday essentials (hosts, Overview, Terminal, Files, Docker, Services, System, Fleet updates/disks/backups/uptime, Tunnels, Network tools, Alerts, Knowledge and the Library); the less common parts are optional components you install when you want them: Proxmox, VM desktops, UPS, log search, expiry watch, power & cost, capacity planner, incident replay, Nightgrid Node, automation, journal, blueprints, service catalog, restore drills, network map, speed tests, security, access audit, DRIFT and UI sounds. A component that isn't installed is hidden everywhere, its code never loads and its background checks don't run. **Remove** keeps its data, so installing it again brings everything back. Nothing changes for you on update: every component with a feature you had on is installed already; one you had turned off stays out. A fresh install starts with the core only. Opening something that isn't installed (a shortcut, a link, DRIFT) lands on the store with **Install and open**.
+
 ## [1.22.0] - 2026-11-21
 
 ### Added

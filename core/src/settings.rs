@@ -149,6 +149,12 @@ pub struct AppSettings {
     /// feature and stops its background work; its data is kept. Unknown ids
     /// (from a newer version's profile) are kept as they are.
     pub disabled_features: Vec<String>,
+    /// Components installed from Settings → STORE (D-205). A feature that
+    /// belongs to a component not in the list is off, whatever
+    /// `disabled_features` says. `None`: never chosen (settings from before
+    /// the store); [`AppSettings::load`] fills it in. Unknown ids (from a
+    /// newer version's profile) are kept.
+    pub installed_components: Option<Vec<String>>,
 }
 
 /// Feature ids the backend knows about (the UI has the full list with labels).
@@ -481,6 +487,7 @@ impl Default for AppSettings {
             tour_offered: false,
             dashboard_presets: Vec::new(),
             disabled_features: Vec::new(),
+            installed_components: None,
         }
     }
 }
@@ -489,19 +496,17 @@ impl AppSettings {
     /// Whether a feature is on: neither it nor a parent (`fleet` for
     /// `fleet.logs`) is turned off.
     pub fn feature(&self, id: &str) -> bool {
-        !self
-            .disabled_features
-            .iter()
-            .any(|d| id == d || id.strip_prefix(d.as_str()).is_some_and(|rest| rest.starts_with('.')))
+        crate::components::installed_for(self.installed_components.as_deref(), id)
+            && !self
+                .disabled_features
+                .iter()
+                .any(|d| id == d || id.strip_prefix(d.as_str()).is_some_and(|rest| rest.starts_with('.')))
     }
 
     /// The settings background work should run with: rules and checks that
     /// belong to a turned-off feature are off.
     pub fn effective(&self) -> Self {
         let mut s = self.clone();
-        if s.disabled_features.is_empty() {
-            return s;
-        }
         let a = &mut s.alerts;
         if !self.feature("docker") {
             a.container_down = false;
@@ -553,6 +558,19 @@ impl AppSettings {
             return Err(Error::Invalid {
                 field: "disabledFeatures",
                 reason: "at most 64 ids of lowercase letters, digits, dots and dashes".into(),
+            });
+        }
+        if self.installed_components.as_ref().is_some_and(|l| {
+            l.len() > 64
+                || l.iter().any(|c| {
+                    c.is_empty()
+                        || c.len() > 40
+                        || !c.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+                })
+        }) {
+            return Err(Error::Invalid {
+                field: "installedComponents",
+                reason: "at most 64 ids of lowercase letters, digits and dashes".into(),
             });
         }
         if crate::helper::model::model_by_id(&self.helper_model).is_none() {
@@ -657,7 +675,22 @@ impl AppSettings {
     }
 
     /// Loads settings, falling back to defaults when unset or invalid.
+    ///
+    /// Settings saved before the feature store (D-205) get the components
+    /// whose features were on; a first launch (nothing saved, no hosts)
+    /// starts with the core app only.
     pub fn load(store: &Store) -> Result<Self> {
+        let mut s = Self::load_raw(store)?;
+        if s.installed_components.is_none() {
+            let fresh = store.get_setting::<serde_json::Value>(KEY).ok().flatten().is_none()
+                && store.list_hosts().map(|h| h.is_empty()).unwrap_or(false);
+            s.installed_components =
+                Some(if fresh { Vec::new() } else { crate::components::seed_from(&s.disabled_features) });
+        }
+        Ok(s)
+    }
+
+    fn load_raw(store: &Store) -> Result<Self> {
         let s: Option<Self> = store.get_setting(KEY).unwrap_or_else(|e| {
             tracing::warn!("ignoring unreadable settings: {e}");
             None
@@ -736,13 +769,47 @@ mod tests {
     #[test]
     fn defaults_when_empty() {
         let store = Store::open_in_memory().unwrap();
-        assert_eq!(AppSettings::load(&store).unwrap(), AppSettings::default());
+        // A first launch starts with the core app only (D-205).
+        let first = AppSettings { installed_components: Some(Vec::new()), ..AppSettings::default() };
+        assert_eq!(AppSettings::load(&store).unwrap(), first);
+        assert!(
+            !first.feature("proxmox")
+                && !first.feature("fleet.ups")
+                && first.feature("docker")
+                && first.feature("fleet")
+        );
+    }
+
+    #[test]
+    fn settings_from_before_the_store_keep_their_features() {
+        let store = Store::open_in_memory().unwrap();
+        let old = AppSettings { disabled_features: vec!["proxmox".into()], ..AppSettings::default() };
+        assert!(old.installed_components.is_none());
+        old.save(&store).unwrap();
+        let s = AppSettings::load(&store).unwrap();
+        let list = s.installed_components.clone().unwrap();
+        assert!(!list.contains(&"proxmox".to_owned()) && list.contains(&"ups".to_owned()));
+        assert!(s.feature("fleet.ups") && s.feature("desktops") && !s.feature("proxmox"));
+        // Turning proxmox on in Features alone isn't enough once it's not installed.
+        let on = AppSettings { disabled_features: vec![], ..s.clone() };
+        assert!(!on.feature("proxmox.sandbox"));
+        // An installed list that was saved stays as it is.
+        let picked = AppSettings { installed_components: Some(vec!["ups".into()]), ..AppSettings::default() };
+        picked.save(&store).unwrap();
+        assert_eq!(AppSettings::load(&store).unwrap().installed_components, Some(vec!["ups".to_owned()]));
+        let bad = AppSettings { installed_components: Some(vec!["Bad Id".into()]), ..AppSettings::default() };
+        assert!(bad.validate().is_err());
     }
 
     #[test]
     fn save_and_load() {
         let store = Store::open_in_memory().unwrap();
-        let s = AppSettings { theme: "ice".into(), ui_scale: 125, ..Default::default() };
+        let s = AppSettings {
+            theme: "ice".into(),
+            ui_scale: 125,
+            installed_components: Some(vec!["drift".into()]),
+            ..Default::default()
+        };
         s.save(&store).unwrap();
         assert_eq!(AppSettings::load(&store).unwrap(), s);
     }
@@ -814,6 +881,11 @@ mod tests {
         assert_eq!((s.alerts.disk_percent, s.alerts.cert_days), (80, 14));
 
         store.set_setting(KEY, &serde_json::json!("garbage")).unwrap();
-        assert_eq!(AppSettings::load(&store).unwrap(), AppSettings::default());
+        // Unreadable settings are still an existing user's: every component stays.
+        let all = Some(crate::components::seed_from(&[]));
+        assert_eq!(
+            AppSettings::load(&store).unwrap(),
+            AppSettings { installed_components: all, ..AppSettings::default() }
+        );
     }
 }
