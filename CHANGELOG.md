@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+- **Import from your other computer on the LAN.** Turn on **Let my other devices find me on this network** in Settings → Sync on the computer that has your setup. A new install then shows it in the empty host list and under **Settings → Sync → On this network**: press **Import and pair…**, prove it's you with a code that pops up on the other computer (**Show a code on …**) or with your profile passphrase, and Nightgrid imports the profile and keeps both devices in step two-way. It works on a plain LAN: no internet, tailnet or extra service. Pairing by passphrase is optional and set up per device; the passphrase never crosses the network and five wrong tries lock it for 10 minutes.
+
 ### Changed
 - **The store says what's inside.** Every component card in Settings → STORE now lists what it adds and where it shows up (for example "System → Fleet → UPS tab"), with one real example of what you'd use it for. A new **BUILT INTO CORE** panel lists what you get without installing anything.
 

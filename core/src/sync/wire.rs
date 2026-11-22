@@ -27,6 +27,11 @@ use zeroize::Zeroizing;
 pub const MAGIC: &[u8; 4] = b"NGS1";
 pub const KIND_PAIR: u8 = b'P';
 pub const KIND_SESSION: u8 = b'S';
+/// Pairing with the profile passphrase instead of a code (D-208).
+pub const KIND_PAIR_PASS: u8 = b'Q';
+/// "Show me a pairing code": a device found on the LAN asks this one to
+/// put a code on its screen (D-208). Plain bytes: a name, then one answer byte.
+pub const KIND_ASK: u8 = b'A';
 
 const PAIR_PATTERN: &str = "Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s";
 const SESSION_PATTERN: &str = "Noise_IK_25519_ChaChaPoly_BLAKE2s";

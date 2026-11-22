@@ -12,6 +12,7 @@
   import Modal from "../Modal.svelte";
   import Panel from "../Panel.svelte";
   import Toggle from "../Toggle.svelte";
+  import FoundDevices from "./FoundDevices.svelte";
 
   onMount(() => {
     sync.start();
@@ -39,7 +40,7 @@
   });
   async function saveDevice() {
     if (!info) return;
-    if (await sync.configure(info.settings.enabled, Number(port), name)) editing = false;
+    if (await sync.configure({ port: Number(port), deviceName: name })) editing = false;
   }
 
   // Pairing
@@ -135,6 +136,20 @@
 
   let renaming = $state<string | null>(null);
   let rename = $state("");
+
+  // Pairing by profile passphrase (D-208)
+  let passOpen = $state(false);
+  let pass1 = $state("");
+  let pass2 = $state("");
+  const passOk = $derived(pass1.length >= 8 && pass1 === pass2);
+  async function savePass() {
+    if (!passOk) return;
+    if (await sync.setPassphrase(pass1)) closePass();
+  }
+  function closePass() {
+    passOpen = false;
+    pass1 = pass2 = "";
+  }
 </script>
 
 {#if info?.receivedFrom}
@@ -154,8 +169,30 @@
     hint={`Listens on port ${info?.settings.port ?? 47920}. Needed to pair from another device and for its changes to arrive here right away. Only paired devices get in.`}
     checked={info?.settings.enabled ?? false}
     disabled={sync.busy || !info}
-    onchange={(v) => info && void sync.configure(v, info.settings.port, info.settings.deviceName)}
+    onchange={(v) => info && void sync.configure(v ? { enabled: true } : { enabled: false, discoverable: false })}
   />
+  <Toggle
+    label="Let my other devices find me on this network"
+    hint="Answers when Nightgrid on another computer on the same LAN looks for this one, so it can import this profile and pair. Works without internet or a tailnet. Shows this device's name and host count to the LAN."
+    checked={info?.settings.discoverable ?? false}
+    disabled={sync.busy || !info}
+    onchange={(v) => info && void sync.configure({ discoverable: v, enabled: v || info.settings.enabled })}
+  />
+  {#if info?.settings.discoverable}
+    <div class="block">
+      <span class="label sub">PAIR WITH YOUR PROFILE PASSPHRASE</span>
+      {#if info.passphraseSet && info.settings.passphrasePairing}
+        <p class="muted small">On. A device that finds this one can pair by typing the passphrase instead of a code. It's never sent or stored, only a key made from it.</p>
+        <div class="actions">
+          <button type="button" class="btn ghost" disabled={sync.busy} onclick={() => (passOpen = true)}>Change passphrase</button>
+          <button type="button" class="btn ghost" disabled={sync.busy} onclick={() => void sync.setPassphrase(null)}>Turn off</button>
+        </div>
+      {:else}
+        <p class="muted small">Optional: pair new devices with the passphrase you use for profile backups, instead of reading a code off this screen.</p>
+        <div class="actions"><button type="button" class="btn" disabled={sync.busy} onclick={() => (passOpen = true)}>Set up…</button></div>
+      {/if}
+    </div>
+  {/if}
   {#if info}
     <dl class="facts">
       <dt>NAME</dt>
@@ -212,8 +249,13 @@
       {/if}
     </div>
   {/if}
-  {#if sync.error && !joinOpen}<p class="error" role="alert">{sync.error}</p>{/if}
+  {#if sync.error && !joinOpen && !passOpen}<p class="error" role="alert">{sync.error}</p>{/if}
   {#if !inTauri()}<p class="muted small">Browser preview: nothing leaves this page.</p>{/if}
+</Panel>
+
+<Panel title="ON THIS NETWORK" guide="sync-found" prefix=">">
+  <p class="muted small">Other Nightgrid apps on this LAN that can be found. Import one's profile and keep the two in step, straight over the local network.</p>
+  <FoundDevices />
 </Panel>
 
 <Panel title="PAIRED DEVICES" guide="sync-peers" prefix=">" count={peers.length}>
@@ -285,6 +327,20 @@
     {/each}
   </ul>
 </Panel>
+
+<Modal open={passOpen} title="PAIRING PASSPHRASE" width={480} onclose={closePass}>
+  <form id="sync-pass" onsubmit={(e) => (e.preventDefault(), void savePass())}>
+    <p class="muted small">Use the passphrase you use for profile backups (or any passphrase you'll remember). Nightgrid keeps only a key made from it, in the OS keychain.</p>
+    <label class="field"><span>PASSPHRASE</span><input class="input" type="password" autocomplete="new-password" bind:value={pass1} /></label>
+    <label class="field"><span>AGAIN</span><input class="input" type="password" autocomplete="new-password" bind:value={pass2} /></label>
+    {#if pass1 && pass1.length < 8}<p class="muted small">At least 8 characters.</p>{:else if pass2 && pass1 !== pass2}<p class="muted small">They don't match.</p>{/if}
+  </form>
+  {#if sync.error && passOpen}<p class="error" role="alert">{sync.error}</p>{/if}
+  {#snippet footer()}
+    <button type="button" class="btn ghost" onclick={closePass}>Cancel</button>
+    <button type="submit" form="sync-pass" class="btn primary" disabled={sync.busy || !passOk}>Save</button>
+  {/snippet}
+</Modal>
 
 <Modal open={joinOpen} title={joined ? "PAIRED" : "JOIN A DEVICE"} width={520} onclose={closeJoin}>
   {#if joined}

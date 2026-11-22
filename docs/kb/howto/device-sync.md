@@ -8,7 +8,19 @@ Keep the same hosts, services, notes, dashboards and settings on your desktop, l
 - Either push and pull by hand, or automatic sync within seconds
 - Each device still has its own scale, handheld options and window setup
 
-## Part 1 · Pair two devices
+## Quick start · Import from your other computer on the LAN
+
+- [ ] On the computer that has your setup: **Settings → Sync**, turn on **Let my other devices find me on this network**. It answers when another Nightgrid on the same network looks for it. No internet or tailnet needed.
+- [ ] Optional, same place: **Pair with your profile passphrase → Set up…** and enter the passphrase you use for profile backups. Then a new device can pair by typing it instead of reading a code. Only a key made from it is kept, in the OS keychain; it never crosses the network.
+- [ ] On the new install: the empty host list shows **Found on your network** within a few seconds (also listed under **Settings → Sync → On this network**). Press **Import and pair…**.
+- [ ] Pick **Code on …** and press **Show a code on …**: a code pops up on the other computer. Type it. Or pick **Profile passphrase** and type that.
+- [ ] Leave **Import …'s profile** and **Keep syncing both ways** on, then **Pair and import**, and restart when asked.
+
+#### Check
+
+- [ ] After the restart your hosts and services are there, and both devices list each other under **PAIRED DEVICES** in **TWO-WAY**.
+
+## Part 1 · Pair two devices by address
 
 - [ ] On the first device: **Settings → Sync**, turn on **Let paired devices reach this one**. Note an address under **Reach it at** (a LAN address, a tailnet name or a 100.x address).
 - [ ] Press **Show a code**. It's valid for 5 minutes and three tries.
@@ -42,6 +54,8 @@ Keep the same hosts, services, notes, dashboards and settings on your desktop, l
 - Never synced: the device's name, scale, handheld and controller options, tray, built-in Tailscale login, phone status page, MCP server, sync folder and the DRIFT model.
 - SSH key files in `~/.ssh` stay where they are. Copy them yourself or use **Settings → SSH keys** on each device.
 - Metric, uptime and alert history stay on each device.
+- Finding devices uses a small UDP message on port 47921 within your LAN (the broadcast doesn't cross routers or VPNs). Across a tailnet or another subnet, pair by address instead (Part 1).
+- Five wrong passphrases in a row lock passphrase pairing on that device for 10 minutes.
 - On macOS and Windows the system may ask once whether Nightgrid may accept incoming connections; allow it for pairing and incoming changes to work.
 
 ## Related

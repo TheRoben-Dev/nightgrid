@@ -22,6 +22,13 @@ pub const CODE_TTL_SECS: u64 = 300;
 pub const CODE_ATTEMPTS: u32 = 3;
 const SPAKE_MSG: usize = 33;
 const ID: &[u8] = b"nightgrid-sync-pair-v1";
+/// Pairing with the profile passphrase (D-208) uses its own identity, so a
+/// code and a passphrase key never agree by accident.
+const ID_PASS: &[u8] = b"nightgrid-sync-pass-v1";
+/// Wrong passphrases a findable device takes before it stops taking them
+/// for [`PASS_LOCKOUT_SECS`].
+pub const PASS_ATTEMPTS: u32 = 5;
+pub const PASS_LOCKOUT_SECS: u64 = 600;
 
 /// A fresh code, formatted `ABCDE-FGHJK`.
 pub fn new_code() -> String {
@@ -55,10 +62,12 @@ fn finish(state: Spake2<Ed25519Group>, theirs: &[u8]) -> io::Result<Zeroizing<[u
     Ok(out)
 }
 
-/// SPAKE2 for the side that typed the code: sends first.
-pub async fn initiator<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S, code: &str) -> io::Result<Zeroizing<[u8; 32]>> {
-    let code = Zeroizing::new(normalize(code).ok_or_else(|| io::Error::other("that isn't a pairing code"))?);
-    let (state, msg) = Spake2::<Ed25519Group>::start_symmetric(&Password::new(code.as_bytes()), &Identity::new(ID));
+async fn spake_initiator<S: AsyncRead + AsyncWrite + Unpin>(
+    s: &mut S,
+    secret: &[u8],
+    id: &[u8],
+) -> io::Result<Zeroizing<[u8; 32]>> {
+    let (state, msg) = Spake2::<Ed25519Group>::start_symmetric(&Password::new(secret), &Identity::new(id));
     s.write_all(&msg).await?;
     s.flush().await?;
     let mut theirs = [0u8; SPAKE_MSG];
@@ -66,15 +75,46 @@ pub async fn initiator<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S, code: &str)
     finish(state, &theirs)
 }
 
-/// SPAKE2 for the side showing the code: answers.
-pub async fn responder<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S, code: &str) -> io::Result<Zeroizing<[u8; 32]>> {
-    let code = Zeroizing::new(normalize(code).ok_or_else(|| io::Error::other("bad code"))?);
+async fn spake_responder<S: AsyncRead + AsyncWrite + Unpin>(
+    s: &mut S,
+    secret: &[u8],
+    id: &[u8],
+) -> io::Result<Zeroizing<[u8; 32]>> {
     let mut theirs = [0u8; SPAKE_MSG];
     s.read_exact(&mut theirs).await?;
-    let (state, msg) = Spake2::<Ed25519Group>::start_symmetric(&Password::new(code.as_bytes()), &Identity::new(ID));
+    let (state, msg) = Spake2::<Ed25519Group>::start_symmetric(&Password::new(secret), &Identity::new(id));
     s.write_all(&msg).await?;
     s.flush().await?;
     finish(state, &theirs)
+}
+
+/// SPAKE2 for the side that typed the code: sends first.
+pub async fn initiator<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S, code: &str) -> io::Result<Zeroizing<[u8; 32]>> {
+    let code = Zeroizing::new(normalize(code).ok_or_else(|| io::Error::other("that isn't a pairing code"))?);
+    spake_initiator(s, code.as_bytes(), ID).await
+}
+
+/// SPAKE2 for the side showing the code: answers.
+pub async fn responder<S: AsyncRead + AsyncWrite + Unpin>(s: &mut S, code: &str) -> io::Result<Zeroizing<[u8; 32]>> {
+    let code = Zeroizing::new(normalize(code).ok_or_else(|| io::Error::other("bad code"))?);
+    spake_responder(s, code.as_bytes(), ID).await
+}
+
+/// SPAKE2 with the passphrase key (see [`super::discover::pass_key`]), for
+/// the side that typed the passphrase.
+pub async fn pass_initiator<S: AsyncRead + AsyncWrite + Unpin>(
+    s: &mut S,
+    key: &[u8; 32],
+) -> io::Result<Zeroizing<[u8; 32]>> {
+    spake_initiator(s, key, ID_PASS).await
+}
+
+/// SPAKE2 with the stored passphrase key, for the findable device.
+pub async fn pass_responder<S: AsyncRead + AsyncWrite + Unpin>(
+    s: &mut S,
+    key: &[u8; 32],
+) -> io::Result<Zeroizing<[u8; 32]>> {
+    spake_responder(s, key, ID_PASS).await
 }
 
 #[cfg(test)]
@@ -102,6 +142,17 @@ mod tests {
 
         let (mut x, mut y) = tokio::io::duplex(1024);
         let (a, b) = tokio::join!(initiator(&mut x, "abcde-12345"), responder(&mut y, "ABCDE12346"));
+        assert_ne!(*a.unwrap(), *b.unwrap());
+    }
+
+    #[tokio::test]
+    async fn passphrase_keys_agree_only_when_equal() {
+        let (mut x, mut y) = tokio::io::duplex(1024);
+        let k = [7u8; 32];
+        let (a, b) = tokio::join!(pass_initiator(&mut x, &k), pass_responder(&mut y, &k));
+        assert_eq!(*a.unwrap(), *b.unwrap());
+        let (mut x, mut y) = tokio::io::duplex(1024);
+        let (a, b) = tokio::join!(pass_initiator(&mut x, &k), pass_responder(&mut y, &[8u8; 32]));
         assert_ne!(*a.unwrap(), *b.unwrap());
     }
 }
