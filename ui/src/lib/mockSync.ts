@@ -4,6 +4,7 @@
  */
 import type {
   BackupImported,
+  FoundDevice,
   ImportMode,
   SecretCategory,
   SyncInfo_Serialize as SyncInfo,
@@ -13,11 +14,16 @@ import type {
   SyncRun,
   SyncSettings_Serialize as SyncSettings,
 } from "./bindings";
+import type { SyncJoined } from "./api";
 
 const now = () => Date.now() / 1000;
 const wait = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 
-let settings: SyncSettings = { enabled: false, port: 47920, deviceName: "" };
+let settings: SyncSettings = { enabled: false, port: 47920, deviceName: "", discoverable: false, passphrasePairing: false };
+let passphraseSet = false;
+const lan: FoundDevice[] = [
+  { id: "9c41d0aa7e2b1f30", name: "Pontus-Desktop", addr: "192.168.1.12", port: 47920, appVersion: "1.27.0", sameVersion: true, hosts: 14, passphrase: true, salt: "00112233445566778899aabbccddeeff", paired: false },
+];
 let pairing: { code: string; until: number; acceptChanges: boolean } | null = null;
 let peers: SyncPeer[] = [
   {
@@ -47,9 +53,11 @@ function info(): SyncInfo {
     addresses: settings.enabled ? ["192.168.1.20", "100.101.102.103", "mac.tail1234.ts.net"] : [],
     error: null,
     peers,
-    pairing: pairing ? { code: pairing.code, expiresIn: Math.round(pairing.until - now()), acceptChanges: pairing.acceptChanges } : null,
+    pairing: pairing ? { code: pairing.code, expiresIn: Math.round(pairing.until - now()), acceptChanges: pairing.acceptChanges, askedBy: null } : null,
     receivedFrom: null,
     tailnet: true,
+    passphraseSet,
+    findable: settings.enabled && settings.discoverable,
   };
 }
 
@@ -65,7 +73,7 @@ export const mockSync = {
   },
   async configure(s: SyncSettings): Promise<SyncInfo> {
     if (s.port < 1024) throw new Error("Use a port from 1024 up.");
-    settings = { ...s, deviceName: s.deviceName.trim() };
+    settings = { ...s, deviceName: s.deviceName.trim(), enabled: s.enabled || s.discoverable, passphrasePairing: s.passphrasePairing && passphraseSet };
     if (!s.enabled) pairing = null;
     return info();
   },
@@ -99,6 +107,47 @@ export const mockSync = {
     };
     peers = [...peers, p];
     return p;
+  },
+  async discover(): Promise<FoundDevice[]> {
+    await wait(800);
+    return lan.map((d) => ({ ...d, paired: peers.some((p) => p.id === d.id) }));
+  },
+  async askCode(addr: string): Promise<null> {
+    await wait(300);
+    if (!lan.some((d) => d.addr === addr)) throw new Error(`Couldn't reach ${addr}. Is Nightgrid still open there?`);
+    return null;
+  },
+  async join(addr: string, code: string | null, passphrase: string | null, importMode: ImportMode | null, twoWay: boolean, secrets: SecretCategory[]): Promise<SyncJoined> {
+    await wait(900);
+    const d = lan.find((x) => x.addr === addr);
+    if (!d) throw new Error(`Couldn't reach ${addr}:47920.`);
+    if (code && code.replace(/[\s-]/g, "").length !== 10) throw new Error("A pairing code is 10 letters and digits, like ABCDE-12345.");
+    if (!code && passphrase !== "correct horse") throw new Error("Pairing failed: that passphrase doesn't match the one set there.");
+    const p: SyncPeer = {
+      id: d.id,
+      name: d.name,
+      publicKey: "",
+      addrs: [d.addr],
+      port: d.port,
+      mode: twoWay ? "twoWay" : "manual",
+      secrets,
+      acceptChanges: true,
+      appVersion: d.appVersion,
+      pairedAt: now(),
+      lastSync: importMode ? now() : null,
+      lastSeen: now(),
+      lastError: null,
+    };
+    peers = [...peers.filter((x) => x.id !== d.id), p];
+    const imported = importMode ? { added: d.hosts + 9, skipped: 0, secrets: secrets.length ? 3 : 0, settings: importMode === "replace", secretsError: null } : null;
+    return { peer: p, imported, importError: null };
+  },
+  async passphrase(p: string | null): Promise<SyncInfo> {
+    await wait(300);
+    if (p !== null && p.length < 8) throw new Error("passphrase: use at least 8 characters");
+    passphraseSet = p !== null;
+    settings = { ...settings, passphrasePairing: passphraseSet };
+    return info();
   },
   async peerSet(id: string, name: string, mode: SyncMode, secrets: SecretCategory[], acceptChanges: boolean): Promise<SyncPeer> {
     const p = { ...find(id), name: name.trim() || "Nightgrid", mode, secrets, acceptChanges };

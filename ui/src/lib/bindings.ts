@@ -1166,6 +1166,21 @@ export const commands = {
 	 *  without the port.
 	 */
 	syncPairJoin: (addr: string, code: string, acceptChanges: boolean, options?: InvokeOptions) => __TAURI_INVOKE<SyncPeer_Serialize>("sync_pair_join", { addr, code, acceptChanges }, options),
+	/**
+	 *  Looks for other Nightgrid apps on the LAN (D-208). Works on a plain
+	 *  network: no internet, tailnet or mDNS service involved.
+	 */
+	syncDiscover: (options?: InvokeOptions) => __TAURI_INVOKE<FoundDevice[]>("sync_discover", undefined, options),
+	/**  Asks a device found on the LAN to show a pairing code on its screen. */
+	syncAskCode: (addr: string, port: number, options?: InvokeOptions) => __TAURI_INVOKE<null>("sync_ask_code", { addr, port }, options),
+	/**
+	 *  Pairs with a device found on the LAN (with a code it shows, or the
+	 *  profile passphrase), optionally imports its profile, and turns on
+	 *  two-way sync on both sides when asked.
+	 */
+	syncJoin: (addr: string, port: number, code: string | null, passphrase: string | null, salt: string | null, importMode: ImportMode | null, twoWay: boolean, secrets: SecretCategory[], options?: InvokeOptions) => __TAURI_INVOKE<SyncJoined_Serialize>("sync_join", { addr, port, code, passphrase, salt, importMode, twoWay, secrets }, options),
+	/**  Sets up (or with `None` turns off) pairing with the profile passphrase. */
+	syncPassphrase: (passphrase: string | null, options?: InvokeOptions) => __TAURI_INVOKE<SyncInfo_Serialize>("sync_passphrase", { passphrase }, options),
 	/**  Changes how this device syncs with a paired one. */
 	syncPeerSet: (id: string, name: string, mode: SyncMode, secrets: SecretCategory[], acceptChanges: boolean, options?: InvokeOptions) => __TAURI_INVOKE<SyncPeer_Serialize>("sync_peer_set", { id, name, mode, secrets, acceptChanges }, options),
 	/**  Forgets a paired device (and asks it to forget this one). */
@@ -4288,6 +4303,23 @@ export type FirewallView_Serialize = {
 	pending: PendingChange | null,
 	/**  The port Nightgrid connects to SSH on. */
 	sshPort: number,
+};
+
+/**  A Nightgrid app that answered a LAN search (D-208). */
+export type FoundDevice = {
+	id: string,
+	name: string,
+	addr: string,
+	port: number,
+	appVersion: string,
+	/**  Same database version, so automatic sync can run. */
+	sameVersion: boolean,
+	hosts: number,
+	/**  Takes pairing with the profile passphrase. */
+	passphrase: boolean,
+	salt: string,
+	/**  Already paired with this device. */
+	paired: boolean,
 };
 
 /**  File errors in a shape the UI can act on. Messages never contain secrets. */
@@ -7663,11 +7695,24 @@ export type PackageUpdate_Serialize = {
 	held: boolean,
 };
 
-export type PairingCode = {
+export type PairingCode = PairingCode_Serialize | PairingCode_Deserialize;
+
+export type PairingCode_Deserialize = {
 	code: string,
 	/**  Seconds left. */
 	expiresIn: number,
 	acceptChanges: boolean,
+	/**  A device on the LAN asked for this code (shown as a dialog). */
+	askedBy?: string | null,
+};
+
+export type PairingCode_Serialize = {
+	code: string,
+	/**  Seconds left. */
+	expiresIn: number,
+	acceptChanges: boolean,
+	/**  A device on the LAN asked for this code (shown as a dialog). */
+	askedBy: string | null,
 };
 
 export type PendingChange = {
@@ -10793,11 +10838,15 @@ export type SyncInfo_Deserialize = {
 	addresses: string[],
 	error?: string | null,
 	peers: SyncPeer_Deserialize[],
-	pairing?: PairingCode | null,
+	pairing?: PairingCode_Deserialize | null,
 	/**  A device pushed its profile here; restart to load it. */
 	receivedFrom?: string | null,
 	/**  The built-in Tailscale client runs, so tailnet names work too. */
 	tailnet: boolean,
+	/**  Pairing by profile passphrase is set up (its key is saved). */
+	passphraseSet: boolean,
+	/**  Answering LAN searches right now. */
+	findable: boolean,
 };
 
 export type SyncInfo_Serialize = {
@@ -10811,11 +10860,36 @@ export type SyncInfo_Serialize = {
 	addresses: string[],
 	error: string | null,
 	peers: SyncPeer_Serialize[],
-	pairing: PairingCode | null,
+	pairing: PairingCode_Serialize | null,
 	/**  A device pushed its profile here; restart to load it. */
 	receivedFrom: string | null,
 	/**  The built-in Tailscale client runs, so tailnet names work too. */
 	tailnet: boolean,
+	/**  Pairing by profile passphrase is set up (its key is saved). */
+	passphraseSet: boolean,
+	/**  Answering LAN searches right now. */
+	findable: boolean,
+};
+
+/**  Result of joining a device found on the LAN. */
+export type SyncJoined = SyncJoined_Serialize | SyncJoined_Deserialize;
+
+/**  Result of joining a device found on the LAN. */
+export type SyncJoined_Deserialize = {
+	peer: SyncPeer_Deserialize,
+	/**  What came over when its profile was imported (restart to load it). */
+	imported?: BackupImported_Deserialize | null,
+	/**  Why the import didn't happen, when pairing worked but it failed. */
+	importError?: string | null,
+};
+
+/**  Result of joining a device found on the LAN. */
+export type SyncJoined_Serialize = {
+	peer: SyncPeer_Serialize,
+	/**  What came over when its profile was imported (restart to load it). */
+	imported: BackupImported_Serialize | null,
+	/**  Why the import didn't happen, when pairing worked but it failed. */
+	importError: string | null,
 };
 
 export type SyncMode = 
@@ -10914,6 +10988,13 @@ export type SyncSettings_Deserialize = {
 	port?: number,
 	/**  What other devices call this one; empty = the computer's name. */
 	deviceName?: string,
+	/**
+	 *  Answer "is Nightgrid here?" probes on the LAN (D-208), so a new
+	 *  install can find this device. Needs `enabled`.
+	 */
+	discoverable?: boolean,
+	/**  Take pairing with the profile passphrase (its key is in the keychain). */
+	passphrasePairing?: boolean,
 };
 
 /**  Sync settings of this device. Never synced or exported. */
@@ -10923,6 +11004,13 @@ export type SyncSettings_Serialize = {
 	port: number,
 	/**  What other devices call this one; empty = the computer's name. */
 	deviceName: string,
+	/**
+	 *  Answer "is Nightgrid here?" probes on the LAN (D-208), so a new
+	 *  install can find this device. Needs `enabled`.
+	 */
+	discoverable: boolean,
+	/**  Take pairing with the profile passphrase (its key is in the keychain). */
+	passphrasePairing: boolean,
 };
 
 /**

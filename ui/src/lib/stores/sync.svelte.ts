@@ -5,7 +5,7 @@
  */
 import { listen } from "@tauri-apps/api/event";
 import { isTauri } from "@tauri-apps/api/core";
-import { api, errorText, type SecretCategory, type SyncInfo, type SyncMode, type SyncPeer } from "../api";
+import { api, errorText, type FoundDevice, type ImportMode, type SecretCategory, type SyncInfo, type SyncJoined, type SyncMode, type SyncPeer, type SyncSettings } from "../api";
 import { hosts } from "./hosts.svelte";
 import { settings } from "./settings.svelte";
 
@@ -49,6 +49,11 @@ class SyncStore {
   info = $state<SyncInfo | null>(null);
   busy = $state(false);
   error = $state<string | null>(null);
+  /** Nightgrid apps that answered the last LAN search (D-208). */
+  found = $state<FoundDevice[]>([]);
+  searching = $state(false);
+  /** A device on the LAN asked this one for a pairing code: show it. */
+  asked = $state<{ from: string; code: string; at: number } | null>(null);
   /** Last automatic change from another device, for a short note. */
   lastApplied = $state<{ from: string; count: number; at: number } | null>(null);
   private started = false;
@@ -58,10 +63,12 @@ class SyncStore {
     this.started = true;
     void this.refresh();
     if (!isTauri()) return;
-    void listen<{ kind: string; from?: string; merged?: { applied: number; deleted: number; settings: boolean; tables: string[] } }>(
+    void listen<{ kind: string; from?: string; code?: string; merged?: { applied: number; deleted: number; settings: boolean; tables: string[] } }>(
       "sync://event",
       (e) => {
         const p = e.payload;
+        if (p.kind === "asked" && p.code) this.asked = { from: p.from ?? "", code: p.code, at: Date.now() };
+        if (p.kind === "peers" && this.asked && this.info?.pairing == null) this.asked = null;
         if (p.kind === "applied" && p.merged) {
           this.lastApplied = { from: p.from ?? "", count: p.merged.applied + p.merged.deleted, at: Date.now() };
           if (p.merged.settings) void settings.load();
@@ -93,8 +100,41 @@ class SyncStore {
     }
   }
 
-  async configure(enabled: boolean, port: number, deviceName: string) {
-    const i = await this.run(() => api.syncConfigure({ enabled, port, deviceName }));
+  async configure(change: Partial<SyncSettings>) {
+    const cur = this.info?.settings ?? { enabled: false, port: 47920, deviceName: "", discoverable: false, passphrasePairing: false };
+    const i = await this.run(() => api.syncConfigure({ ...cur, ...change }));
+    if (i) this.info = i;
+    return !!i;
+  }
+
+  /** Searches the LAN for other Nightgrid apps (quietly: errors don't show). */
+  async discover() {
+    if (this.searching) return this.found;
+    this.searching = true;
+    try {
+      this.found = await api.syncDiscover();
+    } catch {
+      // A search that can't run (no network) just finds nothing.
+      this.found = [];
+    } finally {
+      this.searching = false;
+    }
+    return this.found;
+  }
+
+  async askCode(d: FoundDevice) {
+    return (await this.run(() => api.syncAskCode(d.addr, d.port))) !== undefined;
+  }
+
+  async joinFound(d: FoundDevice, how: { code?: string; passphrase?: string }, importMode: ImportMode | null, twoWay: boolean, secrets: SecretCategory[]): Promise<SyncJoined | undefined> {
+    const r = await this.run(() => api.syncJoin(d.addr, d.port, how.code ?? null, how.passphrase ?? null, d.passphrase ? d.salt : null, importMode, twoWay, secrets));
+    await this.refresh();
+    if (r) this.found = this.found.map((f) => (f.id === d.id ? { ...f, paired: true } : f));
+    return r;
+  }
+
+  async setPassphrase(passphrase: string | null) {
+    const i = await this.run(() => api.syncPassphrase(passphrase));
     if (i) this.info = i;
     return !!i;
   }

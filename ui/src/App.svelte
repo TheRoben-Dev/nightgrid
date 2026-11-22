@@ -1,6 +1,8 @@
 <script lang="ts">
   import { platform } from "./lib/stores/platform.svelte";
   import { onMount } from "svelte";
+  import PairAskDialog from "./lib/components/sync/PairAskDialog.svelte";
+  import { sync } from "./lib/stores/sync.svelte";
   import { api, inTauri, type AppInfo } from "./lib/api";
   import { listen } from "@tauri-apps/api/event";
   import AlertsPanel from "./lib/components/alerts/AlertsPanel.svelte";
@@ -85,6 +87,8 @@
     sound.unlockOnGesture();
     const stopHosts = hosts.start();
     authNotices.start();
+    // Pairing requests from devices on the LAN can arrive on any screen.
+    sync.start();
     const stopPad = startGamepad({
       enabled: () => settings.value.controllerNav,
       view: (step) => {
@@ -356,6 +360,7 @@
 <CommandPalette open={ui.paletteOpen} {commands} onclose={() => (ui.paletteOpen = false)} />
 <HostEditor />
 <SshImportDialog />
+<PairAskDialog />
 <HostMonitor />
 <UpdateDialog />
 <Transmission />

@@ -17,6 +17,7 @@
 //! ([`LOCAL_SETTINGS`]), the paired-device list and this device's key, and
 //! saved secrets unless the user ticks their category for that device.
 
+pub mod discover;
 pub mod merge;
 pub mod pair;
 pub mod wire;
@@ -49,11 +50,22 @@ pub struct SyncSettings {
     pub port: u16,
     /// What other devices call this one; empty = the computer's name.
     pub device_name: String,
+    /// Answer "is Nightgrid here?" probes on the LAN (D-208), so a new
+    /// install can find this device. Needs `enabled`.
+    pub discoverable: bool,
+    /// Take pairing with the profile passphrase (its key is in the keychain).
+    pub passphrase_pairing: bool,
 }
 
 impl Default for SyncSettings {
     fn default() -> Self {
-        Self { enabled: false, port: DEFAULT_PORT, device_name: String::new() }
+        Self {
+            enabled: false,
+            port: DEFAULT_PORT,
+            device_name: String::new(),
+            discoverable: false,
+            passphrase_pairing: false,
+        }
     }
 }
 
@@ -238,6 +250,32 @@ pub fn reset_identity(keychain: &dyn SecretStore) -> Result<()> {
     keychain.delete(&identity_ref())
 }
 
+fn pass_ref() -> SecretRef {
+    SecretRef::new(SecretKind::IntegrationToken, "sync-passphrase")
+}
+
+/// Saves (or with `None` forgets) the key derived from the profile
+/// passphrase that pairing by passphrase checks against (D-208). The
+/// passphrase itself is never stored.
+pub fn set_pass_secret(keychain: &dyn SecretStore, passphrase: Option<&str>) -> Result<()> {
+    match passphrase {
+        None => keychain.delete(&pass_ref()),
+        Some(p) => {
+            if p.chars().count() < 8 {
+                return Err(Error::Invalid { field: "passphrase", reason: "use at least 8 characters".into() });
+            }
+            let salt = discover::new_salt();
+            let key = discover::pass_key(p, &discover::decode_salt(&salt).expect("fresh salt"));
+            keychain.set(&pass_ref(), &Secret::new(discover::encode_pass(&salt, &key)))
+        }
+    }
+}
+
+/// The saved passphrase key and its salt, if pairing by passphrase is set up.
+pub fn pass_secret(keychain: &dyn SecretStore) -> Result<Option<(String, zeroize::Zeroizing<[u8; 32]>)>> {
+    Ok(keychain.get(&pass_ref())?.and_then(|s| discover::decode_pass(s.expose())))
+}
+
 /// What each side says about itself after the handshake.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -248,6 +286,21 @@ pub struct Hello {
     /// Where it can be reached.
     pub addrs: Vec<String>,
     pub port: u16,
+    /// Sent by a device joining from the LAN list (D-208): how it'd like
+    /// this side to set the pairing up. Older versions leave it out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub join: Option<Join>,
+}
+
+/// What a joining device asks for at pairing time.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Join {
+    /// Keep syncing both ways from now on.
+    pub two_way: bool,
+    /// Secret groups it'd like to receive.
+    #[serde(default)]
+    pub secrets: Vec<SecretCategory>,
 }
 
 /// One request per session connection.
@@ -447,6 +500,12 @@ pub fn clean_addrs(addrs: &[String]) -> Vec<String> {
 }
 
 impl Store {
+    /// Hosts in this profile (for the LAN beacon).
+    pub fn host_count(&self) -> Result<u32> {
+        let n: i64 = self.conn().query_row("SELECT COUNT(*) FROM hosts", [], |r| r.get(0))?;
+        Ok(u32::try_from(n).unwrap_or(u32::MAX))
+    }
+
     pub fn sync_peers(&self) -> Result<Vec<SyncPeer>> {
         let mut st = self.conn().prepare("SELECT * FROM sync_peers ORDER BY paired_at, id")?;
         let v = st.query_map([], row_to_peer)?.collect::<rusqlite::Result<Vec<_>>>()?;
@@ -489,6 +548,14 @@ impl Store {
     }
 
     /// Changes what the user controls about a paired device.
+    /// Applies what a device joining from the LAN asked for (D-208): it may
+    /// change this device, sync two-way if asked, and get those secret groups.
+    pub fn sync_peer_joined(&self, id: &str, join: &Join) -> Result<SyncPeer> {
+        let p = self.sync_peer(id)?.ok_or(Error::NotFound("paired device"))?;
+        let mode = if join.two_way { SyncMode::TwoWay } else { p.mode };
+        self.sync_peer_set(id, &p.name, mode, &join.secrets, true)
+    }
+
     pub fn sync_peer_set(
         &self,
         id: &str,
@@ -574,6 +641,7 @@ mod tests {
             schema: 58,
             addrs: vec!["10.0.0.5".into()],
             port: 47920,
+            join: None,
         }
     }
 
@@ -616,8 +684,33 @@ mod tests {
         assert_eq!(s.sync_peer(&p.id).unwrap().unwrap().last_error.as_deref(), Some("timed out"));
         s.sync_peer_synced(&p.id).unwrap();
         assert!(s.sync_peer(&p.id).unwrap().unwrap().last_error.is_none());
+        let j = s.sync_peer_joined(&p.id, &Join { two_way: true, secrets: vec![SecretCategory::Logins] }).unwrap();
+        assert_eq!(
+            (j.mode, j.accept_changes, j.secrets.clone()),
+            (SyncMode::TwoWay, true, vec![SecretCategory::Logins])
+        );
         assert!(s.sync_peer_delete(&p.id).unwrap());
         assert!(s.sync_peers().unwrap().is_empty());
+    }
+
+    #[test]
+    fn passphrase_secret_round_trips() {
+        let kc = MemoryStore::new();
+        assert!(pass_secret(&kc).unwrap().is_none());
+        assert!(set_pass_secret(&kc, Some("short")).is_err());
+        set_pass_secret(&kc, Some("a long passphrase")).unwrap();
+        let (salt, key) = pass_secret(&kc).unwrap().unwrap();
+        assert_eq!(*key, *discover::pass_key("a long passphrase", &discover::decode_salt(&salt).unwrap()));
+        set_pass_secret(&kc, None).unwrap();
+        assert!(pass_secret(&kc).unwrap().is_none());
+    }
+
+    #[test]
+    fn hello_without_join_still_reads() {
+        let h: Hello =
+            serde_json::from_str(r#"{"name":"a","appVersion":"1.24.0","schema":59,"addrs":[],"port":47920}"#).unwrap();
+        assert!(h.join.is_none());
+        assert!(!serde_json::to_string(&hello("x")).unwrap().contains("join"));
     }
 
     #[test]

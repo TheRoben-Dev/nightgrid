@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FoundDevices from "./sync/FoundDevices.svelte";
   import type { Host } from "../api";
   import { hosts } from "../stores/hosts.svelte";
   import { metrics } from "../stores/metrics.svelte";
@@ -61,6 +62,7 @@
   <div class="list">
     {#if hosts.loaded && total === 0}
       <div class="empty">
+        <FoundDevices compact every={6000} stopAfter={180_000} />
         <p>No hosts yet.</p>
         <button type="button" class="btn ghost" onclick={() => (hosts.importOpen = true)}>Import ~/.ssh/config</button>
         <button type="button" class="btn ghost" onclick={() => (hosts.editing = 0)}>Add host</button>
