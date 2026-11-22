@@ -74,6 +74,7 @@ static MIGRATIONS: LazyLock<Migrations<'static>> = LazyLock::new(|| {
         M::up(include_str!("migrations/0057_storage_sources.sql")),
         M::up(include_str!("migrations/0058_health_ignores.sql")),
         M::up(include_str!("migrations/0059_sync_peers.sql")),
+        M::up(include_str!("migrations/0060_sync_snapshots.sql")),
     ])
 });
 
@@ -156,7 +157,7 @@ impl Store {
 mod tests {
     use super::*;
 
-    const LATEST: i64 = 59;
+    const LATEST: i64 = 60;
 
     #[test]
     fn migrations_are_valid() {

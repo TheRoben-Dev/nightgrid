@@ -342,7 +342,57 @@ pub fn merge(store: &mut Store, remote: &[Item], now_ms: i64) -> Result<Merged> 
 pub fn reset(store: &mut Store) -> Result<()> {
     store.tx(|tx| {
         tx.execute("DELETE FROM sync_items", [])?;
+        // Item ids from before don't match any more (see `generation`).
+        tx.execute(
+            "INSERT INTO sync_state (key, value) VALUES ('generation', 1)
+             ON CONFLICT(key) DO UPDATE SET value = value + 1",
+            [],
+        )?;
         Ok(())
+    })
+}
+
+/// Bumped by every [`reset`]: item ids saved under one generation can be
+/// merged back (a rollback) only within it.
+pub fn generation(store: &Store) -> Result<i64> {
+    Ok(store
+        .conn()
+        .query_row("SELECT value FROM sync_state WHERE key = 'generation'", [], |r| r.get(0))
+        .optional()?
+        .unwrap_or(0))
+}
+
+/// Whether merging `remote` would change anything here (without stamping
+/// or writing): an item that's new, differs and wins, or deletes a live one.
+pub fn would_change(store: &mut Store, remote: &[Item]) -> Result<bool> {
+    store.tx(|tx| {
+        let known = load_known(tx)?;
+        Ok(remote.iter().any(|it| match known.get(&(it.tbl.clone(), it.uid.clone())) {
+            None => !it.deleted,
+            Some(k) if it.deleted => !k.deleted && wins(it.modified, "", k),
+            Some(k) => (k.deleted || k.hash != it.hash) && wins(it.modified, &it.hash, k),
+        }))
+    })
+}
+
+/// Puts the synced items back to `snapshot` (live items saved earlier in
+/// this generation) as a new edit at `now_ms`: items that changed or went
+/// away come back, items made since are deleted. Because it's an edit, the
+/// next sync carries it to the other devices too.
+pub fn rollback_to(store: &mut Store, snapshot: &[Item], now_ms: i64) -> Result<Merged> {
+    store.tx(|tx| {
+        scan_tx(tx, now_ms)?;
+        // One ms later than anything the scan just stamped.
+        let at = now_ms + 1;
+        let keep: HashSet<(&str, &str)> = snapshot.iter().map(|i| (i.tbl.as_str(), i.uid.as_str())).collect();
+        let mut items: Vec<Item> =
+            snapshot.iter().filter(|i| !i.deleted).map(|i| Item { modified: at, ..i.clone() }).collect();
+        for ((tbl, uid), k) in load_known(tx)? {
+            if !k.deleted && !keep.contains(&(tbl.as_str(), uid.as_str())) {
+                items.push(Item { tbl, uid, modified: at, deleted: true, hash: String::new(), row: None });
+            }
+        }
+        merge_tx(tx, &items)
     })
 }
 

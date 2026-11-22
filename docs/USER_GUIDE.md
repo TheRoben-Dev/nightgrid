@@ -370,6 +370,7 @@ Graphical consoles of virtual machines, opened with **Screen** on a running VM i
   - Automatic sync needs the same Nightgrid version on both devices. If both already have a setup, push or pull once in Manual first, so they start the same.
 - **Secrets** (SSH passwords and key passphrases, integration tokens, .env vault keys) only travel when you tick their group for that device, on both devices.
 - **Stays on each device**: its name, window scale, handheld and controller options, tray, built-in Tailscale, phone status page, MCP server, sync folder and the DRIFT model. SSH key files in `~/.ssh` aren't copied.
+- **Snapshots.** Before changes from another device land, the synced profile is saved and the last 3 are kept (**Keep** sets how many, up to 20). **Roll back…** puts it back as it was; it counts as a new edit, so devices that sync automatically with this one follow. The state just before is saved first, so a rollback can be undone. A snapshot from before a whole profile was pushed or pulled restores on this device only (and restarts).
 - **Unpair…** forgets a device and asks it to forget this one. Nothing is deleted from either profile.
 
 ## Phone status page and snapshots
