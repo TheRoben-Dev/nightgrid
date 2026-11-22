@@ -26,6 +26,8 @@ Components sit on shelves:
 | Security | security score and secrets, access audit |
 | Extras | DRIFT helper, UI sounds |
 
+Each card in the store lists what the component adds, where it shows up once installed (for example **System → Fleet → UPS tab** or **VMs → Proxmox view**), and one example of what you'd use it for. The **BUILT INTO CORE** panel at the top lists what you already have.
+
 ## Installing and removing
 
 - **Install** switches a component on right away, with no restart. Its views appear in the sidebar, the command palette, shortcuts, Overview widgets and DRIFT.
