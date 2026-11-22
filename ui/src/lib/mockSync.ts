@@ -14,12 +14,17 @@ import type {
   SyncRun,
   SyncSettings_Serialize as SyncSettings,
 } from "./bindings";
-import type { SyncJoined } from "./api";
+import type { RolledBack, SyncJoined, SyncSnapshot } from "./api";
 
 const now = () => Date.now() / 1000;
 const wait = (ms = 250) => new Promise((r) => setTimeout(r, ms));
 
-let settings: SyncSettings = { enabled: false, port: 47920, deviceName: "", discoverable: false, passphrasePairing: false };
+let settings: SyncSettings = { enabled: false, port: 47920, deviceName: "", discoverable: false, passphrasePairing: false, keepSnapshots: 3 };
+let snaps: SyncSnapshot[] = [
+  { id: 3, takenAt: now() - 600, reason: "changes", peer: "ROG Ally", counts: { hosts: 12, services: 9, notes: 4, settings: 31 }, spreads: true, available: true },
+  { id: 2, takenAt: now() - 7200, reason: "changes", peer: "ROG Ally", counts: { hosts: 11, services: 9, notes: 4, settings: 31 }, spreads: true, available: true },
+  { id: 1, takenAt: now() - 86_400, reason: "pull", peer: "ROG Ally", counts: { hosts: 9, services: 7, notes: 3, settings: 30 }, spreads: false, available: true },
+];
 let passphraseSet = false;
 const lan: FoundDevice[] = [
   { id: "9c41d0aa7e2b1f30", name: "Pontus-Desktop", addr: "192.168.1.12", port: 47920, appVersion: "1.27.0", sameVersion: true, hosts: 14, passphrase: true, salt: "00112233445566778899aabbccddeeff", paired: false },
@@ -73,6 +78,7 @@ export const mockSync = {
   },
   async configure(s: SyncSettings): Promise<SyncInfo> {
     if (s.port < 1024) throw new Error("Use a port from 1024 up.");
+    snaps = snaps.slice(0, Math.min(20, Math.max(1, s.keepSnapshots)));
     settings = { ...s, deviceName: s.deviceName.trim(), enabled: s.enabled || s.discoverable, passphrasePairing: s.passphrasePairing && passphraseSet };
     if (!s.enabled) pairing = null;
     return info();
@@ -141,6 +147,24 @@ export const mockSync = {
     peers = [...peers.filter((x) => x.id !== d.id), p];
     const imported = importMode ? { added: d.hosts + 9, skipped: 0, secrets: secrets.length ? 3 : 0, settings: importMode === "replace", secretsError: null } : null;
     return { peer: p, imported, importError: null };
+  },
+  async snapshots(): Promise<SyncSnapshot[]> {
+    return snaps;
+  },
+  async snapshotTake(): Promise<SyncSnapshot[]> {
+    const id = Math.max(0, ...snaps.map((x) => x.id)) + 1;
+    snaps = [{ id, takenAt: now(), reason: "manual" as const, peer: null, counts: { hosts: 12, services: 9, notes: 4, settings: 31 }, spreads: true, available: true }, ...snaps].slice(0, settings.keepSnapshots);
+    return snaps;
+  },
+  async rollback(id: number): Promise<RolledBack> {
+    await wait(500);
+    const s = snaps.find((x) => x.id === id);
+    if (!s) throw new Error("snapshot not found");
+    const nid = Math.max(...snaps.map((x) => x.id)) + 1;
+    snaps = [{ id: nid, takenAt: now(), reason: "rollback" as const, peer: null, counts: { hosts: 12, services: 9, notes: 4, settings: 31 }, spreads: true, available: true }, ...snaps].slice(0, Math.max(2, settings.keepSnapshots));
+    return s.spreads
+      ? { merged: { applied: 2, deleted: 1, skipped: 0, settings: false, tables: ["hosts"] }, restart: false, spreads: true }
+      : { merged: { applied: 0, deleted: 0, skipped: 0, settings: false, tables: [] }, restart: true, spreads: false };
   },
   async passphrase(p: string | null): Promise<SyncInfo> {
     await wait(300);

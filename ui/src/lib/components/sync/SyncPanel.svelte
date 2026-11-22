@@ -13,6 +13,7 @@
   import Panel from "../Panel.svelte";
   import Toggle from "../Toggle.svelte";
   import FoundDevices from "./FoundDevices.svelte";
+  import SnapshotsPanel from "./SnapshotsPanel.svelte";
 
   onMount(() => {
     sync.start();
@@ -327,6 +328,8 @@
     {/each}
   </ul>
 </Panel>
+
+<SnapshotsPanel />
 
 <Modal open={passOpen} title="PAIRING PASSPHRASE" width={480} onclose={closePass}>
   <form id="sync-pass" onsubmit={(e) => (e.preventDefault(), void savePass())}>

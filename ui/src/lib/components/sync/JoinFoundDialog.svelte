@@ -79,7 +79,7 @@
       {/if}
       <p class="muted small">
         {done.peer.mode === "twoWay"
-          ? `From now on, changes on either device reach the other within seconds while both are open on the same network. The latest edit of an item wins.`
+          ? `From now on, changes on either device reach the other within seconds while both are open on the same network. The latest edit of an item wins, and the last few versions are kept under Settings → Sync → Snapshots in case a bad change syncs over.`
           : "It's paired in MANUAL. Push, pull or turn on automatic sync in Settings → Sync."}
       </p>
     {:else}

@@ -1181,6 +1181,16 @@ export const commands = {
 	syncJoin: (addr: string, port: number, code: string | null, passphrase: string | null, salt: string | null, importMode: ImportMode | null, twoWay: boolean, secrets: SecretCategory[], options?: InvokeOptions) => __TAURI_INVOKE<SyncJoined_Serialize>("sync_join", { addr, port, code, passphrase, salt, importMode, twoWay, secrets }, options),
 	/**  Sets up (or with `None` turns off) pairing with the profile passphrase. */
 	syncPassphrase: (passphrase: string | null, options?: InvokeOptions) => __TAURI_INVOKE<SyncInfo_Serialize>("sync_passphrase", { passphrase }, options),
+	/**  Snapshots of the synced profile, newest first (D-209). */
+	syncSnapshots: (options?: InvokeOptions) => __TAURI_INVOKE<SyncSnapshot_Serialize[]>("sync_snapshots", undefined, options),
+	/**  Takes a snapshot now. */
+	syncSnapshotTake: (options?: InvokeOptions) => __TAURI_INVOKE<SyncSnapshot_Serialize[]>("sync_snapshot_take", undefined, options),
+	/**
+	 *  Rolls the synced profile back to a snapshot. Within the same item
+	 *  generation it's a new edit that automatic sync carries to the other
+	 *  devices; otherwise the saved profile is restored here (restart).
+	 */
+	syncRollback: (id: number, options?: InvokeOptions) => __TAURI_INVOKE<RolledBack>("sync_rollback", { id }, options),
 	/**  Changes how this device syncs with a paired one. */
 	syncPeerSet: (id: string, name: string, mode: SyncMode, secrets: SecretCategory[], acceptChanges: boolean, options?: InvokeOptions) => __TAURI_INVOKE<SyncPeer_Serialize>("sync_peer_set", { id, name, mode, secrets, acceptChanges }, options),
 	/**  Forgets a paired device (and asks it to forget this one). */
@@ -9469,6 +9479,15 @@ export type RestoreTest_Serialize = {
 	at: number,
 };
 
+/**  What a rollback did. */
+export type RolledBack = {
+	merged: Merged,
+	/**  The whole profile was restored: restart to load it. */
+	restart: boolean,
+	/**  Devices with automatic sync get it too. */
+	spreads: boolean,
+};
+
 export type RotationState = "ok" | 
 /**  Due within 30 days. */
 "dueSoon" | "overdue" | 
@@ -10168,6 +10187,20 @@ export type SnapshotFile = {
 	/**  The copy on the host. */
 	saved: string,
 };
+
+export type SnapshotReason = 
+/**  Before automatic changes from a device. */
+"changes" | 
+/**  Before a device pushed its whole profile here. */
+"push" | 
+/**  Before this device pulled a profile. */
+"pull" | 
+/**  Before a profile was imported while pairing. */
+"import" | 
+/**  Before a rollback (so it can be undone). */
+"rollback" | 
+/**  Taken by hand. */
+"manual";
 
 export type SnapshotService = SnapshotService_Serialize | SnapshotService_Deserialize;
 
@@ -10995,6 +11028,8 @@ export type SyncSettings_Deserialize = {
 	discoverable?: boolean,
 	/**  Take pairing with the profile passphrase (its key is in the keychain). */
 	passphrasePairing?: boolean,
+	/**  Snapshots of the synced profile kept for rolling back (D-209). */
+	keepSnapshots?: number,
 };
 
 /**  Sync settings of this device. Never synced or exported. */
@@ -11011,6 +11046,49 @@ export type SyncSettings_Serialize = {
 	discoverable: boolean,
 	/**  Take pairing with the profile passphrase (its key is in the keychain). */
 	passphrasePairing: boolean,
+	/**  Snapshots of the synced profile kept for rolling back (D-209). */
+	keepSnapshots: number,
+};
+
+/**  A snapshot as listed (without its contents). */
+export type SyncSnapshot = SyncSnapshot_Serialize | SyncSnapshot_Deserialize;
+
+/**  A snapshot as listed (without its contents). */
+export type SyncSnapshot_Deserialize = {
+	id: number,
+	/**  Unix seconds. */
+	takenAt: number | null,
+	reason: SnapshotReason,
+	/**  The device whose changes came next. */
+	peer?: string | null,
+	/**  Items per table in the snapshot. */
+	counts: { [key in string]: number },
+	/**
+	 *  Rolling back undoes the change on synced devices too (false: this
+	 *  device only, because a whole profile arrived since).
+	 */
+	spreads: boolean,
+	/**  It can be rolled back to at all. */
+	available: boolean,
+};
+
+/**  A snapshot as listed (without its contents). */
+export type SyncSnapshot_Serialize = {
+	id: number,
+	/**  Unix seconds. */
+	takenAt: number | null,
+	reason: SnapshotReason,
+	/**  The device whose changes came next. */
+	peer: string | null,
+	/**  Items per table in the snapshot. */
+	counts: { [key in string]: number },
+	/**
+	 *  Rolling back undoes the change on synced devices too (false: this
+	 *  device only, because a whole profile arrived since).
+	 */
+	spreads: boolean,
+	/**  It can be rolled back to at all. */
+	available: boolean,
 };
 
 /**

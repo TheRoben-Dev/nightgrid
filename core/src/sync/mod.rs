@@ -18,6 +18,7 @@
 //! saved secrets unless the user ticks their category for that device.
 
 pub mod discover;
+pub mod history;
 pub mod merge;
 pub mod pair;
 pub mod wire;
@@ -55,6 +56,8 @@ pub struct SyncSettings {
     pub discoverable: bool,
     /// Take pairing with the profile passphrase (its key is in the keychain).
     pub passphrase_pairing: bool,
+    /// Snapshots of the synced profile kept for rolling back (D-209).
+    pub keep_snapshots: u8,
 }
 
 impl Default for SyncSettings {
@@ -65,6 +68,7 @@ impl Default for SyncSettings {
             device_name: String::new(),
             discoverable: false,
             passphrase_pairing: false,
+            keep_snapshots: history::DEFAULT_KEEP,
         }
     }
 }

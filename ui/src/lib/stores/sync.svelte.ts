@@ -101,7 +101,7 @@ class SyncStore {
   }
 
   async configure(change: Partial<SyncSettings>) {
-    const cur = this.info?.settings ?? { enabled: false, port: 47920, deviceName: "", discoverable: false, passphrasePairing: false };
+    const cur = this.info?.settings ?? { enabled: false, port: 47920, deviceName: "", discoverable: false, passphrasePairing: false, keepSnapshots: 3 };
     const i = await this.run(() => api.syncConfigure({ ...cur, ...change }));
     if (i) this.info = i;
     return !!i;

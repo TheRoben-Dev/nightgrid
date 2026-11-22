@@ -47,13 +47,26 @@ Keep the same hosts, services, notes, dashboards and settings on your desktop, l
 - [ ] Saved secrets don't travel unless you tick their group under **Secrets and permissions**: **SSH logins** (passwords, key passphrases, sudo passwords), **Integration tokens** (and the alerts webhook) and **.env vault keys**.
 - [ ] Tick the same groups on both devices: each one only sends and accepts what it has ticked.
 
+## Part 4 · Undo a bad change that synced over
+
+- [ ] **Settings → Sync → Snapshots** lists the last few versions of the synced profile, each saved just before changes from another device arrived ("Before changes from Desktop").
+- [ ] Press **Roll back…** on the one from before the bad change and confirm. Hosts, services, notes, dashboards, alerts and shared settings go back to how they were; anything added since is removed.
+- [ ] Devices with automatic sync get the rollback within seconds, because it counts as the newest edit.
+- [ ] Changed your mind? The state from just before the rollback is the newest snapshot: roll back to that.
+- [ ] **Keep** sets how many snapshots stay (3 by default, up to 20). **Take one now** saves one before you try something risky.
+
+#### Check
+
+- [ ] Delete a test host on one device, wait for it to vanish on the other, then roll back on the other: the host comes back on both.
+
 ## Limits and gotchas
 
 - Both devices need Nightgrid running and able to reach each other. A device that was offline catches up within 5 minutes of coming back.
 - Automatic sync needs the same Nightgrid version on both; update both, then sync.
 - Never synced: the device's name, scale, handheld and controller options, tray, built-in Tailscale login, phone status page, MCP server, sync folder and the DRIFT model.
 - SSH key files in `~/.ssh` stay where they are. Copy them yourself or use **Settings → SSH keys** on each device.
-- Metric, uptime and alert history stay on each device.
+- Metric, uptime and alert history stay on each device, and snapshots don't touch them (or saved secrets and per-device settings).
+- A snapshot taken before a whole profile was pushed or pulled can only restore on that device (and restarts it); push afterwards if the others should follow.
 - Finding devices uses a small UDP message on port 47921 within your LAN (the broadcast doesn't cross routers or VPNs). Across a tailnet or another subnet, pair by address instead (Part 1).
 - Five wrong passphrases in a row lock passphrase pairing on that device for 10 minutes.
 - On macOS and Windows the system may ask once whether Nightgrid may accept incoming connections; allow it for pairing and incoming changes to work.

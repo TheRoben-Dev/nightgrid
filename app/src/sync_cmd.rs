@@ -16,6 +16,7 @@ use std::time::{Duration, Instant};
 use nightgrid_core::backup::ImportMode;
 use nightgrid_core::settings::AppSettings;
 use nightgrid_core::sync::discover::{self, Beacon};
+use nightgrid_core::sync::history::{self, RolledBack, SnapshotReason, SyncSnapshot};
 use nightgrid_core::sync::merge::{self, Merged};
 use nightgrid_core::sync::wire::{self, Channel};
 use nightgrid_core::sync::{
@@ -267,6 +268,24 @@ fn my_hello(state: &AppState) -> CmdResult<Hello> {
         port: settings.port,
         join: None,
     })
+}
+
+/// Saves a snapshot of the synced profile before changes land (D-209).
+/// A failure is logged, never in the way of the sync itself.
+fn snapshot(state: &AppState, reason: SnapshotReason, peer: Option<&str>, force: bool) {
+    let mut store = state.store();
+    let keep = AppSettings::load(&store).map(|s| s.sync.keep_snapshots).unwrap_or(history::DEFAULT_KEEP);
+    if let Err(e) = history::take(&mut store, reason, peer, keep, force, env!("CARGO_PKG_VERSION"), now_ms()) {
+        tracing::warn!("sync: couldn't save a snapshot: {e}");
+    }
+}
+
+/// Snapshot before merging `items` from `peer`, if they'd change anything.
+fn snapshot_before_merge(state: &AppState, peer: &SyncPeer, items: &[merge::Item]) {
+    let change = merge::would_change(&mut state.store(), items).unwrap_or(true);
+    if change {
+        snapshot(state, SnapshotReason::Changes, Some(&peer.name), false);
+    }
 }
 
 fn info(state: &AppState) -> CmdResult<SyncInfo> {
@@ -625,6 +644,7 @@ async fn handle(app: &AppHandle, peer: &SyncPeer, req: Request) -> CmdResult<Res
                     peer.name
                 )));
             }
+            snapshot(&state, SnapshotReason::Push, Some(&peer.name), true);
             let applied = {
                 let mut store = state.store();
                 let r = core_sync::apply_bundle(&mut store, &state.keychain, *bundle, mode, &peer.secrets)?;
@@ -653,6 +673,9 @@ async fn handle(app: &AppHandle, peer: &SyncPeer, req: Request) -> CmdResult<Res
                 )));
             }
             let take = peer.mode.receives() && peer.accept_changes && !items.is_empty();
+            if take {
+                snapshot_before_merge(&state, peer, &items);
+            }
             let (merged, out) = {
                 let mut store = state.store();
                 let merged = if take { merge::merge(&mut store, &items, now_ms())? } else { Merged::default() };
@@ -776,6 +799,7 @@ async fn sync_with(app: &AppHandle, peer: &SyncPeer) -> CmdResult<SyncRun> {
         return Err(CommandError::msg("unexpected answer"));
     };
     let merged = if peer.mode.receives() && peer.accept_changes && !theirs.is_empty() {
+        snapshot_before_merge(&state, peer, &theirs);
         let mut store = state.store();
         merge::merge(&mut store, &theirs, now_ms())?
     } else {
@@ -855,7 +879,10 @@ pub fn sync_configure(app: AppHandle, settings: SyncSettings) -> CmdResult<SyncI
         let store = state.store();
         let mut s = AppSettings::load(&store)?;
         let passphrase_pairing = settings.passphrase_pairing && core_sync::pass_secret(&state.keychain)?.is_some();
+        let keep_snapshots = settings.keep_snapshots.clamp(1, history::MAX_KEEP);
+        history::prune(&store, keep_snapshots)?;
         s.sync = SyncSettings {
+            keep_snapshots,
             device_name: settings.device_name.trim().to_owned(),
             // Being findable needs the listener.
             enabled: settings.enabled || settings.discoverable,
@@ -1064,6 +1091,7 @@ pub async fn sync_join(
     if let Some(mode) = import_mode {
         match request(&state, &peer, &Request::Pull { secrets: secrets.clone() }).await {
             Ok(Response::Profile { bundle }) => {
+                snapshot(&state, SnapshotReason::Import, Some(&peer.name), true);
                 let r = {
                     let mut store = state.store();
                     core_sync::apply_bundle(&mut store, &state.keychain, *bundle, mode, &secrets).and_then(|r| {
@@ -1096,6 +1124,44 @@ pub async fn sync_join(
     }
     emit(&app, SyncEvent::Peers);
     Ok(SyncJoined { peer, imported, import_error })
+}
+
+/// Snapshots of the synced profile, newest first (D-209).
+#[tauri::command]
+#[specta::specta]
+pub fn sync_snapshots(state: State<'_, AppState>) -> CmdResult<Vec<SyncSnapshot>> {
+    Ok(history::list(&state.store())?)
+}
+
+/// Takes a snapshot now.
+#[tauri::command]
+#[specta::specta]
+pub fn sync_snapshot_take(state: State<'_, AppState>) -> CmdResult<Vec<SyncSnapshot>> {
+    snapshot(&state, SnapshotReason::Manual, None, true);
+    Ok(history::list(&state.store())?)
+}
+
+/// Rolls the synced profile back to a snapshot. Within the same item
+/// generation it's a new edit that automatic sync carries to the other
+/// devices; otherwise the saved profile is restored here (restart).
+#[tauri::command]
+#[specta::specta]
+pub async fn sync_rollback(app: AppHandle, id: u32) -> CmdResult<RolledBack> {
+    let id = i64::from(id);
+    let state = app.state::<AppState>();
+    let r = {
+        let mut store = state.store();
+        let keep = AppSettings::load(&store)?.sync.keep_snapshots;
+        history::rollback(&mut store, &state.keychain, id, keep, env!("CARGO_PKG_VERSION"), now_ms())?
+    };
+    tracing::info!(id, restart = r.restart, "sync: rolled back");
+    if r.merged.any() {
+        emit(&app, SyncEvent::Applied { from: "rollback".into(), merged: r.merged.clone() });
+    }
+    // Send it to devices with automatic sync right away.
+    state.sync.attempts.lock().expect("poisoned").clear();
+    state.sync.wake.notify_one();
+    Ok(r)
 }
 
 /// Sets up (or with `None` turns off) pairing with the profile passphrase.
@@ -1191,6 +1257,7 @@ pub async fn sync_pull(app: AppHandle, id: String, mode: ImportMode) -> CmdResul
     let Response::Profile { bundle } = request(&state, &p, &Request::Pull { secrets: p.secrets.clone() }).await? else {
         return Err(CommandError::msg("unexpected answer"));
     };
+    snapshot(&state, SnapshotReason::Pull, Some(&p.name), true);
     let applied = {
         let mut store = state.store();
         let r = core_sync::apply_bundle(&mut store, &state.keychain, *bundle, mode, &p.secrets)?;
