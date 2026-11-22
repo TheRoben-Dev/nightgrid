@@ -3714,7 +3714,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nightgrid"
-version = "1.26.0"
+version = "1.27.0"
 dependencies = [
  "base64 0.23.1",
  "block2",
@@ -3748,7 +3748,7 @@ dependencies = [
 
 [[package]]
 name = "nightgrid-core"
-version = "1.26.0"
+version = "1.27.0"
 dependencies = [
  "aes 0.9.4",
  "age",
@@ -3797,7 +3797,7 @@ dependencies = [
 
 [[package]]
 name = "nightgrid-llm"
-version = "1.26.0"
+version = "1.27.0"
 dependencies = [
  "encoding_rs",
  "llama-cpp-2",

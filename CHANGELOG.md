@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them and gives every release a codename (`scripts/codenames.mjs`), shown in the heading, the GitHub release title and the app.
 
-## [Unreleased]
+## [1.27.0] "Mercury Monsoon" - 2026-11-22
 
 ### Added
 - **Import from your other computer on the LAN.** Turn on **Let my other devices find me on this network** in Settings → Sync on the computer that has your setup. A new install then shows it in the empty host list and under **Settings → Sync → On this network**: press **Import and pair…**, prove it's you with a code that pops up on the other computer (**Show a code on …**) or with your profile passphrase, and Nightgrid imports the profile and keeps both devices in step two-way. It works on a plain LAN: no internet, tailnet or extra service. Pairing by passphrase is optional and set up per device; the passphrase never crosses the network and five wrong tries lock it for 10 minutes.
