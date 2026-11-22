@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versions follow [SemVer](https://semver.org/). Changes go under **[Unreleased]**; the release train names the version when it ships them and gives every release a codename (`scripts/codenames.mjs`), shown in the heading, the GitHub release title and the app.
 
+## [Unreleased]
+
+### Changed
+- **The store says what's inside.** Every component card in Settings → STORE now lists what it adds and where it shows up (for example "System → Fleet → UPS tab"), with one real example of what you'd use it for. A new **BUILT INTO CORE** panel lists what you get without installing anything.
+
 ## [1.26.0] "Tungsten Undertow" - 2026-11-21
 
 ### Added

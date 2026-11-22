@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FEATURES } from "./features";
-import { COMPONENTS, SHELVES, installedFor, ownerOf, setInstalled } from "./storeCatalog";
+import { COMPONENTS, CORE, SHELVES, installedFor, ownerOf, setInstalled } from "./storeCatalog";
 
 describe("feature store catalog", () => {
   it("only brings known features and every component sits on a shelf", () => {
@@ -32,5 +32,13 @@ describe("feature store catalog", () => {
     const all = setInstalled(null, "drift", false);
     expect(all).not.toContain("drift");
     expect(all.length).toBe(COMPONENTS.length - 1);
+  });
+
+  it("says what every component holds, with an example", () => {
+    for (const c of COMPONENTS) {
+      expect(c.adds.length, c.id).toBeGreaterThan(0);
+      expect(c.example.length, c.id).toBeGreaterThan(20);
+    }
+    expect(CORE.length).toBeGreaterThan(5);
   });
 });

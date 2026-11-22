@@ -2,7 +2,7 @@
   // Settings → STORE (D-206): optional components. The core app keeps the
   // standard essentials; everything here is installed when wanted.
   import Panel from "../Panel.svelte";
-  import { COMPONENTS, SHELVES, ownerOf, type StoreComponent } from "../../storeCatalog";
+  import { COMPONENTS, CORE, SHELVES, ownerOf, type StoreComponent } from "../../storeCatalog";
   import { settings } from "../../stores/settings.svelte";
   import { ui } from "../../stores/ui.svelte";
   import { componentPatches } from "../../stores/componentPatches.svelte";
@@ -43,8 +43,6 @@
     if (why) return `Patch from ${day(p.built)} not used: ${why}.`;
     return `Patch from ${day(p.built)} ready; used the next time this view opens after a restart.`;
   }
-
-  const CORE = "Hosts, Overview, Terminal, Files, Docker, Services, System, Fleet (updates, disks, backups, uptime), Tunnels, Network tools, Alerts, Knowledge and the Library.";
 </script>
 
 <div class="store" data-guide="settings-store">
@@ -58,7 +56,7 @@
 
   <Panel title="FEATURE STORE" prefix="//" count={COMPONENTS.length}>
     <p class="intro">
-      Nightgrid's core is the everyday essentials: {CORE} Everything below is optional. Install what you use; a component that isn't installed is hidden, its code never loads and its background
+      Nightgrid's core is the everyday essentials (listed under BUILT INTO CORE below). Everything else is optional. Install what you use; a component that isn't installed is hidden, its code never loads and its background
       checks don't run. Removing one keeps its data, so installing it again brings everything back.
     </p>
     <p class="muted count">{installedCount} of {COMPONENTS.length} installed</p>
@@ -74,6 +72,14 @@
     {#if componentPatches.error}<p class="error" role="alert"><span aria-hidden="true">▲</span> {componentPatches.error}</p>{/if}
   </Panel>
 
+  <Panel title="BUILT INTO CORE" prefix=">" count={CORE.length}>
+    <ul class="core" aria-label="Built into core">
+      {#each CORE as k (k.label)}
+        <li><b>{k.label}</b> <span>{k.what}</span></li>
+      {/each}
+    </ul>
+  </Panel>
+
   {#each SHELVES as shelf (shelf.id)}
     {@const items = COMPONENTS.filter((c) => c.shelf === shelf.id)}
     {#if items.length}
@@ -87,6 +93,10 @@
                 <span class="chip" class:ok={on}>{on ? "INSTALLED" : "AVAILABLE"}</span>
               </header>
               <p class="hint">{c.hint}</p>
+              <ul class="adds" aria-label="What {c.label} adds">
+                {#each c.adds as a (a)}<li>{a}</li>{/each}
+              </ul>
+              <p class="example"><span class="tag">EXAMPLE</span> {c.example}</p>
               {#if on && patchLine(c.id)}
                 {@const p = componentPatches.pack(c.id)}
                 <p class="patch">{patchLine(c.id)}{#if p?.notes.length} {p.notes.slice(0, 3).join(" · ")}{/if}</p>
@@ -177,9 +187,47 @@
     color: var(--mint);
     border-color: color-mix(in srgb, var(--mint) 50%, var(--line));
   }
-  .hint {
+  .core {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 6px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--fs-xs);
+  }
+  .core b {
+    color: var(--text-0);
+    margin-right: 4px;
+  }
+  .core span {
+    color: var(--text-1);
+  }
+  .adds {
+    margin: 0;
+    padding-left: 14px;
+    font-size: var(--fs-xs);
+    color: var(--text-0);
+  }
+  .adds li::marker {
+    content: "› ";
+    color: var(--cyan);
+  }
+  .example {
     margin: 0;
     flex: 1;
+    font-size: var(--fs-xs);
+    color: var(--text-1);
+    font-style: italic;
+  }
+  .tag {
+    font-style: normal;
+    letter-spacing: 0.12em;
+    color: var(--magenta);
+    margin-right: 4px;
+  }
+  .hint {
+    margin: 0;
     font-size: var(--fs-xs);
     color: var(--text-1);
   }
